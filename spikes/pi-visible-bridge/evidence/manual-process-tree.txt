@@ -1,0 +1,34 @@
+$ ps -o pid,ppid,sid,stat,args -p 98226
+    PID    PPID     SID STAT COMMAND
+  98226   97050   97050 Sl+  pi -e ./spikes/pi-visible-bridge/extension.ts
+
+$ pstree -ap 98226
+pi,98226 -e ./spikes/pi-visible-bridge/extension.ts
+  |-{pi},98227
+  |-{pi},98228
+  |-{pi},98229
+  |-{pi},98230
+  |-{pi},98231
+  |-{pi},98232
+  |-{pi},98233
+  |-{pi},98234
+  |-{pi},98238
+  |-{pi},98239
+  |-{pi},98240
+  |-{pi},98241
+  |-{pi},98242
+  |-{pi},98243
+  |-{pi},98244
+  |-{pi},98245
+  |-{pi},98246
+  |-{pi},98247
+  |-{pi},98249
+  |-{pi},98250
+  |-{pi},98255
+  |-{pi},98870
+  `-{pi},98871
+
+$ pgrep -af '(^|/)pi( |$)|runner\.mjs'
+2913 /home/woodshape/.local/share/mise/installs/pi/latest/pi/pi
+96623 node spikes/pi-visible-bridge/runner.mjs --socket /tmp/omarchestra-pi-visible-bridge.sock --assignment-id visible-spike-1 --prompt Use the read tool to read spikes/README.md, then reply with exactly: VISIBLE BRIDGE ASSIGNMENT COMPLETE
+98226 pi -e ./spikes/pi-visible-bridge/extension.ts

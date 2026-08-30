@@ -1,0 +1,70 @@
+{
+  "tasks": [
+    {
+      "id": "1.a",
+      "assignee": "sol",
+      "description": "Define the dependency-free versioned NDJSON Unix-socket protocol and pure state helpers under spikes/pi-visible-bridge. Cover hello/hello_ack, assignment/assignment_ack, event, state_snapshot, strict validation, fragmented framing, stable assignment IDs, event sequence IDs, busy/duplicate/invalid acknowledgements, and bounded telemetry. Keep the design limited to runner-restart recovery and same-process Pi extension use.",
+      "depends_on": [],
+      "outputs": [
+        "spikes/pi-visible-bridge/lib/protocol.mjs",
+        "spikes/pi-visible-bridge/lib/state.mjs"
+      ],
+      "mode": "write"
+    },
+    {
+      "id": "2.a",
+      "assignee": "terra",
+      "description": "Implement the local runner stub against the shared protocol. Use a Unix-domain socket, stale-socket cleanup owned only by the runner, deterministic optional assignment delivery, structured stdout capture, graceful foreground shutdown, and no Pi or SDK imports. Add focused runner/protocol tests for framing, malformed messages, handshake, assignment acknowledgements, and listener replacement.",
+      "depends_on": [
+        "1.a"
+      ],
+      "outputs": [
+        "spikes/pi-visible-bridge/runner.mjs",
+        "spikes/pi-visible-bridge/test/runner.test.mjs"
+      ],
+      "mode": "write"
+    },
+    {
+      "id": "2.b",
+      "assignee": "luna",
+      "description": "Implement the Pi 0.84.4 extension and reconnecting client against the shared protocol. Start sockets/timers only in session_start and close them idempotently in session_shutdown. Require TUI mode, inject accepted idle assignments with pi.sendUserMessage into the host session, deduplicate IDs, emit bounded lifecycle/message/tool/ui_prompt telemetry, classify only input.source=interactive as submitted-human manual_takeover, exclude extension-originated assignments, and add /bridge-attention-probe using ctx.ui.confirm. Reconnect with bounded backoff, re-handshake, and send current state without spawning processes or creating SDK sessions. Add unit tests for state projection, source classification, deduplication, serialization, and reconnect behavior.",
+      "depends_on": [
+        "1.a"
+      ],
+      "outputs": [
+        "spikes/pi-visible-bridge/extension.ts",
+        "spikes/pi-visible-bridge/lib/client.mjs",
+        "spikes/pi-visible-bridge/test/extension.test.mjs"
+      ],
+      "mode": "write"
+    },
+    {
+      "id": "3.a",
+      "assignee": "terra",
+      "description": "Integrate the runner and extension-side client with automated end-to-end tests. Prove handshake, one assignment delivery, busy and duplicate handling, ordered structured event capture, runner shutdown and restart, reconnect, fresh handshake/state snapshot, and continued event delivery. Add a source audit test rejecting createAgentSession, InteractiveMode, runRpcMode, child_process, Pi executable spawning, and PTY injection. Run the complete Node test suite and capture exact command output as spike evidence.",
+      "depends_on": [
+        "2.a",
+        "2.b"
+      ],
+      "outputs": [
+        "spikes/pi-visible-bridge/test/integration.test.mjs",
+        "spikes/pi-visible-bridge/evidence/automated.txt"
+      ],
+      "mode": "write"
+    },
+    {
+      "id": "4.a",
+      "assignee": "sol",
+      "description": "Inspect all accumulated work, fix only integration defects within spikes/pi-visible-bridge, and complete the spike record. Document the falsifiable question, assumptions, Pi 0.84.4 and exact APIs, success criteria, setup, automated commands/evidence, failures, security and telemetry constraints, manual interactive commands, process-tree check, runner-restart procedure, docs/design/mvp.md contract implications without editing that file, and explicit disposition of every prototype file. State that slash commands and user-bash are not proven takeover paths and ui_prompt events do not cover every native Pi condition. Include a conclusion section that reports automated findings but leaves visible-TUI support and the final supported/unsupported/supported-with-constraints determination at a clearly marked human observation gate. Run all automated validation and preserve captured results; do not perform or claim manual visible validation.",
+      "depends_on": [
+        "3.a"
+      ],
+      "outputs": [
+        "spikes/pi-visible-bridge/README.md",
+        "spikes/pi-visible-bridge/evidence/automated.txt",
+        "validated spike limited to spikes/pi-visible-bridge"
+      ],
+      "mode": "write"
+    }
+  ]
+}

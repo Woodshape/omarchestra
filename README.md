@@ -8,7 +8,7 @@ Omarchestra coordinates teams of real interactive coding agents, each shown in i
 
 **MVP product scope locked; technical design pending.**
 
-Implementation begins with feasibility spikes for the visible Pi bridge and the replaceable Boomux terminal-runtime adapter.
+The visible Pi bridge feasibility spike is complete and supported with constraints. The replaceable Boomux terminal-runtime adapter is the next feasibility gate.
 
 ## Design
 

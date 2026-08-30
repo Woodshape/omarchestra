@@ -16,7 +16,7 @@ Each spike gets its own directory and records:
 
 ## Planned order
 
-1. **Visible Pi bridge** — prove one interactive Pi TUI can receive a managed assignment, emit structured events, report human takeover, and reconnect without a hidden worker performing the task.
-2. **Boomux runtime adapter** — prove create, present, detach, reconnect, inspect, and close behavior through the supported public CLI/capability surface.
+1. **Visible Pi bridge — complete, supported with constraints.** One interactive Pi TUI received a managed assignment, emitted structured events, reported human takeover, reconnected after runner restart, and had no hidden descendant agent. See [`pi-visible-bridge/README.md`](pi-visible-bridge/README.md).
+2. **Boomux runtime adapter — next.** Prove create, present, detach, reconnect, inspect, and close behavior through the supported public CLI/capability surface.
 
 Broad implementation begins only after the relevant spike has produced a contract recorded in [`docs/design/mvp.md`](../docs/design/mvp.md).

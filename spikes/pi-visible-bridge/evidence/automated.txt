@@ -1,0 +1,43 @@
+# Automated evidence
+
+$ pi --version
+0.84.4
+
+$ node --version
+v26.8.1
+
+$ node --check spikes/pi-visible-bridge/runner.mjs
+$ node --check spikes/pi-visible-bridge/lib/client.mjs
+$ node --check spikes/pi-visible-bridge/lib/protocol.mjs
+$ node --check spikes/pi-visible-bridge/lib/state.mjs
+$ node --check spikes/pi-visible-bridge/test/runner.test.mjs
+$ node --check spikes/pi-visible-bridge/test/extension.test.mjs
+$ node --check spikes/pi-visible-bridge/test/integration.test.mjs
+Result: all JavaScript syntax checks passed.
+
+$ pi --offline --no-extensions -e ./spikes/pi-visible-bridge/extension.ts --list-models >/tmp/pi-visible-models.txt
+Result: extension loaded successfully; Pi listed 359 model lines.
+
+$ node --test spikes/pi-visible-bridge/test/*.test.mjs
+✔ state projection accepts idle assignment, deduplicates, and settles (1.638287ms)
+✔ source classification rule only treats interactive as human (0.259758ms)
+✔ serialization is one bounded NDJSON frame (0.915867ms)
+✔ client handshakes, receives messages, and reconnects with bounded retry (11.299407ms)
+✔ bridge reconnect preserves assignment state and emits ordered events (76.200981ms)
+✔ spike sources cannot create or spawn a hidden Pi/SDK/PTY agent (5.376773ms)
+✔ accepts a fragmented hello frame and deterministically sends hello_ack then assignment (10.932825ms)
+✔ captures accepted, busy, and invalid assignment acknowledgements as structured stdout records (6.551624ms)
+✔ rejects malformed frames and records the protocol failure (2.01169ms)
+✔ requires hello before any bridge message (1.470542ms)
+✔ runner stop removes its listener so a replacement accepts a fresh handshake (1.806914ms)
+ℹ tests 11
+ℹ suites 0
+ℹ pass 11
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 154.338065
+
+$ git diff --check
+Result: no whitespace errors.

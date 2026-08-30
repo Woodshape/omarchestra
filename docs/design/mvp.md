@@ -108,7 +108,7 @@ A future minimal native PTY daemon may replace `BoomuxRuntime` without changing 
 
 ## Visible agent bridge
 
-**Locked in principle; exact Pi API is to be validated in a spike.** Every managed Pi terminal runs the same interactive Pi TUI the user sees, plus our bridge extension.
+**Locked; feasibility supported with constraints by the Pi 0.84.4 spike.** Every managed Pi terminal runs the same interactive Pi TUI the user sees, plus our bridge extension.
 
 The bridge:
 
@@ -126,6 +126,22 @@ The bridge:
 The bridge must not launch a hidden second agent to perform the assignment.
 
 A structured control/telemetry channel is acceptable. Hidden execution is not.
+
+### Evidence-backed Pi bridge contract
+
+The completed [`visible Pi bridge spike`](../../spikes/pi-visible-bridge/README.md) establishes:
+
+1. Managed assignment delivery uses `pi.sendUserMessage()` from an extension loaded into the visible interactive host process. It does not create an SDK session, spawn Pi, use RPC mode, or inject PTY input.
+2. Handshake identity includes protocol version, Agent Run ID, Pi session ID, extension instance ID, host PID, and verified TUI mode.
+3. Assignments have stable IDs and explicit `accepted`, `busy`, `duplicate`, or `invalid` acknowledgements.
+4. Submitted ordinary TUI input is observable as `input.source === "interactive"` and excludes extension-originated assignment delivery. Slash commands and user-bash remain explicit coverage gaps.
+5. Events have stable IDs and monotonically increasing per-extension sequence numbers. Reconnection supplies a state snapshot; it does not imply durable replay or exactly-once delivery.
+6. Runner restart recovery is supported while the same visible Pi process and extension instance survive. Pi/extension restart and reboot recovery remain outside the MVP guarantee.
+7. Extension-owned confirmation prompts can report attention. Native Pi, provider, authentication, permission, and unknown conditions retain the terminal-owned fallback until individually proven.
+8. Production telemetry omits tool-result bodies and thinking content, applies an explicit user/assistant content policy, and coalesces or discards token-level streaming deltas before durable storage or QML projection.
+9. The spike implementation is evidence only. No prototype file is promoted directly into production.
+
+Production message schemas, socket trust/permissions, durable cursor semantics, reconnect reconciliation, and compatibility policy remain open technical-contract work.
 
 ## Domain model
 
@@ -412,11 +428,10 @@ Status: **MVP product scope is locked and ready for feasibility spikes; the tech
 
 Before delegating broad implementation to Fusion Harness, the project needs:
 
-1. a separate target repository and chosen implementation languages/toolchain;
-2. a Pi bridge feasibility spike proving that the visible interactive process can receive assignments and emit the required structured events;
-3. a mapped Boomux CLI/capability contract for the narrow terminal runtime port;
-4. concrete runner snapshot/event/intent schemas and a persistence choice;
-5. milestone-sized implementation slices with executable acceptance gates.
+1. chosen implementation languages/toolchain;
+2. a Boomux feasibility spike and mapped CLI/capability contract for the narrow terminal runtime port;
+3. production runner/bridge snapshot, event, intent, trust, and persistence contracts;
+4. milestone-sized implementation slices with executable acceptance gates.
 
 Fusion Harness is a source of orchestration behavior and a tool for reviewing/building the new product. The new product should not be implemented directly inside the `fusion-harness` repository unless an explicit monorepo decision is made.
 
@@ -442,7 +457,7 @@ These are specification/spike outputs rather than product-feature choices, but e
 
 1. **Project boundary:** repository is locked at `~/claude/omarchestra`; languages, toolchain, packaging, IPC transport, and service startup model remain open.
 2. **Runner persistence and protocol:** transaction boundaries, snapshot/event/intent schemas, cursor ordering, deduplication, acknowledgement, migrations, and retention.
-3. **Pi bridge:** handshake identity and trust, assignment delivery, acknowledgements, event types, compatibility, reconnect reconciliation, and guaranteed telemetry.
+3. **Pi bridge:** feasibility is closed as supported with constraints. Production work remains for socket trust/permissions, exact schemas, durable replay/cursors, telemetry filtering/coalescing, slash-command and user-bash policy, attention coverage, reconciliation commands, and compatibility.
 4. **Boomux adapter:** supported version/capabilities, exact CLI operations, lifecycle observation, identifier reconciliation, close versus detach behavior, focus/reopen behavior, and errors.
 5. **Checkout safety:** dirty-checkout policy, concurrent Team Goals for one Project, strength of read-only enforcement, writer lease scope, and Builder commit policy.
 6. **Cancellation and failure:** interruption behavior, process termination policy, timeouts, bounded retries, preservation of terminals, and separation of process and assignment failure.
@@ -467,3 +482,4 @@ These are specification/spike outputs rather than product-feature choices, but e
 - 2026-08-30: Goal completion locked as automatic Coordinator integration after required gates pass; no redundant final user approval is required.
 - 2026-08-30: All MVP product-scope decisions are locked; feasibility spikes and technical contracts remain.
 - 2026-08-30: Product name and target workspace locked as **Omarchestra** at `~/claude/omarchestra`.
+- 2026-08-30: Visible Pi bridge feasibility classified **supported with constraints** after automated and manual TUI evidence; same-process assignment, observability, takeover, runner reconnect, duplicate rejection, and absence of a hidden child agent were proven.
