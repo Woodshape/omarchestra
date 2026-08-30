@@ -330,13 +330,13 @@
       <div class="eyebrow">High-level architectural overview</div>
       <h1>Visible agents.<br>Native windows.<br>One control plane.</h1>
       <p class="lede">
-        An Omarchy-native orchestrator where every working agent is the real interactive process visible in its own tiled terminal. The desktop console coordinates and observes those processes without hiding or replacing them.
+        An Omarchy-native orchestrator where every working agent is the real interactive process visible in its own tiled terminal. Agents execute locally or together on one remote GNU/Linux Node while the desktop console and native windows remain local.
       </p>
       <div class="status-row">
         <span class="pill"><strong>Stage:</strong> Product scope locked · technical design pending</span>
         <span class="pill"><strong>Initial harness:</strong> Pi</span>
         <span class="pill"><strong>Terminal runtime:</strong> Boomux adapter</span>
-        <span class="pill"><strong>Execution:</strong> Local, native windows</span>
+        <span class="pill"><strong>Execution:</strong> Local or one remote Node</span>
       </div>
     </header>
 
@@ -376,7 +376,7 @@
         </div>
         <div class="arrow">↓ snapshot · events · intents</div>
         <div class="layer">
-          <div class="layer-label">Our Team Runner</div>
+          <div class="layer-label">Execution runner</div>
           <div class="layer-body">
             <div class="node"><strong>Orchestration</strong><span>Workflow, assignments, writer policy</span></div>
             <div class="node"><strong>Durable state</strong><span>Goals, events, artifacts, runtime bindings</span></div>
@@ -401,6 +401,34 @@
             <div class="node"><strong>Reviewer</strong><span>Interactive Pi + bridge extension</span></div>
           </div>
         </div>
+      </div>
+    </section>
+
+    <section>
+      <h2>Local desktop, selectable execution Node</h2>
+      <p class="section-intro">Every Team Goal selects exactly one execution Node. All roles, the Project, bridge sockets, validation and durable workflow state stay together on that Node.</p>
+      <div class="grid">
+        <article class="card half">
+          <h3>Local Omarchy Node</h3>
+          <ul>
+            <li>QML Agent Console and bar indicator</li>
+            <li>Native Ghostty windows tiled by Hyprland</li>
+            <li>Desktop coordinator and validated user intents</li>
+            <li>Boomux coordinating Node and SSH presentation</li>
+          </ul>
+        </article>
+        <article class="card half">
+          <h3>Selected execution Node</h3>
+          <ul>
+            <li>Local machine or one preconfigured remote GNU/Linux host</li>
+            <li>Node-local Team Runner, durable events and artifacts</li>
+            <li>Project checkout, validation and writer authority</li>
+            <li>Boomux-owned PTYs and visible interactive Pi agents</li>
+          </ul>
+        </article>
+      </div>
+      <div class="callout" style="margin-top:16px">
+        A remote Node needs no graphical desktop. Boomux presents its PTYs in local native terminals, while Omarchestra synchronizes durable projections and acknowledged intents over authenticated SSH.
       </div>
     </section>
 
@@ -445,11 +473,11 @@
       <table class="ownership">
         <thead><tr><th>Concern</th><th>Authority</th></tr></thead>
         <tbody>
-          <tr><td>Team Goals, assignments and workflow</td><td>Our Team Runner</td></tr>
+          <tr><td>Team Goals, assignments and workflow</td><td>Team Runner on the selected execution Node</td></tr>
           <tr><td>Structured task, tool and attention events</td><td>Bridge inside the visible Pi process</td></tr>
           <tr><td>PTY, process lifetime and attach/detach</td><td>Boomux during the MVP</td></tr>
           <tr><td>Conversation and model session</td><td>The visible Pi process</td></tr>
-          <tr><td>Checkout contents and history</td><td>Git</td></tr>
+          <tr><td>Checkout contents and history</td><td>Git on the selected execution Node</td></tr>
           <tr><td>Desktop presentation and user intents</td><td>Our Omarchy plugin</td></tr>
         </tbody>
       </table>
@@ -465,6 +493,7 @@
             <li>Keep agents alive after terminal windows close</li>
             <li>Open, focus and reconnect native terminals</li>
             <li>Report terminal process lifecycle</li>
+            <li>Federate remote Node identity, projections and PTY attachment</li>
           </ul>
         </article>
         <article class="card half">
@@ -478,7 +507,7 @@
         </article>
       </div>
       <div class="callout" style="margin-top:16px">
-        Boomux sits behind a narrow <code>TerminalSessionRuntime</code> port. A focused native PTY daemon can replace it later without redesigning the Team Runner or Omarchy UI.
+        Boomux sits behind a narrow runtime port. A future replacement does not change Team Goal or QML semantics, but remote MVP parity requires Node identity, SSH transport, projections and exact attachment in addition to PTY persistence.
       </div>
     </section>
 
@@ -488,7 +517,8 @@
         <article class="card half">
           <h3 class="yes">Included</h3>
           <ul>
-            <li>Local machine and Pi agents</li>
+            <li>Local Omarchy desktop with local or one remote execution Node</li>
+            <li>Preconfigured GNU/Linux x86_64/aarch64 remote hosts over SSH</li>
             <li>Native tiled terminal per agent</li>
             <li>Persistent detach and reconnect</li>
             <li>One Team Goal with visible roles</li>
@@ -506,7 +536,8 @@
         <article class="card half">
           <h3 class="later">Deferred</h3>
           <ul>
-            <li>Remote Nodes and multiple harnesses</li>
+            <li>Cross-Node teams, automatic remote provisioning and repository sync</li>
+            <li>Multiple agent harnesses</li>
             <li>Per-agent worktrees and parallel writers</li>
             <li>Embedded split-pane terminal rendering</li>
             <li>Transcript scraping and synthetic chat</li>
@@ -528,7 +559,7 @@
         <article class="card third"><h3>Observe</h3><p>Track assignments, working state, tools, attention and outcomes from structured events.</p></article>
         <article class="card third"><h3>Reconnect</h3><p>Close an agent terminal, reopen it, and return to the same still-running process.</p></article>
         <article class="card third"><h3>Navigate</h3><p>Select an agent in the console and focus or present its exact terminal window.</p></article>
-        <article class="card third"><h3>Recover</h3><p>Restart the Omarchy plugin without interrupting agents or losing the console projection.</p></article>
+        <article class="card third"><h3>Recover</h3><p>Restart the plugin or reconnect SSH without interrupting local or remote agents or losing durable state.</p></article>
         <article class="card third"><h3>Complete</h3><p>Automatically produce a durable integrated result after the required review and command gates pass.</p></article>
       </div>
     </section>

@@ -1,4 +1,4 @@
-# Omarchy Visible-Agent Orchestrator — MVP Design
+# Omarchestra — MVP Design
 
 Status: **MVP product scope locked; technical design pending**  
 Last updated: 2026-08-30  
@@ -19,7 +19,7 @@ Decision labels:
 
 Every active agent is the real interactive process shown in its own native terminal window and tiled by Hyprland. The desktop console observes and coordinates these agents; it does not replace them with hidden headless workers or simulated cards.
 
-A successful MVP lets a user create one Team Goal, watch all participating agents work in native tiled terminals, inspect their structured state from an Omarchy console, focus any exact agent window, and receive one integrated result.
+A successful MVP lets a user create one Team Goal on the local Omarchy machine or one explicitly selected remote GNU/Linux execution Node, watch all participating agents through native local tiled terminals, inspect their structured state from an Omarchy console, focus any exact agent window, and receive one integrated result.
 
 ## Product principles
 
@@ -31,6 +31,7 @@ A successful MVP lets a user create one Team Goal, watch all participating agent
 6. **Thin desktop shell.** QML renders projections and sends intents. It does not supervise children, schedule work, enforce Git safety, or own durable state.
 7. **Replaceable terminal runtime.** Boomux is the prototype implementation of a narrow runtime port, not the product's domain model.
 8. **Honest state.** The UI distinguishes observed facts, inferred state, and unavailable telemetry. It must not fabricate transcripts, progress, isolation, or resumability.
+9. **Node-local execution authority.** The selected execution Node owns its Project, Team Runner, agent bridges, validation, artifacts, and durable workflow state. The local desktop consumes projections and sends acknowledged intents.
 
 ## MVP architecture
 
@@ -61,16 +62,18 @@ BoomuxRuntime adapter
         └── Reviewer Shell    → native terminal → visible interactive Pi
 ```
 
+For a local Team Goal, the Team Runner and Boomux owner are local. For a remote Team Goal, the execution runner, bridge sockets, repository, validation, and durable state live on the selected remote Node; the local desktop reaches them through authenticated SSH transports. The detailed locked boundary is [`remote-execution.md`](remote-execution.md).
+
 ### Authority boundaries
 
 | Concern | Authority |
 | --- | --- |
-| Team Goals, roles, assignments and workflow | Team Runner |
+| Team Goals, roles, assignments and workflow | Team Runner on the selected execution Node |
 | Structured status, tool activity and agent messages | Bridge in the visible Pi process |
 | PTY, process, attach/detach and terminal resize | Terminal runtime (Boomux in MVP) |
 | Conversation and model-session semantics | Visible Pi process |
-| Checkout contents and Git history | Git |
-| Presentation and user intents | Omarchy plugin |
+| Checkout contents and Git history | Git on the selected execution Node |
+| Presentation and user intents | Local Omarchy plugin |
 
 No authority derives canonical state by scraping another authority's presentation output.
 
@@ -104,7 +107,22 @@ subscribe(references, cursor) -> ordered lifecycle events
 
 The runtime owns terminal lifecycle only. It does not own Team Goals, role semantics, assignments, messages, artifacts, or Fusion workflows.
 
-A future minimal native PTY daemon may replace `BoomuxRuntime` without changing the Team Runner or QML interface.
+A future runtime may replace `BoomuxRuntime` without changing Team Goal or QML semantics. Because remote execution is in MVP scope, a complete replacement must provide Node identity, remote projection/transport, and exact attachment semantics in addition to local PTY persistence.
+
+### Evidence-backed local Boomux contract
+
+The completed [`Boomux runtime-adapter spike`](../../spikes/boomux-runtime-adapter/README.md) establishes for Boomux 1.8.0/protocol 49:
+
+1. Capability negotiation, daemon availability, snapshots, lifecycle events, typed errors, and cursor recovery are available through validated `boomux.cli/v1` envelopes.
+2. Workspace/Shell creation, generic presentation, and exact-ID cleanup require version-pinned non-JSON commands followed by JSON postcondition reconciliation. Human output is never an identity source.
+3. One Workspace and three role Shells can be mapped behind Omarchestra-generated opaque references without importing Rust modules, reading private Boomux state, or exposing Boomux entities to the UI/domain.
+4. Closing a native terminal detaches presentation while the daemon-owned PTY, exact Run, and PID survive. Re-presenting the tested Builder returned to the same Run and PID without affecting siblings.
+5. Attachment presence is unavailable through public snapshots/events and must remain `unavailable`, not inferred.
+6. Lifecycle events are ordered within one opaque stream cursor. Cursor expiry or cold stream replacement requires a fresh snapshot/reconciliation boundary.
+7. Cleanup authority comes from durable exact-ID ownership records and readback. Names, prefixes, focus, current selection, or wildcard/global operations never authorize destruction.
+8. Generic `boomux open` lacks an atomic expected-Run guard. Pre/post inspection detects replacement but cannot prevent the exit-and-restart race. Production must represent this risk, obtain a guarded public operation, or select another runtime.
+9. The local result does not establish remote Node behavior; that receives a separate spike.
+10. Prototype files remain evidence and are not promoted directly into production.
 
 ## Visible agent bridge
 
@@ -145,13 +163,17 @@ Production message schemas, socket trust/permissions, durable cursor semantics, 
 
 ## Domain model
 
+### Execution Node
+
+An Omarchestra-owned identity and connection profile for one machine capable of owning Projects and Agent Runs. The local Omarchy machine is one Execution Node; an MVP Team Goal may instead select one preconfigured remote GNU/Linux Node. SSH routes and Boomux Node IDs remain opaque transport/runtime references.
+
 ### Project
 
-A canonical local Git repository against which Team Goals run.
+A canonical Git repository identified by `(execution_node_id, canonical_absolute_path)`. A path is never copied to or inferred for another Node.
 
 ### Team Goal
 
-One durable orchestration attempt for a user goal in a Project. It owns the workflow, roles, assignments, artifacts, runtime bindings, and outcome record.
+One durable orchestration attempt for a user goal in a Project. It selects exactly one Execution Node at creation and owns the workflow, roles, assignments, artifacts, runtime bindings, and outcome record on that Node.
 
 ### Role
 
@@ -332,7 +354,7 @@ For agent-owned or unknown attention, the console reports `needs_attention` and 
 3. **Agent cards** — role, model, state, current assignment, elapsed time, latest structured event, and attention.
 4. **Agent actions** — present/focus exact terminal, take control, return to team, reconcile manual work, resolve runner-owned approvals, acknowledge notifications, and cancel where safe. Agent-owned approvals redirect to the terminal.
 5. **Structured activity feed** — ordered orchestration and agent events, not a scraped transcript.
-6. **Create Team Goal form** — Project, goal, selection of a validated YAML Team Profile, and Validation Policy. Resolved role/model assignments are shown before launch; `review_and_command` also requires a command.
+6. **Create Team Goal form** — Execution Node, Node-qualified Project, goal, validated YAML Team Profile, and Validation Policy. Resolved role/model assignments are shown before launch; `review_and_command` also requires a command.
 
 Context usage and cost are displayed only if Pi exposes reliable values through the bridge.
 
@@ -349,6 +371,8 @@ Context usage and cost are displayed only if Pi exposes reliable values through 
 - The Team Runner persists Team Goals, assignments, events, artifacts, workflow state, and runtime bindings.
 - After plugin restart, the console reconstructs itself from a runner snapshot plus ordered events.
 - After Team Runner restart, it reconstructs its durable projection and reconnects to surviving visible agents.
+- A remote Team Runner retains goals, events, artifacts, writer authority, and agent bridges when local terminal windows or SSH presentation disconnect.
+- SSH loss marks the remote Node and affected Agent Runs disconnected or stale; reconnection uses identity verification, a durable snapshot, and retained ordered events or an explicit history gap.
 
 ### Proposed degraded recovery rule
 
@@ -385,7 +409,11 @@ If the Team Runner restarts during an in-flight assignment, it does not guess wh
 - Integrated split-pane terminal renderer
 - Hidden/headless agent execution
 - Non-Pi harnesses
-- Remote Nodes
+- One Team Goal spanning multiple Execution Nodes
+- Cross-Node writer coordination
+- Automatic remote host provisioning or repository/credential synchronization
+- Windows or macOS execution Nodes
+- Public remote network listeners
 - Per-agent worktrees
 - Parallel write-enabled agents
 - Automated branch integration
@@ -403,7 +431,7 @@ If the Team Runner restarts during an in-flight assignment, it does not guess wh
 
 The MVP is demonstrable when:
 
-1. A user opens the Agent Console from the Omarchy bar and creates a Team Goal for a local Git Project.
+1. A user opens the Agent Console from the Omarchy bar and creates a Team Goal for a Node-qualified local or remote Git Project.
 2. The system creates the configured visible interactive Pi agents in native terminal windows tiled by Hyprland.
 3. No hidden agent process performs work on behalf of those visible agents.
 4. The console shows each Agent Run's role, current assignment and normalized state from structured bridge events.
@@ -421,6 +449,9 @@ The MVP is demonstrable when:
 16. A `review_only` goal cannot complete without a structured accepted review and is labelled Reviewed.
 17. A `review_and_command` goal cannot complete unless both structured review and deterministic command succeed and is labelled Verified.
 18. After its required gates pass, Coordinator integration and Team Goal completion proceed automatically without a redundant final user approval.
+19. For a remote goal, all three agents and the Team Runner execute on one preconfigured non-Omarchy GNU/Linux Node while their native terminal windows render locally.
+20. Closing local windows or interrupting SSH does not terminate remote agents or discard durable workflow state.
+21. Reconnection restores the same Node-qualified Team Goal, Agent Runs, and exact surviving terminal attachments, or reports a truthful stale/gap/uncertain state.
 
 ## Implementation readiness
 
@@ -428,10 +459,11 @@ Status: **MVP product scope is locked and ready for feasibility spikes; the tech
 
 Before delegating broad implementation to Fusion Harness, the project needs:
 
-1. chosen implementation languages/toolchain;
-2. a Boomux feasibility spike and mapped CLI/capability contract for the narrow terminal runtime port;
-3. production runner/bridge snapshot, event, intent, trust, and persistence contracts;
-4. milestone-sized implementation slices with executable acceptance gates.
+1. chosen portable implementation languages/toolchain for local and remote execution Nodes;
+2. a product policy or upstream capability for Boomux's generic exact-Run presentation race;
+3. a remote execution Node spike against an actual non-Omarchy GNU/Linux host;
+4. production runner/bridge snapshot, event, intent, SSH trust, deployment, and persistence contracts;
+5. milestone-sized implementation slices with executable acceptance gates.
 
 Fusion Harness is a source of orchestration behavior and a tool for reviewing/building the new product. The new product should not be implemented directly inside the `fusion-harness` repository unless an explicit monorepo decision is made.
 
@@ -458,11 +490,12 @@ These are specification/spike outputs rather than product-feature choices, but e
 1. **Project boundary:** repository is locked at `~/claude/omarchestra`; languages, toolchain, packaging, IPC transport, and service startup model remain open.
 2. **Runner persistence and protocol:** transaction boundaries, snapshot/event/intent schemas, cursor ordering, deduplication, acknowledgement, migrations, and retention.
 3. **Pi bridge:** feasibility is closed as supported with constraints. Production work remains for socket trust/permissions, exact schemas, durable replay/cursors, telemetry filtering/coalescing, slash-command and user-bash policy, attention coverage, reconciliation commands, and compatibility.
-4. **Boomux adapter:** supported version/capabilities, exact CLI operations, lifecycle observation, identifier reconciliation, close versus detach behavior, focus/reopen behavior, and errors.
-5. **Checkout safety:** dirty-checkout policy, concurrent Team Goals for one Project, strength of read-only enforcement, writer lease scope, and Builder commit policy.
-6. **Cancellation and failure:** interruption behavior, process termination policy, timeouts, bounded retries, preservation of terminals, and separation of process and assignment failure.
-7. **Artifact acceptance:** schemas for plan, implementation, review, corrections, validation, and integrated result; acceptance authority for each artifact.
-8. **Recovery actions:** definition and idempotency of resume/retry, plus how a reconnected visible agent proves the status of uncertain work.
+4. **Boomux adapter:** local feasibility is closed as supported with constraints. Production work remains for the generic exact-Run presentation race, version-pinned weak mutation commands, attachment-state unavailability, compatibility policy, and remote Node evidence.
+5. **Remote execution:** Node identity, prerequisite/deployment policy, authenticated SSH stdio protocol, remote runner lifecycle, durable projection replay, disconnection semantics, and Node-qualified runtime routing.
+6. **Checkout safety:** dirty-checkout policy, concurrent Team Goals for one Project, strength of read-only enforcement, writer lease scope, and Builder commit policy.
+7. **Cancellation and failure:** interruption behavior, process termination policy, timeouts, bounded retries, preservation of terminals, and separation of process and assignment failure.
+8. **Artifact acceptance:** schemas for plan, implementation, review, corrections, validation, and integrated result; acceptance authority for each artifact.
+9. **Recovery actions:** definition and idempotency of resume/retry, plus how a reconnected visible agent proves the status of uncertain work.
 
 ## Decision log
 
@@ -483,3 +516,5 @@ These are specification/spike outputs rather than product-feature choices, but e
 - 2026-08-30: All MVP product-scope decisions are locked; feasibility spikes and technical contracts remain.
 - 2026-08-30: Product name and target workspace locked as **Omarchestra** at `~/claude/omarchestra`.
 - 2026-08-30: Visible Pi bridge feasibility classified **supported with constraints** after automated and manual TUI evidence; same-process assignment, observability, takeover, runner reconnect, duplicate rejection, and absence of a hidden child agent were proven.
+- 2026-08-30: Single-Node remote execution promoted into locked MVP scope: a Team Goal may execute wholly on one preconfigured remote GNU/Linux Node while Omarchy UI and native terminals remain local. Cross-Node teams, provisioning, and repository synchronization remain deferred.
+- 2026-08-30: Local Boomux runtime feasibility classified **supported with constraints** after 61 automated tests and a passed human gate proving native tiling, detach survival, same-Run/same-PID re-presentation, sibling isolation, ordered events, and exact-ID cleanup. The generic public-open race remains unresolved.
