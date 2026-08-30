@@ -1,0 +1,106 @@
+{
+  "command": "fh-opinion",
+  "ok": true,
+  "agents": [
+    {
+      "role": "ARCHITECT",
+      "model": "openai-codex/gpt-5.6-sol",
+      "slotId": "sol",
+      "slotName": "sol",
+      "color": "#7DD3FC",
+      "primary": false,
+      "architect": true,
+      "status": "done",
+      "ms": 33684,
+      "tokensIn": 10829,
+      "tokensOut": 1612,
+      "costUsd": 0.09559300000000001,
+      "toolCalls": 2,
+      "toolNames": [
+        "find",
+        "read"
+      ],
+      "toolEvents": [
+        {
+          "name": "find",
+          "argument": "woodshape/Work"
+        },
+        {
+          "name": "read",
+          "argument": "Work/visible-agent-orchestrator-mvp.md"
+        }
+      ],
+      "tps": 47.94996625005485,
+      "chars": 2756
+    },
+    {
+      "role": "BUILDER",
+      "model": "openai-codex/gpt-5.6-terra",
+      "slotId": "terra",
+      "slotName": "terra",
+      "color": "#F59E0B",
+      "primary": true,
+      "architect": false,
+      "status": "done",
+      "ms": 15650,
+      "tokensIn": 10861,
+      "tokensOut": 634,
+      "costUsd": 0.0238004,
+      "toolCalls": 2,
+      "toolNames": [
+        "ls",
+        "read"
+      ],
+      "toolEvents": [
+        {
+          "name": "ls",
+          "argument": "woodshape/Work"
+        },
+        {
+          "name": "read",
+          "argument": "Work/visible-agent-orchestrator-mvp.md"
+        }
+      ],
+      "tps": 40.61490329899691,
+      "chars": 1815
+    },
+    {
+      "role": "BUILDER",
+      "model": "openai-codex/gpt-5.6-luna",
+      "slotId": "luna",
+      "slotName": "luna",
+      "color": "#34D399",
+      "primary": false,
+      "architect": false,
+      "status": "done",
+      "ms": 19356,
+      "tokensIn": 10815,
+      "tokensOut": 847,
+      "costUsd": 0.0026264400000000003,
+      "toolCalls": 2,
+      "toolNames": [
+        "find",
+        "read"
+      ],
+      "toolEvents": [
+        {
+          "name": "find",
+          "argument": "woodshape/Work"
+        },
+        {
+          "name": "read",
+          "argument": "Work/visible-agent-orchestrator-mvp.md"
+        }
+      ],
+      "tps": 43.939629405251274,
+      "chars": 3026
+    }
+  ],
+  "sessions": {
+    "sol": "3e06e8bf-0ca5-41e9-8c85-2ec63c8d6639",
+    "terra": "1cf911ab-9124-4578-a0dd-9c1a0255a4a0",
+    "luna": "d9050c3f-3db0-4812-8646-12ecf6c079ad"
+  },
+  "totalMs": 33704,
+  "totalCostUsd": 0.12201984
+}

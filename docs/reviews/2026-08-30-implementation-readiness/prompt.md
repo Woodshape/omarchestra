@@ -1,0 +1,1 @@
+Read visible-agent-orchestrator-mvp.md and identify any decisions still blocking an implementation-ready specification.

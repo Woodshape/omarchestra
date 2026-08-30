@@ -1,0 +1,542 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Omarchy Visible-Agent Orchestrator — MVP Architecture</title>
+  <style>
+    :root {
+      color-scheme: dark;
+      --bg: #0d0e0f;
+      --surface: #151719;
+      --surface-2: #1b1e21;
+      --line: #34383d;
+      --text: #ece8df;
+      --muted: #a7a39a;
+      --orange: #ff8a3d;
+      --orange-soft: rgba(255, 138, 61, 0.13);
+      --green: #8ec07c;
+      --blue: #83a8ff;
+      --yellow: #e8c56a;
+      --red: #ef7d7d;
+      --radius: 14px;
+    }
+
+    * { box-sizing: border-box; }
+
+    html { scroll-behavior: smooth; }
+
+    body {
+      margin: 0;
+      background:
+        radial-gradient(circle at 12% 0%, rgba(255,138,61,.08), transparent 28rem),
+        var(--bg);
+      color: var(--text);
+      font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      line-height: 1.55;
+    }
+
+    .page {
+      width: min(1180px, calc(100% - 40px));
+      margin: 0 auto;
+      padding: 64px 0 90px;
+    }
+
+    header {
+      padding-bottom: 34px;
+      border-bottom: 1px solid var(--line);
+    }
+
+    .eyebrow {
+      color: var(--orange);
+      font: 700 12px/1.2 ui-monospace, SFMono-Regular, Menlo, monospace;
+      letter-spacing: .14em;
+      text-transform: uppercase;
+    }
+
+    h1 {
+      max-width: 900px;
+      margin: 14px 0 14px;
+      font-size: clamp(36px, 6vw, 72px);
+      line-height: .98;
+      letter-spacing: -.045em;
+    }
+
+    .lede {
+      max-width: 850px;
+      margin: 0;
+      color: var(--muted);
+      font-size: clamp(17px, 2vw, 21px);
+    }
+
+    .status-row {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 10px;
+      margin-top: 24px;
+    }
+
+    .pill {
+      padding: 7px 11px;
+      border: 1px solid var(--line);
+      border-radius: 999px;
+      background: var(--surface);
+      color: var(--muted);
+      font-size: 13px;
+    }
+
+    .pill strong { color: var(--text); }
+
+    section { margin-top: 60px; }
+
+    h2 {
+      margin: 0 0 10px;
+      font-size: clamp(25px, 3vw, 36px);
+      letter-spacing: -.025em;
+    }
+
+    h3 {
+      margin: 0 0 8px;
+      font-size: 18px;
+    }
+
+    p { margin: 0; }
+
+    .section-intro {
+      max-width: 780px;
+      margin-bottom: 24px;
+      color: var(--muted);
+    }
+
+    .grid {
+      display: grid;
+      grid-template-columns: repeat(12, 1fr);
+      gap: 16px;
+    }
+
+    .card {
+      padding: 22px;
+      border: 1px solid var(--line);
+      border-radius: var(--radius);
+      background: linear-gradient(145deg, var(--surface), #111315);
+    }
+
+    .card p, .card li { color: var(--muted); }
+    .card strong { color: var(--text); }
+    .third { grid-column: span 4; }
+    .half { grid-column: span 6; }
+    .full { grid-column: 1 / -1; }
+
+    .number {
+      display: grid;
+      width: 34px;
+      height: 34px;
+      margin-bottom: 18px;
+      place-items: center;
+      border: 1px solid rgba(255,138,61,.5);
+      border-radius: 9px;
+      background: var(--orange-soft);
+      color: var(--orange);
+      font: 700 13px ui-monospace, SFMono-Regular, Menlo, monospace;
+    }
+
+    .architecture {
+      display: grid;
+      gap: 10px;
+      padding: 24px;
+      border: 1px solid var(--line);
+      border-radius: var(--radius);
+      background: #101214;
+    }
+
+    .layer {
+      display: grid;
+      grid-template-columns: 190px 1fr;
+      gap: 20px;
+      align-items: stretch;
+    }
+
+    .layer-label {
+      display: flex;
+      align-items: center;
+      padding: 16px;
+      border-radius: 10px;
+      background: var(--orange-soft);
+      color: var(--orange);
+      font: 700 13px/1.4 ui-monospace, SFMono-Regular, Menlo, monospace;
+      text-transform: uppercase;
+      letter-spacing: .05em;
+    }
+
+    .layer-body {
+      display: grid;
+      grid-template-columns: repeat(3, minmax(0, 1fr));
+      gap: 10px;
+    }
+
+    .node {
+      min-height: 76px;
+      padding: 14px;
+      border: 1px solid var(--line);
+      border-radius: 10px;
+      background: var(--surface-2);
+    }
+
+    .node strong {
+      display: block;
+      margin-bottom: 4px;
+      font-size: 14px;
+    }
+
+    .node span {
+      color: var(--muted);
+      font-size: 13px;
+    }
+
+    .arrow {
+      padding-left: 210px;
+      color: var(--orange);
+      font: 700 18px/1 ui-monospace, SFMono-Regular, Menlo, monospace;
+    }
+
+    .terminal-grid {
+      display: grid;
+      grid-template-columns: repeat(3, minmax(0, 1fr));
+      gap: 10px;
+    }
+
+    .terminal {
+      overflow: hidden;
+      border: 1px solid var(--line);
+      border-radius: 11px;
+      background: #090a0b;
+    }
+
+    .terminal-title {
+      display: flex;
+      align-items: center;
+      gap: 7px;
+      padding: 9px 12px;
+      border-bottom: 1px solid var(--line);
+      background: #17191b;
+      font: 600 12px ui-monospace, SFMono-Regular, Menlo, monospace;
+    }
+
+    .dot { width: 7px; height: 7px; border-radius: 50%; background: var(--green); }
+    .terminal-body { padding: 16px; color: #c7c3ba; font: 12px/1.7 ui-monospace, SFMono-Regular, Menlo, monospace; }
+    .prompt { color: var(--orange); }
+    .working { color: var(--green); }
+
+    .flow {
+      display: flex;
+      align-items: stretch;
+      gap: 8px;
+    }
+
+    .flow-step {
+      flex: 1;
+      padding: 16px;
+      border: 1px solid var(--line);
+      border-radius: 10px;
+      background: var(--surface);
+    }
+
+    .flow-step small {
+      display: block;
+      margin-bottom: 6px;
+      color: var(--orange);
+      font: 700 11px ui-monospace, SFMono-Regular, Menlo, monospace;
+      text-transform: uppercase;
+    }
+
+    .flow-arrow { align-self: center; color: var(--orange); }
+
+    ul {
+      margin: 13px 0 0;
+      padding-left: 19px;
+    }
+
+    li + li { margin-top: 7px; }
+
+    .ownership {
+      width: 100%;
+      border-collapse: collapse;
+      overflow: hidden;
+      border: 1px solid var(--line);
+      border-radius: var(--radius);
+      background: var(--surface);
+    }
+
+    .ownership th, .ownership td {
+      padding: 14px 16px;
+      border-bottom: 1px solid var(--line);
+      text-align: left;
+    }
+
+    .ownership th {
+      color: var(--orange);
+      font: 700 12px ui-monospace, SFMono-Regular, Menlo, monospace;
+      letter-spacing: .05em;
+      text-transform: uppercase;
+    }
+
+    .ownership td:last-child { color: var(--muted); }
+    .ownership tr:last-child td { border-bottom: 0; }
+
+    .callout {
+      padding: 22px 24px;
+      border-left: 3px solid var(--orange);
+      border-radius: 0 var(--radius) var(--radius) 0;
+      background: var(--orange-soft);
+      font-size: 18px;
+    }
+
+    .yes { color: var(--green); }
+    .later { color: var(--yellow); }
+    .no { color: var(--red); }
+
+    footer {
+      margin-top: 70px;
+      padding-top: 24px;
+      border-top: 1px solid var(--line);
+      color: var(--muted);
+      font-size: 13px;
+    }
+
+    code {
+      padding: 2px 5px;
+      border: 1px solid var(--line);
+      border-radius: 5px;
+      background: var(--surface-2);
+      color: var(--text);
+      font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+    }
+
+    @media (max-width: 800px) {
+      .page { width: min(100% - 24px, 1180px); padding-top: 36px; }
+      .third, .half { grid-column: 1 / -1; }
+      .layer { grid-template-columns: 1fr; }
+      .layer-body, .terminal-grid { grid-template-columns: 1fr; }
+      .arrow { padding-left: 0; text-align: center; }
+      .flow { flex-direction: column; }
+      .flow-arrow { transform: rotate(90deg); }
+      .ownership { display: block; overflow-x: auto; }
+    }
+  </style>
+</head>
+<body>
+  <main class="page">
+    <header>
+      <div class="eyebrow">High-level architectural overview</div>
+      <h1>Visible agents.<br>Native windows.<br>One control plane.</h1>
+      <p class="lede">
+        An Omarchy-native orchestrator where every working agent is the real interactive process visible in its own tiled terminal. The desktop console coordinates and observes those processes without hiding or replacing them.
+      </p>
+      <div class="status-row">
+        <span class="pill"><strong>Stage:</strong> Product scope locked · technical design pending</span>
+        <span class="pill"><strong>Initial harness:</strong> Pi</span>
+        <span class="pill"><strong>Terminal runtime:</strong> Boomux adapter</span>
+        <span class="pill"><strong>Execution:</strong> Local, native windows</span>
+      </div>
+    </header>
+
+    <section>
+      <h2>The product contract</h2>
+      <p class="section-intro">The architecture is organized around three non-negotiable behaviors.</p>
+      <div class="grid">
+        <article class="card third">
+          <div class="number">01</div>
+          <h3>Visible execution</h3>
+          <p>The terminal shown to the user contains the actual agent doing the work. The user may take control, then return it through an explicit reconciled handoff.</p>
+        </article>
+        <article class="card third">
+          <div class="number">02</div>
+          <h3>Persistent interaction</h3>
+          <p>Closing a terminal window does not kill its agent. Opening the agent later reconnects to the exact surviving process.</p>
+        </article>
+        <article class="card third">
+          <div class="number">03</div>
+          <h3>Structured observability</h3>
+          <p>The console receives trustworthy agent events from an in-process bridge. It never guesses semantic state from terminal pixels.</p>
+        </article>
+      </div>
+    </section>
+
+    <section>
+      <h2>System architecture</h2>
+      <p class="section-intro">Each module owns one kind of complexity. The Omarchy shell remains a thin presentation client.</p>
+      <div class="architecture">
+        <div class="layer">
+          <div class="layer-label">Desktop presentation</div>
+          <div class="layer-body">
+            <div class="node"><strong>Bar indicator</strong><span>Active teams, working agents, attention</span></div>
+            <div class="node"><strong>Agent Console</strong><span>Goals, roles, state, activity, outcomes</span></div>
+            <div class="node"><strong>User intents</strong><span>Create, focus, acknowledge, cancel</span></div>
+          </div>
+        </div>
+        <div class="arrow">↓ snapshot · events · intents</div>
+        <div class="layer">
+          <div class="layer-label">Our Team Runner</div>
+          <div class="layer-body">
+            <div class="node"><strong>Orchestration</strong><span>Workflow, assignments, writer policy</span></div>
+            <div class="node"><strong>Durable state</strong><span>Goals, events, artifacts, runtime bindings</span></div>
+            <div class="node"><strong>Projection</strong><span>One UI-ready snapshot and ordered stream</span></div>
+          </div>
+        </div>
+        <div class="arrow">↓ terminal lifecycle port</div>
+        <div class="layer">
+          <div class="layer-label">Boomux runtime</div>
+          <div class="layer-body">
+            <div class="node"><strong>Persistent PTYs</strong><span>Process survives terminal detach</span></div>
+            <div class="node"><strong>Native attachment</strong><span>Open and reconnect through Ghostty</span></div>
+            <div class="node"><strong>Runtime identity</strong><span>Workspace, Shell and process references</span></div>
+          </div>
+        </div>
+        <div class="arrow">↓ real native windows</div>
+        <div class="layer">
+          <div class="layer-label">Visible agents</div>
+          <div class="layer-body">
+            <div class="node"><strong>Coordinator</strong><span>Interactive Pi + bridge extension</span></div>
+            <div class="node"><strong>Builder</strong><span>Interactive Pi + bridge extension</span></div>
+            <div class="node"><strong>Reviewer</strong><span>Interactive Pi + bridge extension</span></div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <section>
+      <h2>The user sees the real team</h2>
+      <p class="section-intro">Hyprland performs the layout. Every required agent terminal opens at Team Goal start, including waiting roles, so the complete playing field is visible from the beginning.</p>
+      <div class="terminal-grid">
+        <div class="terminal">
+          <div class="terminal-title"><span class="dot"></span> coordinator · pi</div>
+          <div class="terminal-body"><span class="prompt">goal ›</span> Analyze the request and create a plan<br><span class="working">● working</span> inspecting repository structure…</div>
+        </div>
+        <div class="terminal">
+          <div class="terminal-title"><span class="dot"></span> builder · pi</div>
+          <div class="terminal-body"><span class="prompt">assignment ›</span> Waiting for accepted plan<br><span class="working">● connected</span> visible and ready</div>
+        </div>
+        <div class="terminal">
+          <div class="terminal-title"><span class="dot"></span> reviewer · pi</div>
+          <div class="terminal-body"><span class="prompt">assignment ›</span> Waiting for implementation<br><span class="working">● connected</span> read-only role</div>
+        </div>
+      </div>
+    </section>
+
+    <section>
+      <h2>Locked MVP workflow</h2>
+      <p class="section-intro">A deliberately constrained first workflow proves orchestration, visibility and recovery without introducing worktree integration.</p>
+      <div class="flow">
+        <div class="flow-step"><small>01 · Coordinator</small><strong>Plan</strong><br><span>Turn the goal into an accepted implementation plan.</span></div>
+        <div class="flow-arrow">→</div>
+        <div class="flow-step"><small>02 · Builder</small><strong>Implement</strong><br><span>Hold the sole write authority for the shared checkout.</span></div>
+        <div class="flow-arrow">→</div>
+        <div class="flow-step"><small>03 · Reviewer</small><strong>Review</strong><br><span>Judge every artifact against explicit acceptance criteria.</span></div>
+        <div class="flow-arrow">→</div>
+        <div class="flow-step"><small>04 · Policy</small><strong>Validate</strong><br><span>Review only, or review plus deterministic command.</span></div>
+        <div class="flow-arrow">→</div>
+        <div class="flow-step"><small>05 · Coordinator</small><strong>Integrate</strong><br><span>Automatically produce and complete the accepted result.</span></div>
+      </div>
+    </section>
+
+    <section>
+      <h2>Clear ownership boundaries</h2>
+      <p class="section-intro">The design avoids two systems competing to own the same process or state.</p>
+      <table class="ownership">
+        <thead><tr><th>Concern</th><th>Authority</th></tr></thead>
+        <tbody>
+          <tr><td>Team Goals, assignments and workflow</td><td>Our Team Runner</td></tr>
+          <tr><td>Structured task, tool and attention events</td><td>Bridge inside the visible Pi process</td></tr>
+          <tr><td>PTY, process lifetime and attach/detach</td><td>Boomux during the MVP</td></tr>
+          <tr><td>Conversation and model session</td><td>The visible Pi process</td></tr>
+          <tr><td>Checkout contents and history</td><td>Git</td></tr>
+          <tr><td>Desktop presentation and user intents</td><td>Our Omarchy plugin</td></tr>
+        </tbody>
+      </table>
+    </section>
+
+    <section>
+      <h2>Why Boomux is replaceable</h2>
+      <div class="grid">
+        <article class="card half">
+          <h3 class="yes">MVP responsibility</h3>
+          <ul>
+            <li>Own each agent PTY and child process</li>
+            <li>Keep agents alive after terminal windows close</li>
+            <li>Open, focus and reconnect native terminals</li>
+            <li>Report terminal process lifecycle</li>
+          </ul>
+        </article>
+        <article class="card half">
+          <h3 class="no">Not Boomux responsibility</h3>
+          <ul>
+            <li>Team Goals, roles or assignments</li>
+            <li>Fusion workflows and writer policy</li>
+            <li>Agent messages, artifacts or outcomes</li>
+            <li>The Agent Console's domain model</li>
+          </ul>
+        </article>
+      </div>
+      <div class="callout" style="margin-top:16px">
+        Boomux sits behind a narrow <code>TerminalSessionRuntime</code> port. A focused native PTY daemon can replace it later without redesigning the Team Runner or Omarchy UI.
+      </div>
+    </section>
+
+    <section>
+      <h2>MVP boundary</h2>
+      <div class="grid">
+        <article class="card half">
+          <h3 class="yes">Included</h3>
+          <ul>
+            <li>Local machine and Pi agents</li>
+            <li>Native tiled terminal per agent</li>
+            <li>Persistent detach and reconnect</li>
+            <li>One Team Goal with visible roles</li>
+            <li>Validated YAML Team Profiles for role/model configuration</li>
+            <li>Structured status and activity feed</li>
+            <li>Managed/manual takeover with reconciled return</li>
+            <li>Focus/open exact agent terminal</li>
+            <li>Console approvals only for runner-owned decisions</li>
+            <li>Terminal redirect for Pi/harness-owned attention</li>
+            <li>Review-only and review-plus-command validation</li>
+            <li>Shared checkout with one writer</li>
+            <li>Durable goals, events and artifacts</li>
+          </ul>
+        </article>
+        <article class="card half">
+          <h3 class="later">Deferred</h3>
+          <ul>
+            <li>Remote Nodes and multiple harnesses</li>
+            <li>Per-agent worktrees and parallel writers</li>
+            <li>Embedded split-pane terminal rendering</li>
+            <li>Transcript scraping and synthetic chat</li>
+            <li>Network isolation/offline claims</li>
+            <li>Automatic full-reboot continuation</li>
+            <li>Named Task Capsules and portable context reconstruction</li>
+            <li>Native PTY-daemon replacement</li>
+            <li>Forking Boomux</li>
+          </ul>
+        </article>
+      </div>
+    </section>
+
+    <section>
+      <h2>Definition of success</h2>
+      <p class="section-intro">The architecture is proven when a complete visible-agent workflow survives presentation-layer disruption without losing process identity or durable state.</p>
+      <div class="grid">
+        <article class="card third"><h3>Launch</h3><p>Create a Team Goal and see every real interactive Pi agent appear in a native tiled terminal.</p></article>
+        <article class="card third"><h3>Observe</h3><p>Track assignments, working state, tools, attention and outcomes from structured events.</p></article>
+        <article class="card third"><h3>Reconnect</h3><p>Close an agent terminal, reopen it, and return to the same still-running process.</p></article>
+        <article class="card third"><h3>Navigate</h3><p>Select an agent in the console and focus or present its exact terminal window.</p></article>
+        <article class="card third"><h3>Recover</h3><p>Restart the Omarchy plugin without interrupting agents or losing the console projection.</p></article>
+        <article class="card third"><h3>Complete</h3><p>Automatically produce a durable integrated result after the required review and command gates pass.</p></article>
+      </div>
+    </section>
+
+    <footer>
+      Working architectural overview · 2026-08-30<br>
+      Detailed scope: <code>docs/design/mvp.md</code>
+    </footer>
+  </main>
+</body>
+</html>
