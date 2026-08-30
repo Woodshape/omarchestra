@@ -1,0 +1,3813 @@
+{
+  "command": "fh-collaborate",
+  "ok": true,
+  "plan": {
+    "tasks": [
+      {
+        "id": "1.a",
+        "assignee": "sol",
+        "description": "Audit the installed Boomux 1.8.0 public contract using version, capabilities JSON, help, relevant subcommand help, and supplied public documentation. Define exact supported JSON commands, features, protocol/schema checks, stable errors, non-JSON weak dependencies, exact-Run limitation, and safe command flow. Run no mutations or GUI commands.",
+        "depends_on": [],
+        "outputs": [
+          "live Boomux public-contract and safety report"
+        ],
+        "mode": "read"
+      },
+      {
+        "id": "1.b",
+        "assignee": "luna",
+        "description": "Design the deterministic test matrix and source-coupling audit from the request and public contracts. Specify fixtures and assertions for envelopes, typed failures, opaque references, hostile argv, lifecycle states, event cursors, idempotency, unknown outcomes, cleanup ownership, unavailable Boomux, and prohibition of private state, Rust modules, hidden commands, and shell execution.",
+        "depends_on": [],
+        "outputs": [
+          "test and source-audit implementation report"
+        ],
+        "mode": "read"
+      },
+      {
+        "id": "1.c",
+        "assignee": "terra",
+        "description": "Inspect the current repository and reference consumer, then produce an implementation blueprint for a dependency-free Node spike confined to spikes/boomux-runtime-adapter. Resolve Workspace versus owner-Workspace identity, empty Workspace plus three explicitly named Shell creation, JSON readback reconciliation, ownership receipts, manual probe process, and explicit GUI gating. Run no mutations or GUI commands.",
+        "depends_on": [],
+        "outputs": [
+          "adapter and manual-harness implementation blueprint"
+        ],
+        "mode": "read"
+      },
+      {
+        "id": "2.a",
+        "assignee": "terra",
+        "description": "Implement the throwaway adapter and manual harness under spikes/boomux-runtime-adapter. Add direct argv execution with shell disabled, strict boomux.cli/v1 success/error parsing, typed failures, capability and running-daemon checks, opaque reference and exact-ID receipt mapping, unique prefixed empty Workspace plus three role Shell creation with JSON readback, lifecycle inspection, pre/post checked presentation, ordered event subscription, exact-ID-only idempotent cleanup, private ignored preflight/receipt storage, explicit manual GUI authorization, and a probe process that records role, PID, Shell ID, and BOOMUX_RUN_ID. Never execute live mutations or GUI presentation while implementing.",
+        "depends_on": [
+          "1.a",
+          "1.c"
+        ],
+        "outputs": [
+          "spikes/boomux-runtime-adapter/lib/",
+          "spikes/boomux-runtime-adapter/manual.mjs",
+          "spikes/boomux-runtime-adapter/probe-process.mjs",
+          "spikes/boomux-runtime-adapter/.gitignore"
+        ],
+        "mode": "write"
+      },
+      {
+        "id": "2.b",
+        "assignee": "sol",
+        "description": "Create the initial spike record and public CLI evidence. Capture only safe version, capabilities, and help output. Document the question, assumptions, exact command/envelope contract, public versus non-JSON dependencies, close-versus-window-detach semantics, exact-Run race, safety policy, design implications, provisional conclusion, manual observation procedure, and pending human gate. Do not update docs/design/mvp.md or claim GUI behavior.",
+        "depends_on": [
+          "1.a"
+        ],
+        "outputs": [
+          "spikes/boomux-runtime-adapter/README.md",
+          "spikes/boomux-runtime-adapter/evidence/cli-source-truth.txt",
+          "spikes/boomux-runtime-adapter/evidence/manual-observations.md"
+        ],
+        "mode": "write"
+      },
+      {
+        "id": "3.a",
+        "assignee": "luna",
+        "description": "Implement deterministic fake-executor fixtures and tests against the adapter API. Cover exact argv and envelopes, version/schema/protocol/command/feature failures, missing executable and stopped daemon, stable JSON errors and weak-command failures, opaque Workspace/Shell/Run mappings, pending/running/exited/closed states, Run changes, baseline/paginated/filtered event ordering and cursor expiry, create/close idempotency, partial and unknown outcomes, refusal to clean unrecorded resources, no automated GUI launch, and a source audit rejecting private Boomux state, Rust coupling, daemon sockets, hidden attachment commands, shell interpolation, and forbidden operational commands.",
+        "depends_on": [
+          "1.a",
+          "1.b",
+          "2.a"
+        ],
+        "outputs": [
+          "spikes/boomux-runtime-adapter/test/"
+        ],
+        "mode": "write"
+      },
+      {
+        "id": "3.b",
+        "assignee": "terra",
+        "description": "Run the complete deterministic test suite and syntax checks, then fix adapter or manual-harness defects without widening scope. Verify cleanup inspects exact recorded IDs, refuses a Workspace containing unowned resources, never parses human stdout for identity, never retries ambiguous mutations, and keeps all real presentation behind the explicit human gate. Do not perform live creation, presentation, closure, or cleanup.",
+        "depends_on": [
+          "2.a",
+          "2.b",
+          "3.a"
+        ],
+        "outputs": [
+          "validated adapter and manual harness",
+          "automated validation results for handoff"
+        ],
+        "mode": "write"
+      },
+      {
+        "id": "4.a",
+        "assignee": "sol",
+        "description": "Audit the completed spike read-only for public-contract fidelity and truthful claims. Check exact commands against Boomux 1.8.0, JSON versus non-JSON labeling, expected-Run limitations, close/detach distinction, capability requirements, opaque domain boundary, source-audit coverage, user-data protection, and whether README stops at the human observation gate. Return concrete required fixes only.",
+        "depends_on": [
+          "3.b"
+        ],
+        "outputs": [
+          "final contract and safety audit report"
+        ],
+        "mode": "read"
+      },
+      {
+        "id": "4.b",
+        "assignee": "luna",
+        "description": "Independently run syntax checks and deterministic tests, inspect source-audit results, and review coverage against every automated acceptance requirement. Confirm no test can invoke real GUI or destructive Boomux commands and identify any missing or flaky cases.",
+        "depends_on": [
+          "3.b"
+        ],
+        "outputs": [
+          "independent validation and coverage report"
+        ],
+        "mode": "read"
+      },
+      {
+        "id": "5.a",
+        "assignee": "sol",
+        "description": "Perform final integration on the shared working directory. Preserve all prior changes, apply only fixes required by the two audits, run all Node syntax checks and deterministic tests, run the safe public-CLI preflight snapshot into ignored local evidence without mutating Boomux, capture automated evidence, run git diff --check, and finalize README with exact evidence, failures, conclusion constraints, design implications, and disposition of every prototype file. Leave manual-observations explicitly pending and do not execute GUI, detach/reconnect, resource creation, or cleanup actions.",
+        "depends_on": [
+          "4.a",
+          "4.b"
+        ],
+        "outputs": [
+          "spikes/boomux-runtime-adapter/evidence/automated.txt",
+          "final spikes/boomux-runtime-adapter/README.md",
+          "validated pending human observation gate"
+        ],
+        "mode": "write"
+      }
+    ],
+    "waves": [
+      [
+        {
+          "id": "1.a",
+          "assignee": "sol",
+          "description": "Audit the installed Boomux 1.8.0 public contract using version, capabilities JSON, help, relevant subcommand help, and supplied public documentation. Define exact supported JSON commands, features, protocol/schema checks, stable errors, non-JSON weak dependencies, exact-Run limitation, and safe command flow. Run no mutations or GUI commands.",
+          "depends_on": [],
+          "outputs": [
+            "live Boomux public-contract and safety report"
+          ],
+          "mode": "read"
+        },
+        {
+          "id": "1.b",
+          "assignee": "luna",
+          "description": "Design the deterministic test matrix and source-coupling audit from the request and public contracts. Specify fixtures and assertions for envelopes, typed failures, opaque references, hostile argv, lifecycle states, event cursors, idempotency, unknown outcomes, cleanup ownership, unavailable Boomux, and prohibition of private state, Rust modules, hidden commands, and shell execution.",
+          "depends_on": [],
+          "outputs": [
+            "test and source-audit implementation report"
+          ],
+          "mode": "read"
+        },
+        {
+          "id": "1.c",
+          "assignee": "terra",
+          "description": "Inspect the current repository and reference consumer, then produce an implementation blueprint for a dependency-free Node spike confined to spikes/boomux-runtime-adapter. Resolve Workspace versus owner-Workspace identity, empty Workspace plus three explicitly named Shell creation, JSON readback reconciliation, ownership receipts, manual probe process, and explicit GUI gating. Run no mutations or GUI commands.",
+          "depends_on": [],
+          "outputs": [
+            "adapter and manual-harness implementation blueprint"
+          ],
+          "mode": "read"
+        }
+      ],
+      [
+        {
+          "id": "2.a",
+          "assignee": "terra",
+          "description": "Implement the throwaway adapter and manual harness under spikes/boomux-runtime-adapter. Add direct argv execution with shell disabled, strict boomux.cli/v1 success/error parsing, typed failures, capability and running-daemon checks, opaque reference and exact-ID receipt mapping, unique prefixed empty Workspace plus three role Shell creation with JSON readback, lifecycle inspection, pre/post checked presentation, ordered event subscription, exact-ID-only idempotent cleanup, private ignored preflight/receipt storage, explicit manual GUI authorization, and a probe process that records role, PID, Shell ID, and BOOMUX_RUN_ID. Never execute live mutations or GUI presentation while implementing.",
+          "depends_on": [
+            "1.a",
+            "1.c"
+          ],
+          "outputs": [
+            "spikes/boomux-runtime-adapter/lib/",
+            "spikes/boomux-runtime-adapter/manual.mjs",
+            "spikes/boomux-runtime-adapter/probe-process.mjs",
+            "spikes/boomux-runtime-adapter/.gitignore"
+          ],
+          "mode": "write"
+        },
+        {
+          "id": "2.b",
+          "assignee": "sol",
+          "description": "Create the initial spike record and public CLI evidence. Capture only safe version, capabilities, and help output. Document the question, assumptions, exact command/envelope contract, public versus non-JSON dependencies, close-versus-window-detach semantics, exact-Run race, safety policy, design implications, provisional conclusion, manual observation procedure, and pending human gate. Do not update docs/design/mvp.md or claim GUI behavior.",
+          "depends_on": [
+            "1.a"
+          ],
+          "outputs": [
+            "spikes/boomux-runtime-adapter/README.md",
+            "spikes/boomux-runtime-adapter/evidence/cli-source-truth.txt",
+            "spikes/boomux-runtime-adapter/evidence/manual-observations.md"
+          ],
+          "mode": "write"
+        }
+      ],
+      [
+        {
+          "id": "3.a",
+          "assignee": "luna",
+          "description": "Implement deterministic fake-executor fixtures and tests against the adapter API. Cover exact argv and envelopes, version/schema/protocol/command/feature failures, missing executable and stopped daemon, stable JSON errors and weak-command failures, opaque Workspace/Shell/Run mappings, pending/running/exited/closed states, Run changes, baseline/paginated/filtered event ordering and cursor expiry, create/close idempotency, partial and unknown outcomes, refusal to clean unrecorded resources, no automated GUI launch, and a source audit rejecting private Boomux state, Rust coupling, daemon sockets, hidden attachment commands, shell interpolation, and forbidden operational commands.",
+          "depends_on": [
+            "1.a",
+            "1.b",
+            "2.a"
+          ],
+          "outputs": [
+            "spikes/boomux-runtime-adapter/test/"
+          ],
+          "mode": "write"
+        }
+      ],
+      [
+        {
+          "id": "3.b",
+          "assignee": "terra",
+          "description": "Run the complete deterministic test suite and syntax checks, then fix adapter or manual-harness defects without widening scope. Verify cleanup inspects exact recorded IDs, refuses a Workspace containing unowned resources, never parses human stdout for identity, never retries ambiguous mutations, and keeps all real presentation behind the explicit human gate. Do not perform live creation, presentation, closure, or cleanup.",
+          "depends_on": [
+            "2.a",
+            "2.b",
+            "3.a"
+          ],
+          "outputs": [
+            "validated adapter and manual harness",
+            "automated validation results for handoff"
+          ],
+          "mode": "write"
+        }
+      ],
+      [
+        {
+          "id": "4.a",
+          "assignee": "sol",
+          "description": "Audit the completed spike read-only for public-contract fidelity and truthful claims. Check exact commands against Boomux 1.8.0, JSON versus non-JSON labeling, expected-Run limitations, close/detach distinction, capability requirements, opaque domain boundary, source-audit coverage, user-data protection, and whether README stops at the human observation gate. Return concrete required fixes only.",
+          "depends_on": [
+            "3.b"
+          ],
+          "outputs": [
+            "final contract and safety audit report"
+          ],
+          "mode": "read"
+        },
+        {
+          "id": "4.b",
+          "assignee": "luna",
+          "description": "Independently run syntax checks and deterministic tests, inspect source-audit results, and review coverage against every automated acceptance requirement. Confirm no test can invoke real GUI or destructive Boomux commands and identify any missing or flaky cases.",
+          "depends_on": [
+            "3.b"
+          ],
+          "outputs": [
+            "independent validation and coverage report"
+          ],
+          "mode": "read"
+        }
+      ],
+      [
+        {
+          "id": "5.a",
+          "assignee": "sol",
+          "description": "Perform final integration on the shared working directory. Preserve all prior changes, apply only fixes required by the two audits, run all Node syntax checks and deterministic tests, run the safe public-CLI preflight snapshot into ignored local evidence without mutating Boomux, capture automated evidence, run git diff --check, and finalize README with exact evidence, failures, conclusion constraints, design implications, and disposition of every prototype file. Leave manual-observations explicitly pending and do not execute GUI, detach/reconnect, resource creation, or cleanup actions.",
+          "depends_on": [
+            "4.a",
+            "4.b"
+          ],
+          "outputs": [
+            "spikes/boomux-runtime-adapter/evidence/automated.txt",
+            "final spikes/boomux-runtime-adapter/README.md",
+            "validated pending human observation gate"
+          ],
+          "mode": "write"
+        }
+      ]
+    ]
+  },
+  "taskExecutions": [
+    {
+      "taskId": "1.a",
+      "slot": "sol",
+      "mode": "read",
+      "startedAt": 1788122437584,
+      "endedAt": 1788122583169,
+      "ok": true
+    },
+    {
+      "taskId": "1.c",
+      "slot": "terra",
+      "mode": "read",
+      "startedAt": 1788122437588,
+      "endedAt": 1788122710021,
+      "ok": true
+    },
+    {
+      "taskId": "2.b",
+      "slot": "sol",
+      "mode": "write",
+      "startedAt": 1788122583171,
+      "endedAt": 1788122772524,
+      "ok": true
+    },
+    {
+      "taskId": "1.b",
+      "slot": "luna",
+      "mode": "read",
+      "startedAt": 1788122437586,
+      "endedAt": 1788123027648,
+      "ok": true
+    },
+    {
+      "taskId": "2.a",
+      "slot": "terra",
+      "mode": "write",
+      "startedAt": 1788122772526,
+      "endedAt": 1788123529694,
+      "ok": true
+    },
+    {
+      "taskId": "3.a",
+      "slot": "luna",
+      "mode": "write",
+      "startedAt": 1788123529696,
+      "endedAt": 1788124423321,
+      "ok": true
+    },
+    {
+      "taskId": "3.b",
+      "slot": "terra",
+      "mode": "write",
+      "startedAt": 1788124423327,
+      "endedAt": 1788124838401,
+      "ok": true
+    },
+    {
+      "taskId": "4.a",
+      "slot": "sol",
+      "mode": "read",
+      "startedAt": 1788124838403,
+      "endedAt": 1788124995841,
+      "ok": true
+    },
+    {
+      "taskId": "4.b",
+      "slot": "luna",
+      "mode": "read",
+      "startedAt": 1788124838405,
+      "endedAt": 1788125288770,
+      "ok": true
+    },
+    {
+      "taskId": "5.a",
+      "slot": "sol",
+      "mode": "write",
+      "startedAt": 1788125288772,
+      "endedAt": 1788125809596,
+      "ok": true
+    },
+    {
+      "taskId": "final",
+      "slot": "sol",
+      "mode": "write",
+      "startedAt": 1788125809598,
+      "endedAt": 1788125916833,
+      "ok": true
+    }
+  ],
+  "maxConcurrentWriteEnabledChildren": 1,
+  "worktreeCommandsObserved": [],
+  "writerLeasePath": "/tmp/fusion-harness-writer-locks/fd43f30d2566c81aa82e246e.lock",
+  "agents": [
+    {
+      "role": "ARCHITECT",
+      "model": "openai-codex/gpt-5.6-sol",
+      "slotId": "sol",
+      "slotName": "sol",
+      "color": "#7DD3FC",
+      "primary": false,
+      "architect": true,
+      "status": "done",
+      "ms": 107233,
+      "tokensIn": 13989181,
+      "tokensOut": 63952,
+      "costUsd": 13.158545000000002,
+      "toolCalls": 169,
+      "toolNames": [
+        "read",
+        "read",
+        "read",
+        "read",
+        "read",
+        "read",
+        "read",
+        "read",
+        "read",
+        "read",
+        "read",
+        "read",
+        "ls",
+        "find",
+        "find",
+        "ls",
+        "read",
+        "read",
+        "read",
+        "grep",
+        "grep",
+        "grep",
+        "read",
+        "read",
+        "read",
+        "read",
+        "read",
+        "read",
+        "read",
+        "grep",
+        "grep",
+        "read",
+        "grep",
+        "read",
+        "read",
+        "read",
+        "read",
+        "read",
+        "grep",
+        "grep",
+        "read",
+        "read",
+        "read",
+        "grep",
+        "grep",
+        "ls",
+        "read",
+        "read",
+        "read",
+        "ls",
+        "ls",
+        "find",
+        "grep",
+        "read",
+        "read",
+        "grep",
+        "grep",
+        "find",
+        "find",
+        "ls",
+        "find",
+        "ls",
+        "bash",
+        "read",
+        "bash",
+        "write",
+        "write",
+        "grep",
+        "grep",
+        "grep",
+        "find",
+        "bash",
+        "edit",
+        "bash",
+        "find",
+        "read",
+        "read",
+        "read",
+        "read",
+        "read",
+        "read",
+        "read",
+        "read",
+        "read",
+        "read",
+        "read",
+        "read",
+        "read",
+        "read",
+        "read",
+        "grep",
+        "read",
+        "grep",
+        "grep",
+        "grep",
+        "grep",
+        "grep",
+        "grep",
+        "grep",
+        "grep",
+        "grep",
+        "read",
+        "edit",
+        "edit",
+        "edit",
+        "edit",
+        "edit",
+        "edit",
+        "edit",
+        "edit",
+        "read",
+        "edit",
+        "edit",
+        "write",
+        "bash",
+        "edit",
+        "edit",
+        "bash",
+        "bash",
+        "edit",
+        "edit",
+        "edit",
+        "edit",
+        "bash",
+        "bash",
+        "bash",
+        "grep",
+        "grep",
+        "grep",
+        "grep",
+        "find",
+        "grep",
+        "edit",
+        "edit",
+        "edit",
+        "bash",
+        "grep",
+        "grep",
+        "grep",
+        "grep",
+        "grep",
+        "ls",
+        "bash",
+        "edit",
+        "bash",
+        "ls",
+        "read",
+        "find",
+        "read",
+        "read",
+        "read",
+        "read",
+        "read",
+        "read",
+        "read",
+        "read",
+        "read",
+        "read",
+        "read",
+        "read",
+        "read",
+        "read",
+        "read",
+        "read",
+        "read",
+        "read",
+        "read",
+        "bash",
+        "grep"
+      ],
+      "toolEvents": [
+        {
+          "name": "read",
+          "argument": "AGENTS.md"
+        },
+        {
+          "name": "read",
+          "argument": "design/mvp.md"
+        },
+        {
+          "name": "read",
+          "argument": "research/foundation-assessment.md"
+        },
+        {
+          "name": "read",
+          "argument": "spikes/README.md"
+        },
+        {
+          "name": "read",
+          "argument": "pi-visible-bridge/README.md"
+        },
+        {
+          "name": "read",
+          "argument": "pi-boomux/README.md"
+        },
+        {
+          "name": "read",
+          "argument": "docs/architecture.md"
+        },
+        {
+          "name": "read",
+          "argument": "docs/native-terminal-follow-up.md"
+        },
+        {
+          "name": "read",
+          "argument": "docs/live-pty-handoff.md"
+        },
+        {
+          "name": "read",
+          "argument": "docs/architecture.md"
+        },
+        {
+          "name": "read",
+          "argument": "docs/cli-json.md"
+        },
+        {
+          "name": "read",
+          "argument": "docs/event-stream.md"
+        },
+        {
+          "name": "ls",
+          "argument": "tmp/pi-omarchy-boomux"
+        },
+        {
+          "name": "find",
+          "argument": "tmp/pi-omarchy-boomux"
+        },
+        {
+          "name": "find",
+          "argument": "."
+        },
+        {
+          "name": "ls",
+          "argument": "."
+        },
+        {
+          "name": "read",
+          "argument": "pi-omarchy-boomux/compatibility.json"
+        },
+        {
+          "name": "read",
+          "argument": "pi-omarchy-boomux/WorkspaceModel.js"
+        },
+        {
+          "name": "read",
+          "argument": "tests/compatibility.test.js"
+        },
+        {
+          "name": "grep",
+          "argument": "tmp/pi-omarchy-boomux"
+        },
+        {
+          "name": "grep",
+          "argument": "pi-boomux/src"
+        },
+        {
+          "name": "grep",
+          "argument": "tmp/pi-boomux"
+        },
+        {
+          "name": "read",
+          "argument": "justfile"
+        },
+        {
+          "name": "read",
+          "argument": ".gitignore"
+        },
+        {
+          "name": "read",
+          "argument": "src/main.rs"
+        },
+        {
+          "name": "read",
+          "argument": "src/main.rs"
+        },
+        {
+          "name": "read",
+          "argument": "src/main.rs"
+        },
+        {
+          "name": "read",
+          "argument": "src/main.rs"
+        },
+        {
+          "name": "read",
+          "argument": "src/main.rs"
+        },
+        {
+          "name": "grep",
+          "argument": "src/main.rs"
+        },
+        {
+          "name": "grep",
+          "argument": "src/cli_output.rs"
+        },
+        {
+          "name": "read",
+          "argument": "pi-boomux/CHANGELOG.md"
+        },
+        {
+          "name": "grep",
+          "argument": "pi-boomux/src"
+        },
+        {
+          "name": "read",
+          "argument": "src/main.rs"
+        },
+        {
+          "name": "read",
+          "argument": "src/main.rs"
+        },
+        {
+          "name": "read",
+          "argument": "src/main.rs"
+        },
+        {
+          "name": "read",
+          "argument": "src/main.rs"
+        },
+        {
+          "name": "read",
+          "argument": "pi-omarchy-boomux/WorkspaceModel.js"
+        },
+        {
+          "name": "grep",
+          "argument": "src/protocol.rs"
+        },
+        {
+          "name": "grep",
+          "argument": "src/terminal.rs"
+        },
+        {
+          "name": "read",
+          "argument": "src/main.rs"
+        },
+        {
+          "name": "read",
+          "argument": "src/main.rs"
+        },
+        {
+          "name": "read",
+          "argument": "src/protocol.rs"
+        },
+        {
+          "name": "grep",
+          "argument": "src/main.rs"
+        },
+        {
+          "name": "grep",
+          "argument": "src/main.rs"
+        },
+        {
+          "name": "ls",
+          "argument": "collaborate/proposals"
+        },
+        {
+          "name": "read",
+          "argument": "proposals/sol.md"
+        },
+        {
+          "name": "read",
+          "argument": "proposals/terra.md"
+        },
+        {
+          "name": "read",
+          "argument": "proposals/luna.md"
+        },
+        {
+          "name": "ls",
+          "argument": "."
+        },
+        {
+          "name": "ls",
+          "argument": "collaborate/reports"
+        },
+        {
+          "name": "find",
+          "argument": "/tmp"
+        },
+        {
+          "name": "grep",
+          "argument": "/tmp"
+        },
+        {
+          "name": "read",
+          "argument": "collaborate/plan.json"
+        },
+        {
+          "name": "read",
+          "argument": "tmp/omarchestra-boomux-capabilities.json"
+        },
+        {
+          "name": "grep",
+          "argument": "/tmp"
+        },
+        {
+          "name": "grep",
+          "argument": "/tmp"
+        },
+        {
+          "name": "find",
+          "argument": "/tmp"
+        },
+        {
+          "name": "find",
+          "argument": "/tmp"
+        },
+        {
+          "name": "ls",
+          "argument": "spikes"
+        },
+        {
+          "name": "find",
+          "argument": "spikes/boomux-runtime-adapter"
+        },
+        {
+          "name": "ls",
+          "argument": "collaborate/reports"
+        },
+        {
+          "name": "bash",
+          "argument": "set -eu out=/tmp/boomux-runtime-adapter-cli-source-truth.txt : > \"$out\" run() { printf '\\n$' >> \"$out\" printf ' %q' \"$@\" >> \"$out\" printf '\\n' >> \"$out\" timeout 10s \"$@\" >> \"$out\" 2>&1 } run boomux --"
+        },
+        {
+          "name": "read",
+          "argument": "tmp/boomux-runtime-adapter-cli-source-truth.txt"
+        },
+        {
+          "name": "bash",
+          "argument": "set -eu mkdir -p spikes/boomux-runtime-adapter/evidence cp /tmp/boomux-runtime-adapter-cli-source-truth.txt spikes/boomux-runtime-adapter/evidence/cli-source-truth.txt wc -c spikes/boomux-runtime-adap"
+        },
+        {
+          "name": "write",
+          "argument": "boomux-runtime-adapter/README.md"
+        },
+        {
+          "name": "write",
+          "argument": "evidence/manual-observations.md"
+        },
+        {
+          "name": "grep",
+          "argument": "boomux-runtime-adapter/README.md"
+        },
+        {
+          "name": "grep",
+          "argument": "evidence/cli-source-truth.txt"
+        },
+        {
+          "name": "grep",
+          "argument": "evidence/manual-observations.md"
+        },
+        {
+          "name": "find",
+          "argument": "spikes/boomux-runtime-adapter"
+        },
+        {
+          "name": "bash",
+          "argument": "set -eu git diff --check git status --short -- spikes/boomux-runtime-adapter printf '\\nforbidden live command audit in captured command prompts:\\n' if grep -nE '^\\$ boomux (setup|update|uninstall|web|"
+        },
+        {
+          "name": "edit",
+          "argument": "boomux-runtime-adapter/README.md"
+        },
+        {
+          "name": "bash",
+          "argument": "set -eu git diff --check wc -l spikes/boomux-runtime-adapter/README.md spikes/boomux-runtime-adapter/evidence/cli-source-truth.txt spikes/boomux-runtime-adapter/evidence/manual-observations.md"
+        },
+        {
+          "name": "find",
+          "argument": "spikes/boomux-runtime-adapter"
+        },
+        {
+          "name": "read",
+          "argument": "reports/3.b-terra.md"
+        },
+        {
+          "name": "read",
+          "argument": "boomux-runtime-adapter/README.md"
+        },
+        {
+          "name": "read",
+          "argument": "boomux-runtime-adapter/manual.mjs"
+        },
+        {
+          "name": "read",
+          "argument": "boomux-runtime-adapter/probe-process.mjs"
+        },
+        {
+          "name": "read",
+          "argument": "boomux-runtime-adapter/.gitignore"
+        },
+        {
+          "name": "read",
+          "argument": "lib/commands.mjs"
+        },
+        {
+          "name": "read",
+          "argument": "lib/envelopes.mjs"
+        },
+        {
+          "name": "read",
+          "argument": "lib/errors.mjs"
+        },
+        {
+          "name": "read",
+          "argument": "lib/executor.mjs"
+        },
+        {
+          "name": "read",
+          "argument": "lib/receipt.mjs"
+        },
+        {
+          "name": "read",
+          "argument": "lib/adapter.mjs"
+        },
+        {
+          "name": "read",
+          "argument": "test/source-audit.test.mjs"
+        },
+        {
+          "name": "read",
+          "argument": "test/contracts.test.mjs"
+        },
+        {
+          "name": "read",
+          "argument": "lib/adapter.mjs"
+        },
+        {
+          "name": "read",
+          "argument": "test/fixtures.mjs"
+        },
+        {
+          "name": "grep",
+          "argument": "test/adapter.test.mjs"
+        },
+        {
+          "name": "read",
+          "argument": "evidence/manual-observations.md"
+        },
+        {
+          "name": "grep",
+          "argument": "lib/adapter.mjs"
+        },
+        {
+          "name": "grep",
+          "argument": "boomux-runtime-adapter/manual.mjs"
+        },
+        {
+          "name": "grep",
+          "argument": "lib/commands.mjs"
+        },
+        {
+          "name": "grep",
+          "argument": "boomux-runtime-adapter/README.md"
+        },
+        {
+          "name": "grep",
+          "argument": "test/source-audit.test.mjs"
+        },
+        {
+          "name": "grep",
+          "argument": "lib/adapter.mjs"
+        },
+        {
+          "name": "grep",
+          "argument": "test/adapter.test.mjs"
+        },
+        {
+          "name": "grep",
+          "argument": "spikes/boomux-runtime-adapter"
+        },
+        {
+          "name": "grep",
+          "argument": "spikes/boomux-runtime-adapter"
+        },
+        {
+          "name": "read",
+          "argument": "test/adapter.test.mjs"
+        },
+        {
+          "name": "edit",
+          "argument": "lib/commands.mjs"
+        },
+        {
+          "name": "edit",
+          "argument": "lib/receipt.mjs"
+        },
+        {
+          "name": "edit",
+          "argument": "lib/adapter.mjs"
+        },
+        {
+          "name": "edit",
+          "argument": "lib/adapter.mjs"
+        },
+        {
+          "name": "edit",
+          "argument": "test/fixtures.mjs"
+        },
+        {
+          "name": "edit",
+          "argument": "test/contracts.test.mjs"
+        },
+        {
+          "name": "edit",
+          "argument": "test/source-audit.test.mjs"
+        },
+        {
+          "name": "edit",
+          "argument": "boomux-runtime-adapter/manual.mjs"
+        },
+        {
+          "name": "read",
+          "argument": "boomux-runtime-adapter/manual.mjs"
+        },
+        {
+          "name": "edit",
+          "argument": "boomux-runtime-adapter/manual.mjs"
+        },
+        {
+          "name": "edit",
+          "argument": "boomux-runtime-adapter/manual.mjs"
+        },
+        {
+          "name": "write",
+          "argument": "boomux-runtime-adapter/probe-process.mjs"
+        },
+        {
+          "name": "bash",
+          "argument": "set -eu for file in spikes/boomux-runtime-adapter/*.mjs spikes/boomux-runtime-adapter/lib/*.mjs spikes/boomux-runtime-adapter/test/*.mjs; do timeout 10s node --check \"$file\"; done timeout 60s node --t"
+        },
+        {
+          "name": "edit",
+          "argument": "test/adapter.test.mjs"
+        },
+        {
+          "name": "edit",
+          "argument": "boomux-runtime-adapter/manual.mjs"
+        },
+        {
+          "name": "bash",
+          "argument": "set -eu for file in spikes/boomux-runtime-adapter/*.mjs spikes/boomux-runtime-adapter/lib/*.mjs spikes/boomux-runtime-adapter/test/*.mjs; do timeout 10s node --check \"$file\"; done timeout 60s node --t"
+        },
+        {
+          "name": "bash",
+          "argument": "timeout 60s node spikes/boomux-runtime-adapter/manual.mjs preflight"
+        },
+        {
+          "name": "edit",
+          "argument": "boomux-runtime-adapter/README.md"
+        },
+        {
+          "name": "edit",
+          "argument": "boomux-runtime-adapter/README.md"
+        },
+        {
+          "name": "edit",
+          "argument": "boomux-runtime-adapter/README.md"
+        },
+        {
+          "name": "edit",
+          "argument": "boomux-runtime-adapter/README.md"
+        },
+        {
+          "name": "bash",
+          "argument": "set -eu git status --short -- spikes/boomux-runtime-adapter if git status --short -- spikes/boomux-runtime-adapter/evidence/local | grep .; then printf 'private evidence unexpectedly tracked\\n' >&2 ex"
+        },
+        {
+          "name": "bash",
+          "argument": "set -eu file=$(find spikes/boomux-runtime-adapter/evidence/local -maxdepth 1 -type f -name 'preflight-*.json' -print -quit) test -n \"$file\" git check-ignore -q \"$file\" printf 'private preflight is ign"
+        },
+        {
+          "name": "bash",
+          "argument": "set -eu out=spikes/boomux-runtime-adapter/evidence/automated.txt tmp=$(mktemp) trap 'rm -f \"$tmp\"' EXIT { printf '$ boomux --version\\n' timeout 10s boomux --version printf '\\n$ node --check spikes/boo"
+        },
+        {
+          "name": "grep",
+          "argument": "spikes/boomux-runtime-adapter"
+        },
+        {
+          "name": "grep",
+          "argument": "boomux-runtime-adapter/README.md"
+        },
+        {
+          "name": "grep",
+          "argument": "evidence/manual-observations.md"
+        },
+        {
+          "name": "grep",
+          "argument": "evidence/automated.txt"
+        },
+        {
+          "name": "find",
+          "argument": "spikes/boomux-runtime-adapter"
+        },
+        {
+          "name": "grep",
+          "argument": "boomux-runtime-adapter/README.md"
+        },
+        {
+          "name": "edit",
+          "argument": "evidence/manual-observations.md"
+        },
+        {
+          "name": "edit",
+          "argument": "lib/adapter.mjs"
+        },
+        {
+          "name": "edit",
+          "argument": "test/adapter.test.mjs"
+        },
+        {
+          "name": "bash",
+          "argument": "set -eu out=spikes/boomux-runtime-adapter/evidence/automated.txt tmp=$(mktemp) trap 'rm -f \"$tmp\"' EXIT { printf '$ boomux --version\\n' timeout 10s boomux --version printf '\\n$ node --check spikes/boo"
+        },
+        {
+          "name": "grep",
+          "argument": "boomux-runtime-adapter/README.md"
+        },
+        {
+          "name": "grep",
+          "argument": "spikes/boomux-runtime-adapter"
+        },
+        {
+          "name": "grep",
+          "argument": "lib/adapter.mjs"
+        },
+        {
+          "name": "grep",
+          "argument": "evidence/automated.txt"
+        },
+        {
+          "name": "grep",
+          "argument": "evidence/manual-observations.md"
+        },
+        {
+          "name": "ls",
+          "argument": "evidence/local"
+        },
+        {
+          "name": "bash",
+          "argument": "set -eu git diff --check git status --short printf '\\ntracked/ignored private evidence check:\\n' for file in spikes/boomux-runtime-adapter/evidence/local/*; do git check-ignore -q \"$file\"; done printf"
+        },
+        {
+          "name": "edit",
+          "argument": "boomux-runtime-adapter/README.md"
+        },
+        {
+          "name": "bash",
+          "argument": "set -eu git diff --check grep -q 'Result: \\*\\*PENDING\\*\\*' spikes/boomux-runtime-adapter/evidence/manual-observations.md grep -q 'ℹ pass 61' spikes/boomux-runtime-adapter/evidence/automated.txt grep -"
+        },
+        {
+          "name": "ls",
+          "argument": "collaborate/reports"
+        },
+        {
+          "name": "read",
+          "argument": "collaborate/plan.json"
+        },
+        {
+          "name": "find",
+          "argument": "spikes/boomux-runtime-adapter"
+        },
+        {
+          "name": "read",
+          "argument": "boomux-runtime-adapter/README.md"
+        },
+        {
+          "name": "read",
+          "argument": "evidence/automated.txt"
+        },
+        {
+          "name": "read",
+          "argument": "evidence/manual-observations.md"
+        },
+        {
+          "name": "read",
+          "argument": "reports/1.a-sol.md"
+        },
+        {
+          "name": "read",
+          "argument": "reports/1.b-luna.md"
+        },
+        {
+          "name": "read",
+          "argument": "reports/1.c-terra.md"
+        },
+        {
+          "name": "read",
+          "argument": "reports/2.a-terra.md"
+        },
+        {
+          "name": "read",
+          "argument": "reports/2.b-sol.md"
+        },
+        {
+          "name": "read",
+          "argument": "reports/3.a-luna.md"
+        },
+        {
+          "name": "read",
+          "argument": "reports/3.b-terra.md"
+        },
+        {
+          "name": "read",
+          "argument": "reports/4.a-sol.md"
+        },
+        {
+          "name": "read",
+          "argument": "reports/4.b-luna.md"
+        },
+        {
+          "name": "read",
+          "argument": "reports/5.a-sol.md"
+        },
+        {
+          "name": "read",
+          "argument": "lib/commands.mjs"
+        },
+        {
+          "name": "read",
+          "argument": "lib/receipt.mjs"
+        },
+        {
+          "name": "read",
+          "argument": "boomux-runtime-adapter/manual.mjs"
+        },
+        {
+          "name": "read",
+          "argument": "boomux-runtime-adapter/probe-process.mjs"
+        },
+        {
+          "name": "read",
+          "argument": "test/source-audit.test.mjs"
+        },
+        {
+          "name": "read",
+          "argument": "boomux-runtime-adapter/.gitignore"
+        },
+        {
+          "name": "bash",
+          "argument": "set -eu for file in spikes/boomux-runtime-adapter/*.mjs spikes/boomux-runtime-adapter/lib/*.mjs spikes/boomux-runtime-adapter/test/*.mjs; do timeout 10s node --check \"$file\"; done timeout 60s node --t"
+        },
+        {
+          "name": "grep",
+          "argument": "lib/adapter.mjs"
+        }
+      ],
+      "tps": 46.47195813840489,
+      "chars": 2446
+    },
+    {
+      "role": "BUILDER",
+      "model": "openai-codex/gpt-5.6-terra",
+      "slotId": "terra",
+      "slotName": "terra",
+      "color": "#F59E0B",
+      "primary": true,
+      "architect": false,
+      "status": "done",
+      "ms": 415073,
+      "tokensIn": 11728443,
+      "tokensOut": 89937,
+      "costUsd": 4.5346452,
+      "toolCalls": 209,
+      "toolNames": [
+        "read",
+        "read",
+        "read",
+        "read",
+        "read",
+        "read",
+        "read",
+        "read",
+        "read",
+        "read",
+        "find",
+        "find",
+        "find",
+        "find",
+        "ls",
+        "read",
+        "read",
+        "read",
+        "read",
+        "read",
+        "read",
+        "read",
+        "read",
+        "read",
+        "ls",
+        "grep",
+        "grep",
+        "grep",
+        "grep",
+        "grep",
+        "find",
+        "read",
+        "read",
+        "grep",
+        "grep",
+        "grep",
+        "grep",
+        "grep",
+        "read",
+        "read",
+        "read",
+        "read",
+        "read",
+        "read",
+        "read",
+        "grep",
+        "read",
+        "grep",
+        "grep",
+        "grep",
+        "grep",
+        "read",
+        "grep",
+        "read",
+        "read",
+        "read",
+        "read",
+        "read",
+        "read",
+        "read",
+        "read",
+        "read",
+        "grep",
+        "read",
+        "grep",
+        "read",
+        "grep",
+        "grep",
+        "read",
+        "grep",
+        "read",
+        "read",
+        "read",
+        "ls",
+        "find",
+        "read",
+        "find",
+        "ls",
+        "read",
+        "read",
+        "grep",
+        "grep",
+        "read",
+        "read",
+        "read",
+        "read",
+        "read",
+        "read",
+        "find",
+        "read",
+        "read",
+        "read",
+        "grep",
+        "read",
+        "read",
+        "read",
+        "read",
+        "read",
+        "read",
+        "read",
+        "read",
+        "read",
+        "read",
+        "read",
+        "grep",
+        "read",
+        "grep",
+        "grep",
+        "read",
+        "read",
+        "read",
+        "read",
+        "grep",
+        "read",
+        "grep",
+        "read",
+        "read",
+        "grep",
+        "grep",
+        "ls",
+        "find",
+        "find",
+        "read",
+        "read",
+        "read",
+        "read",
+        "read",
+        "read",
+        "read",
+        "ls",
+        "read",
+        "read",
+        "write",
+        "write",
+        "write",
+        "write",
+        "write",
+        "write",
+        "write",
+        "edit",
+        "edit",
+        "write",
+        "write",
+        "edit",
+        "bash",
+        "edit",
+        "edit",
+        "bash",
+        "bash",
+        "bash",
+        "edit",
+        "bash",
+        "bash",
+        "edit",
+        "edit",
+        "edit",
+        "edit",
+        "bash",
+        "read",
+        "read",
+        "read",
+        "grep",
+        "grep",
+        "edit",
+        "bash",
+        "find",
+        "find",
+        "read",
+        "read",
+        "read",
+        "read",
+        "read",
+        "read",
+        "read",
+        "read",
+        "read",
+        "read",
+        "read",
+        "read",
+        "read",
+        "read",
+        "read",
+        "read",
+        "read",
+        "read",
+        "read",
+        "bash",
+        "bash",
+        "edit",
+        "edit",
+        "edit",
+        "bash",
+        "edit",
+        "edit",
+        "bash",
+        "bash",
+        "grep",
+        "grep",
+        "grep",
+        "read",
+        "read",
+        "edit",
+        "read",
+        "read",
+        "read",
+        "read",
+        "edit",
+        "bash",
+        "write"
+      ],
+      "toolEvents": [
+        {
+          "name": "read",
+          "argument": "AGENTS.md"
+        },
+        {
+          "name": "read",
+          "argument": "design/mvp.md"
+        },
+        {
+          "name": "read",
+          "argument": "research/foundation-assessment.md"
+        },
+        {
+          "name": "read",
+          "argument": "spikes/README.md"
+        },
+        {
+          "name": "read",
+          "argument": "pi-visible-bridge/README.md"
+        },
+        {
+          "name": "read",
+          "argument": "pi-boomux/README.md"
+        },
+        {
+          "name": "read",
+          "argument": "docs/architecture.md"
+        },
+        {
+          "name": "read",
+          "argument": "docs/native-terminal-follow-up.md"
+        },
+        {
+          "name": "read",
+          "argument": "docs/live-pty-handoff.md"
+        },
+        {
+          "name": "read",
+          "argument": "docs/architecture.md"
+        },
+        {
+          "name": "find",
+          "argument": "spikes"
+        },
+        {
+          "name": "find",
+          "argument": "tmp/pi-omarchy-boomux"
+        },
+        {
+          "name": "find",
+          "argument": "pi-boomux/docs"
+        },
+        {
+          "name": "find",
+          "argument": "."
+        },
+        {
+          "name": "ls",
+          "argument": "."
+        },
+        {
+          "name": "read",
+          "argument": "docs/cli-json.md"
+        },
+        {
+          "name": "read",
+          "argument": "docs/event-stream.md"
+        },
+        {
+          "name": "read",
+          "argument": "pi-omarchy-boomux/compatibility.json"
+        },
+        {
+          "name": "read",
+          "argument": "scripts/check-boomux-capabilities.js"
+        },
+        {
+          "name": "read",
+          "argument": "tests/compatibility.test.js"
+        },
+        {
+          "name": "read",
+          "argument": "pi-omarchy-boomux/README.md"
+        },
+        {
+          "name": "read",
+          "argument": "justfile"
+        },
+        {
+          "name": "read",
+          "argument": ".gitignore"
+        },
+        {
+          "name": "read",
+          "argument": "docs/lifecycle-validation.md"
+        },
+        {
+          "name": "ls",
+          "argument": "tmp/pi-boomux"
+        },
+        {
+          "name": "grep",
+          "argument": "tmp/pi-boomux"
+        },
+        {
+          "name": "grep",
+          "argument": "tmp/pi-boomux"
+        },
+        {
+          "name": "grep",
+          "argument": "tmp/pi-boomux"
+        },
+        {
+          "name": "grep",
+          "argument": "tmp/pi-omarchy-boomux"
+        },
+        {
+          "name": "grep",
+          "argument": "tmp/pi-omarchy-boomux"
+        },
+        {
+          "name": "find",
+          "argument": "tmp/pi-boomux"
+        },
+        {
+          "name": "read",
+          "argument": "boomux/SKILL.md"
+        },
+        {
+          "name": "read",
+          "argument": "boomux/SKILL.md"
+        },
+        {
+          "name": "grep",
+          "argument": "src/main.rs"
+        },
+        {
+          "name": "grep",
+          "argument": "src/main.rs"
+        },
+        {
+          "name": "grep",
+          "argument": "pi-boomux/src"
+        },
+        {
+          "name": "grep",
+          "argument": "pi-boomux/src"
+        },
+        {
+          "name": "grep",
+          "argument": "pi-boomux/src"
+        },
+        {
+          "name": "read",
+          "argument": "boomux/SKILL.md"
+        },
+        {
+          "name": "read",
+          "argument": "src/main.rs"
+        },
+        {
+          "name": "read",
+          "argument": "src/main.rs"
+        },
+        {
+          "name": "read",
+          "argument": "src/main.rs"
+        },
+        {
+          "name": "read",
+          "argument": "src/main.rs"
+        },
+        {
+          "name": "read",
+          "argument": "src/main.rs"
+        },
+        {
+          "name": "read",
+          "argument": "src/main.rs"
+        },
+        {
+          "name": "grep",
+          "argument": "src/main.rs"
+        },
+        {
+          "name": "read",
+          "argument": "src/main.rs"
+        },
+        {
+          "name": "grep",
+          "argument": "src/main.rs"
+        },
+        {
+          "name": "grep",
+          "argument": "src/main.rs"
+        },
+        {
+          "name": "grep",
+          "argument": "src/main.rs"
+        },
+        {
+          "name": "grep",
+          "argument": "src/main.rs"
+        },
+        {
+          "name": "read",
+          "argument": "src/main.rs"
+        },
+        {
+          "name": "grep",
+          "argument": "src/main.rs"
+        },
+        {
+          "name": "read",
+          "argument": "src/main.rs"
+        },
+        {
+          "name": "read",
+          "argument": "src/main.rs"
+        },
+        {
+          "name": "read",
+          "argument": "src/main.rs"
+        },
+        {
+          "name": "read",
+          "argument": "src/main.rs"
+        },
+        {
+          "name": "read",
+          "argument": "src/main.rs"
+        },
+        {
+          "name": "read",
+          "argument": "src/main.rs"
+        },
+        {
+          "name": "read",
+          "argument": "src/main.rs"
+        },
+        {
+          "name": "read",
+          "argument": "src/main.rs"
+        },
+        {
+          "name": "read",
+          "argument": "src/main.rs"
+        },
+        {
+          "name": "grep",
+          "argument": "src/main.rs"
+        },
+        {
+          "name": "read",
+          "argument": "src/main.rs"
+        },
+        {
+          "name": "grep",
+          "argument": "src/protocol.rs"
+        },
+        {
+          "name": "read",
+          "argument": "src/main.rs"
+        },
+        {
+          "name": "grep",
+          "argument": "src/main.rs"
+        },
+        {
+          "name": "grep",
+          "argument": "src/cli_output.rs"
+        },
+        {
+          "name": "read",
+          "argument": "src/cli_output.rs"
+        },
+        {
+          "name": "grep",
+          "argument": "src/protocol.rs"
+        },
+        {
+          "name": "read",
+          "argument": "src/protocol.rs"
+        },
+        {
+          "name": "read",
+          "argument": "src/main.rs"
+        },
+        {
+          "name": "read",
+          "argument": "src/cli_output.rs"
+        },
+        {
+          "name": "ls",
+          "argument": "spikes"
+        },
+        {
+          "name": "find",
+          "argument": "spikes/boomux-runtime-adapter"
+        },
+        {
+          "name": "read",
+          "argument": "collaborate/plan.json"
+        },
+        {
+          "name": "find",
+          "argument": "collaborate/reports"
+        },
+        {
+          "name": "ls",
+          "argument": "fusion-harness-FQG0OZ/collaborate"
+        },
+        {
+          "name": "read",
+          "argument": "pi-omarchy-boomux/compatibility.json"
+        },
+        {
+          "name": "read",
+          "argument": "scripts/check-boomux-capabilities.js"
+        },
+        {
+          "name": "grep",
+          "argument": "tmp/pi-omarchy-boomux"
+        },
+        {
+          "name": "grep",
+          "argument": "tmp/pi-omarchy-boomux"
+        },
+        {
+          "name": "read",
+          "argument": "pi-omarchy-boomux/Panel.qml"
+        },
+        {
+          "name": "read",
+          "argument": "pi-omarchy-boomux/Panel.qml"
+        },
+        {
+          "name": "read",
+          "argument": "pi-omarchy-boomux/Panel.qml"
+        },
+        {
+          "name": "read",
+          "argument": "pi-omarchy-boomux/Panel.qml"
+        },
+        {
+          "name": "read",
+          "argument": "pi-omarchy-boomux/WorkspaceModel.js"
+        },
+        {
+          "name": "read",
+          "argument": "pi-omarchy-boomux/WorkspaceModel.js"
+        },
+        {
+          "name": "find",
+          "argument": "collaborate/proposals"
+        },
+        {
+          "name": "read",
+          "argument": "proposals/sol.md"
+        },
+        {
+          "name": "read",
+          "argument": "proposals/luna.md"
+        },
+        {
+          "name": "read",
+          "argument": "proposals/terra.md"
+        },
+        {
+          "name": "grep",
+          "argument": "pi-omarchy-boomux/WorkspaceModel.js"
+        },
+        {
+          "name": "read",
+          "argument": "pi-omarchy-boomux/WorkspaceModel.js"
+        },
+        {
+          "name": "read",
+          "argument": "docs/cli-json.md"
+        },
+        {
+          "name": "read",
+          "argument": "docs/event-stream.md"
+        },
+        {
+          "name": "read",
+          "argument": "pi-omarchy-boomux/WorkspaceModel.js"
+        },
+        {
+          "name": "read",
+          "argument": "pi-omarchy-boomux/Panel.qml"
+        },
+        {
+          "name": "read",
+          "argument": "src/main.rs"
+        },
+        {
+          "name": "read",
+          "argument": "src/main.rs"
+        },
+        {
+          "name": "read",
+          "argument": "src/main.rs"
+        },
+        {
+          "name": "read",
+          "argument": "src/protocol.rs"
+        },
+        {
+          "name": "read",
+          "argument": "src/main.rs"
+        },
+        {
+          "name": "read",
+          "argument": "pi-omarchy-boomux/WorkspaceModel.js"
+        },
+        {
+          "name": "grep",
+          "argument": "src/protocol.rs"
+        },
+        {
+          "name": "read",
+          "argument": "src/protocol.rs"
+        },
+        {
+          "name": "grep",
+          "argument": "src/cli_output.rs"
+        },
+        {
+          "name": "grep",
+          "argument": "src/main.rs"
+        },
+        {
+          "name": "read",
+          "argument": "src/main.rs"
+        },
+        {
+          "name": "read",
+          "argument": "src/protocol.rs"
+        },
+        {
+          "name": "read",
+          "argument": "src/main.rs"
+        },
+        {
+          "name": "read",
+          "argument": "src/main.rs"
+        },
+        {
+          "name": "grep",
+          "argument": "src/main.rs"
+        },
+        {
+          "name": "read",
+          "argument": "src/main.rs"
+        },
+        {
+          "name": "grep",
+          "argument": "pi-boomux/src"
+        },
+        {
+          "name": "read",
+          "argument": "src/daemon.rs"
+        },
+        {
+          "name": "read",
+          "argument": "src/daemon.rs"
+        },
+        {
+          "name": "grep",
+          "argument": "src/global_workspace_store.rs"
+        },
+        {
+          "name": "grep",
+          "argument": "src/daemon.rs"
+        },
+        {
+          "name": "ls",
+          "argument": "spikes"
+        },
+        {
+          "name": "find",
+          "argument": "spikes/boomux-runtime-adapter"
+        },
+        {
+          "name": "find",
+          "argument": "collaborate/reports"
+        },
+        {
+          "name": "read",
+          "argument": "AGENTS.md"
+        },
+        {
+          "name": "read",
+          "argument": "spikes/README.md"
+        },
+        {
+          "name": "read",
+          "argument": "docs/cli-json.md"
+        },
+        {
+          "name": "read",
+          "argument": "docs/event-stream.md"
+        },
+        {
+          "name": "read",
+          "argument": "boomux-runtime-adapter/README.md"
+        },
+        {
+          "name": "read",
+          "argument": "reports/1.a-sol.md"
+        },
+        {
+          "name": "read",
+          "argument": "reports/2.b-sol.md"
+        },
+        {
+          "name": "ls",
+          "argument": "boomux-runtime-adapter/evidence"
+        },
+        {
+          "name": "read",
+          "argument": "evidence/cli-source-truth.txt"
+        },
+        {
+          "name": "read",
+          "argument": "evidence/manual-observations.md"
+        },
+        {
+          "name": "write",
+          "argument": "boomux-runtime-adapter/.gitignore"
+        },
+        {
+          "name": "write",
+          "argument": "lib/errors.mjs"
+        },
+        {
+          "name": "write",
+          "argument": "lib/envelopes.mjs"
+        },
+        {
+          "name": "write",
+          "argument": "lib/commands.mjs"
+        },
+        {
+          "name": "write",
+          "argument": "lib/executor.mjs"
+        },
+        {
+          "name": "write",
+          "argument": "lib/receipt.mjs"
+        },
+        {
+          "name": "write",
+          "argument": "lib/adapter.mjs"
+        },
+        {
+          "name": "edit",
+          "argument": "lib/commands.mjs"
+        },
+        {
+          "name": "edit",
+          "argument": "lib/adapter.mjs"
+        },
+        {
+          "name": "write",
+          "argument": "boomux-runtime-adapter/probe-process.mjs"
+        },
+        {
+          "name": "write",
+          "argument": "boomux-runtime-adapter/manual.mjs"
+        },
+        {
+          "name": "edit",
+          "argument": "boomux-runtime-adapter/manual.mjs"
+        },
+        {
+          "name": "bash",
+          "argument": "node --check spikes/boomux-runtime-adapter/lib/errors.mjs && node --check spikes/boomux-runtime-adapter/lib/envelopes.mjs && node --check spikes/boomux-runtime-adapter/lib/commands.mjs && node --check"
+        },
+        {
+          "name": "edit",
+          "argument": "lib/adapter.mjs"
+        },
+        {
+          "name": "edit",
+          "argument": "lib/adapter.mjs"
+        },
+        {
+          "name": "bash",
+          "argument": "node --input-type=module <<'EOF' import { BoomuxRuntimeAdapter, REQUIRED_JSON_COMMANDS, REQUIRED_FEATURES, REQUIRED_ERROR_CODES } from './spikes/boomux-runtime-adapter/lib/adapter.mjs' import { Memory"
+        },
+        {
+          "name": "bash",
+          "argument": "node --input-type=module <<'EOF' import { BoomuxRuntimeAdapter, REQUIRED_JSON_COMMANDS, REQUIRED_FEATURES, REQUIRED_ERROR_CODES } from './spikes/boomux-runtime-adapter/lib/adapter.mjs' import { Memory"
+        },
+        {
+          "name": "bash",
+          "argument": "git status --short && git diff --check && find spikes/boomux-runtime-adapter -maxdepth 3 -type f -print | sort"
+        },
+        {
+          "name": "edit",
+          "argument": "lib/adapter.mjs"
+        },
+        {
+          "name": "bash",
+          "argument": "node --check spikes/boomux-runtime-adapter/lib/adapter.mjs && node --check spikes/boomux-runtime-adapter/manual.mjs && node --check spikes/boomux-runtime-adapter/probe-process.mjs && git diff --check"
+        },
+        {
+          "name": "bash",
+          "argument": "node --input-type=module <<'EOF' import { BoomuxRuntimeAdapter, REQUIRED_JSON_COMMANDS, REQUIRED_FEATURES, REQUIRED_ERROR_CODES } from './spikes/boomux-runtime-adapter/lib/adapter.mjs' import { Memory"
+        },
+        {
+          "name": "edit",
+          "argument": "boomux-runtime-adapter/manual.mjs"
+        },
+        {
+          "name": "edit",
+          "argument": "lib/adapter.mjs"
+        },
+        {
+          "name": "edit",
+          "argument": "lib/adapter.mjs"
+        },
+        {
+          "name": "edit",
+          "argument": "boomux-runtime-adapter/manual.mjs"
+        },
+        {
+          "name": "bash",
+          "argument": "node --input-type=module <<'EOF' import { BoomuxRuntimeAdapter, REQUIRED_JSON_COMMANDS, REQUIRED_FEATURES, REQUIRED_ERROR_CODES } from './spikes/boomux-runtime-adapter/lib/adapter.mjs' import { Memory"
+        },
+        {
+          "name": "read",
+          "argument": "lib/commands.mjs"
+        },
+        {
+          "name": "read",
+          "argument": "lib/receipt.mjs"
+        },
+        {
+          "name": "read",
+          "argument": "boomux-runtime-adapter/manual.mjs"
+        },
+        {
+          "name": "grep",
+          "argument": "spikes/boomux-runtime-adapter"
+        },
+        {
+          "name": "grep",
+          "argument": "spikes/boomux-runtime-adapter"
+        },
+        {
+          "name": "edit",
+          "argument": "boomux-runtime-adapter/manual.mjs"
+        },
+        {
+          "name": "bash",
+          "argument": "node --check spikes/boomux-runtime-adapter/lib/*.mjs && node --check spikes/boomux-runtime-adapter/manual.mjs && node --check spikes/boomux-runtime-adapter/probe-process.mjs && git diff --check && git"
+        },
+        {
+          "name": "find",
+          "argument": "spikes/boomux-runtime-adapter"
+        },
+        {
+          "name": "find",
+          "argument": "collaborate/reports"
+        },
+        {
+          "name": "read",
+          "argument": "reports/3.a-luna.md"
+        },
+        {
+          "name": "read",
+          "argument": "test/adapter.test.mjs"
+        },
+        {
+          "name": "read",
+          "argument": "test/contracts.test.mjs"
+        },
+        {
+          "name": "read",
+          "argument": "test/source-audit.test.mjs"
+        },
+        {
+          "name": "read",
+          "argument": "test/fixtures.mjs"
+        },
+        {
+          "name": "read",
+          "argument": "lib/adapter.mjs"
+        },
+        {
+          "name": "read",
+          "argument": "lib/commands.mjs"
+        },
+        {
+          "name": "read",
+          "argument": "lib/envelopes.mjs"
+        },
+        {
+          "name": "read",
+          "argument": "lib/errors.mjs"
+        },
+        {
+          "name": "read",
+          "argument": "lib/receipt.mjs"
+        },
+        {
+          "name": "read",
+          "argument": "boomux-runtime-adapter/manual.mjs"
+        },
+        {
+          "name": "read",
+          "argument": "boomux-runtime-adapter/README.md"
+        },
+        {
+          "name": "read",
+          "argument": "AGENTS.md"
+        },
+        {
+          "name": "read",
+          "argument": "lib/executor.mjs"
+        },
+        {
+          "name": "read",
+          "argument": "boomux-runtime-adapter/probe-process.mjs"
+        },
+        {
+          "name": "read",
+          "argument": "design/mvp.md"
+        },
+        {
+          "name": "read",
+          "argument": "research/foundation-assessment.md"
+        },
+        {
+          "name": "read",
+          "argument": "spikes/README.md"
+        },
+        {
+          "name": "read",
+          "argument": "pi-visible-bridge/README.md"
+        },
+        {
+          "name": "bash",
+          "argument": "git status --short && printf '\\n--- package manifests ---\\n' && find . -maxdepth 3 -name package.json -o -name justfile -print"
+        },
+        {
+          "name": "bash",
+          "argument": "node --check spikes/boomux-runtime-adapter/lib/adapter.mjs && node --check spikes/boomux-runtime-adapter/lib/commands.mjs && node --check spikes/boomux-runtime-adapter/lib/envelopes.mjs && node --chec"
+        },
+        {
+          "name": "edit",
+          "argument": "lib/adapter.mjs"
+        },
+        {
+          "name": "edit",
+          "argument": "lib/adapter.mjs"
+        },
+        {
+          "name": "edit",
+          "argument": "lib/executor.mjs"
+        },
+        {
+          "name": "bash",
+          "argument": "node --check spikes/boomux-runtime-adapter/lib/adapter.mjs && node --check spikes/boomux-runtime-adapter/lib/executor.mjs && node --test spikes/boomux-runtime-adapter/test/*.test.mjs && git diff --che"
+        },
+        {
+          "name": "edit",
+          "argument": "lib/adapter.mjs"
+        },
+        {
+          "name": "edit",
+          "argument": "lib/adapter.mjs"
+        },
+        {
+          "name": "bash",
+          "argument": "node --check spikes/boomux-runtime-adapter/lib/adapter.mjs && node --check spikes/boomux-runtime-adapter/lib/executor.mjs && node --test spikes/boomux-runtime-adapter/test/*.test.mjs && git diff --che"
+        },
+        {
+          "name": "bash",
+          "argument": "git diff -- spikes/boomux-runtime-adapter/lib/adapter.mjs spikes/boomux-runtime-adapter/lib/executor.mjs && git status --short"
+        },
+        {
+          "name": "grep",
+          "argument": "spikes/boomux-runtime-adapter"
+        },
+        {
+          "name": "grep",
+          "argument": "spikes/boomux-runtime-adapter"
+        },
+        {
+          "name": "grep",
+          "argument": "spikes/boomux-runtime-adapter"
+        },
+        {
+          "name": "read",
+          "argument": "lib/adapter.mjs"
+        },
+        {
+          "name": "read",
+          "argument": "lib/adapter.mjs"
+        },
+        {
+          "name": "edit",
+          "argument": "lib/adapter.mjs"
+        },
+        {
+          "name": "read",
+          "argument": "collaborate/plan.json"
+        },
+        {
+          "name": "read",
+          "argument": "reports/2.a-terra.md"
+        },
+        {
+          "name": "read",
+          "argument": "reports/1.c-terra.md"
+        },
+        {
+          "name": "read",
+          "argument": "lib/adapter.mjs"
+        },
+        {
+          "name": "edit",
+          "argument": "test/adapter.test.mjs"
+        },
+        {
+          "name": "bash",
+          "argument": "node --check spikes/boomux-runtime-adapter/lib/adapter.mjs && node --check spikes/boomux-runtime-adapter/lib/commands.mjs && node --check spikes/boomux-runtime-adapter/lib/envelopes.mjs && node --chec"
+        },
+        {
+          "name": "write",
+          "argument": "reports/3.b-terra.md"
+        }
+      ],
+      "tps": 48.66708640935752,
+      "chars": 529
+    },
+    {
+      "role": "BUILDER",
+      "model": "openai-codex/gpt-5.6-luna",
+      "slotId": "luna",
+      "slotName": "luna",
+      "color": "#34D399",
+      "primary": false,
+      "architect": false,
+      "status": "done",
+      "ms": 450364,
+      "tokensIn": 19286024,
+      "tokensOut": 136252,
+      "costUsd": 0.7025785600000001,
+      "toolCalls": 296,
+      "toolNames": [
+        "ls",
+        "read",
+        "read",
+        "read",
+        "read",
+        "read",
+        "ls",
+        "read",
+        "ls",
+        "ls",
+        "find",
+        "find",
+        "find",
+        "find",
+        "read",
+        "read",
+        "read",
+        "read",
+        "read",
+        "read",
+        "read",
+        "read",
+        "read",
+        "read",
+        "read",
+        "read",
+        "read",
+        "read",
+        "read",
+        "read",
+        "read",
+        "grep",
+        "grep",
+        "grep",
+        "grep",
+        "grep",
+        "grep",
+        "read",
+        "read",
+        "read",
+        "read",
+        "read",
+        "read",
+        "read",
+        "read",
+        "read",
+        "read",
+        "read",
+        "read",
+        "read",
+        "read",
+        "read",
+        "read",
+        "read",
+        "read",
+        "grep",
+        "grep",
+        "grep",
+        "read",
+        "grep",
+        "grep",
+        "grep",
+        "find",
+        "find",
+        "find",
+        "read",
+        "ls",
+        "find",
+        "find",
+        "find",
+        "grep",
+        "grep",
+        "read",
+        "read",
+        "read",
+        "read",
+        "read",
+        "read",
+        "read",
+        "read",
+        "read",
+        "read",
+        "read",
+        "read",
+        "read",
+        "grep",
+        "read",
+        "grep",
+        "read",
+        "grep",
+        "read",
+        "grep",
+        "read",
+        "read",
+        "read",
+        "read",
+        "read",
+        "read",
+        "grep",
+        "read",
+        "ls",
+        "ls",
+        "grep",
+        "read",
+        "read",
+        "grep",
+        "read",
+        "ls",
+        "read",
+        "find",
+        "ls",
+        "find",
+        "ls",
+        "ls",
+        "read",
+        "read",
+        "read",
+        "read",
+        "read",
+        "read",
+        "read",
+        "read",
+        "read",
+        "read",
+        "read",
+        "read",
+        "read",
+        "read",
+        "read",
+        "read",
+        "read",
+        "read",
+        "grep",
+        "grep",
+        "grep",
+        "grep",
+        "grep",
+        "read",
+        "grep",
+        "grep",
+        "grep",
+        "grep",
+        "grep",
+        "read",
+        "grep",
+        "grep",
+        "grep",
+        "grep",
+        "grep",
+        "read",
+        "read",
+        "grep",
+        "grep",
+        "grep",
+        "grep",
+        "grep",
+        "read",
+        "grep",
+        "grep",
+        "grep",
+        "grep",
+        "grep",
+        "read",
+        "read",
+        "grep",
+        "read",
+        "grep",
+        "grep",
+        "grep",
+        "read",
+        "grep",
+        "grep",
+        "read",
+        "read",
+        "grep",
+        "read",
+        "read",
+        "read",
+        "grep",
+        "read",
+        "ls",
+        "find",
+        "read",
+        "read",
+        "read",
+        "read",
+        "read",
+        "read",
+        "read",
+        "read",
+        "read",
+        "read",
+        "read",
+        "read",
+        "bash",
+        "write",
+        "write",
+        "write",
+        "bash",
+        "edit",
+        "edit",
+        "bash",
+        "read",
+        "edit",
+        "bash",
+        "edit",
+        "bash",
+        "write",
+        "edit",
+        "bash",
+        "edit",
+        "edit",
+        "edit",
+        "edit",
+        "bash",
+        "read",
+        "read",
+        "read",
+        "read",
+        "edit",
+        "bash",
+        "bash",
+        "edit",
+        "edit",
+        "edit",
+        "bash",
+        "bash",
+        "edit",
+        "bash",
+        "edit",
+        "edit",
+        "edit",
+        "bash",
+        "bash",
+        "bash",
+        "bash",
+        "edit",
+        "bash",
+        "edit",
+        "bash",
+        "bash",
+        "bash",
+        "ls",
+        "find",
+        "read",
+        "read",
+        "ls",
+        "read",
+        "read",
+        "read",
+        "read",
+        "read",
+        "read",
+        "read",
+        "read",
+        "read",
+        "read",
+        "read",
+        "read",
+        "grep",
+        "grep",
+        "grep",
+        "grep",
+        "find",
+        "grep",
+        "grep",
+        "grep",
+        "grep",
+        "grep",
+        "grep",
+        "grep",
+        "grep",
+        "ls",
+        "find",
+        "grep",
+        "grep",
+        "read",
+        "read",
+        "read",
+        "grep",
+        "grep",
+        "read",
+        "grep",
+        "grep",
+        "grep",
+        "grep",
+        "read",
+        "read",
+        "read",
+        "read",
+        "read",
+        "read",
+        "read",
+        "read",
+        "read",
+        "grep"
+      ],
+      "toolEvents": [
+        {
+          "name": "ls",
+          "argument": "."
+        },
+        {
+          "name": "read",
+          "argument": "AGENTS.md"
+        },
+        {
+          "name": "read",
+          "argument": "design/mvp.md"
+        },
+        {
+          "name": "read",
+          "argument": "research/foundation-assessment.md"
+        },
+        {
+          "name": "read",
+          "argument": "spikes/README.md"
+        },
+        {
+          "name": "read",
+          "argument": "pi-visible-bridge/README.md"
+        },
+        {
+          "name": "ls",
+          "argument": "spikes"
+        },
+        {
+          "name": "read",
+          "argument": "justfile"
+        },
+        {
+          "name": "ls",
+          "argument": "tmp/pi-boomux"
+        },
+        {
+          "name": "ls",
+          "argument": "tmp/pi-omarchy-boomux"
+        },
+        {
+          "name": "find",
+          "argument": "tmp/pi-boomux"
+        },
+        {
+          "name": "find",
+          "argument": "tmp/pi-omarchy-boomux"
+        },
+        {
+          "name": "find",
+          "argument": "/usr"
+        },
+        {
+          "name": "find",
+          "argument": "home/woodshape"
+        },
+        {
+          "name": "read",
+          "argument": "pi-boomux/AGENTS.md"
+        },
+        {
+          "name": "read",
+          "argument": "pi-boomux/README.md"
+        },
+        {
+          "name": "read",
+          "argument": "docs/architecture.md"
+        },
+        {
+          "name": "read",
+          "argument": "docs/native-terminal-follow-up.md"
+        },
+        {
+          "name": "read",
+          "argument": "docs/live-pty-handoff.md"
+        },
+        {
+          "name": "read",
+          "argument": "docs/cli-json.md"
+        },
+        {
+          "name": "read",
+          "argument": "docs/event-stream.md"
+        },
+        {
+          "name": "read",
+          "argument": "docs/lifecycle-validation.md"
+        },
+        {
+          "name": "read",
+          "argument": "pi-boomux/Cargo.toml"
+        },
+        {
+          "name": "read",
+          "argument": "src/main.rs"
+        },
+        {
+          "name": "read",
+          "argument": "src/cli_output.rs"
+        },
+        {
+          "name": "read",
+          "argument": "src/protocol.rs"
+        },
+        {
+          "name": "read",
+          "argument": "src/terminal.rs"
+        },
+        {
+          "name": "read",
+          "argument": "src/hyprland.rs"
+        },
+        {
+          "name": "read",
+          "argument": "pi-boomux/compatibility.json"
+        },
+        {
+          "name": "read",
+          "argument": "pi-omarchy-boomux/compatibility.json"
+        },
+        {
+          "name": "read",
+          "argument": "pi-omarchy-boomux/README.md"
+        },
+        {
+          "name": "grep",
+          "argument": "src/main.rs"
+        },
+        {
+          "name": "grep",
+          "argument": "src/main.rs"
+        },
+        {
+          "name": "grep",
+          "argument": "src/main.rs"
+        },
+        {
+          "name": "grep",
+          "argument": "pi-boomux/src"
+        },
+        {
+          "name": "grep",
+          "argument": "src/protocol.rs"
+        },
+        {
+          "name": "grep",
+          "argument": "src/main.rs"
+        },
+        {
+          "name": "read",
+          "argument": "src/main.rs"
+        },
+        {
+          "name": "read",
+          "argument": "src/main.rs"
+        },
+        {
+          "name": "read",
+          "argument": "src/main.rs"
+        },
+        {
+          "name": "read",
+          "argument": "src/main.rs"
+        },
+        {
+          "name": "read",
+          "argument": "src/main.rs"
+        },
+        {
+          "name": "read",
+          "argument": "src/protocol.rs"
+        },
+        {
+          "name": "read",
+          "argument": "src/main.rs"
+        },
+        {
+          "name": "read",
+          "argument": "src/main.rs"
+        },
+        {
+          "name": "read",
+          "argument": "src/main.rs"
+        },
+        {
+          "name": "read",
+          "argument": "src/main.rs"
+        },
+        {
+          "name": "read",
+          "argument": "src/main.rs"
+        },
+        {
+          "name": "read",
+          "argument": "src/main.rs"
+        },
+        {
+          "name": "read",
+          "argument": "scripts/check-boomux-capabilities.js"
+        },
+        {
+          "name": "read",
+          "argument": "fixtures/protocol38-multi-node.json"
+        },
+        {
+          "name": "read",
+          "argument": "pi-omarchy-boomux/WorkspaceModel.js"
+        },
+        {
+          "name": "read",
+          "argument": "src/main.rs"
+        },
+        {
+          "name": "read",
+          "argument": "src/main.rs"
+        },
+        {
+          "name": "read",
+          "argument": "src/main.rs"
+        },
+        {
+          "name": "grep",
+          "argument": "src/main.rs"
+        },
+        {
+          "name": "grep",
+          "argument": "src/main.rs"
+        },
+        {
+          "name": "grep",
+          "argument": "src/main.rs"
+        },
+        {
+          "name": "read",
+          "argument": "docs/architecture.md"
+        },
+        {
+          "name": "grep",
+          "argument": "tmp/pi-omarchy-boomux"
+        },
+        {
+          "name": "grep",
+          "argument": "pi-boomux/docs"
+        },
+        {
+          "name": "grep",
+          "argument": "pi-boomux/README.md"
+        },
+        {
+          "name": "find",
+          "argument": "/tmp"
+        },
+        {
+          "name": "find",
+          "argument": "/tmp"
+        },
+        {
+          "name": "find",
+          "argument": "spikes"
+        },
+        {
+          "name": "read",
+          "argument": "tmp/omarchestra-boomux-capabilities.json"
+        },
+        {
+          "name": "ls",
+          "argument": "/tmp"
+        },
+        {
+          "name": "find",
+          "argument": "/tmp"
+        },
+        {
+          "name": "find",
+          "argument": "/tmp"
+        },
+        {
+          "name": "find",
+          "argument": "/tmp"
+        },
+        {
+          "name": "grep",
+          "argument": "/tmp"
+        },
+        {
+          "name": "grep",
+          "argument": "/tmp"
+        },
+        {
+          "name": "read",
+          "argument": "src/main.rs"
+        },
+        {
+          "name": "read",
+          "argument": "src/main.rs"
+        },
+        {
+          "name": "read",
+          "argument": "README.md"
+        },
+        {
+          "name": "read",
+          "argument": "CLAUDE.md"
+        },
+        {
+          "name": "read",
+          "argument": "docs/architecture.md"
+        },
+        {
+          "name": "read",
+          "argument": "docs/cli-json.md"
+        },
+        {
+          "name": "read",
+          "argument": "docs/cli-json.md"
+        },
+        {
+          "name": "read",
+          "argument": "docs/event-stream.md"
+        },
+        {
+          "name": "read",
+          "argument": "lib/protocol.mjs"
+        },
+        {
+          "name": "read",
+          "argument": "lib/state.mjs"
+        },
+        {
+          "name": "read",
+          "argument": "test/runner.test.mjs"
+        },
+        {
+          "name": "read",
+          "argument": "test/integration.test.mjs"
+        },
+        {
+          "name": "read",
+          "argument": "pi-visible-bridge/runner.mjs"
+        },
+        {
+          "name": "grep",
+          "argument": "src/main.rs"
+        },
+        {
+          "name": "read",
+          "argument": "src/main.rs"
+        },
+        {
+          "name": "grep",
+          "argument": "src/main.rs"
+        },
+        {
+          "name": "read",
+          "argument": "src/main.rs"
+        },
+        {
+          "name": "grep",
+          "argument": "src/main.rs"
+        },
+        {
+          "name": "read",
+          "argument": "src/main.rs"
+        },
+        {
+          "name": "grep",
+          "argument": "pi-boomux/src"
+        },
+        {
+          "name": "read",
+          "argument": "src/daemon.rs"
+        },
+        {
+          "name": "read",
+          "argument": "src/daemon.rs"
+        },
+        {
+          "name": "read",
+          "argument": "src/daemon.rs"
+        },
+        {
+          "name": "read",
+          "argument": "src/daemon.rs"
+        },
+        {
+          "name": "read",
+          "argument": "src/daemon.rs"
+        },
+        {
+          "name": "read",
+          "argument": "src/daemon.rs"
+        },
+        {
+          "name": "grep",
+          "argument": "src/client.rs"
+        },
+        {
+          "name": "read",
+          "argument": "src/client.rs"
+        },
+        {
+          "name": "ls",
+          "argument": ".local/bin"
+        },
+        {
+          "name": "ls",
+          "argument": "state/boomux"
+        },
+        {
+          "name": "grep",
+          "argument": "src/terminal.rs"
+        },
+        {
+          "name": "read",
+          "argument": "src/terminal.rs"
+        },
+        {
+          "name": "read",
+          "argument": "src/main.rs"
+        },
+        {
+          "name": "grep",
+          "argument": "src/main.rs"
+        },
+        {
+          "name": "read",
+          "argument": "src/main.rs"
+        },
+        {
+          "name": "ls",
+          "argument": ".config/boomux"
+        },
+        {
+          "name": "read",
+          "argument": "collaborate/plan.json"
+        },
+        {
+          "name": "find",
+          "argument": "collaborate/reports"
+        },
+        {
+          "name": "ls",
+          "argument": "spikes"
+        },
+        {
+          "name": "find",
+          "argument": "spikes/boomux-runtime-adapter"
+        },
+        {
+          "name": "ls",
+          "argument": "spikes/boomux-runtime-adapter"
+        },
+        {
+          "name": "ls",
+          "argument": "collaborate/reports"
+        },
+        {
+          "name": "read",
+          "argument": "AGENTS.md"
+        },
+        {
+          "name": "read",
+          "argument": "design/mvp.md"
+        },
+        {
+          "name": "read",
+          "argument": "research/foundation-assessment.md"
+        },
+        {
+          "name": "read",
+          "argument": "spikes/README.md"
+        },
+        {
+          "name": "read",
+          "argument": "pi-visible-bridge/README.md"
+        },
+        {
+          "name": "read",
+          "argument": "docs/cli-json.md"
+        },
+        {
+          "name": "read",
+          "argument": "docs/event-stream.md"
+        },
+        {
+          "name": "read",
+          "argument": "pi-boomux/README.md"
+        },
+        {
+          "name": "read",
+          "argument": "tests/compatibility.test.js"
+        },
+        {
+          "name": "read",
+          "argument": "pi-omarchy-boomux/WorkspaceModel.js"
+        },
+        {
+          "name": "read",
+          "argument": "tmp/omarchestra-boomux-capabilities.json"
+        },
+        {
+          "name": "read",
+          "argument": "docs/native-terminal-follow-up.md"
+        },
+        {
+          "name": "read",
+          "argument": "docs/live-pty-handoff.md"
+        },
+        {
+          "name": "read",
+          "argument": "docs/cli-json.md"
+        },
+        {
+          "name": "read",
+          "argument": "docs/event-stream.md"
+        },
+        {
+          "name": "read",
+          "argument": "pi-boomux/README.md"
+        },
+        {
+          "name": "read",
+          "argument": "src/cli_output.rs"
+        },
+        {
+          "name": "read",
+          "argument": "src/client.rs"
+        },
+        {
+          "name": "grep",
+          "argument": "pi-boomux/docs"
+        },
+        {
+          "name": "grep",
+          "argument": "tmp/pi-boomux"
+        },
+        {
+          "name": "grep",
+          "argument": "tmp/pi-boomux"
+        },
+        {
+          "name": "grep",
+          "argument": "pi-boomux/docs"
+        },
+        {
+          "name": "grep",
+          "argument": "pi-boomux/docs"
+        },
+        {
+          "name": "read",
+          "argument": "docs/cli-json.md"
+        },
+        {
+          "name": "grep",
+          "argument": "docs/cli-json.md"
+        },
+        {
+          "name": "grep",
+          "argument": "tmp/pi-boomux"
+        },
+        {
+          "name": "grep",
+          "argument": "tmp/pi-boomux"
+        },
+        {
+          "name": "grep",
+          "argument": "tmp/pi-boomux"
+        },
+        {
+          "name": "grep",
+          "argument": "src/protocol.rs"
+        },
+        {
+          "name": "read",
+          "argument": "collaborate/plan.json"
+        },
+        {
+          "name": "grep",
+          "argument": "tmp/pi-boomux"
+        },
+        {
+          "name": "grep",
+          "argument": "pi-boomux/docs"
+        },
+        {
+          "name": "grep",
+          "argument": "pi-boomux/docs"
+        },
+        {
+          "name": "grep",
+          "argument": "pi-boomux/docs"
+        },
+        {
+          "name": "grep",
+          "argument": "pi-boomux/docs"
+        },
+        {
+          "name": "read",
+          "argument": "boomux/SKILL.md"
+        },
+        {
+          "name": "read",
+          "argument": "boomux/SKILL.md"
+        },
+        {
+          "name": "grep",
+          "argument": "src/protocol.rs"
+        },
+        {
+          "name": "grep",
+          "argument": "src/protocol.rs"
+        },
+        {
+          "name": "grep",
+          "argument": "src/protocol.rs"
+        },
+        {
+          "name": "grep",
+          "argument": "src/protocol.rs"
+        },
+        {
+          "name": "grep",
+          "argument": "src/protocol.rs"
+        },
+        {
+          "name": "read",
+          "argument": "src/protocol.rs"
+        },
+        {
+          "name": "grep",
+          "argument": "src/protocol.rs"
+        },
+        {
+          "name": "grep",
+          "argument": "src/protocol.rs"
+        },
+        {
+          "name": "grep",
+          "argument": "src/protocol.rs"
+        },
+        {
+          "name": "grep",
+          "argument": "src/main.rs"
+        },
+        {
+          "name": "grep",
+          "argument": "src/cli_output.rs"
+        },
+        {
+          "name": "read",
+          "argument": "src/cli_output.rs"
+        },
+        {
+          "name": "read",
+          "argument": "src/cli_output.rs"
+        },
+        {
+          "name": "grep",
+          "argument": "pi-boomux/src"
+        },
+        {
+          "name": "read",
+          "argument": "src/main.rs"
+        },
+        {
+          "name": "grep",
+          "argument": "src/main.rs"
+        },
+        {
+          "name": "grep",
+          "argument": "src/main.rs"
+        },
+        {
+          "name": "grep",
+          "argument": "src/main.rs"
+        },
+        {
+          "name": "read",
+          "argument": "src/main.rs"
+        },
+        {
+          "name": "grep",
+          "argument": "src/main.rs"
+        },
+        {
+          "name": "grep",
+          "argument": "src/main.rs"
+        },
+        {
+          "name": "read",
+          "argument": "src/main.rs"
+        },
+        {
+          "name": "read",
+          "argument": "src/main.rs"
+        },
+        {
+          "name": "grep",
+          "argument": "src/main.rs"
+        },
+        {
+          "name": "read",
+          "argument": "src/main.rs"
+        },
+        {
+          "name": "read",
+          "argument": "src/main.rs"
+        },
+        {
+          "name": "read",
+          "argument": "src/main.rs"
+        },
+        {
+          "name": "grep",
+          "argument": "src/main.rs"
+        },
+        {
+          "name": "read",
+          "argument": "src/main.rs"
+        },
+        {
+          "name": "ls",
+          "argument": "spikes/boomux-runtime-adapter"
+        },
+        {
+          "name": "find",
+          "argument": "spikes/boomux-runtime-adapter"
+        },
+        {
+          "name": "read",
+          "argument": "lib/adapter.mjs"
+        },
+        {
+          "name": "read",
+          "argument": "lib/commands.mjs"
+        },
+        {
+          "name": "read",
+          "argument": "lib/envelopes.mjs"
+        },
+        {
+          "name": "read",
+          "argument": "lib/errors.mjs"
+        },
+        {
+          "name": "read",
+          "argument": "lib/executor.mjs"
+        },
+        {
+          "name": "read",
+          "argument": "lib/receipt.mjs"
+        },
+        {
+          "name": "read",
+          "argument": "lib/adapter.mjs"
+        },
+        {
+          "name": "read",
+          "argument": "boomux-runtime-adapter/README.md"
+        },
+        {
+          "name": "read",
+          "argument": "boomux-runtime-adapter/manual.mjs"
+        },
+        {
+          "name": "read",
+          "argument": "evidence/cli-source-truth.txt"
+        },
+        {
+          "name": "read",
+          "argument": "evidence/manual-observations.md"
+        },
+        {
+          "name": "read",
+          "argument": "boomux-runtime-adapter/.gitignore"
+        },
+        {
+          "name": "bash",
+          "argument": "git status --short && git diff --stat -- spikes/boomux-runtime-adapter"
+        },
+        {
+          "name": "write",
+          "argument": "test/fixtures.mjs"
+        },
+        {
+          "name": "write",
+          "argument": "test/contracts.test.mjs"
+        },
+        {
+          "name": "write",
+          "argument": "test/adapter.test.mjs"
+        },
+        {
+          "name": "bash",
+          "argument": "node --test spikes/boomux-runtime-adapter/test/*.mjs"
+        },
+        {
+          "name": "edit",
+          "argument": "test/adapter.test.mjs"
+        },
+        {
+          "name": "edit",
+          "argument": "test/contracts.test.mjs"
+        },
+        {
+          "name": "bash",
+          "argument": "node --test spikes/boomux-runtime-adapter/test/*.mjs"
+        },
+        {
+          "name": "read",
+          "argument": "test/adapter.test.mjs"
+        },
+        {
+          "name": "edit",
+          "argument": "test/adapter.test.mjs"
+        },
+        {
+          "name": "bash",
+          "argument": "node --test spikes/boomux-runtime-adapter/test/*.mjs"
+        },
+        {
+          "name": "edit",
+          "argument": "test/fixtures.mjs"
+        },
+        {
+          "name": "bash",
+          "argument": "node --test spikes/boomux-runtime-adapter/test/*.mjs"
+        },
+        {
+          "name": "write",
+          "argument": "test/source-audit.test.mjs"
+        },
+        {
+          "name": "edit",
+          "argument": "test/source-audit.test.mjs"
+        },
+        {
+          "name": "bash",
+          "argument": "node --test spikes/boomux-runtime-adapter/test/*.mjs"
+        },
+        {
+          "name": "edit",
+          "argument": "test/source-audit.test.mjs"
+        },
+        {
+          "name": "edit",
+          "argument": "test/adapter.test.mjs"
+        },
+        {
+          "name": "edit",
+          "argument": "test/adapter.test.mjs"
+        },
+        {
+          "name": "edit",
+          "argument": "test/adapter.test.mjs"
+        },
+        {
+          "name": "bash",
+          "argument": "node --test spikes/boomux-runtime-adapter/test/*.mjs"
+        },
+        {
+          "name": "read",
+          "argument": "test/contracts.test.mjs"
+        },
+        {
+          "name": "read",
+          "argument": "test/adapter.test.mjs"
+        },
+        {
+          "name": "read",
+          "argument": "test/source-audit.test.mjs"
+        },
+        {
+          "name": "read",
+          "argument": "test/fixtures.mjs"
+        },
+        {
+          "name": "edit",
+          "argument": "test/source-audit.test.mjs"
+        },
+        {
+          "name": "bash",
+          "argument": "node --test spikes/boomux-runtime-adapter/test/source-audit.test.mjs"
+        },
+        {
+          "name": "bash",
+          "argument": "node --check spikes/boomux-runtime-adapter/test/fixtures.mjs && node --check spikes/boomux-runtime-adapter/test/contracts.test.mjs && node --check spikes/boomux-runtime-adapter/test/adapter.test.mjs &"
+        },
+        {
+          "name": "edit",
+          "argument": "test/adapter.test.mjs"
+        },
+        {
+          "name": "edit",
+          "argument": "test/fixtures.mjs"
+        },
+        {
+          "name": "edit",
+          "argument": "test/contracts.test.mjs"
+        },
+        {
+          "name": "bash",
+          "argument": "node --check spikes/boomux-runtime-adapter/test/fixtures.mjs && node --check spikes/boomux-runtime-adapter/test/contracts.test.mjs && node --check spikes/boomux-runtime-adapter/test/adapter.test.mjs &"
+        },
+        {
+          "name": "bash",
+          "argument": "node --test spikes/boomux-runtime-adapter/test/contracts.test.mjs spikes/boomux-runtime-adapter/test/source-audit.test.mjs"
+        },
+        {
+          "name": "edit",
+          "argument": "test/contracts.test.mjs"
+        },
+        {
+          "name": "bash",
+          "argument": "node --test spikes/boomux-runtime-adapter/test/contracts.test.mjs spikes/boomux-runtime-adapter/test/source-audit.test.mjs"
+        },
+        {
+          "name": "edit",
+          "argument": "test/contracts.test.mjs"
+        },
+        {
+          "name": "edit",
+          "argument": "test/adapter.test.mjs"
+        },
+        {
+          "name": "edit",
+          "argument": "test/source-audit.test.mjs"
+        },
+        {
+          "name": "bash",
+          "argument": "node --test spikes/boomux-runtime-adapter/test/source-audit.test.mjs"
+        },
+        {
+          "name": "bash",
+          "argument": "node --test spikes/boomux-runtime-adapter/test/*.mjs"
+        },
+        {
+          "name": "bash",
+          "argument": "git status --short && git diff --stat -- spikes/boomux-runtime-adapter/test && git diff --check -- spikes/boomux-runtime-adapter/test"
+        },
+        {
+          "name": "bash",
+          "argument": "find spikes/boomux-runtime-adapter/test -maxdepth 1 -type f -printf '%f\\n' | sort && git status --short"
+        },
+        {
+          "name": "edit",
+          "argument": "test/adapter.test.mjs"
+        },
+        {
+          "name": "bash",
+          "argument": "node --check spikes/boomux-runtime-adapter/test/*.mjs && git diff --check -- spikes/boomux-runtime-adapter/test && node --test spikes/boomux-runtime-adapter/test/contracts.test.mjs spikes/boomux-runti"
+        },
+        {
+          "name": "edit",
+          "argument": "test/source-audit.test.mjs"
+        },
+        {
+          "name": "bash",
+          "argument": "node --test spikes/boomux-runtime-adapter/test/source-audit.test.mjs && git diff --check -- spikes/boomux-runtime-adapter/test"
+        },
+        {
+          "name": "bash",
+          "argument": "wc -l spikes/boomux-runtime-adapter/test/*.mjs && git status --short"
+        },
+        {
+          "name": "bash",
+          "argument": "node --test spikes/boomux-runtime-adapter/test/*.mjs"
+        },
+        {
+          "name": "ls",
+          "argument": "spikes/boomux-runtime-adapter"
+        },
+        {
+          "name": "find",
+          "argument": "spikes/boomux-runtime-adapter"
+        },
+        {
+          "name": "read",
+          "argument": "reports/3.b-terra.md"
+        },
+        {
+          "name": "read",
+          "argument": "collaborate/plan.json"
+        },
+        {
+          "name": "ls",
+          "argument": "collaborate/reports"
+        },
+        {
+          "name": "read",
+          "argument": "reports/3.a-luna.md"
+        },
+        {
+          "name": "read",
+          "argument": "reports/2.a-terra.md"
+        },
+        {
+          "name": "read",
+          "argument": "test/adapter.test.mjs"
+        },
+        {
+          "name": "read",
+          "argument": "test/contracts.test.mjs"
+        },
+        {
+          "name": "read",
+          "argument": "test/source-audit.test.mjs"
+        },
+        {
+          "name": "read",
+          "argument": "lib/adapter.mjs"
+        },
+        {
+          "name": "read",
+          "argument": "lib/commands.mjs"
+        },
+        {
+          "name": "read",
+          "argument": "lib/envelopes.mjs"
+        },
+        {
+          "name": "read",
+          "argument": "lib/executor.mjs"
+        },
+        {
+          "name": "read",
+          "argument": "lib/errors.mjs"
+        },
+        {
+          "name": "read",
+          "argument": "lib/receipt.mjs"
+        },
+        {
+          "name": "read",
+          "argument": "boomux-runtime-adapter/README.md"
+        },
+        {
+          "name": "grep",
+          "argument": "boomux-runtime-adapter/test"
+        },
+        {
+          "name": "grep",
+          "argument": "boomux-runtime-adapter/test"
+        },
+        {
+          "name": "grep",
+          "argument": "boomux-runtime-adapter/test"
+        },
+        {
+          "name": "grep",
+          "argument": "boomux-runtime-adapter/test"
+        },
+        {
+          "name": "find",
+          "argument": "boomux-runtime-adapter/test"
+        },
+        {
+          "name": "grep",
+          "argument": "boomux-runtime-adapter/test"
+        },
+        {
+          "name": "grep",
+          "argument": "boomux-runtime-adapter/test"
+        },
+        {
+          "name": "grep",
+          "argument": "boomux-runtime-adapter/test"
+        },
+        {
+          "name": "grep",
+          "argument": "boomux-runtime-adapter/lib"
+        },
+        {
+          "name": "grep",
+          "argument": "boomux-runtime-adapter/lib"
+        },
+        {
+          "name": "grep",
+          "argument": "boomux-runtime-adapter/lib"
+        },
+        {
+          "name": "grep",
+          "argument": "boomux-runtime-adapter/test"
+        },
+        {
+          "name": "grep",
+          "argument": "boomux-runtime-adapter/lib"
+        },
+        {
+          "name": "ls",
+          "argument": "boomux-runtime-adapter/evidence"
+        },
+        {
+          "name": "find",
+          "argument": "boomux-runtime-adapter/evidence"
+        },
+        {
+          "name": "grep",
+          "argument": "boomux-runtime-adapter/README.md"
+        },
+        {
+          "name": "grep",
+          "argument": "boomux-runtime-adapter/test"
+        },
+        {
+          "name": "read",
+          "argument": "boomux-runtime-adapter/probe-process.mjs"
+        },
+        {
+          "name": "read",
+          "argument": "lib/executor.mjs"
+        },
+        {
+          "name": "read",
+          "argument": "boomux-runtime-adapter/manual.mjs"
+        },
+        {
+          "name": "grep",
+          "argument": "boomux-runtime-adapter/test"
+        },
+        {
+          "name": "grep",
+          "argument": "boomux-runtime-adapter/test"
+        },
+        {
+          "name": "read",
+          "argument": "lib/receipt.mjs"
+        },
+        {
+          "name": "grep",
+          "argument": "collaborate/plan.json"
+        },
+        {
+          "name": "grep",
+          "argument": "boomux-runtime-adapter/README.md"
+        },
+        {
+          "name": "grep",
+          "argument": "spikes/README.md"
+        },
+        {
+          "name": "grep",
+          "argument": "docs"
+        },
+        {
+          "name": "read",
+          "argument": "test/source-audit.test.mjs"
+        },
+        {
+          "name": "read",
+          "argument": "lib/adapter.mjs"
+        },
+        {
+          "name": "read",
+          "argument": "lib/adapter.mjs"
+        },
+        {
+          "name": "read",
+          "argument": "test/fixtures.mjs"
+        },
+        {
+          "name": "read",
+          "argument": "test/adapter.test.mjs"
+        },
+        {
+          "name": "read",
+          "argument": "test/contracts.test.mjs"
+        },
+        {
+          "name": "read",
+          "argument": "lib/commands.mjs"
+        },
+        {
+          "name": "read",
+          "argument": "test/adapter.test.mjs"
+        },
+        {
+          "name": "read",
+          "argument": "test/adapter.test.mjs"
+        },
+        {
+          "name": "grep",
+          "argument": "boomux-runtime-adapter/README.md"
+        }
+      ],
+      "tps": 47.626856971960706,
+      "chars": 2408
+    }
+  ],
+  "sessions": {
+    "sol": "c61c30a0-b1ba-46f5-8532-190e17ce83df",
+    "terra": "b30a20b4-0c2e-48e3-964e-40f200307fe7",
+    "luna": "b149e044-f0dc-4b9d-a6e6-23be1994bad3"
+  },
+  "totalMs": 4489331,
+  "totalCostUsd": 18.395768760000003
+}

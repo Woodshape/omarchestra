@@ -1,0 +1,87 @@
+$ boomux --version
+boomux 1.8.0
+
+$ node --check spikes/boomux-runtime-adapter/{manual,probe-process}.mjs and lib/test files
+syntax checks passed: 12 files
+
+$ node --test spikes/boomux-runtime-adapter/test/*.test.mjs
+✔ create maps coordinator, owner, Shell, and Run IDs behind opaque references (18.86339ms)
+✔ a pre-existing prefixed Workspace is never adopted or closed (1.510093ms)
+✔ local Node eligibility is checked before Workspace mutation (1.189192ms)
+✔ three named Shells are created with exact argv and repeated create is idempotent (7.455746ms)
+✔ pending, running, exited, and closed lifecycle states are normalized (5.485515ms)
+✔ a changed Run is never silently substituted (4.612095ms)
+▶ presentation requires a GUI gate and refuses exited-run restart
+  ✔ authorized presentation uses exact Shell and Workspace argv (3.764198ms)
+✔ presentation requires a GUI gate and refuses exited-run restart (6.942332ms)
+✔ unconfirmed presentation is ambiguous and cannot be reopened automatically (3.683601ms)
+✔ close is exact-ID idempotent and never accepts an unrecorded resource (3.220632ms)
+✔ cleanup closes only receipt-owned exact IDs and then the exact Workspace (10.571384ms)
+▶ cleanup refuses an unowned Shell, Launcher, or Agent before mutation
+  ✔ Shell (2.13808ms)
+  ✔ Launcher (1.391777ms)
+  ✔ Agent (1.236418ms)
+✔ cleanup refuses an unowned Shell, Launcher, or Agent before mutation (5.880435ms)
+✔ cleanup rejects a receipt containing an unknown mutation outcome (1.390246ms)
+✔ weak command failure is typed unknown outcome and does not retry (1.385066ms)
+✔ an ambiguous Workspace mutation blocks later create calls without replay (1.114003ms)
+✔ a weak command never treats deceptive human stdout as an identity source (1.254903ms)
+✔ a partial Shell create records an unknown outcome and blocks destructive cleanup (2.277532ms)
+✔ an exact postcondition can reconcile a lost Workspace-create result without replay (1.233247ms)
+✔ hostile NUL argv values are rejected before any Boomux mutation (0.326067ms)
+✔ event baseline maps only requested lifecycle events and returns its cursor (1.825088ms)
+✔ a baseline without a snapshot is rejected instead of fabricating state (0.454554ms)
+✔ event batches preserve event-ID order across pages and advance the cursor (0.963255ms)
+✔ filtered events preserve matching order while cursor advances over unrelated events (0.759017ms)
+✔ cursor expiry does not replay the old cursor when baseline recovery fails (0.56715ms)
+✔ cursor expiry reseeds from a fresh baseline exactly once (0.554282ms)
+▶ stream event IDs are validated and duplicate or reverse order is rejected
+  ✔ duplicate (0.535216ms)
+  ✔ reverse (0.324996ms)
+✔ stream event IDs are validated and duplicate or reverse order is rejected (1.407018ms)
+✔ a first Run event persists an opaque exact-Run mapping (0.680612ms)
+✔ event payload with a different Run is reported as a Run change (0.505501ms)
+✔ invalid subscription inputs fail before invoking the executor (0.702041ms)
+✔ command builders use the documented argv contract (4.000555ms)
+✔ command builders preserve hostile values as individual argv entries (0.53569ms)
+✔ success and error envelopes enforce schema and command identity (2.048752ms)
+✔ all advertised stable error codes remain typed and message-independent (1.172825ms)
+✔ capability negotiation accepts the pinned public contract (1.61271ms)
+▶ capability mismatches fail before daemon status or mutation
+  ✔ wrong CLI version (1.027843ms)
+  ✔ wrong static protocol (0.406167ms)
+  ✔ missing schema (0.404711ms)
+  ✔ missing command (0.612975ms)
+  ✔ missing feature (0.857986ms)
+  ✔ missing stable error code (0.393885ms)
+✔ capability mismatches fail before daemon status or mutation (5.93333ms)
+✔ malformed capability JSON fails closed without contacting the daemon (0.849483ms)
+✔ missing Boomux executable is typed and never triggers daemon start (0.711118ms)
+▶ stopped or incompatible daemon is rejected without an implicit start
+  ✔ stopped (1.143101ms)
+  ✔ old protocol (0.37191ms)
+✔ stopped or incompatible daemon is rejected without an implicit start (2.170889ms)
+✔ stable JSON errors preserve Boomux code and do not parse message text (1.467478ms)
+✔ nonzero JSON command without a valid error envelope is a typed weak contract failure (0.983436ms)
+✔ the fake executor rejects accidental real GUI and unplanned commands (0.495778ms)
+✔ production source uses only the direct argv executor with shell execution disabled (12.99973ms)
+✔ production source has no private Boomux state, Rust, or hidden attachment coupling (7.207107ms)
+✔ production source contains no forbidden operational command literals (5.179596ms)
+✔ all production command execution goes through command builders (2.155582ms)
+✔ production command builders stay inside the public spike allowlist (1.790445ms)
+✔ fake executor cannot be bypassed into GUI or forbidden operational commands (1.765138ms)
+✔ source audit does not instantiate a real process (0.257023ms)
+ℹ tests 61
+ℹ suites 0
+ℹ pass 61
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 251.75818
+
+$ node spikes/boomux-runtime-adapter/manual.mjs preflight
+safe public-CLI preflight passed; private user-data output omitted and stored only under ignored evidence/local/
+
+$ git diff --check
+git diff --check passed

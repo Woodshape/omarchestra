@@ -1,0 +1,132 @@
+{
+  "tasks": [
+    {
+      "id": "1.a",
+      "assignee": "sol",
+      "description": "Audit the installed Boomux 1.8.0 public contract using version, capabilities JSON, help, relevant subcommand help, and supplied public documentation. Define exact supported JSON commands, features, protocol/schema checks, stable errors, non-JSON weak dependencies, exact-Run limitation, and safe command flow. Run no mutations or GUI commands.",
+      "depends_on": [],
+      "outputs": [
+        "live Boomux public-contract and safety report"
+      ],
+      "mode": "read"
+    },
+    {
+      "id": "1.b",
+      "assignee": "luna",
+      "description": "Design the deterministic test matrix and source-coupling audit from the request and public contracts. Specify fixtures and assertions for envelopes, typed failures, opaque references, hostile argv, lifecycle states, event cursors, idempotency, unknown outcomes, cleanup ownership, unavailable Boomux, and prohibition of private state, Rust modules, hidden commands, and shell execution.",
+      "depends_on": [],
+      "outputs": [
+        "test and source-audit implementation report"
+      ],
+      "mode": "read"
+    },
+    {
+      "id": "1.c",
+      "assignee": "terra",
+      "description": "Inspect the current repository and reference consumer, then produce an implementation blueprint for a dependency-free Node spike confined to spikes/boomux-runtime-adapter. Resolve Workspace versus owner-Workspace identity, empty Workspace plus three explicitly named Shell creation, JSON readback reconciliation, ownership receipts, manual probe process, and explicit GUI gating. Run no mutations or GUI commands.",
+      "depends_on": [],
+      "outputs": [
+        "adapter and manual-harness implementation blueprint"
+      ],
+      "mode": "read"
+    },
+    {
+      "id": "2.a",
+      "assignee": "terra",
+      "description": "Implement the throwaway adapter and manual harness under spikes/boomux-runtime-adapter. Add direct argv execution with shell disabled, strict boomux.cli/v1 success/error parsing, typed failures, capability and running-daemon checks, opaque reference and exact-ID receipt mapping, unique prefixed empty Workspace plus three role Shell creation with JSON readback, lifecycle inspection, pre/post checked presentation, ordered event subscription, exact-ID-only idempotent cleanup, private ignored preflight/receipt storage, explicit manual GUI authorization, and a probe process that records role, PID, Shell ID, and BOOMUX_RUN_ID. Never execute live mutations or GUI presentation while implementing.",
+      "depends_on": [
+        "1.a",
+        "1.c"
+      ],
+      "outputs": [
+        "spikes/boomux-runtime-adapter/lib/",
+        "spikes/boomux-runtime-adapter/manual.mjs",
+        "spikes/boomux-runtime-adapter/probe-process.mjs",
+        "spikes/boomux-runtime-adapter/.gitignore"
+      ],
+      "mode": "write"
+    },
+    {
+      "id": "2.b",
+      "assignee": "sol",
+      "description": "Create the initial spike record and public CLI evidence. Capture only safe version, capabilities, and help output. Document the question, assumptions, exact command/envelope contract, public versus non-JSON dependencies, close-versus-window-detach semantics, exact-Run race, safety policy, design implications, provisional conclusion, manual observation procedure, and pending human gate. Do not update docs/design/mvp.md or claim GUI behavior.",
+      "depends_on": [
+        "1.a"
+      ],
+      "outputs": [
+        "spikes/boomux-runtime-adapter/README.md",
+        "spikes/boomux-runtime-adapter/evidence/cli-source-truth.txt",
+        "spikes/boomux-runtime-adapter/evidence/manual-observations.md"
+      ],
+      "mode": "write"
+    },
+    {
+      "id": "3.a",
+      "assignee": "luna",
+      "description": "Implement deterministic fake-executor fixtures and tests against the adapter API. Cover exact argv and envelopes, version/schema/protocol/command/feature failures, missing executable and stopped daemon, stable JSON errors and weak-command failures, opaque Workspace/Shell/Run mappings, pending/running/exited/closed states, Run changes, baseline/paginated/filtered event ordering and cursor expiry, create/close idempotency, partial and unknown outcomes, refusal to clean unrecorded resources, no automated GUI launch, and a source audit rejecting private Boomux state, Rust coupling, daemon sockets, hidden attachment commands, shell interpolation, and forbidden operational commands.",
+      "depends_on": [
+        "1.a",
+        "1.b",
+        "2.a"
+      ],
+      "outputs": [
+        "spikes/boomux-runtime-adapter/test/"
+      ],
+      "mode": "write"
+    },
+    {
+      "id": "3.b",
+      "assignee": "terra",
+      "description": "Run the complete deterministic test suite and syntax checks, then fix adapter or manual-harness defects without widening scope. Verify cleanup inspects exact recorded IDs, refuses a Workspace containing unowned resources, never parses human stdout for identity, never retries ambiguous mutations, and keeps all real presentation behind the explicit human gate. Do not perform live creation, presentation, closure, or cleanup.",
+      "depends_on": [
+        "2.a",
+        "2.b",
+        "3.a"
+      ],
+      "outputs": [
+        "validated adapter and manual harness",
+        "automated validation results for handoff"
+      ],
+      "mode": "write"
+    },
+    {
+      "id": "4.a",
+      "assignee": "sol",
+      "description": "Audit the completed spike read-only for public-contract fidelity and truthful claims. Check exact commands against Boomux 1.8.0, JSON versus non-JSON labeling, expected-Run limitations, close/detach distinction, capability requirements, opaque domain boundary, source-audit coverage, user-data protection, and whether README stops at the human observation gate. Return concrete required fixes only.",
+      "depends_on": [
+        "3.b"
+      ],
+      "outputs": [
+        "final contract and safety audit report"
+      ],
+      "mode": "read"
+    },
+    {
+      "id": "4.b",
+      "assignee": "luna",
+      "description": "Independently run syntax checks and deterministic tests, inspect source-audit results, and review coverage against every automated acceptance requirement. Confirm no test can invoke real GUI or destructive Boomux commands and identify any missing or flaky cases.",
+      "depends_on": [
+        "3.b"
+      ],
+      "outputs": [
+        "independent validation and coverage report"
+      ],
+      "mode": "read"
+    },
+    {
+      "id": "5.a",
+      "assignee": "sol",
+      "description": "Perform final integration on the shared working directory. Preserve all prior changes, apply only fixes required by the two audits, run all Node syntax checks and deterministic tests, run the safe public-CLI preflight snapshot into ignored local evidence without mutating Boomux, capture automated evidence, run git diff --check, and finalize README with exact evidence, failures, conclusion constraints, design implications, and disposition of every prototype file. Leave manual-observations explicitly pending and do not execute GUI, detach/reconnect, resource creation, or cleanup actions.",
+      "depends_on": [
+        "4.a",
+        "4.b"
+      ],
+      "outputs": [
+        "spikes/boomux-runtime-adapter/evidence/automated.txt",
+        "final spikes/boomux-runtime-adapter/README.md",
+        "validated pending human observation gate"
+      ],
+      "mode": "write"
+    }
+  ]
+}

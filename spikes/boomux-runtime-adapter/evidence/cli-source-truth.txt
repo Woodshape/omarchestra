@@ -1,0 +1,551 @@
+
+$ boomux --version
+boomux 1.8.0
+
+$ boomux --json capabilities
+{
+  "schema": "boomux.cli/v1",
+  "command": "capabilities",
+  "data": {
+    "cli_version": "1.8.0",
+    "daemon_protocol_version": 49,
+    "error_codes": [
+      "invalid_argument",
+      "not_found",
+      "already_exists",
+      "busy",
+      "daemon_stopping",
+      "daemon_unavailable",
+      "shell_start_failed",
+      "persistence_failed",
+      "timeout",
+      "unsupported_version",
+      "install_required",
+      "upgrade_required",
+      "bootstrap_authentication_failed",
+      "bootstrap_transport_failed",
+      "bootstrap_malformed_helper",
+      "bootstrap_unsupported_platform",
+      "bootstrap_install_failed",
+      "bootstrap_commit_outcome_unknown",
+      "bootstrap_runtime_unavailable",
+      "node_identity_conflict",
+      "cursor_expired",
+      "run_changed",
+      "revision_ahead",
+      "idempotency_expired",
+      "node_identity_unavailable",
+      "node_registration_unavailable",
+      "node_identity_changed",
+      "revision_changed",
+      "context_required",
+      "ambiguous_target",
+      "unsupported_integration",
+      "internal",
+      "unknown"
+    ],
+    "features": [
+      "opencode_lifecycle_plugin",
+      "pi_lifecycle_extension",
+      "claude_lifecycle_plugin",
+      "process_adapters",
+      "desktop_notifications",
+      "sound_notifications",
+      "integration_management",
+      "persistent_workspace_selection",
+      "create_and_open_shell",
+      "atomic_workspace_shell_creation",
+      "exact_session_open",
+      "hyprland_special_workspaces",
+      "contextual_desktop_terminal",
+      "coordinated_shell_desktop_placement",
+      "desktop_workspace_show",
+      "node_reauthentication",
+      "local_update_status",
+      "guided_local_update",
+      "guided_local_uninstall",
+      "guided_setup",
+      "explicit_daemon_start",
+      "typed_errors",
+      "shell_run_identity",
+      "rendered_scrollback",
+      "graceful_live_handoff",
+      "graceful_exited_handoff",
+      "daemon_events",
+      "reconnectable_event_cursors",
+      "revision_aware_reads",
+      "workspace_launchers",
+      "run_scoped_agent_instances",
+      "agent_authority_precedence",
+      "protocol_10",
+      "idempotent_agent_ensure",
+      "protocol_11",
+      "restartable_exited_shells",
+      "protocol_12",
+      "inactive_agent_state",
+      "projected_agent_sessions",
+      "protocol_13",
+      "durable_session_source_context",
+      "protocol_14",
+      "revision_aware_agent_wait",
+      "protocol_15",
+      "persistent_agent_attention",
+      "protocol_16",
+      "protocol_17",
+      "protocol_18",
+      "focused_terminal_following",
+      "protocol_19",
+      "workspace_default_cwd",
+      "protocol_20",
+      "structured_terminal_previews",
+      "protocol_21",
+      "focused_terminal_read",
+      "protocol_26",
+      "exact_run_attachment",
+      "protocol_28",
+      "stable_node_identity",
+      "protocol_29",
+      "federation_daemon_channel",
+      "protocol_30",
+      "node_rekey",
+      "protocol_31",
+      "node_registration_management",
+      "pinned_node_identity",
+      "protocol_32",
+      "node_projection_sync",
+      "bounded_remote_node_projections",
+      "protocol_33",
+      "combined_node_snapshot",
+      "node_qualified_dashboard",
+      "protocol_34",
+      "typed_exact_node_routing",
+      "guarded_remote_management",
+      "protocol_35",
+      "remote_pty_attachment",
+      "owner_environment_attachment",
+      "protocol_36",
+      "typed_node_host_services",
+      "remote_project_discovery",
+      "remote_launcher_invocation",
+      "remote_integration_management",
+      "remote_agent_session_catalog",
+      "remote_exact_session_resume",
+      "protocol_38",
+      "global_workspaces",
+      "multi_node_workspace_placements",
+      "guarded_workspace_adoption",
+      "resumable_workspace_close",
+      "protocol_39",
+      "qualified_focused_terminal",
+      "protocol_40",
+      "recovered_agent_presentation",
+      "cached_projection_dismissal",
+      "protocol_41",
+      "observed_node_helper_version",
+      "node_upgrade_coordination",
+      "protocol_42",
+      "opencode_shared_runtime_claims",
+      "protocol_43",
+      "claude_remote_control_bindings",
+      "protocol_44",
+      "collaborative_exact_run_attachment",
+      "protocol_45",
+      "kiro_exact_launch_holders",
+      "protocol_46",
+      "kiro_stop_idle",
+      "protocol_47",
+      "protocol_48",
+      "node_uninstall_coordination",
+      "protocol_49",
+      "workspace_placement_default_cwd"
+    ],
+    "integration_hosts": {
+      "claude": {
+        "package": "@anthropic-ai/claude-code",
+        "validated_version": "2.1.236"
+      },
+      "codex": {
+        "package": "@openai/codex",
+        "validated_version": "0.147.0"
+      },
+      "kiro": {
+        "package": "kiro-cli",
+        "validated_version": "2.18.0"
+      },
+      "opencode": {
+        "package": "opencode-ai",
+        "validated_version": "1.18.18"
+      },
+      "pi": {
+        "package": "@earendil-works/pi-coding-agent",
+        "validated_version": "0.84.1"
+      }
+    },
+    "json_commands": [
+      "web.start",
+      "web.status",
+      "web.stop",
+      "capabilities",
+      "list",
+      "shells",
+      "read",
+      "events",
+      "update.status",
+      "project.list",
+      "workspace.list",
+      "workspace.inspect",
+      "workspace.create",
+      "workspace.set-default-cwd",
+      "node.add",
+      "node.list",
+      "node.inspect",
+      "node.snapshot",
+      "node.rename",
+      "node.retarget",
+      "node.forget",
+      "shell.suggest-name",
+      "shell.inspect",
+      "launcher.list",
+      "launcher.inspect",
+      "agent.list",
+      "agent.inspect",
+      "agent.register",
+      "agent.ensure",
+      "agent.report",
+      "agent.wait",
+      "attention.list",
+      "attention.acknowledge",
+      "integration.list",
+      "integration.status",
+      "integration.install",
+      "integration.uninstall",
+      "integration.verify",
+      "session.list",
+      "session.inspect",
+      "daemon.status"
+    ],
+    "json_schemas": [
+      "boomux.cli/v1"
+    ]
+  }
+}
+
+$ boomux --help
+Native persistent terminal workspaces
+
+Usage: boomux [OPTIONS] [PATH] [-- <COMMAND>...] [SUBCOMMAND]
+
+Commands:
+  ui            Open the interactive workspace dashboard
+  web           Serve the mobile Agent dashboard and exact-run terminals on loopback
+  doctor        Check that Boomux's dependencies and daemon are available
+  setup         Discover and configure local Agent harnesses and desktop integration
+  capabilities  Report stable integration capabilities without starting the daemon
+  list          List all managed shells
+  shells        List shells in the current Boomux workspace
+  read          Read retained output from a shell name or shell ID
+  events        Read a bounded batch of daemon events
+  close         Close a shell by name, shell ID, or latest focused Boomux terminal
+  config        Inspect and edit layered Boomux configuration
+  update        Check for or install an official local Boomux release
+  uninstall     Remove this official Boomux release installation
+  project       Discover configured projects
+  workspace     Manage workspaces
+  desktop       Navigate Boomux Workspaces through an optional desktop layer
+  node          Manage this Boomux Node identity
+  shell         Manage shells
+  launcher      Manage workspace launchers
+  agent         Inspect and report external agent runtime state
+  attention     Inspect and acknowledge blocked or completed Agent work
+  notification  Test configured desktop and sound notification delivery
+  session       Discover projected agent sessions
+  integration   Inspect and install supported harness integrations
+  skill         Manage the vendor-neutral Boomux Agent Skill
+  opencode      Manage the Boomux OpenCode integration
+  pi            Manage the Boomux Pi integration
+  open          Open a shell in a new terminal window
+  daemon        Manage the background PTY daemon
+  help          Print this message or the help of the given subcommand(s)
+
+Arguments:
+  [PATH]        Open or create a persistent terminal in this directory
+  [COMMAND]...  Command and arguments to run instead of the login shell
+
+Options:
+      --json                      Emit the stable boomux.cli/v1 envelope for commands advertised by capabilities
+      --remote <TARGET>           Connect ad hoc to one Boomux Node through OpenSSH
+  -n, --name <NAME>               Name of the workspace group
+      --new                       Open the terminal in a new window instead of attaching here
+      --terminal <DESKTOP_ENTRY>  XDG desktop entry to use for windows opened by this invocation
+  -h, --help                      Print help
+  -V, --version                   Print version
+
+First run: boomux setup
+
+$ boomux workspace --help
+Manage workspaces
+
+Usage: boomux workspace [OPTIONS] <COMMAND>
+
+Commands:
+  list             List workspaces
+  select           Select the workspace used when context-required commands omit one
+  current          Show the persistently selected CLI workspace
+  clear            Clear the persistently selected CLI workspace
+  create           Create an empty workspace, or atomically create its first Shell with --node and --cwd
+  open             Open terminal windows and invoke launchers
+  inspect          Show a workspace and its shells
+  rename           Rename a workspace
+  set-default-cwd  Change one placement's default working directory for future resources
+  adopt            Adopt an unlinked Node-local Workspace as a new coordinated Workspace
+  link             Link an unlinked Node-local Workspace to a coordinated Workspace
+  close            Close a workspace and all of its shells
+  retry            Retry unresolved placement removals for a closing Workspace
+  help             Print this message or the help of the given subcommand(s)
+
+Options:
+      --json                      Emit the stable boomux.cli/v1 envelope for commands advertised by capabilities
+      --terminal <DESKTOP_ENTRY>  XDG desktop entry to use for windows opened by this invocation
+  -h, --help                      Print help
+
+$ boomux workspace create --help
+Create an empty workspace, or atomically create its first Shell with --node and --cwd
+
+Usage: boomux workspace create [OPTIONS] [NAME]
+
+Arguments:
+  [NAME]  
+
+Options:
+      --json                      Emit the stable boomux.cli/v1 envelope for commands advertised by capabilities
+      --node <NODE>               Exact eligible Node alias or Node ID for the first Shell
+      --cwd <CWD>                 Owner-resolved directory for the placement default and first Shell
+      --open                      Open the created Shell after the atomic creation commits
+      --terminal <DESKTOP_ENTRY>  XDG desktop entry to use for windows opened by this invocation
+  -h, --help                      Print help
+
+$ boomux workspace inspect --help
+Show a workspace and its shells
+
+Usage: boomux workspace inspect [OPTIONS] <TARGET>
+
+Arguments:
+  <TARGET>  
+
+Options:
+      --json                      Emit the stable boomux.cli/v1 envelope for commands advertised by capabilities
+      --terminal <DESKTOP_ENTRY>  XDG desktop entry to use for windows opened by this invocation
+  -h, --help                      Print help
+
+$ boomux workspace close --help
+Close a workspace and all of its shells
+
+Usage: boomux workspace close [OPTIONS] <TARGET>
+
+Arguments:
+  <TARGET>  
+
+Options:
+      --json                      Emit the stable boomux.cli/v1 envelope for commands advertised by capabilities
+      --terminal <DESKTOP_ENTRY>  XDG desktop entry to use for windows opened by this invocation
+  -h, --help                      Print help
+
+$ boomux shell --help
+Manage shells
+
+Usage: boomux shell [OPTIONS] <COMMAND>
+
+Commands:
+  suggest-name  Suggest an unused generated name without reserving it
+  create        Create a pending shell in a workspace
+  inspect       Show shell details
+  rename        Rename a shell
+  close         Close a shell
+  help          Print this message or the help of the given subcommand(s)
+
+Options:
+      --json                      Emit the stable boomux.cli/v1 envelope for commands advertised by capabilities
+      --terminal <DESKTOP_ENTRY>  XDG desktop entry to use for windows opened by this invocation
+  -h, --help                      Print help
+
+$ boomux shell create --help
+Create a pending shell in a workspace
+
+Usage: boomux shell create [OPTIONS] [WORKSPACE] [-- <COMMAND>...]
+
+Arguments:
+  [WORKSPACE]   Coordinated Workspace name or ID when --node is used
+  [COMMAND]...  
+
+Options:
+      --json                      Emit the stable boomux.cli/v1 envelope for commands advertised by capabilities
+      --node <NODE>               Exact eligible Node alias or Node ID
+      --name <NAME>               
+      --cwd <CWD>                 
+      --open                      Open the exact newly created shell in a native terminal
+      --terminal <DESKTOP_ENTRY>  XDG desktop entry to use for windows opened by this invocation
+  -h, --help                      Print help
+
+$ boomux shell inspect --help
+Show shell details
+
+Usage: boomux shell inspect [OPTIONS] <TARGET>
+
+Arguments:
+  <TARGET>  
+
+Options:
+      --json                      Emit the stable boomux.cli/v1 envelope for commands advertised by capabilities
+      --workspace <NAME_OR_ID>    
+      --terminal <DESKTOP_ENTRY>  XDG desktop entry to use for windows opened by this invocation
+  -h, --help                      Print help
+
+$ boomux shell close --help
+Close a shell
+
+Usage: boomux shell close [OPTIONS] <TARGET>
+
+Arguments:
+  <TARGET>  
+
+Options:
+      --json                      Emit the stable boomux.cli/v1 envelope for commands advertised by capabilities
+      --workspace <NAME_OR_ID>    
+      --terminal <DESKTOP_ENTRY>  XDG desktop entry to use for windows opened by this invocation
+  -h, --help                      Print help
+
+$ boomux open --help
+Open a shell in a new terminal window
+
+Usage: boomux open [OPTIONS] <SHELL_ID>
+
+Arguments:
+  <SHELL_ID>  
+
+Options:
+      --json
+          Emit the stable boomux.cli/v1 envelope for commands advertised by capabilities
+      --node <NODE>
+          Exact registered Node alias or Node ID
+      --workspace <COORDINATED_WORKSPACE>
+          Coordinated Workspace to use for optional desktop placement
+      --title <TITLE>
+          
+      --takeover
+          
+      --terminal <DESKTOP_ENTRY>
+          XDG desktop entry to use for windows opened by this invocation
+  -h, --help
+          Print help
+
+$ boomux events --help
+Read a bounded batch of daemon events
+
+Usage: boomux events [OPTIONS]
+
+Options:
+      --after <AFTER>             
+      --json                      Emit the stable boomux.cli/v1 envelope for commands advertised by capabilities
+      --limit <LIMIT>             [default: 256]
+      --wait-ms <WAIT_MS>         [default: 0]
+      --terminal <DESKTOP_ENTRY>  XDG desktop entry to use for windows opened by this invocation
+  -h, --help                      Print help
+
+$ boomux daemon status --help
+Report whether the daemon is accepting requests
+
+Usage: boomux daemon status [OPTIONS]
+
+Options:
+      --json                      Emit the stable boomux.cli/v1 envelope for commands advertised by capabilities
+      --terminal <DESKTOP_ENTRY>  XDG desktop entry to use for windows opened by this invocation
+  -h, --help                      Print help
+
+$ boomux node snapshot --help
+Show the combined Node-qualified local and cached remote projection
+
+Usage: boomux node snapshot [OPTIONS] [SELECTOR]
+
+Arguments:
+  [SELECTOR]  
+
+Options:
+      --json                      Emit the stable boomux.cli/v1 envelope for commands advertised by capabilities
+      --terminal <DESKTOP_ENTRY>  XDG desktop entry to use for windows opened by this invocation
+  -h, --help                      Print help
+
+$ boomux list --help
+List all managed shells
+
+Usage: boomux list [OPTIONS]
+
+Options:
+      --json                      Emit the stable boomux.cli/v1 envelope for commands advertised by capabilities
+      --terminal <DESKTOP_ENTRY>  XDG desktop entry to use for windows opened by this invocation
+  -h, --help                      Print help
+
+$ boomux launcher list --help
+List launchers in a workspace
+
+Usage: boomux launcher list [OPTIONS]
+
+Options:
+      --json                      Emit the stable boomux.cli/v1 envelope for commands advertised by capabilities
+      --workspace <NAME_OR_ID>    
+      --terminal <DESKTOP_ENTRY>  XDG desktop entry to use for windows opened by this invocation
+  -h, --help                      Print help
+
+$ boomux agent list --help
+List agent instances
+
+Usage: boomux agent list [OPTIONS]
+
+Options:
+      --json                      Emit the stable boomux.cli/v1 envelope for commands advertised by capabilities
+      --workspace <NAME_OR_ID>    
+      --terminal <DESKTOP_ENTRY>  XDG desktop entry to use for windows opened by this invocation
+  -h, --help                      Print help
+
+$ boomux integration list --help
+List integrations bundled with this Boomux binary
+
+Usage: boomux integration list [OPTIONS]
+
+Options:
+      --json                      Emit the stable boomux.cli/v1 envelope for commands advertised by capabilities
+      --terminal <DESKTOP_ENTRY>  XDG desktop entry to use for windows opened by this invocation
+  -h, --help                      Print help
+
+$ boomux integration status --help
+Inspect host, asset, and runtime reporting status
+
+Usage: boomux integration status [OPTIONS] [INTEGRATION]
+
+Arguments:
+  [INTEGRATION]  
+
+Options:
+      --json                      Emit the stable boomux.cli/v1 envelope for commands advertised by capabilities
+      --node <NODE>               
+      --terminal <DESKTOP_ENTRY>  XDG desktop entry to use for windows opened by this invocation
+  -h, --help                      Print help
+
+$ boomux config path --help
+Print the active writable configuration path
+
+Usage: boomux config path [OPTIONS]
+
+Options:
+      --json                      Emit the stable boomux.cli/v1 envelope for commands advertised by capabilities
+      --terminal <DESKTOP_ENTRY>  XDG desktop entry to use for windows opened by this invocation
+  -h, --help                      Print help
+
+$ boomux config validate --help
+Validate all configured layers
+
+Usage: boomux config validate [OPTIONS]
+
+Options:
+      --json                      Emit the stable boomux.cli/v1 envelope for commands advertised by capabilities
+      --terminal <DESKTOP_ENTRY>  XDG desktop entry to use for windows opened by this invocation
+  -h, --help                      Print help
