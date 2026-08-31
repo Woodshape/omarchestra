@@ -1,0 +1,110 @@
+Remote execution Node spike automated evidence
+
+Status: PASS for the automated harness. Remote and GUI behavior is fake-only. This
+record contains no live SSH, Boomux mutation, systemd service, Pi process, native
+terminal, GUI, or remote checkout activity. Starting Pi is explicitly forbidden in
+automated validation, so no Pi extension-loader smoke test was run and none is
+claimed here.
+
+Working directory: repository root
+
+Commands run:
+
+  for file in spikes/remote-execution-node/bridge-extension.js spikes/remote-execution-node/runner.mjs spikes/remote-execution-node/remote-helper.mjs spikes/remote-execution-node/manual.mjs spikes/remote-execution-node/lib/*.mjs spikes/remote-execution-node/test/*.mjs; do node --check "$file" || exit 1; done
+  node --test spikes/remote-execution-node/test/*.test.mjs
+  node spikes/remote-execution-node/test/link-check.mjs
+  git diff --check
+  grep -rn "hostinger\|2292a057\|srv1327543\|hstgr\|/srv/omarchestra\|omarchestra@" --include="*.mjs" --include="*.js" spikes/remote-execution-node/
+
+Results:
+
+  node --check: PASS for all listed JavaScript modules.
+  node --test: PASS, 109 tests, 109 passed, 0 failed.
+  link-check: PASS, 3 relative links resolved.
+  git diff --check: PASS.
+  verified-target grep (hostinger/2292a057/srv1327543/hstgr//srv/omarchestra/omarchestra@):
+    matches only the guard-pattern table inside test/source-audit.test.mjs itself;
+    no executable harness source or test hardcodes a verified target value.
+  source audit: PASS. The guard dynamically inventories every executable spike
+    source and test file and applies file-appropriate guards for shell-based
+    execution, broad kills, PTY injection/scraping, hidden Pi SDK/RPC/child
+    workers, private/unstable Boomux coupling, Node registration and daemon
+    mutation, wildcard cleanup bypasses, hardcoded verified target values, and
+    hidden live SSH/Boomux/systemd/GUI actions in tests. The generic direct-argv
+    executor (lib/executor.mjs, `spawn(..., shell: false)`) is the only
+    child_process user; tests execute no process.
+
+Coverage summary:
+
+  strict protocol and NDJSON framing
+  three-role identity binding and cross-role rejection
+  owner-only atomic durable state and symlink refusal
+  assignment intent persistence, acknowledgement, deduplication, and reconnect resend
+  bounded ordered events, source deduplication, cursor expiry, and baseline gaps
+  SSH-stdio-shaped control reconnect and fresh snapshot request
+  Unix path-only bridge transport
+  metadata-only telemetry and coalescing
+  manual takeover sibling isolation
+  validation artifact redaction
+  exact receipt-owned cleanup refusal and postconditions
+  plan-only receipt-backed manual gate (intent-before-plan, preflight binding,
+    exact mapping/readback recording, confirmed/ambiguous transitions, and
+    exactCleanupPlan-driven cleanup)
+  Linux /run/user/<uid> derivation when verified SSH leaves XDG_RUNTIME_DIR unset
+  sync-check resolution beneath spikes/remote-execution-node/ inside the repository
+    root, with exact relative paths and symlink/traversal refusal
+  read-only configuration/integration fingerprint plans for both Nodes
+  mark-attempted boundary with exact per-command operationId, attempt_in_progress
+    (one attempted operation at a time), attempted-only confirmations, and
+    crash-after-attempted replay blocking
+  cleanup mutation commands paired with their exact interleaved public readbacks
+    (workspace list before/after, owner snapshots after each create, unit show,
+    file-status, per-Shell and Workspace typed not_found inspections)
+  specialized raw-evidence cleanup confirmations (unit stop, files removed,
+    typed not_found per Shell/Workspace) with forged-evidence refusal
+  represent-all re-presentation with distinct represent-<role> receipt operations
+    and same-Run reconciliation through the strict normalizer
+  receipt-bound execution identity: preflight schema carries the derived
+    /run/user/<uid> runtime evidence, every runtime-dependent remote systemd and
+    Boomux invocation is built as remoteEnv XDG_RUNTIME_DIR=<bound dir> <binary>,
+    runtime-dependent reads moved to a receipt-backed post-bind preflight-remote
+    phase, and remote preflight evidence gates all mutations
+  authority split: the bound preflight keeps local fingerprints plus the strictly
+    validated execution identity (including the nonzero raw sudo -n exit); the
+    post-bind record-remote-preflight is the sole authority for remote
+    fingerprints and is strictly validated at receipt load (tampered record,
+    empty record, wrong UID/runtime, digest-type, and duplicate-key refusal);
+    postflight compares remote values against the recorded remote preflight and
+    prints exact receipt-derived runner-absence readbacks (runtime-env unit show
+    plus file-status)
+  workspace-close confirmation binds requested.globalWorkspaceId to the receipt
+  inspect-direct derives Shell authority from the receipt (wrong CLI ID refused)
+  preflight-remote emits each integration read exactly once
+  hardcoded verified target values absent from all executable source and tests
+  one-attempt-at-a-time rule (attempt_in_progress), immutable receipt input/identity
+    verification for every receipt-backed action, strict operation replay (exact
+    intent equality, attempted/ambiguous refusal, idempotent identical intent),
+    empty-Workspace global-ID-only creation readback, owner-ID derivation from
+    three agreeing raw shell readbacks, FileReceiptStore ownership/mode
+    enforcement, and remote-helper file-status read-only reporting
+  strict operation replay (exact intent equality, attempted/ambiguous refusal,
+    global ambiguity block, idempotent identical-intent replay)
+  empty-Workspace creation readback resolving only the global ID from raw
+    before/after workspace list JSON, and owner-ID derivation from three agreeing
+    raw shell-creation readbacks plus the single active remote placement
+  FileReceiptStore load-time ownership (injected UID) and mode-0600 enforcement
+  mark-attempted boundary: intents must advance to attempted before any creation
+    or readback confirmation; crash-after-attempted blocks replay until exact
+    reconciliation, and mark-ambiguous covers unprovable outcomes
+  strict runner readback parsed from raw systemctl show lines plus socket/state
+    path facts (kind, owner UID, 0600 mode), never a self-asserted object
+  raw shell inspect --json Run ID extraction through the shared strict normalizer
+    with mapping/owner/running validation and same-Run enforcement on repeat
+  removal of generic confirm-operation (specialized evidence actions only)
+  interleaved exact public readbacks after every destructive cleanup step
+    (unit show, remote-helper file-status, per-Shell not_found, Workspace not_found)
+  pending-Shell ordering: three pending Shell mappings, then runner, then
+    presentation, then initial running Run reconciliation
+  dynamic source coupling audit and fake-only automated evidence guard
+
+Manual evidence is intentionally not claimed here. See evidence/manual-observations.md.

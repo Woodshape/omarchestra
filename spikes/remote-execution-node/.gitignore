@@ -1,0 +1,8 @@
+evidence/local/*
+!evidence/local/.gitkeep
+*.sock
+*.state.json
+*.receipt.json
+*.preflight.json
+*.ndjson
+*.pid
