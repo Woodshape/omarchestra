@@ -286,10 +286,12 @@ export class ManualGate {
     const evidence = plainObject(await this.#readEvidence(evidenceSource, "workspace mapping evidence path"),
       "workspace mapping evidence")
     const inspection = plainObject(evidence.workspaceInspection ?? null, "workspace inspection")
-    const workspaces = Array.isArray(inspection.workspaces) ? inspection.workspaces : [inspection]
+    // Public `boomux workspace inspect --json` success data is singular and
+    // wrapped as `{ workspace: ... }`. Consume that actual public shape rather
+    // than an operator-unwrapped assertion.
+    const inspectedWorkspace = plainObject(inspection.workspace ?? null, "inspected workspace")
     const nodeId = receipt.inputs.expectedNodeId
-    const matches = workspaces.filter(workspace => workspace !== null && typeof workspace === "object"
-      && internalId(workspace.id) === globalId)
+    const matches = [inspectedWorkspace].filter(workspace => internalId(workspace.id) === globalId)
     requireCondition(matches.length === 1, "ownership_uncertain",
       "Workspace mapping evidence must contain exactly the receipt-owned global Workspace")
     requireCondition(matches[0].name === receipt.prefix,

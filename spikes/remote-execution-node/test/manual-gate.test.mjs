@@ -208,11 +208,15 @@ async function recordShellCreations(directory, storePath, { sabotage = null, own
 
 async function recordWorkspaceMapping(directory, storePath, { ownerId = IDS.owner } = {}) {
   const evidenceFile = await writeEvidenceFile(directory, "workspace-mapping.json", {
+    // Actual `boomux workspace inspect --json` success data is wrapped in a
+    // singular `workspace` field; keep the regression fixture at that public seam.
     workspaceInspection: {
-      id: IDS.global,
-      name: PREFIX,
-      closing: false,
-      placements: [{ node_id: IDS.node, workspace_id: ownerId, state: "active" }]
+      workspace: {
+        id: IDS.global,
+        name: PREFIX,
+        closing: false,
+        placements: [{ node_id: IDS.node, workspace_id: ownerId, state: "active" }]
+      }
     }
   })
   await buildPlan("record-workspace-readback", {
@@ -666,15 +670,19 @@ test("workspace mapping requires the single matching remote placement", async ()
     await recordShellCreations(directory, storePath)
     // No placement recorded yet: mapping is impossible without it.
     const noPlacement = await writeEvidenceFile(directory, "mapping-no-placement.json", {
-      workspaceInspection: { id: IDS.global, name: PREFIX, closing: false, placements: [] }
+      workspaceInspection: { workspace: {
+        id: IDS.global, name: PREFIX, closing: false, placements: []
+      } }
     })
     await assert.rejects(() => buildPlan("record-workspace-readback", {
       ...base, "receipt-store": storePath, "evidence-file": noPlacement
     }), error => error.code === "ownership_uncertain")
     // A placement naming a different owner Workspace contradicts the Shell readbacks.
     const wrongPlacement = await writeEvidenceFile(directory, "mapping-wrong-placement.json", {
-      workspaceInspection: { id: IDS.global, name: PREFIX, closing: false,
-        placements: [{ node_id: "70000000-0000-4000-8000-000000000007", workspace_id: IDS.owner, state: "active" }] }
+      workspaceInspection: { workspace: {
+        id: IDS.global, name: PREFIX, closing: false,
+        placements: [{ node_id: "70000000-0000-4000-8000-000000000007", workspace_id: IDS.owner, state: "active" }]
+      } }
     })
     await assert.rejects(() => buildPlan("record-workspace-readback", {
       ...base, "receipt-store": storePath, "evidence-file": wrongPlacement
