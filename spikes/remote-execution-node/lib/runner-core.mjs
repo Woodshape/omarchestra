@@ -430,27 +430,23 @@ export class RunnerCore {
     })
   }
 
-  async recordValidation({
-    artifactId,
-    command,
-    exitCode,
-    signal = null,
-    stdout = "",
-    stderr = "",
-    result = null,
-    capturedAtMs = undefined,
-    role = null
-  }) {
+  async recordValidation(payload) {
+    plainObject(payload, "validation payload")
+    const required = ["artifactId", "command", "exitCode", "stdoutMetadata", "stderrMetadata"]
+    const allowed = new Set([...required, "signal", "result", "capturedAtMs", "role"])
+    requireCondition(required.every(key => Object.hasOwn(payload, key))
+      && Object.keys(payload).every(key => allowed.has(key)),
+    "invalid_artifact", "Validation control payload requires metadata only and contains missing or unknown fields")
     const artifact = makeValidationArtifact({
-      artifactId,
-      command,
-      exitCode,
-      signal,
-      stdout,
-      stderr,
-      result,
-      capturedAtMs: capturedAtMs ?? nowValue(this.now),
-      role
+      artifactId: payload.artifactId,
+      command: payload.command,
+      exitCode: payload.exitCode,
+      signal: payload.signal ?? null,
+      stdoutMetadata: payload.stdoutMetadata,
+      stderrMetadata: payload.stderrMetadata,
+      result: payload.result ?? null,
+      capturedAtMs: payload.capturedAtMs ?? nowValue(this.now),
+      role: payload.role ?? null
     })
     validateValidationArtifact(artifact)
     return this.recordArtifact(artifact)

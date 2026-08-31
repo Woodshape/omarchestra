@@ -72,7 +72,7 @@ The extension emits only metadata. It omits assignment prompt bodies from teleme
 
 ### Validation artifacts
 
-`makeValidationArtifact()` records a deterministic non-agent command, exit status, signal, byte/character/line counts, SHA-256 values, and optional bounded structured result. It does not store command output bodies. A validation artifact is evidence only. It cannot substitute for the three visible Agent Run identities, a Reviewer result, or semantic acceptance.
+`makeValidationArtifact()` records a deterministic non-agent command, exit status, signal, byte/character/line counts, SHA-256 values, and optional bounded structured result. Live `record_validation` control requests accept only precomputed stream metadata; raw stdout/stderr bodies are forbidden by the control protocol and never enter runner state. A validation artifact is evidence only. It cannot substitute for the three visible Agent Run identities, a Reviewer result, or semantic acceptance.
 
 `remote-helper.mjs sync-check` is a read-only remote checkout check for the spike files. It reports file presence, size, and digest without copying repository contents or credentials.
 

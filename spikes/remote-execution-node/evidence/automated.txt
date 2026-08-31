@@ -19,7 +19,7 @@ Commands run:
 Results:
 
   node --check: PASS for all listed JavaScript modules.
-  node --test: PASS, 109 tests, 109 passed, 0 failed.
+  node --test: PASS, 110 tests, 110 passed, 0 failed.
   link-check: PASS, 3 relative links resolved.
   git diff --check: PASS.
   verified-target grep (hostinger/2292a057/srv1327543/hstgr//srv/omarchestra/omarchestra@):
@@ -45,7 +45,7 @@ Coverage summary:
   Unix path-only bridge transport
   metadata-only telemetry and coalescing
   manual takeover sibling isolation
-  validation artifact redaction
+  validation artifact redaction and metadata-only control submission (no output bodies)
   exact receipt-owned cleanup refusal and postconditions
   plan-only receipt-backed manual gate (intent-before-plan, preflight binding,
     exact mapping/readback recording, confirmed/ambiguous transitions, and

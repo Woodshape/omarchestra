@@ -666,7 +666,8 @@ function validationPlan(inputs, flags, remote) {
   })
   return { commands: [command(invocation.binary, invocation.argv, "harmless remote validation command")],
     controlFrameTemplate: requestTemplate, notes: [
-    "Capture the exact structured stdout/exit status and submit it as the validation artifact.",
+    "Capture the exact exit status and compute bounded byte/character/line counts plus SHA-256 for each stream.",
+    "Submit only that metadata through record_validation; output bodies are forbidden on the control protocol.",
     "This artifact never substitutes for Coordinator, Builder, or Reviewer evidence."
   ]}
 }

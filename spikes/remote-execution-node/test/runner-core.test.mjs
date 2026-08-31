@@ -215,6 +215,41 @@ test("bridge hello cursor gaps are recorded before reconnect snapshot delivery",
   assert.equal(covered.cursorCovered, true)
 })
 
+test("validation control accepts only precomputed stream metadata and never output bodies", async () => {
+  const core = makeCore()
+  await core.initialize()
+  await assert.rejects(() => core.recordValidation({
+    artifactId: "validation-body-refused",
+    command: ["/usr/bin/node", "-p", "2"],
+    exitCode: 0,
+    stdout: "2\n",
+    stderr: ""
+  }), error => error.code === "invalid_artifact")
+  const recorded = await core.recordValidation({
+    artifactId: "validation-metadata-only",
+    command: ["/usr/bin/node", "-p", "2"],
+    exitCode: 0,
+    signal: null,
+    stdoutMetadata: {
+      sha256: "53c234e5e8472b6ac51c1ae1cab3fe06fad053beb8ebfd8977b010655bfdd3c3",
+      bytes: 2,
+      characters: 2,
+      lines: 2
+    },
+    stderrMetadata: {
+      sha256: "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      bytes: 0,
+      characters: 0,
+      lines: 0
+    }
+  })
+  assert.equal(recorded.status, "recorded")
+  assert.equal(recorded.artifact.result.stdout.bytes, 2)
+  assert.equal(recorded.artifact.result.stdout.sha256,
+    "53c234e5e8472b6ac51c1ae1cab3fe06fad053beb8ebfd8977b010655bfdd3c3")
+  assert.equal(JSON.stringify(recorded.artifact).includes("2\\n"), false)
+})
+
 test("bounded cursor retention reports an explicit baseline and gap", async () => {
   const core = makeCore({ maxEvents: 3 })
   await core.initialize()

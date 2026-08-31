@@ -21,6 +21,19 @@ function outputMetadata(value, label) {
   return metadata
 }
 
+function suppliedOutputMetadata(value, label) {
+  plainObject(value, `${label} metadata`)
+  requireCondition(Object.keys(value).sort().join(",") === "bytes,characters,lines,sha256",
+    "invalid_artifact", `${label} metadata fields are invalid`)
+  requireCondition(typeof value.sha256 === "string" && /^[0-9a-f]{64}$/.test(value.sha256),
+    "invalid_artifact", `${label} metadata digest is invalid`)
+  for (const key of ["bytes", "characters", "lines"]) {
+    requireCondition(Number.isSafeInteger(value[key]) && value[key] >= 0,
+      "invalid_artifact", `${label} metadata ${key} is invalid`)
+  }
+  return { sha256: value.sha256, bytes: value.bytes, characters: value.characters, lines: value.lines }
+}
+
 export function makeValidationArtifact({
   artifactId,
   command,
@@ -28,6 +41,8 @@ export function makeValidationArtifact({
   signal = null,
   stdout = "",
   stderr = "",
+  stdoutMetadata = null,
+  stderrMetadata = null,
   result = null,
   capturedAtMs = Date.now(),
   role = null
@@ -46,6 +61,16 @@ export function makeValidationArtifact({
     requireCondition(Buffer.byteLength(JSON.stringify(result)) <= LIMITS.telemetryBytes,
       "invalid_artifact", "validation structured result is too large")
   }
+  requireCondition(stdoutMetadata === null || stdout === "", "invalid_artifact",
+    "validation stdout body and metadata are mutually exclusive")
+  requireCondition(stderrMetadata === null || stderr === "", "invalid_artifact",
+    "validation stderr body and metadata are mutually exclusive")
+  const normalizedStdout = stdoutMetadata === null
+    ? outputMetadata(stdout, "validation stdout")
+    : suppliedOutputMetadata(stdoutMetadata, "validation stdout")
+  const normalizedStderr = stderrMetadata === null
+    ? outputMetadata(stderr, "validation stderr")
+    : suppliedOutputMetadata(stderrMetadata, "validation stderr")
   return {
     artifactId,
     role,
@@ -57,8 +82,8 @@ export function makeValidationArtifact({
       exitCode,
       signal,
       passed: exitCode === 0 && signal === null,
-      stdout: outputMetadata(stdout, "validation stdout"),
-      stderr: outputMetadata(stderr, "validation stderr"),
+      stdout: normalizedStdout,
+      stderr: normalizedStderr,
       structured: result
     }
   }
