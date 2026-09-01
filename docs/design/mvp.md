@@ -1,7 +1,7 @@
 # Omarchestra — MVP Design
 
 Status: **MVP product scope and feasibility classifications locked; production technical contracts pending**
-Last updated: 2026-08-30  
+Last updated: 2026-09-01
 Related research: [`foundation-assessment.md`](../research/foundation-assessment.md)
 
 This document is the authoritative record of the MVP scope. It supersedes earlier architectural recommendations where they conflict with decisions recorded here.
@@ -351,7 +351,7 @@ For agent-owned or unknown attention, the console reports `needs_attention` and 
 
 1. **Team Goal list** — active and recent goals with overall state.
 2. **Team Goal detail** — goal text, workflow stage and final outcome.
-3. **Agent cards** — role, model, state, current assignment, elapsed time, latest structured event, and attention.
+3. **Agent cards** — persistently visible role and control state, model, current assignment, elapsed time, latest structured event, and attention. These cards are the redundant team-wide role/state surface for the decorationless native terminals.
 4. **Agent actions** — present/focus exact terminal, take control, return to team, reconcile manual work, resolve runner-owned approvals, acknowledge notifications, and cancel where safe. Agent-owned approvals redirect to the terminal.
 5. **Structured activity feed** — ordered orchestration and agent events, not a scraped transcript.
 6. **Create Team Goal form** — Execution Node, Node-qualified Project, goal, validated YAML Team Profile, and Validation Policy. Resolved role/model assignments are shown before launch; `review_and_command` also requires a command.
@@ -361,6 +361,8 @@ Context usage and cost are displayed only if Pi exposes reliable values through 
 ### Native terminal behavior
 
 **Locked.** Clicking an Agent card presents or focuses the exact native terminal bound to that Agent Run. Closing the terminal window must not kill the agent process. Reopening reconnects to the same process while it remains alive.
+
+Agent windows remain decorationless and visually native to Omarchy. Each visible Pi TUI persistently shows `<Role> · <state>` through the bridge-owned Pi status surface, while the Agent Console persistently repeats role and state across the team. The bridge also publishes `Omarchestra — <Role> — <state>` as dynamic terminal-title metadata for Hyprland, launchers, and window switchers, but title metadata is not treated as persistently visible chrome or as an independent acceptance surface.
 
 ## Persistence and recovery
 
@@ -432,7 +434,7 @@ If the Team Runner restarts during an in-flight assignment, it does not guess wh
 The MVP is demonstrable when:
 
 1. A user opens the Agent Console from the Omarchy bar and creates a Team Goal for a Node-qualified local or remote Git Project.
-2. The system creates the configured visible interactive Pi agents in native terminal windows tiled by Hyprland; each terminal persistently exposes its role and managed/waiting/takeover state without relying on conversation content.
+2. The system creates the configured visible interactive Pi agents in decorationless native terminal windows tiled by Hyprland; each Pi status persistently exposes its role and managed/waiting/takeover state without relying on conversation content, and the Agent Console redundantly shows the same team-wide projection.
 3. No hidden agent process performs work on behalf of those visible agents.
 4. The console shows each Agent Run's role, current assignment and normalized state from structured bridge events.
 5. Selecting an Agent Run focuses or reopens its exact terminal.
@@ -491,7 +493,7 @@ These defaults are intentionally reversible and do not yet constitute production
 3. Use SQLite with explicit transactions as the persistence candidate. Journal mode remains unlocked; default journaling and WAL must be compared against the actual single-writer workload.
 4. Use versioned NDJSON over owner-only Unix sockets locally and authenticated SSH stdio remotely.
 5. Run the Node-local prototype runner as a systemd user service and keep QML as a thin presentation client.
-6. Show role plus managed/waiting/takeover state persistently in both the native terminal title and Pi status surface.
+6. Keep agent Ghostty windows decorationless. Show role plus managed/waiting/takeover state persistently in the Pi status surface and redundantly in Agent Console cards; publish the same identity as dynamic terminal-title metadata for window-manager integrations without treating it as persistent chrome.
 7. Keep Team Profile model selection replaceable. Extra provider authentication and the final Luna/Sol/Reviewer model stack are not prerequisites for this vertical slice.
 
 ## Open technical contracts
@@ -500,7 +502,7 @@ These are specification/spike outputs rather than product-feature choices, but e
 
 1. **Project boundary:** repository is locked at `~/claude/omarchestra`; the accepted prototype toolchain must be validated before languages, packaging, IPC transport, and service startup become production commitments.
 2. **Runner persistence and protocol:** SQLite is the prototype candidate, but transaction boundaries, journal mode, snapshot/event/intent schemas, cursor ordering, deduplication, acknowledgement, migrations, and retention remain open.
-3. **Pi bridge:** feasibility is closed as supported with constraints. Production work remains for socket trust/permissions, exact schemas, durable replay/cursors, telemetry filtering/coalescing, slash-command and user-bash policy, attention coverage, reconciliation commands, and compatibility.
+3. **Pi bridge and presentation fan-out:** feasibility is closed as supported with constraints. Production work remains for socket trust/permissions, exact schemas, durable replay/cursors, telemetry filtering/coalescing, slash-command and user-bash policy, attention coverage, reconciliation commands, compatibility, and one committed role/state value reaching Pi status, title metadata, and Agent Console cards without stale divergence.
 4. **Boomux adapter:** local feasibility is closed as supported with constraints. Production work remains for the generic exact-Run presentation race, version-pinned weak mutation commands, attachment-state unavailability, compatibility policy, and remote Node evidence.
 5. **Remote execution:** Node identity, prerequisite/deployment policy, authenticated SSH stdio protocol, remote runner lifecycle, durable projection replay, disconnection semantics, and Node-qualified runtime routing.
 6. **Checkout safety:** dirty-checkout policy, concurrent Team Goals for one Project, strength of read-only enforcement, writer lease scope, and Builder commit policy.
@@ -530,4 +532,5 @@ These are specification/spike outputs rather than product-feature choices, but e
 - 2026-08-30: Single-Node remote execution promoted into locked MVP scope: a Team Goal may execute wholly on one preconfigured remote GNU/Linux Node while Omarchy UI and native terminals remain local. Cross-Node teams, provisioning, and repository synchronization remain deferred.
 - 2026-08-30: Local Boomux runtime feasibility classified **supported with constraints** after 61 automated tests and a passed human gate proving native tiling, detach survival, same-Run/same-PID re-presentation, sibling isolation, ordered events, and exact-ID cleanup. The generic public-open race remains unresolved.
 - 2026-09-01: One-Node remote execution feasibility classified **supported with constraints** after the controlled human gate; missing persistent role labels became an explicit failed acceptance criterion.
-- 2026-09-01: Accepted reversible vertical-slice defaults: TypeScript/Node 22+, SQLite with journal mode deliberately unlocked, versioned NDJSON over Unix sockets/SSH stdio, systemd user service, thin QML, and role/state shown in both terminal title and Pi status. Final model/provider selection is deferred.
+- 2026-09-01: Accepted reversible vertical-slice defaults: TypeScript/Node 22+, SQLite with journal mode deliberately unlocked, versioned NDJSON over Unix sockets/SSH stdio, systemd user service, thin QML, and durable role/state presentation. Final model/provider selection is deferred.
+- 2026-09-01: Local human presentation evidence rejected persistent Ghostty title bars: Omarchy's decorationless windows hide title metadata, forced client decorations looked non-native, and narrow tiled titles truncated. The locked visual contract is now Pi status per terminal plus redundant Agent Console cards; dynamic terminal titles remain window-manager metadata only.

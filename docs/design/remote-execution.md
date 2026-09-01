@@ -29,7 +29,7 @@ The local Omarchy machine continues to provide the Agent Console and native term
 13. Reconnection restores the current durable Team Goal projection and reattaches to exact surviving terminal sessions.
 14. Event gaps, stale projections, unavailable Nodes, and uncertain in-flight work are represented explicitly rather than inferred away.
 15. No cross-Node team, distributed checkout, automatic remote provisioning UI, or automatic repository synchronization is included.
-16. Every native agent terminal must persistently expose its Omarchestra role and managed/waiting/takeover state; structured identity hidden from the operator is insufficient.
+16. Every visible Pi status must persistently expose its Omarchestra role and managed/waiting/takeover state, and the local Agent Console must redundantly expose the team-wide projection. Decorationless terminal-title metadata remains available to Hyprland/window-switcher integrations but is not persistent chrome.
 
 ## Architectural consequence
 
@@ -137,4 +137,4 @@ The spike stopped at distinct human authorization gates for mutation, local wind
 
 Both the local Boomux runtime adapter and one-Node remote execution are supported with constraints after automated and human validation. The remote gate demonstrated three visible interactive Pi processes, durable managed delivery, connection/window-loss survival, same-Run re-presentation, takeover isolation, validation artifacts, and exact cleanup with preservation postflight.
 
-The classification is constrained by missing visible role labels in the Pi TUIs, the generic `boomux open` expected-Run race, unavailable attachment-state observability, and live-only busy/source-replay gaps. Production acceptance must close or explicitly retain these constraints; it must not generalize this result to cross-Node teams, reboot recovery, provisioning, or credential/repository synchronization.
+The classification is constrained by the remote gate's missing visible Pi-status labels, the generic `boomux open` expected-Run race, unavailable attachment-state observability, and live-only busy/source-replay gaps. A later local human gate proved real Pi-status rendering and rejected visible Ghostty title bars as non-native/truncation-prone; remote production acceptance must therefore prove Pi status plus the local Agent Console projection rather than terminal chrome. It must not generalize this result to cross-Node teams, reboot recovery, provisioning, or credential/repository synchronization.
