@@ -1,6 +1,6 @@
 # Omarchestra — MVP Design
 
-Status: **MVP product scope locked; technical design pending**  
+Status: **MVP product scope and feasibility classifications locked; production technical contracts pending**
 Last updated: 2026-08-30  
 Related research: [`foundation-assessment.md`](../research/foundation-assessment.md)
 
@@ -459,11 +459,10 @@ Status: **MVP product scope and the local/remote feasibility classifications are
 
 Before delegating broad implementation to Fusion Harness, the project needs:
 
-1. chosen portable implementation languages/toolchain for local and remote execution Nodes;
-2. a product policy or upstream capability for Boomux's generic exact-Run presentation race;
-3. a remote execution Node spike against an actual non-Omarchy GNU/Linux host;
-4. production runner/bridge snapshot, event, intent, SSH trust, deployment, and persistence contracts;
-5. milestone-sized implementation slices with executable acceptance gates.
+1. validate the accepted prototype toolchain through a narrow production-shaped vertical slice;
+2. choose a product policy or upstream capability for Boomux's generic exact-Run presentation race;
+3. define production runner/bridge snapshot, event, intent, SSH trust, deployment, and persistence contracts;
+4. convert the validated vertical slice into milestone-sized implementation slices with executable acceptance gates.
 
 Fusion Harness is a source of orchestration behavior and a tool for reviewing/building the new product. The new product should not be implemented directly inside the `fusion-harness` repository unless an explicit monorepo decision is made.
 
@@ -481,14 +480,26 @@ Preserved evidence:
 
 ## Product decision status
 
-All MVP product-scope decisions are locked. Remaining work is confined to the feasibility results and technical contracts below.
+All MVP product-scope decisions and feasibility classifications are locked. Remaining work is confined to production technical contracts below.
+
+## Accepted vertical-slice prototype defaults
+
+These defaults are intentionally reversible and do not yet constitute production architecture decisions:
+
+1. Build one narrow vertical slice before the full DAG workflow: three visible role-labelled Pi terminals, durable runner state, one managed assignment, takeover detection, and reconnect.
+2. Use TypeScript on Node 22+ for the runner, adapters, and control protocol prototype.
+3. Use SQLite with explicit transactions as the persistence candidate. Journal mode remains unlocked; default journaling and WAL must be compared against the actual single-writer workload.
+4. Use versioned NDJSON over owner-only Unix sockets locally and authenticated SSH stdio remotely.
+5. Run the Node-local prototype runner as a systemd user service and keep QML as a thin presentation client.
+6. Show role plus managed/waiting/takeover state persistently in both the native terminal title and Pi status surface.
+7. Keep Team Profile model selection replaceable. Extra provider authentication and the final Luna/Sol/Reviewer model stack are not prerequisites for this vertical slice.
 
 ## Open technical contracts
 
 These are specification/spike outputs rather than product-feature choices, but each must be closed before its implementation milestone begins:
 
-1. **Project boundary:** repository is locked at `~/claude/omarchestra`; languages, toolchain, packaging, IPC transport, and service startup model remain open.
-2. **Runner persistence and protocol:** transaction boundaries, snapshot/event/intent schemas, cursor ordering, deduplication, acknowledgement, migrations, and retention.
+1. **Project boundary:** repository is locked at `~/claude/omarchestra`; the accepted prototype toolchain must be validated before languages, packaging, IPC transport, and service startup become production commitments.
+2. **Runner persistence and protocol:** SQLite is the prototype candidate, but transaction boundaries, journal mode, snapshot/event/intent schemas, cursor ordering, deduplication, acknowledgement, migrations, and retention remain open.
 3. **Pi bridge:** feasibility is closed as supported with constraints. Production work remains for socket trust/permissions, exact schemas, durable replay/cursors, telemetry filtering/coalescing, slash-command and user-bash policy, attention coverage, reconciliation commands, and compatibility.
 4. **Boomux adapter:** local feasibility is closed as supported with constraints. Production work remains for the generic exact-Run presentation race, version-pinned weak mutation commands, attachment-state unavailability, compatibility policy, and remote Node evidence.
 5. **Remote execution:** Node identity, prerequisite/deployment policy, authenticated SSH stdio protocol, remote runner lifecycle, durable projection replay, disconnection semantics, and Node-qualified runtime routing.
@@ -518,3 +529,5 @@ These are specification/spike outputs rather than product-feature choices, but e
 - 2026-08-30: Visible Pi bridge feasibility classified **supported with constraints** after automated and manual TUI evidence; same-process assignment, observability, takeover, runner reconnect, duplicate rejection, and absence of a hidden child agent were proven.
 - 2026-08-30: Single-Node remote execution promoted into locked MVP scope: a Team Goal may execute wholly on one preconfigured remote GNU/Linux Node while Omarchy UI and native terminals remain local. Cross-Node teams, provisioning, and repository synchronization remain deferred.
 - 2026-08-30: Local Boomux runtime feasibility classified **supported with constraints** after 61 automated tests and a passed human gate proving native tiling, detach survival, same-Run/same-PID re-presentation, sibling isolation, ordered events, and exact-ID cleanup. The generic public-open race remains unresolved.
+- 2026-09-01: One-Node remote execution feasibility classified **supported with constraints** after the controlled human gate; missing persistent role labels became an explicit failed acceptance criterion.
+- 2026-09-01: Accepted reversible vertical-slice defaults: TypeScript/Node 22+, SQLite with journal mode deliberately unlocked, versioned NDJSON over Unix sockets/SSH stdio, systemd user service, thin QML, and role/state shown in both terminal title and Pi status. Final model/provider selection is deferred.

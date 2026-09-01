@@ -6,9 +6,9 @@ Omarchestra coordinates teams of real interactive coding agents, each shown in i
 
 ## Status
 
-**MVP product scope locked; technical design pending.**
+**MVP product scope and feasibility classifications locked; production technical contracts pending.**
 
-The visible Pi bridge and local Boomux runtime adapter are both supported with documented constraints after automated and human validation. The remote execution Node is the next feasibility spike.
+The visible Pi bridge, local Boomux runtime adapter, and one-Node remote execution are supported with documented constraints after automated and human validation. The next milestone is a narrow production-shaped vertical-slice prototype.
 
 ## Design
 
@@ -26,4 +26,4 @@ Fusion Harness remains an external development tool. Launch it with this reposit
 just fusion
 ```
 
-The application toolchain has intentionally not been selected yet.
+For the next prototype, the accepted defaults are TypeScript/Node 22+, SQLite with explicit transactions (journal mode intentionally unlocked), versioned NDJSON over Unix sockets and SSH stdio, a systemd user service, and a thin QML client. These are reversible spike defaults rather than final production commitments.
