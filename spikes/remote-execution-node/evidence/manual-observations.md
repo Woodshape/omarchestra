@@ -1,216 +1,149 @@
 # Remote execution Node manual observations
 
-Status: **PENDING HUMAN GATE**
+Status: **COMPLETED — SUPPORTED WITH CONSTRAINTS**
 
-No live SSH, Boomux mutation, systemd service, Pi process, native terminal, GUI, or remote validation was run during this implementation pass. Do not mark a row passed from automated fake evidence.
-
-Use only ignored `evidence/local/` files for receipts, preflight snapshots, remote state copies, process trees, session identifiers, or command output. Replace every `<...>` value with an observed value. Do not record credentials.
+Private command output, receipts, process trees, and session evidence remain ignored under `evidence/local/`. This document records bounded observations only; it contains no credentials.
 
 ## Operator inputs and authorization
 
-- Date/time:
-- Operator:
-- Local host/user/UID:
-- Remote SSH target from preflight:
-- Node alias from preflight:
-- Expected pinned Node ID from preflight:
-- Remote repository:
-- Receipt ID:
-- Team Goal ID:
-- Private preflight path and SHA-256:
-- Remote sync-check path and SHA-256:
-- Authorization record for each phase:
-  - [ ] receipt initialized and preflight bound (record intent, mapping, readback, and confirmation steps per phase)
-  - [ ] preflight read-only
-  - [ ] sync-check read-only
-  - [ ] Workspace/Shell creation
-  - [ ] runner start
-  - [ ] native presentation
-  - [ ] disconnect
-  - [ ] reconnect
-  - [ ] validation
-  - [ ] cleanup
-  - [ ] postflight
+- Date: 2026-09-01
+- Operator: `woodshape` (interactive operator)
+- Local host/user/UID: `woodshape-arch` / `woodshape` / 1000
+- Remote SSH target: `omarchestra@srv1327543.hstgr.cloud`
+- Node alias / pinned ID: `hostinger` / `2292a057-5f79-4207-86f6-5758d7ee4420`
+- Remote repository: `/srv/omarchestra`
+- Receipt ID: `94fede07-4830-48d6-b964-e4aa04a011ef`
+- Team Goal ID: `30de2cdb-313f-490b-8480-0533cf6aac26`
+- Private preflight: `evidence/local/preflight-results.json`, SHA-256 `0d0f0e8faf7714250781f2f3e4f328ece71b04a5d80eb2b3a6605e0ed9aa0b6a`
+- Private sync check: `evidence/local/sync-check-results.json`, SHA-256 `66dce04224c1697afa37426559fcd3b091a03c89cac61114cf3b76a9baab3693`
+- [x] Receipt/preflight, read-only checks, resource creation, runner start, presentation, disconnect/reconnect, takeover, validation, cleanup, and postflight each received the required human authorization.
 
-## 1. Preflight
+## 1. Preflight and checkout
 
-- [ ] Local Boomux CLI/protocol matches the required public contract.
-- [ ] Local daemon was already running. It was not started, restarted, or stopped by this spike.
-- [ ] Alias, SSH target, expected Node ID, registration revision, and tombstone epoch matched exactly.
-- [ ] Combined snapshot returned exactly one current, online, non-stale remote projection.
-- [ ] Remote protocol and required remote-PTY/owner-environment capabilities were present.
-- [ ] Remote UID was non-root.
-- [ ] Noninteractive sudo probe failed as required.
-- [ ] Runtime directory was owned by the execution UID and mode 0700.
-- [ ] Existing global Workspace and Node-qualified resource identities were privately captured.
-- [ ] Local Boomux config path/validation results and integration list/status fingerprints were privately captured.
-- [ ] Remote Boomux config path/validation results and integration list/status fingerprints were privately captured.
-- [ ] Explicit absent-config fingerprints were recorded as null where a config path does not exist.
-- [ ] No private Boomux state was read and no configuration or integration was mutated on either Node.
-- [ ] No pre-existing receipt or exact prefix collision was found.
-- [ ] The owner-only receipt was initialized (`receipt-init`) and the private preflight was bound (`preflight-bind`).
-- Preflight evidence file:
-- Preflight cursor/baseline:
-- Preflight failure or uncertainty:
+- [x] Local and remote Boomux 1.8.0/protocol 49 exposed the required public contract.
+- [x] The existing local daemon was not started, restarted, stopped, or reconfigured by the spike.
+- [x] Alias, SSH target, pinned Node ID, registration revision 1, and tombstone epoch 0 matched exactly.
+- [x] The Node was current, online, non-stale, and exposed the required remote PTY and owner-environment capabilities.
+- [x] Remote execution used non-root UID/GID 1001; `sudo -n` returned exit 1.
+- [x] `/run/user/1001` was owner-only mode 0700.
+- [x] Pre-existing global and Node-qualified resource identities were privately captured; the baseline was empty.
+- [x] Local and remote configuration/integration fingerprints were captured without reading private Boomux state or mutating configuration.
+- [x] The absent remote config was represented as `null`, not as a fabricated digest.
+- [x] No pre-existing receipt or exact-prefix collision existed.
+- [x] All required spike files were regular, non-symlink files beneath the explicit remote repository root; traversal was refused.
+- [x] The initial sync check performed no repository, dependency, credential, or provider mutation. Later reviewed commits were synchronized separately for live bug fixes.
+- Preflight evidence: `evidence/local/bound-preflight.json`, `preflight-results.json`, `preflight-remote-results.json`
+- Sync evidence: `evidence/local/sync-check-results.json`
+- Uncertainty: none at the preflight boundary.
 
-## 2. Checkout synchronization check
+## 2. Workspace, Shell, and runner ownership
 
-- [ ] Remote checkout path matched the explicit input.
-- [ ] Required spike files were present as regular non-symlink files beneath `spikes/remote-execution-node/` inside the explicit repository root (never at the repository top level), with no symlink, irregular file, or traversal.
-- [ ] Reported file digests were captured privately.
-- [ ] No repository file, dependency, credential, or provider configuration was copied or changed.
-- Sync evidence file:
-- Missing or changed file:
+- [x] One new global Workspace was resolved from raw public before/after JSON.
+- Global Workspace: `f06c086d-6af9-4be3-a934-c8305ec52387`
+- Owner Workspace: `114c0192-1b9c-45fd-8c0d-45ffed75309f`
+- Placement: pinned Node `2292a057-5f79-4207-86f6-5758d7ee4420`, state `active`
+- [x] Exactly three pending role Shells were resolved from owner snapshots and exact Shell inspections.
+- Coordinator Shell / initial Run: `5b40a766-1f88-47dc-a2fa-58acb58de443` / `427ab04b-4597-472b-975e-1cb0a182767b`
+- Builder Shell / initial Run: `79a9a17d-e392-4909-9fc8-68147ec45645` / `f3f271e7-e692-4ca4-b9cf-f79d224b3c62`
+- Reviewer Shell / initial Run: `e496f80a-09b4-4262-842a-57738c8fa1e0` / `bd3b0b61-c57f-4ae0-8a38-9eefe769c9aa`
+- [x] All intents were durable before mutation plans printed, used receipt-derived identities, and were reconciled from raw public evidence.
+- [x] `mark-attempted` and the one-attempt-at-a-time rule guarded creation and initial presentation.
+- [x] The three Shell readbacks agreed on one owner Workspace and one active placement; no foreign Shell, Launcher, Agent, or placement appeared.
+- [x] Bridge `BOOMUX_SHELL_ID` values matched the receipt mappings.
+- Runner unit: `omarchestra-remote-spike-94fede07-4830-48d6-b964-e4aa04a011ef.service`
+- Runner PID: `3505520`
+- Socket: `/run/user/1001/omarchestra-remote-spike-94fede07-4830-48d6-b964-e4aa04a011ef.sock`, mode 0600
+- State: `/home/omarchestra/.local/state/omarchestra/omarchestra-remote-spike-94fede07-4830-48d6-b964-e4aa04a011ef.state.json`, mode 0600
+- [x] Runner evidence used raw `systemctl --user show` and exact owner-path facts; normalized self-assertions were not accepted.
+- Evidence: `evidence/local/live.receipt.json` and the private creation/readback files.
 
-## 3. Workspace, Shell, and runner ownership
+## 3. Native presentation and visible identity
 
-- [ ] One new global Workspace was resolved from JSON readback.
-- Global Workspace ID:
-- Owner Workspace ID:
-- Placement Node ID:
-- Placement state:
-- [ ] Exactly three role Shells were resolved from public JSON readback.
-- [ ] The `workspace-create` intent was recorded durably before its plan printed; the plan's Boomux binary and Workspace name came from the receipt, not CLI flags.
-- [ ] Every mutating command record carried its exact receipt operationId; `mark-attempted` was run immediately before each execution, only one operation was attempted at a time (attempt_in_progress enforced), and every readback required the attempted state.
-- [ ] The receipt-bound `preflight-remote` phase (post-bind, runtime-env reads) ran before any mutation; its raw remote capability/daemon JSON plus the remote configuration/integration fingerprints were recorded with `record-remote-preflight`, which is the sole authority for the remote fingerprints compared at postflight.
-- [ ] The bound preflight kept local fingerprints only, plus the strictly validated execution identity (UID, derived runtime directory, source, 0700 mode, and the nonzero raw sudo -n probe exit; a recorded 0 would have been refused as sudo-capable).
-- [ ] `mark-attempted --operation-id <id>` was run immediately before executing every mutating command; all readback confirmations required the attempted state, and a bare intended intent was refused.
-- [ ] The global Workspace ID was resolved only from raw public `workspace list` before/after evidence through `record-workspace-creation` (`resolveWorkspaceCreation()`); no owner Workspace ID was guessed at this step.
-- [ ] `shells-create` used only the confirmed receipt-resolved global Workspace ID, never a CLI-supplied ID.
-- Coordinator Shell ID / Shell Run ID (the Shell is pending; the Run ID stays null until the first presentation):
-- Builder Shell ID / Shell Run ID:
-- Reviewer Shell ID / Shell Run ID:
-- [ ] Each exact readback was recorded with `record-shell-readback` using raw public `node snapshot` plus `shell inspect` JSON resolved by `resolveShellCreation()` (identity, pending status, cwd, full argv, owner Workspace ID, no foreign resources).
-- [ ] The complete mapping was recorded with `record-workspace-readback`; the owner Workspace ID was derived from the three agreeing Shell readbacks and matched the single active remote placement in the raw `workspace inspect` evidence.
-- [ ] Each bridge hello Shell ID matched Boomux's `BOOMUX_SHELL_ID` and the receipt.
-- [ ] No foreign Shell, Launcher, Agent, or additional placement appeared.
-- [ ] The runner start was authorized only through the receipt gate after the three pending Shell mappings were recorded.
-- [ ] The runner readback evidence was raw structured `systemctl --user show` lines plus socket/state path facts (path, kind, owner UID, 0600 mode), parsed by the gate; no self-asserted normalized object was accepted.
-- Runner unit:
-- Runner PID:
-- Runner socket path and mode:
-- Runner state path and mode:
-- [ ] Runner state was owned by the remote unprivileged user.
-- Creation/runner evidence file:
-- Creation uncertainty:
+- [x] All three exact remote PTYs opened immediately in native local Ghostty/Hyprland windows and were visibly tiled.
+- [x] No terminal output was parsed as identity or telemetry.
+- [x] Initial and re-presentation inspections observed the same receipt-owned Run IDs.
+- [x] The generic-open limitation was recorded as `atomicExpectedRunGuarantee: false`.
+- Coordinator PID / Pi session / extension: `3514201` / `01a0579b-486d-75af-8ed6-c5b7d99fbb95` / `…-coordinator`
+- Builder PID / Pi session / extension: `3518442` / `01a0579c-633e-7e63-bc6e-b50911a1dc86` / `…-builder`
+- Reviewer PID / Pi session / extension: `3518923` / `01a0579c-7b21-7339-b22d-ff6d47b06bdb` / `…-reviewer`
+- Attachment-state observability: unavailable through the generic public contract.
+- [ ] **Role labels were not visible in the Pi TUIs.** Builder could only be identified from its unique prior assignment content. This is a product-visible failed criterion and a classification constraint.
+- Screenshot: private clipboard capture referenced in `evidence/local/` observations.
 
-## 4. Native presentation and visible identity
+## 4. Bridge, assignment, and process behavior
 
-- [ ] `present-all` was authorized only after the receipt recorded the runner mapping; all three Shells were pending and no running Run was required before the first open.
-- [ ] All three exact remote Shells were opened in local native terminal windows.
-- [ ] Windows were visibly tiled by the existing desktop layer.
-- [ ] No terminal output was parsed as identity or telemetry.
-- [ ] Generic-open limitation was recorded: `atomicExpectedRunGuarantee: false`.
-- [ ] Pre/post inspection found no Run replacement.
-- [ ] Every initial running Run ID was reconciled with `record-shell-run-readback` from the raw public `shell inspect --json` evidence (mapping + running status validated; Run ID extracted by the normalizer, never typed).
-- Coordinator visible PID / Pi session / extension instance:
-- Builder visible PID / Pi session / extension instance:
-- Reviewer visible PID / Pi session / extension instance:
-- Attachment state:
-  - `unavailable` unless a public contract supplied it.
-- Screenshot or private inspection paths:
+- [x] Exactly three bridge handshakes were accepted with unique receipt-bound Agent Run, Shell, Pi session, extension, PID, and role identities.
+- [x] The managed Builder assignment was acknowledged `accepted` and settled in the visible Pi.
+- [x] Repeating the identical assignment returned `duplicate`, `sent: false`, and created no second visible turn.
+- [x] Runner snapshots preserved all three mappings and durable cursor state.
+- [ ] A live `busy` rejection was not separately exercised.
+- [x] Exact `ps`/`pstree` evidence showed each visible Pi host and no hidden Pi child, JSON/RPC worker, or second agent process.
+- [x] The runner was a separate normal Node-local process.
+- Evidence: `evidence/local/assignment-builder-*.json`, `process-*-results.json`, and control snapshots.
 
-## 5. Bridge and assignment behavior
+## 5. Disconnect, reconnect, and re-presentation
 
-- [ ] Exactly three bridge handshakes were accepted.
-- [ ] Agent Run IDs were unique and matched the receipt.
-- [ ] Pi session IDs, extension IDs, PIDs, Shell IDs, and roles matched the receipt.
-- [ ] Managed assignments used `accepted` acknowledgements.
-- [ ] Repeating an assignment returned `duplicate` and caused no second visible turn.
-- [ ] A busy visible session returned `busy` without replacement.
-- [ ] Runner snapshot preserved all three role mappings.
-- Bridge NDJSON evidence file:
-- Assignment IDs and acknowledgement statuses:
-- Event cursor:
+- [x] The control client and all three local terminal windows were closed without closing any Boomux Shell, stopping the daemon, or mutating Node registration.
+- [x] Runner, bridge, Pi PID/session, exact Shell Run, Team Goal, assignment, artifact, and cursor state survived.
+- [x] Direct SSH inspection returned the same three Run IDs.
+- [x] A new authenticated control client returned the same pinned Node and Team Goal.
+- [x] All three PTYs were re-presented with unchanged Runs, PIDs, Pi sessions, and bridge identities.
+- [x] Events were ordered; no cursor expiry or stream replacement occurred.
+- Cursor before/after reconnect: `runner-94fede07-4830-48d6-b964-e4aa04a011ef:29`
+- Evidence: `evidence/local/disconnect-*.json`, `reconnect-control-snapshot.json`, `represent-*.json`
 
-## 6. Process-tree evidence
+## 6. Manual takeover isolation
 
-- [ ] Each exact PID was checked with `ps` and `pstree` or the documented fallback.
-- [ ] Exactly three visible Pi host processes were present.
-- [ ] No Pi descendant, RPC worker, JSON-mode worker, or other hidden agent was present.
-- [ ] Runner was a separate normal node-local process.
-- Private process-tree path:
-- Unexpected process or uncertainty:
+- [x] The operator submitted `Manual takeover check` through the visible Builder Pi, not through PTY injection or the control console.
+- [x] Builder emitted `human_message_submitted` and `manual_takeover`.
+- [x] Only Builder entered `manual_takeover`.
+- [x] Builder assignment `human-gate-builder-assignment-1` entered `needs_reconciliation`.
+- [x] Coordinator and Reviewer remained `managed` and unchanged.
+- Evidence: `evidence/local/manual-takeover-reconcile-snapshot.json`, `manual-takeover-reconcile-events.json`
 
-## 7. Disconnect survival
+## 7. Validation and events
 
-- [ ] The local control SSH client was closed normally.
-- [ ] All local native terminal windows were closed normally.
-- [ ] No Boomux Shell close, daemon stop, broad process action, or remote registration action was used.
-- [ ] Remote runner unit remained active or its exact state was truthfully recorded.
-- [ ] Remote bridge/Pi PIDs remained alive.
-- [ ] All three exact Shell Runs remained unchanged.
-- [ ] Team Goal, assignments, artifacts, and runner state remained durable.
-- Disconnect timestamp:
-- Direct inspection evidence:
-- Unavailable observation or gap:
+- [x] The harmless remote Node command completed with exact argv, exit 0, signal null, stdout `2\n`, and empty stderr.
+- [x] Artifact `human-gate-validation-1` durably recorded pass status plus byte/character/line counts and SHA-256 digests.
+- [x] No stdout/stderr body entered runner state.
+- [x] `validation_recorded` appeared at runner sequence 42; bounded event pages remained strictly ordered.
+- [x] The validation artifact was not treated as Agent Run or semantic Reviewer evidence.
+- [ ] Source-event duplicate rejection was covered by fake-only automation but was not independently forced during the live gate.
+- Live finding: `record_validation` originally required newline-bearing output while the control protocol forbade it. Commit `200be13` changed the contract to precomputed stream metadata only. To avoid restarting the active old runner, this live artifact used its validated generic `record_artifact` operation.
+- Evidence: `evidence/local/validation-*.json`
 
-## 8. Direct inspection and reconnect
+## 8. Exact cleanup
 
-- [ ] Exact SSH direct Shell inspection returned the same three Shell Run IDs.
-- [ ] A new authenticated SSH stdio control client connected.
-- [ ] Reconnect snapshot returned the same pinned Node and Team Goal.
-- [ ] Agent Run, Shell, Shell Run, Pi session, extension, and PID identities were unchanged.
-- [ ] Events after the saved cursor were ordered.
-- [ ] Any expired cursor or stream replacement was reported as an explicit gap with a fresh baseline.
-- [ ] All three exact remote PTYs were re-presented without a Run replacement.
-- Reconnect evidence file:
-- Old cursor:
-- New cursor:
-- Gap/baseline details:
+- [x] Fresh registration, global Workspace, owner snapshot, and per-Shell evidence passed `exactCleanupPlan()` before cleanup.
+- [x] Runner unit stop was confirmed as inactive/dead with MainPID 0.
+- [x] Exact socket and state paths were removed and confirmed absent.
+- [x] Exactly the three receipt-owned Shells were closed and returned typed `not_found` with explicit owner-Workspace context.
+- [x] Exactly the receipt-owned global Workspace was closed and returned typed `not_found`.
+- [x] Specialized raw-evidence confirmations recorded every successful destructive result; no name, prefix, focus, wildcard, broad process action, daemon lifecycle action, or registration mutation authorized cleanup.
+- [x] No foreign resource, additional placement, or changed Shell Run appeared in the fresh pre-cleanup evidence.
+- [ ] The first generated Shell-close/readback pair was not live-correct: it addressed the remote owner Workspace through local Boomux, then omitted explicit owner context during absence inspection.
+- Recovery: cleanup stopped immediately. The failed local close was proven to be a no-op by a fresh remote inspection of the unchanged Coordinator Shell/Run. Shell close/inspect was corrected to the receipt-bound remote Boomux environment; explicit owner context then produced typed `not_found`. Builder and Reviewer used the corrected route. Regression tests now require this routing.
+- Evidence: `evidence/local/pre-cleanup-exact-evidence.json`, `cleanup-*.json`, `live.receipt.json`
+- Uncertainty: none remained after exact no-op reconciliation and specialized confirmations.
 
-## 9. Manual takeover isolation
+## 9. Postflight and conclusion
 
-- [ ] Ordinary human text was submitted in exactly one visible Pi.
-- [ ] `human_message_submitted` and `manual_takeover` were recorded.
-- Role taken over:
-- [ ] Only that role entered `manual_takeover`.
-- [ ] Its active assignment entered `needs_reconciliation`.
-- [ ] Coordinator and Reviewer state remained unchanged when Builder was taken over, or the corresponding sibling comparison was recorded.
-- [ ] No PTY input injection was used.
-- Takeover evidence file:
+- [x] Alias, pinned Node ID, SSH target, registration revision 1, and tombstone epoch 0 were unchanged.
+- [x] Local/remote Boomux configuration and integrations were preserved. Local integration status differed only in executable path presentation for two hosts; the catalog and all other structured status fields were unchanged.
+- [x] The empty pre-existing global and Node-qualified resource baselines were preserved.
+- [x] The exact runner unit/PID, socket, state, Workspace, placement, Shells, and bridges were absent.
+- [x] Node registration, Boomux/Pi installation, credentials, checkout, and unrelated resources remained.
+- Postflight evidence: `evidence/local/postflight-results.json`, `postflight-pid-result.json`, `postflight-verified.json`
 
-## 10. Validation and events
+Conclusion: **SUPPORTED WITH CONSTRAINTS**
 
-- [ ] The documented harmless remote Node command ran with an exact argv.
-- [ ] Its structured result, exit status, and bounded digest were recorded as a validation artifact.
-- [ ] The artifact did not contain an output body.
-- [ ] The artifact was not used as a substitute for Agent Run or Reviewer evidence.
-- [ ] Event pages were bounded and strictly ordered.
-- [ ] Source-event duplicates were ignored.
-- Validation artifact path/ID:
-- Event evidence path:
-- Validation or cursor uncertainty:
+Reason: one remote Node can host three persistent, visible, interactive Pi processes under an unprivileged identity while local native terminals present their exact Boomux PTYs. Managed assignment, deduplication, durable state, disconnect/reconnect, same-Run re-presentation, structured telemetry, takeover isolation, validation, and exact cleanup were demonstrated. The missing visible role labels prevent an unconstrained result.
 
-## 11. Exact cleanup
+Residual risks and required production work:
 
-- [ ] Final exact Node registration and public snapshots matched the receipt/preflight.
-- [ ] `mark-attempted --operation-id <cleanup-*>` was run immediately before every destructive cleanup command using the exact operationId of each command record; the sequence stopped on the first unproven or ambiguous outcome (`attempt_in_progress` refused out-of-order attempts).
-- [ ] The printed cleanup plan interleaved the exact readbacks: unit show after stop, `file-status` after the exact direct-argv `rm -f -- <socket> <state>`, per-Shell typed `not_found`, and the Workspace typed `not_found`.
-- [ ] Specialized cleanup confirmations ran from the raw interleaved readbacks (confirm-cleanup-unit-stop, confirm-cleanup-files, confirm-shell-close --role, confirm-workspace-close); no bare `exactReadback:true` file confirmed anything.
-- [ ] Each destructive step was followed by its exact public readback (unit state, `file-status` absence, per-Shell `not_found`, Workspace `not_found`), and each was recorded.
-- [ ] `cleanup` consumed fresh exact evidence (`--evidence-file`) through receipt-backed `exactCleanupPlan()`; CLI-supplied Workspace/Shell IDs were ignored.
-- [ ] No foreign resource or additional placement was present.
-- [ ] No Shell Run changed.
-- [ ] Exact runner unit stopped and unit/PID absence was read back.
-- [ ] Exact socket and state paths were absent after owner-local exact-path cleanup.
-- [ ] Exactly three receipt-owned Shell IDs were closed and absent.
-- [ ] Exactly one receipt-owned global Workspace was closed and absent.
-- [ ] No name, prefix, focus, wildcard, global close, daemon stop, or registration mutation authorized cleanup.
-- Cleanup evidence path:
-- Cleanup refusal/uncertainty:
-
-## 12. Postflight and conclusion
-
-- [ ] Node alias, pinned Node ID, SSH target, registration revision, and tombstone epoch were unchanged.
-- [ ] Boomux configuration and integrations were unchanged.
-- [ ] Every pre-existing global Workspace remained.
-- [ ] Every pre-existing Node-qualified resource remained.
-- [ ] No spike process, unit, socket, state, Workspace, placement, Shell, or bridge remained.
-- Postflight evidence path:
-
-Conclusion: **PENDING** / **SUPPORTED WITH CONSTRAINTS** / **UNSUPPORTED**
-
-Reason:
-
-Residual risks or questions:
+1. Make role and managed/waiting/takeover state visibly persistent in every native terminal.
+2. Preserve the documented generic `boomux open` process-exit/replacement race constraint until a public atomic expected-Run guard exists.
+3. Use receipt-bound remote owner context for all owner-Shell cleanup and inspection; keep the live regression test.
+4. Use metadata-only validation control requests from commit `200be13`; never send output bodies.
+5. Normalize integration fingerprints over stable public fields rather than executable-path presentation.
+6. Exercise live busy rejection and source-event replay/deduplication in a later production acceptance gate.

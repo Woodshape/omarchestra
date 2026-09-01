@@ -1015,7 +1015,7 @@ test("cleanup plans interleave exact readback commands after every destructive s
     }
     // Each shell close must be followed by an inspect of the same exact Shell ID.
     for (const shellId of [IDS.coordinatorShell, IDS.builderShell, IDS.reviewerShell]) {
-      const closeIndex = plan.commands.findIndex(item => item.label === `close exact Shell ${shellId}`)
+      const closeIndex = plan.commands.findIndex(item => item.mutation === true && item.argv.includes(shellId))
       assert.ok(closeIndex !== -1, `missing close for ${shellId}`)
       const inspect = plan.commands[closeIndex + 1]
       assert.ok(inspect.argv.includes(shellId), "shell close must be followed by an inspect of the same Shell")
@@ -1084,15 +1084,26 @@ test("cleanup emits the exact removal command and every mutation carries its rec
     assert.ok(showIndex !== -1 && showIndex < removeIndex, "stopped-unit readback must precede removal")
     assert.ok(removeIndex < statusIndex, "removal must precede the file-status readback")
 
-    // Role pairings: each Shell close's operation ID names the role whose Shell ID
-    // and exactCleanupPlan-owned Shell ID it carries.
+    // Owner Shells live inside the remote Boomux daemon. Close and inspect must
+    // therefore route through the receipt-bound SSH/runtime environment rather
+    // than treating the remote owner Workspace as a local Workspace.
     const roleMapping = new Map([["coordinator", IDS.coordinatorShell],
       ["builder", IDS.builderShell], ["reviewer", IDS.reviewerShell]])
     for (const item of mutations.filter(item => item.operationId.startsWith("cleanup-shell-close-"))) {
       const role = item.operationId.slice("cleanup-shell-close-".length)
-      assert.equal(item.argv[item.argv.indexOf("--workspace") - 1], roleMapping.get(role),
-        "shell close must pair its role operation with the exactCleanupPlan-owned Shell ID")
-      assert.ok(item.argv.includes(roleMapping.get(role)))
+      const shellId = roleMapping.get(role)
+      assert.equal(item.binary, base.ssh)
+      assert.ok(item.argv.includes("XDG_RUNTIME_DIR=/run/user/1001"))
+      const remoteBoomuxIndex = item.argv.indexOf(base["remote-boomux"])
+      assert.ok(remoteBoomuxIndex > 0)
+      assert.deepEqual(item.argv.slice(remoteBoomuxIndex + 1),
+        ["shell", "close", shellId, "--workspace", IDS.owner])
+      const closeIndex = plan.commands.indexOf(item)
+      const inspect = plan.commands[closeIndex + 1]
+      assert.equal(inspect.binary, base.ssh)
+      const inspectBoomuxIndex = inspect.argv.indexOf(base["remote-boomux"])
+      assert.deepEqual(inspect.argv.slice(inspectBoomuxIndex + 1),
+        ["shell", "inspect", shellId, "--workspace", IDS.owner, "--json"])
     }
 
     // Full ordering: stop/readback/remove/readback/(close/readback) ×3/workspace/readback.

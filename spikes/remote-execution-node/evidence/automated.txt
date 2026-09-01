@@ -59,7 +59,8 @@ Coverage summary:
     crash-after-attempted replay blocking
   cleanup mutation commands paired with their exact interleaved public readbacks
     (workspace list before/after, owner snapshots after each create, unit show,
-    file-status, per-Shell and Workspace typed not_found inspections)
+    file-status, receipt-bound remote owner-Workspace Shell close/inspect, and
+    per-Shell and coordinated Workspace typed not_found inspections)
   specialized raw-evidence cleanup confirmations (unit stop, files removed,
     typed not_found per Shell/Workspace) with forged-evidence refusal
   represent-all re-presentation with distinct represent-<role> receipt operations

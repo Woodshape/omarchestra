@@ -546,13 +546,15 @@ async function cleanupPlan(receipt, flags, remote) {
   for (const shellMapping of receipt.workspace.shells) {
     requireCondition(exact.shellIds.includes(shellMapping.id), "ownership_uncertain",
       `Cleanup plan lacks the receipt-owned ${shellMapping.role} Shell`)
-    commands.push(command(inputs.executables.localBoomux,
-      boomuxCommands.shellClose({ shellId: shellMapping.id, workspaceId: exact.ownerWorkspaceId }),
-      `close exact Shell ${shellMapping.id}`,
+    commands.push(command(...Object.values(sshEnv(receipt, inputs, inputs.executables.remoteBoomux,
+      boomuxCommands.shellClose({ shellId: shellMapping.id, workspaceId: exact.ownerWorkspaceId }))),
+      `close exact Shell ${shellMapping.id} on its owner Node (receipt-bound runtime env)`,
       { mutation: true, operationId: `cleanup-shell-close-${shellMapping.role}` }))
-    commands.push(command(inputs.executables.localBoomux,
-      boomuxCommands.shellInspect(shellMapping.id),
-      `read back exact Shell absence ${shellMapping.id} (requires the typed not_found error)`))
+    commands.push(command(...Object.values(sshEnv(receipt, inputs, inputs.executables.remoteBoomux,
+      boomuxCommands.shellInspectInWorkspace({
+        shellId: shellMapping.id, workspaceId: exact.ownerWorkspaceId
+      }))),
+      `read back exact Shell absence ${shellMapping.id} on its owner Node (requires the typed not_found error)`))
   }
   commands.push(command(inputs.executables.localBoomux, boomuxCommands.workspaceClose(exact.globalWorkspaceId),
     "close exact coordinated Workspace", { mutation: true, operationId: "cleanup-workspace-close" }))

@@ -1,6 +1,6 @@
 # Remote execution Node spike
 
-Status: **automated harness complete; controlled remote/GUI gate pending**
+Status: **controlled remote/GUI gate complete — supported with constraints**
 
 This is the third Omarchestra feasibility spike. It is throwaway evidence code, not production architecture.
 
@@ -96,7 +96,7 @@ The extension emits only metadata. It omits assignment prompt bodies from teleme
 | `test/*.test.mjs` | Fake-only protocol, runner, reconnect, state, telemetry, safety, and source tests. |
 | `test/link-check.mjs` | Relative Markdown link check. |
 | `evidence/automated.txt` | Captured automated commands and results. |
-| `evidence/manual-observations.md` | Pending human-only gate record. |
+| `evidence/manual-observations.md` | Completed human-only gate record and classification. |
 | `evidence/local/` | Ignored owner-local receipts, snapshots, state, process evidence, and sensitive live output. |
 
 The existing `lib/validation.mjs`, `lib/commands.mjs`, `lib/envelopes.mjs`, `lib/executor.mjs`, `lib/receipt.mjs`, and `lib/runtime.mjs` are task 1.a public Boomux and receipt fixtures. Task 1.b adds the runner/bridge modules without changing production Omarchestra.
@@ -276,7 +276,7 @@ Run the `events` plan from the saved cursor. Confirm strictly ordered durable ev
 
 Do not proceed unless all prior observations pass. Bind final exact public snapshots (coordinator Workspace snapshot, owner-Node snapshot, per-Shell inspections, and the reconciled pinned Node identity) into a fresh private evidence file and authorize `cleanup` with `--evidence-file <path>`. The plan calls `exactCleanupPlan()` against the durable receipt and that fresh evidence; its resource IDs come from the receipt only, and CLI-supplied Workspace/Shell IDs are ignored. Reconcile the pinned Node alias/ID/target before every destructive operation. Refuse cleanup if any foreign Shell, Launcher, Agent, placement, changed Shell Run, changed registration, missing receipt evidence, or uncertain outcome appears.
 
-Before every destructive command, run `mark-attempted --operation-id <id>` with the exact `operationId` printed on the command record (`cleanup-unit-stop`, `cleanup-remove-files`, `cleanup-shell-close-<role>`, `cleanup-workspace-close`); only one cleanup operation may be attempted at a time, and its specialized confirmation must land before the next is marked. Readbacks require the attempted state and refuse to confirm from a bare intent. Execute only exact receipt-owned actions, interleaving the printed public readback after each destructive step, and **stop on the first unproven or ambiguous outcome** — do not execute any following destructive command; record an unprovable outcome with `mark-ambiguous`, which blocks the receipt until exactly reconciled:
+Before every destructive command, run `mark-attempted --operation-id <id>` with the exact `operationId` printed on the command record (`cleanup-unit-stop`, `cleanup-remove-files`, `cleanup-shell-close-<role>`, `cleanup-workspace-close`); only one cleanup operation may be attempted at a time, and its specialized confirmation must land before the next is marked. Readbacks require the attempted state and refuse to confirm from a bare intent. Receipt-owned Shells belong to the remote owner Workspace, so Shell close and absence inspection execute through the receipt-bound SSH/runtime environment against the remote Boomux daemon; the absence inspection supplies the exact owner Workspace explicitly. Only the coordinated global Workspace close executes through local Boomux. Execute only exact receipt-owned actions, interleaving the printed public readback after each destructive step, and **stop on the first unproven or ambiguous outcome** — do not execute any following destructive command; record an unprovable outcome with `mark-ambiguous`, which blocks the receipt until exactly reconciled:
 
 1. stop the exact runner user unit, then read back its exact unit state (`LoadState`, `ActiveState`, `SubState`, `MainPID=0`);
 2. remove only the exact receipt socket and state paths through the printed direct-argv `<remote rm> -f -- <socket> <state>` SSH command, then read back both paths' absence through the fixed read-only remote-helper `file-status` action, and confirm with `confirm-cleanup-files`;
@@ -291,11 +291,12 @@ Run read-only Node registration, configuration, Node snapshot, Workspace, Shell,
 
 ## Evidence status and constraints
 
-Current automated evidence is in [`evidence/automated.txt`](evidence/automated.txt). [`evidence/manual-observations.md`](evidence/manual-observations.md) is intentionally pending and contains the exact human-only fields to record. `evidence/local/` is ignored because receipts, snapshots, remote state, PIDs, session identities, and command output may be sensitive.
+Automated evidence is in [`evidence/automated.txt`](evidence/automated.txt). The completed live gate and classification are in [`evidence/manual-observations.md`](evidence/manual-observations.md). `evidence/local/` remains ignored because receipts, snapshots, remote state, PIDs, session identities, and command output may be sensitive.
 
 Known limits:
 
-- No live SSH, GUI, Pi, systemd, Boomux mutation, or remote validation was run in this Fusion implementation pass.
+- The native Pi TUIs did not visibly label Coordinator, Builder, and Reviewer. Role identity remained structured internally, but the operator had to identify Builder from unique assignment content.
+- The live gate exposed and fixed owner-Shell cleanup routing: Shell close and explicit-context absence inspection must execute against remote Boomux, not local Boomux.
 - Generic Boomux `open` has no atomic expected-Run guard. Pre/post inspection detects replacement but cannot eliminate the race.
 - Public Boomux snapshots do not expose attachment presence. The value remains unavailable.
 - A reconnect snapshot is not event replay. Cursor expiry is an explicit gap and baseline.
@@ -305,9 +306,9 @@ Known limits:
 
 ## Conclusion
 
-The automated contract is **supported with constraints**. It demonstrates a single durable remote-runner authority, exact three-role binding, visible-Pi same-process assignment delivery, owner-only Unix transport, reconnect snapshots, deduplication, ordered bounded events, metadata-only telemetry, takeover isolation, and exact artifact representation without prohibited coupling.
+The end-to-end remote claim is **supported with constraints**. The live gate demonstrated remote unprivileged process ownership, three native visible Pi TUIs, same-process managed delivery, durable disconnect/reconnect, same-Run re-presentation, deduplication, ordered metadata-only telemetry, Builder-only takeover isolation, structured validation, and receipt-derived exact cleanup with postflight preservation.
 
-The end-to-end remote claim remains **pending** until the staged human gate proves remote process ownership, native local PTY presentation, SSH/window disconnect survival, exact reattachment, manual takeover, and receipt-only cleanup.
+The result is constrained by missing visible role labels, the generic `open` expected-Run race, unavailable attachment-state observability, and the live-only gaps listed in the manual observations. These constraints must remain explicit in production acceptance criteria.
 
 ## Disposition
 

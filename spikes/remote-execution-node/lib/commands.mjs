@@ -43,6 +43,10 @@ export const boomuxCommands = Object.freeze({
     ...validateArgv(argv, "Shell command")
   ],
   shellInspect: shellId => json(["shell", "inspect", validateOpaqueId(shellId, "Shell ID")]),
+  shellInspectInWorkspace: ({ shellId, workspaceId }) => json([
+    "shell", "inspect", validateOpaqueId(shellId, "Shell ID"),
+    "--workspace", validateOpaqueId(workspaceId, "Workspace ID")
+  ]),
   shellClose: ({ shellId, workspaceId }) => [
     "shell", "close", validateOpaqueId(shellId, "Shell ID"),
     "--workspace", validateOpaqueId(workspaceId, "Workspace ID")

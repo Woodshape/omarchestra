@@ -1,6 +1,6 @@
 # Omarchestra remote execution MVP scope
 
-Status: **Locked MVP scope; feasibility pending**  
+Status: **Locked MVP scope; feasibility supported with constraints**
 Decision date: 2026-08-30  
 Parent design: [`mvp.md`](mvp.md)
 
@@ -29,6 +29,7 @@ The local Omarchy machine continues to provide the Agent Console and native term
 13. Reconnection restores the current durable Team Goal projection and reattaches to exact surviving terminal sessions.
 14. Event gaps, stale projections, unavailable Nodes, and uncertain in-flight work are represented explicitly rather than inferred away.
 15. No cross-Node team, distributed checkout, automatic remote provisioning UI, or automatic repository synchronization is included.
+16. Every native agent terminal must persistently expose its Omarchestra role and managed/waiting/takeover state; structured identity hidden from the operator is insufficient.
 
 ## Architectural consequence
 
@@ -76,7 +77,7 @@ Each Team Goal selects exactly one Execution Node at creation. Its resolved Team
 
 ### Runtime Binding
 
-A remote binding includes opaque owning-Node, Workspace, Shell, Shell Run, and attachment references. Omarchestra never routes an inner Boomux resource ID without its owning Node context.
+A remote binding includes opaque owning-Node, Workspace, Shell, Shell Run, and attachment references. Omarchestra never routes an inner Boomux resource ID without its owning Node context. Owner-Shell mutations and inspections execute against the owning remote Boomux daemon with the exact owner Workspace context; only coordinated global Workspace operations execute through the local coordinating daemon.
 
 ## Persistence and disconnection semantics
 
@@ -102,11 +103,11 @@ Remote execution expands Boomux's MVP role beyond local PTY persistence to inclu
 
 Boomux remains behind a runtime adapter, but a future replacement would need remote identity, transport, projection, and attachment semantics in addition to a PTY daemon.
 
-## Additional feasibility spike
+## Completed feasibility spike
 
-After the local Boomux runtime-adapter spike, run a **remote execution Node spike** against an actual non-Omarchy remote machine.
+The **remote execution Node spike** ran against an actual non-Omarchy GNU/Linux machine and was classified **supported with constraints**.
 
-It must prove:
+It proved:
 
 1. explicit Node registration and identity pinning;
 2. remote prerequisite detection without modifying unrelated user state;
@@ -119,7 +120,7 @@ It must prove:
 9. remote validation execution and artifact persistence;
 10. cleanup limited to spike-owned resources.
 
-The spike must stop at human validation gates for local window presentation, physical remote identity, disconnect survival, and exact reattachment.
+The spike stopped at distinct human authorization gates for mutation, local window presentation, disconnect/reconnect, takeover, validation, and exact cleanup. Private live evidence remained ignored; the bounded result is recorded in [`../../spikes/remote-execution-node/evidence/manual-observations.md`](../../spikes/remote-execution-node/evidence/manual-observations.md).
 
 ## Explicitly deferred
 
@@ -134,4 +135,6 @@ The spike must stop at human validation gates for local window presentation, phy
 
 ## Evidence status
 
-The local Boomux runtime-adapter is supported with constraints after automated and human validation. Remote behavior is not inferred from that local evidence; the separate remote execution Node spike is the next feasibility gate.
+Both the local Boomux runtime adapter and one-Node remote execution are supported with constraints after automated and human validation. The remote gate demonstrated three visible interactive Pi processes, durable managed delivery, connection/window-loss survival, same-Run re-presentation, takeover isolation, validation artifacts, and exact cleanup with preservation postflight.
+
+The classification is constrained by missing visible role labels in the Pi TUIs, the generic `boomux open` expected-Run race, unavailable attachment-state observability, and live-only busy/source-replay gaps. Production acceptance must close or explicitly retain these constraints; it must not generalize this result to cross-Node teams, reboot recovery, provisioning, or credential/repository synchronization.

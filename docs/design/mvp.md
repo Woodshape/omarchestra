@@ -432,7 +432,7 @@ If the Team Runner restarts during an in-flight assignment, it does not guess wh
 The MVP is demonstrable when:
 
 1. A user opens the Agent Console from the Omarchy bar and creates a Team Goal for a Node-qualified local or remote Git Project.
-2. The system creates the configured visible interactive Pi agents in native terminal windows tiled by Hyprland.
+2. The system creates the configured visible interactive Pi agents in native terminal windows tiled by Hyprland; each terminal persistently exposes its role and managed/waiting/takeover state without relying on conversation content.
 3. No hidden agent process performs work on behalf of those visible agents.
 4. The console shows each Agent Run's role, current assignment and normalized state from structured bridge events.
 5. Selecting an Agent Run focuses or reopens its exact terminal.
@@ -455,7 +455,7 @@ The MVP is demonstrable when:
 
 ## Implementation readiness
 
-Status: **MVP product scope is locked and ready for feasibility spikes; the technical contracts are not yet ready for an end-to-end implementation run.**
+Status: **MVP product scope and the local/remote feasibility classifications are locked; production technical contracts are not yet ready for an end-to-end implementation run.**
 
 Before delegating broad implementation to Fusion Harness, the project needs:
 
