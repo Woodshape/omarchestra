@@ -212,17 +212,14 @@
       background: #090a0b;
     }
 
-    .terminal-title {
-      display: flex;
-      align-items: center;
-      gap: 7px;
-      padding: 9px 12px;
-      border-bottom: 1px solid var(--line);
-      background: #17191b;
+    .terminal-status {
+      padding: 8px 12px;
+      border-top: 1px solid var(--line);
+      color: var(--orange);
+      background: #090a0b;
       font: 600 12px ui-monospace, SFMono-Regular, Menlo, monospace;
     }
 
-    .dot { width: 7px; height: 7px; border-radius: 50%; background: var(--green); }
     .terminal-body { padding: 16px; color: #c7c3ba; font: 12px/1.7 ui-monospace, SFMono-Regular, Menlo, monospace; }
     .prompt { color: var(--orange); }
     .working { color: var(--green); }
@@ -437,17 +434,20 @@
       <p class="section-intro">Hyprland performs the layout. Every required agent terminal opens at Team Goal start, including waiting roles, so the complete playing field is visible from the beginning.</p>
       <div class="terminal-grid">
         <div class="terminal">
-          <div class="terminal-title"><span class="dot"></span> coordinator · pi</div>
           <div class="terminal-body"><span class="prompt">goal ›</span> Analyze the request and create a plan<br><span class="working">● working</span> inspecting repository structure…</div>
+          <div class="terminal-status">Coordinator · managed</div>
         </div>
         <div class="terminal">
-          <div class="terminal-title"><span class="dot"></span> builder · pi</div>
           <div class="terminal-body"><span class="prompt">assignment ›</span> Waiting for accepted plan<br><span class="working">● connected</span> visible and ready</div>
+          <div class="terminal-status">Builder · waiting</div>
         </div>
         <div class="terminal">
-          <div class="terminal-title"><span class="dot"></span> reviewer · pi</div>
           <div class="terminal-body"><span class="prompt">assignment ›</span> Waiting for implementation<br><span class="working">● connected</span> read-only role</div>
+          <div class="terminal-status">Reviewer · waiting</div>
         </div>
+      </div>
+      <div class="callout" style="margin-top:16px">
+        Agent Ghostty windows stay decorationless. Pi status is the persistent per-terminal role/state surface; Agent Console cards repeat the projection team-wide. Dynamic terminal titles remain metadata for Hyprland and window switchers, not visible chrome.
       </div>
     </section>
 
