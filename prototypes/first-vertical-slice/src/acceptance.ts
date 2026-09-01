@@ -741,7 +741,7 @@ async function runScenarioBody(
     { coordinator: 'waiting', builder: 'waiting', reviewer: 'waiting' },
     'initial labels',
   )
-  out('STEP 3 initial labels verified: all three roles present both surfaces as waiting and mutually distinct.')
+  out('STEP 3 initial presentation verified: Pi-status/title metadata and QML role projections are waiting and mutually distinct.')
   renderSnapshot('step-3-initial-label-contract', builder.snapshot!)
 
   // -- Step 4: first assignment acceptance ---------------------------------------
@@ -1007,8 +1007,8 @@ async function main(): Promise<void> {
   out('- strict bounded versioned NDJSON over an owner-only Unix socket with identity')
   out('  handshake, snapshot, ordered durable events, acknowledgement/deduplication,')
   out('  and reconnect; an SSH-stdio seam exists as an injected-stream interface only;')
-  out('- three fixed roles with persistent native-title and Pi-status labels derived')
-  out('  from durable state and updated only after the owning transaction commits;')
+  out('- three fixed roles with Pi-status labels, dynamic title metadata, and QML')
+  out('  projections derived from durable state after the owning transaction commits;')
   out('- one managed Builder assignment with replay suppression (no second turn);')
   out('- Builder-only manual takeover switching assignment state to needs_reconciliation')
   out('  while Coordinator and Reviewer projections remain byte-identical;')
@@ -1018,7 +1018,7 @@ async function main(): Promise<void> {
   out('  mutate storage; no hidden agent process is created or required.')
   out('')
   out('Remaining constraints (explicitly unresolved here):')
-  out('- fake presentation adapters do not prove real Pi title/status rendering;')
+  out('- fake presentation adapters do not prove live Pi or Agent Console rendering;')
   out('- the SSH-stdio transport is an interface with fake streams only;')
   out('- journal mode stays undecided: default and WAL were both measured, none ranked;')
   out('- same-user Unix-socket permissions are the only prototype trust boundary;')

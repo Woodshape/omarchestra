@@ -1,68 +1,110 @@
-# Manual role-label gate — plan only (first vertical-slice prototype)
+# Manual role/state presentation gate — first vertical-slice prototype
 
-Status: **PLAN ONLY — performs no action.**
-This document is a written procedure for a later human-authorized run. Nothing
-in this repository executes it, and the automated acceptance gate must never
-invoke it: no GUI action, live process action, Pi host, or terminal is started
-by or through this plan.
+Status: **COMPLETED WITH A REJECTED UI ASSUMPTION — contract revised.**
 
-## Question the gate answers
+This is human evidence for the removable first vertical-slice prototype. The
+automated gate remains fake-only and never invokes Pi, Ghostty, Hyprland, a
+provider, SSH, Boomux, systemd, or other live integration.
 
-Do the **real** Pi extension status surface and the **real** native terminal
-title identify each visible agent's fixed role and its current
-`managed` / `waiting` / `manual_takeover` state, without reading any
-conversation content?
+## Question
 
-The automated prototype only proves fake presentation adapters. This gate is
-where a human proves the real label surfaces.
+Can the real visible Pi process expose truthful role/control state without
+conversation content, and are native terminal titles plus Pi status acceptable
+as two persistent Omarchy surfaces?
 
-## Preconditions (human-authorized only)
+## Human-authorized environment
 
-1. One visible interactive Pi host per role (Coordinator, Builder, Reviewer),
-   each running the bridge extension configured with its role binding, native
-   terminal-title hook, and Pi-status hook.
-2. One foreground runner serving the same Team Goal the bridges are bound to.
-3. A writable private evidence location outside the repository for
-   screenshots/transcripts (never inside Git).
-4. Authorization to submit one interactive message in the Builder terminal.
+- Local Omarchy/Hyprland desktop
+- Ghostty 1.3.1
+- Pi 0.84.4, one real interactive TUI for Coordinator, Builder, and Reviewer
+- One small `openai-codex/gpt-5.6-sol` Builder turn
+- Private evidence under
+  `${XDG_STATE_HOME:-~/.local/state}/omarchestra/manual-gates/`
+- Exact controller-owned cleanup after each attempt
 
-## Procedure
+## Attempt 1 — decorationless Omarchy windows
 
-1. **Idle identification.** Without scrolling any conversation, read each of
-   the three native terminal titles and each Pi status surface.
-   - Each title must match `Omarchestra — <Role> — <state>` with state
-     `waiting` while idle.
-   - Each Pi status surface must match `<Role> · <state>`.
-2. **Surface independence.** Cover one surface at a time; each surface alone
-   must identify the role. Roles must not be identifiable only by combining
-   surfaces or by assignment text.
-3. **Managed state.** After the runner dispatches the Builder assignment,
-   re-read both Builder surfaces: both must show `managed`, and both
-   Coordinator and Reviewer surfaces must still show `waiting`.
-4. **Takeover transition.** Submit one ordinary interactive message in the
-   Builder terminal. Re-read both Builder surfaces: both must show
-   `manual_takeover`. Confirm Coordinator and Reviewer surfaces are unchanged.
-5. **Persistence.** Leave the terminals idle for at least one minute and
-   re-read all surfaces; labels must remain visible and unchanged (not
-   transient, not overwritten by harness output).
-6. **Distinctness.** All three native titles must be mutually distinct, and
-   all three Pi statuses must be mutually distinct, at every observed moment.
+The three real Pi TUIs opened in the normal Omarchy tiled presentation.
 
-## Failure rules (the gate fails if any of the following holds)
+Observed:
 
-- Any role cannot be identified from **either** required surface without
-  reading conversation or assignment content.
-- Any label is missing, stale relative to the observed control state,
-  duplicated across roles, or visible only transiently.
-- A state change (managed → manual_takeover) does not appear on **both**
-  Builder surfaces.
-- A Coordinator or Reviewer surface changes during the Builder takeover.
-- Identity requires reading conversation content, terminal scrollback, or the
-  Agent Console.
+1. All three Pi footer statuses visibly and independently identified their
+   roles as `waiting`.
+2. Starting the queued Builder assignment changed only Builder to `managed`.
+3. Submitting `Manual takeover check` changed only Builder to
+   `manual_takeover`; the fixed gate phrase was handled locally so it did not
+   create a second model request.
+4. Coordinator and Reviewer remained `waiting`.
+5. The Pi status strings remained visible and unchanged through the one-minute
+   persistence interval.
+6. No native terminal title was persistently visible in the decorationless
+   Omarchy layout.
+7. The launcher had supplied Ghostty's `--title` option. Ghostty documents that
+   this forces the title and ignores later program title sequences; captured
+   Hyprland metadata therefore remained at the launch-time `starting` value.
 
-## Recorded output
+Result: **FAIL** for the old two-surface acceptance rule. Pi status passed;
+persistently visible terminal titles did not exist.
 
-The operator records, per role and per surface, the exact observed string and
-timestamp, plus the takeover-transition observations, in the private evidence
-location. The gate result is then appended to the prototype README verdict
-notes by a human — never automated.
+## Attempt 2 — forced Ghostty client decorations
+
+The launcher defect was removed and dynamic Pi-controlled titles reached
+Ghostty. Client-side decorations were forced so those titles became visible.
+
+Observed at the idle checkpoint:
+
+1. The Coordinator title was visible in a GTK header.
+2. Narrow Builder and Reviewer tiles truncated their titles, so title alone
+   could not expose the complete role/state string.
+3. The GTK headers looked foreign to the normal decorationless Omarchy desktop
+   and consumed scarce tiled space.
+4. All three Pi statuses remained correct and visible.
+
+The operator stopped the gate at this first checkpoint rather than legitimizing
+non-native, truncation-prone chrome. Result: **ABORTED**, with the old title-bar
+contract rejected.
+
+## Accepted presentation contract
+
+Human confirmation replaced the old requirement:
+
+1. Agent Ghostty windows remain decorationless and visually native to Omarchy.
+2. Each visible Pi footer persistently exposes `<Role> · <state>` without
+   conversation content.
+3. Agent Console cards redundantly expose role/state across the whole team.
+4. The bridge continues to publish
+   `Omarchestra — <Role> — <state>` as dynamic terminal-title metadata for
+   Hyprland, launchers, and window switchers.
+5. Terminal-title metadata is not treated as persistent chrome or an
+   independent human-visible acceptance surface.
+
+## Evidence and reproducibility
+
+Private evidence records the exact expected strings, human confirmations,
+Hyprland client snapshots, same-process Pi identities, runner lifecycle, and
+cleanup. It is intentionally outside Git.
+
+Fake-only checks for the disposable live adapter:
+
+```bash
+just prototype-vertical-slice-manual-check
+```
+
+The human-authorized terminal-side diagnostic is:
+
+```bash
+just prototype-vertical-slice-role-label-gate
+```
+
+It now launches decorationless windows and can validate Pi status plus dynamic
+title metadata. It cannot complete the product presentation criterion until a
+live Agent Console exists; QML redundancy remains fake-only in this slice.
+
+## Conclusion
+
+**Supported with constraints.** Real same-process Pi status rendering,
+managed-state transition, Builder-only manual takeover, sibling isolation, and
+one-minute persistence are supported. Dynamic title metadata is supported when
+the launcher does not pin Ghostty's title. Visible title bars are explicitly
+rejected for the Omarchy product. Live Agent Console redundancy remains a later
+human gate.

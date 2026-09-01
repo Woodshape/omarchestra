@@ -9,19 +9,19 @@ AUDIT  domain-safety-negatives: PASS (direct/ancestor symlinks, wrong-role ack, 
 ======================================================================
 SCENARIO journal=default (requested and effective modes reported; no mode is ranked)
 ======================================================================
-GATE   fresh caller-owned state directory: /tmp/omarchestra-vertical-slice-C1JCol
+GATE   fresh caller-owned state directory: /tmp/omarchestra-vertical-slice-WR4htr
 AUDIT  failed-scenario-cleanup: PASS (exact runner and scratch directory absent)
 
 ======================================================================
 SCENARIO journal=default (requested and effective modes reported; no mode is ranked)
 ======================================================================
-GATE   fresh caller-owned state directory: /tmp/omarchestra-vertical-slice-oHjVYC
+GATE   fresh caller-owned state directory: /tmp/omarchestra-vertical-slice-Slq5xF
 STEP 1 schema/bootstrap — runner readiness report (requested vs effective journal mode):
 {
   "event": "runner_ready",
-  "pid": 978309,
-  "stateDir": "/tmp/omarchestra-vertical-slice-oHjVYC",
-  "socket": "/tmp/omarchestra-vertical-slice-oHjVYC/runner.sock",
+  "pid": 1054303,
+  "stateDir": "/tmp/omarchestra-vertical-slice-Slq5xF",
+  "socket": "/tmp/omarchestra-vertical-slice-Slq5xF/runner.sock",
   "journalRequested": "default",
   "journalEffective": "delete",
   "sqliteVersion": "3.53.4",
@@ -55,7 +55,7 @@ STEP 1 filesystem and permission checks passed (database outside Git, owner-only
   "teamGoal": {
     "id": "team-goal-vertical-slice-1",
     "goalText": "Vertical-slice prototype: prove durable role-labelled visible-agent seams (throwaway).",
-    "createdAt": "2026-09-01T11:26:25.344Z",
+    "createdAt": "2026-09-01T12:18:27.854Z",
     "eventCursor": 1
   },
   "roles": [
@@ -112,8 +112,8 @@ STEP 1 filesystem and permission checks passed (database outside Git, owner-only
     "state": "pending",
     "lastAckStatus": null,
     "prompt": "Harmless prototype assignment: confirm the visible bridge seam by replying with the fixed prototype acknowledgement phrase.",
-    "createdAt": "2026-09-01T11:26:25.344Z",
-    "updatedAt": "2026-09-01T11:26:25.344Z"
+    "createdAt": "2026-09-01T12:18:27.854Z",
+    "updatedAt": "2026-09-01T12:18:27.854Z"
   },
   "journal": {
     "requested": "default",
@@ -129,7 +129,7 @@ STEP 2 all three fake visible-host bridges completed the real handshake over the
   "teamGoal": {
     "id": "team-goal-vertical-slice-1",
     "goalText": "Vertical-slice prototype: prove durable role-labelled visible-agent seams (throwaway).",
-    "createdAt": "2026-09-01T11:26:25.344Z",
+    "createdAt": "2026-09-01T12:18:27.854Z",
     "eventCursor": 2
   },
   "roles": [
@@ -186,8 +186,8 @@ STEP 2 all three fake visible-host bridges completed the real handshake over the
     "state": "pending",
     "lastAckStatus": null,
     "prompt": "Harmless prototype assignment: confirm the visible bridge seam by replying with the fixed prototype acknowledgement phrase.",
-    "createdAt": "2026-09-01T11:26:25.344Z",
-    "updatedAt": "2026-09-01T11:26:25.344Z"
+    "createdAt": "2026-09-01T12:18:27.854Z",
+    "updatedAt": "2026-09-01T12:18:27.854Z"
   },
   "journal": {
     "requested": "default",
@@ -202,7 +202,7 @@ STEP 2 all three fake visible-host bridges completed the real handshake over the
   "teamGoal": {
     "id": "team-goal-vertical-slice-1",
     "goalText": "Vertical-slice prototype: prove durable role-labelled visible-agent seams (throwaway).",
-    "createdAt": "2026-09-01T11:26:25.344Z",
+    "createdAt": "2026-09-01T12:18:27.854Z",
     "eventCursor": 3
   },
   "roles": [
@@ -259,8 +259,8 @@ STEP 2 all three fake visible-host bridges completed the real handshake over the
     "state": "pending",
     "lastAckStatus": null,
     "prompt": "Harmless prototype assignment: confirm the visible bridge seam by replying with the fixed prototype acknowledgement phrase.",
-    "createdAt": "2026-09-01T11:26:25.344Z",
-    "updatedAt": "2026-09-01T11:26:25.344Z"
+    "createdAt": "2026-09-01T12:18:27.854Z",
+    "updatedAt": "2026-09-01T12:18:27.854Z"
   },
   "journal": {
     "requested": "default",
@@ -275,7 +275,7 @@ STEP 2 all three fake visible-host bridges completed the real handshake over the
   "teamGoal": {
     "id": "team-goal-vertical-slice-1",
     "goalText": "Vertical-slice prototype: prove durable role-labelled visible-agent seams (throwaway).",
-    "createdAt": "2026-09-01T11:26:25.344Z",
+    "createdAt": "2026-09-01T12:18:27.854Z",
     "eventCursor": 5
   },
   "roles": [
@@ -332,8 +332,8 @@ STEP 2 all three fake visible-host bridges completed the real handshake over the
     "state": "active",
     "lastAckStatus": "accepted",
     "prompt": "Harmless prototype assignment: confirm the visible bridge seam by replying with the fixed prototype acknowledgement phrase.",
-    "createdAt": "2026-09-01T11:26:25.344Z",
-    "updatedAt": "2026-09-01T11:26:25.364Z"
+    "createdAt": "2026-09-01T12:18:27.854Z",
+    "updatedAt": "2026-09-01T12:18:27.877Z"
   },
   "journal": {
     "requested": "default",
@@ -347,7 +347,7 @@ STEP 2 all three fake visible-host bridges completed the real handshake over the
   "teamGoal": {
     "id": "team-goal-vertical-slice-1",
     "goalText": "Vertical-slice prototype: prove durable role-labelled visible-agent seams (throwaway).",
-    "createdAt": "2026-09-01T11:26:25.344Z",
+    "createdAt": "2026-09-01T12:18:27.854Z",
     "eventCursor": 5
   },
   "roles": [
@@ -404,8 +404,8 @@ STEP 2 all three fake visible-host bridges completed the real handshake over the
     "state": "active",
     "lastAckStatus": "accepted",
     "prompt": "Harmless prototype assignment: confirm the visible bridge seam by replying with the fixed prototype acknowledgement phrase.",
-    "createdAt": "2026-09-01T11:26:25.344Z",
-    "updatedAt": "2026-09-01T11:26:25.364Z"
+    "createdAt": "2026-09-01T12:18:27.854Z",
+    "updatedAt": "2026-09-01T12:18:27.877Z"
   },
   "journal": {
     "requested": "default",
@@ -419,7 +419,7 @@ STEP 2 all three fake visible-host bridges completed the real handshake over the
   "teamGoal": {
     "id": "team-goal-vertical-slice-1",
     "goalText": "Vertical-slice prototype: prove durable role-labelled visible-agent seams (throwaway).",
-    "createdAt": "2026-09-01T11:26:25.344Z",
+    "createdAt": "2026-09-01T12:18:27.854Z",
     "eventCursor": 5
   },
   "roles": [
@@ -476,8 +476,8 @@ STEP 2 all three fake visible-host bridges completed the real handshake over the
     "state": "active",
     "lastAckStatus": "accepted",
     "prompt": "Harmless prototype assignment: confirm the visible bridge seam by replying with the fixed prototype acknowledgement phrase.",
-    "createdAt": "2026-09-01T11:26:25.344Z",
-    "updatedAt": "2026-09-01T11:26:25.364Z"
+    "createdAt": "2026-09-01T12:18:27.854Z",
+    "updatedAt": "2026-09-01T12:18:27.877Z"
   },
   "journal": {
     "requested": "default",
@@ -491,7 +491,7 @@ STEP 2 all three fake visible-host bridges completed the real handshake over the
   "teamGoal": {
     "id": "team-goal-vertical-slice-1",
     "goalText": "Vertical-slice prototype: prove durable role-labelled visible-agent seams (throwaway).",
-    "createdAt": "2026-09-01T11:26:25.344Z",
+    "createdAt": "2026-09-01T12:18:27.854Z",
     "eventCursor": 6
   },
   "roles": [
@@ -548,8 +548,8 @@ STEP 2 all three fake visible-host bridges completed the real handshake over the
     "state": "active",
     "lastAckStatus": "accepted",
     "prompt": "Harmless prototype assignment: confirm the visible bridge seam by replying with the fixed prototype acknowledgement phrase.",
-    "createdAt": "2026-09-01T11:26:25.344Z",
-    "updatedAt": "2026-09-01T11:26:25.364Z"
+    "createdAt": "2026-09-01T12:18:27.854Z",
+    "updatedAt": "2026-09-01T12:18:27.877Z"
   },
   "journal": {
     "requested": "default",
@@ -563,7 +563,7 @@ STEP 2 all three fake visible-host bridges completed the real handshake over the
   "teamGoal": {
     "id": "team-goal-vertical-slice-1",
     "goalText": "Vertical-slice prototype: prove durable role-labelled visible-agent seams (throwaway).",
-    "createdAt": "2026-09-01T11:26:25.344Z",
+    "createdAt": "2026-09-01T12:18:27.854Z",
     "eventCursor": 6
   },
   "roles": [
@@ -620,8 +620,8 @@ STEP 2 all three fake visible-host bridges completed the real handshake over the
     "state": "active",
     "lastAckStatus": "accepted",
     "prompt": "Harmless prototype assignment: confirm the visible bridge seam by replying with the fixed prototype acknowledgement phrase.",
-    "createdAt": "2026-09-01T11:26:25.344Z",
-    "updatedAt": "2026-09-01T11:26:25.364Z"
+    "createdAt": "2026-09-01T12:18:27.854Z",
+    "updatedAt": "2026-09-01T12:18:27.877Z"
   },
   "journal": {
     "requested": "default",
@@ -630,14 +630,14 @@ STEP 2 all three fake visible-host bridges completed the real handshake over the
   }
 }
 STEP 2 assignment acknowledgement authorization rejects wrong-role/unknown busy and invalid statuses without durable change.
-STEP 3 initial labels verified: all three roles present both surfaces as waiting and mutually distinct.
+STEP 3 initial presentation verified: Pi-status/title metadata and QML role projections are waiting and mutually distinct.
 --- STATE step-3-initial-label-contract (durable cursor 3) ---
 {
   "cursor": 3,
   "teamGoal": {
     "id": "team-goal-vertical-slice-1",
     "goalText": "Vertical-slice prototype: prove durable role-labelled visible-agent seams (throwaway).",
-    "createdAt": "2026-09-01T11:26:25.344Z",
+    "createdAt": "2026-09-01T12:18:27.854Z",
     "eventCursor": 3
   },
   "roles": [
@@ -694,8 +694,8 @@ STEP 3 initial labels verified: all three roles present both surfaces as waiting
     "state": "pending",
     "lastAckStatus": null,
     "prompt": "Harmless prototype assignment: confirm the visible bridge seam by replying with the fixed prototype acknowledgement phrase.",
-    "createdAt": "2026-09-01T11:26:25.344Z",
-    "updatedAt": "2026-09-01T11:26:25.344Z"
+    "createdAt": "2026-09-01T12:18:27.854Z",
+    "updatedAt": "2026-09-01T12:18:27.854Z"
   },
   "journal": {
     "requested": "default",
@@ -724,7 +724,7 @@ STEP 4 first managed assignment accepted through the visible-bridge boundary:
   "teamGoal": {
     "id": "team-goal-vertical-slice-1",
     "goalText": "Vertical-slice prototype: prove durable role-labelled visible-agent seams (throwaway).",
-    "createdAt": "2026-09-01T11:26:25.344Z",
+    "createdAt": "2026-09-01T12:18:27.854Z",
     "eventCursor": 7
   },
   "roles": [
@@ -781,8 +781,8 @@ STEP 4 first managed assignment accepted through the visible-bridge boundary:
     "state": "active",
     "lastAckStatus": "accepted",
     "prompt": "Harmless prototype assignment: confirm the visible bridge seam by replying with the fixed prototype acknowledgement phrase.",
-    "createdAt": "2026-09-01T11:26:25.344Z",
-    "updatedAt": "2026-09-01T11:26:25.364Z"
+    "createdAt": "2026-09-01T12:18:27.854Z",
+    "updatedAt": "2026-09-01T12:18:27.877Z"
   },
   "journal": {
     "requested": "default",
@@ -802,7 +802,7 @@ STEP 5 Builder reconnect under management caused replay; the duplicate was suppr
     "teamGoal": {
       "id": "team-goal-vertical-slice-1",
       "goalText": "Vertical-slice prototype: prove durable role-labelled visible-agent seams (throwaway).",
-      "createdAt": "2026-09-01T11:26:25.344Z",
+      "createdAt": "2026-09-01T12:18:27.854Z",
       "eventCursor": 8
     },
     "roles": [
@@ -859,8 +859,8 @@ STEP 5 Builder reconnect under management caused replay; the duplicate was suppr
       "state": "active",
       "lastAckStatus": "accepted",
       "prompt": "Harmless prototype assignment: confirm the visible bridge seam by replying with the fixed prototype acknowledgement phrase.",
-      "createdAt": "2026-09-01T11:26:25.344Z",
-      "updatedAt": "2026-09-01T11:26:25.364Z"
+      "createdAt": "2026-09-01T12:18:27.854Z",
+      "updatedAt": "2026-09-01T12:18:27.877Z"
     },
     "journal": {
       "requested": "default",
@@ -875,7 +875,7 @@ STEP 5 Builder reconnect under management caused replay; the duplicate was suppr
   "teamGoal": {
     "id": "team-goal-vertical-slice-1",
     "goalText": "Vertical-slice prototype: prove durable role-labelled visible-agent seams (throwaway).",
-    "createdAt": "2026-09-01T11:26:25.344Z",
+    "createdAt": "2026-09-01T12:18:27.854Z",
     "eventCursor": 9
   },
   "roles": [
@@ -932,8 +932,8 @@ STEP 5 Builder reconnect under management caused replay; the duplicate was suppr
     "state": "active",
     "lastAckStatus": "duplicate",
     "prompt": "Harmless prototype assignment: confirm the visible bridge seam by replying with the fixed prototype acknowledgement phrase.",
-    "createdAt": "2026-09-01T11:26:25.344Z",
-    "updatedAt": "2026-09-01T11:26:25.479Z"
+    "createdAt": "2026-09-01T12:18:27.854Z",
+    "updatedAt": "2026-09-01T12:18:27.996Z"
   },
   "journal": {
     "requested": "default",
@@ -947,7 +947,7 @@ STEP 5 Builder reconnect under management caused replay; the duplicate was suppr
   "teamGoal": {
     "id": "team-goal-vertical-slice-1",
     "goalText": "Vertical-slice prototype: prove durable role-labelled visible-agent seams (throwaway).",
-    "createdAt": "2026-09-01T11:26:25.344Z",
+    "createdAt": "2026-09-01T12:18:27.854Z",
     "eventCursor": 11
   },
   "roles": [
@@ -1004,8 +1004,8 @@ STEP 5 Builder reconnect under management caused replay; the duplicate was suppr
     "state": "needs_reconciliation",
     "lastAckStatus": "duplicate",
     "prompt": "Harmless prototype assignment: confirm the visible bridge seam by replying with the fixed prototype acknowledgement phrase.",
-    "createdAt": "2026-09-01T11:26:25.344Z",
-    "updatedAt": "2026-09-01T11:26:25.481Z"
+    "createdAt": "2026-09-01T12:18:27.854Z",
+    "updatedAt": "2026-09-01T12:18:28.001Z"
   },
   "journal": {
     "requested": "default",
@@ -1029,7 +1029,7 @@ STEP 6 Builder-only manual takeover (both Builder surfaces update; Coordinator a
   "teamGoal": {
     "id": "team-goal-vertical-slice-1",
     "goalText": "Vertical-slice prototype: prove durable role-labelled visible-agent seams (throwaway).",
-    "createdAt": "2026-09-01T11:26:25.344Z",
+    "createdAt": "2026-09-01T12:18:27.854Z",
     "eventCursor": 11
   },
   "roles": [
@@ -1086,8 +1086,8 @@ STEP 6 Builder-only manual takeover (both Builder surfaces update; Coordinator a
     "state": "needs_reconciliation",
     "lastAckStatus": "duplicate",
     "prompt": "Harmless prototype assignment: confirm the visible bridge seam by replying with the fixed prototype acknowledgement phrase.",
-    "createdAt": "2026-09-01T11:26:25.344Z",
-    "updatedAt": "2026-09-01T11:26:25.481Z"
+    "createdAt": "2026-09-01T12:18:27.854Z",
+    "updatedAt": "2026-09-01T12:18:28.001Z"
   },
   "journal": {
     "requested": "default",
@@ -1103,7 +1103,7 @@ STEP 7 thin projection client captured durable cursor 11 and disconnected.
     "teamGoal": {
       "id": "team-goal-vertical-slice-1",
       "goalText": "Vertical-slice prototype: prove durable role-labelled visible-agent seams (throwaway).",
-      "createdAt": "2026-09-01T11:26:25.344Z",
+      "createdAt": "2026-09-01T12:18:27.854Z",
       "eventCursor": 11
     },
     "roles": [
@@ -1160,8 +1160,8 @@ STEP 7 thin projection client captured durable cursor 11 and disconnected.
       "state": "needs_reconciliation",
       "lastAckStatus": "duplicate",
       "prompt": "Harmless prototype assignment: confirm the visible bridge seam by replying with the fixed prototype acknowledgement phrase.",
-      "createdAt": "2026-09-01T11:26:25.344Z",
-      "updatedAt": "2026-09-01T11:26:25.481Z"
+      "createdAt": "2026-09-01T12:18:27.854Z",
+      "updatedAt": "2026-09-01T12:18:28.001Z"
     },
     "journal": {
       "requested": "default",
@@ -1170,14 +1170,14 @@ STEP 7 thin projection client captured durable cursor 11 and disconnected.
     }
   }
 }
-STEP 8 runner stopped cleanly; durable state remains in /tmp/omarchestra-vertical-slice-oHjVYC
+STEP 8 runner stopped cleanly; durable state remains in /tmp/omarchestra-vertical-slice-Slq5xF
 --- STATE step-8-last-committed-state (durable cursor 11) ---
 {
   "cursor": 11,
   "teamGoal": {
     "id": "team-goal-vertical-slice-1",
     "goalText": "Vertical-slice prototype: prove durable role-labelled visible-agent seams (throwaway).",
-    "createdAt": "2026-09-01T11:26:25.344Z",
+    "createdAt": "2026-09-01T12:18:27.854Z",
     "eventCursor": 11
   },
   "roles": [
@@ -1234,8 +1234,8 @@ STEP 8 runner stopped cleanly; durable state remains in /tmp/omarchestra-vertica
     "state": "needs_reconciliation",
     "lastAckStatus": "duplicate",
     "prompt": "Harmless prototype assignment: confirm the visible bridge seam by replying with the fixed prototype acknowledgement phrase.",
-    "createdAt": "2026-09-01T11:26:25.344Z",
-    "updatedAt": "2026-09-01T11:26:25.481Z"
+    "createdAt": "2026-09-01T12:18:27.854Z",
+    "updatedAt": "2026-09-01T12:18:28.001Z"
   },
   "journal": {
     "requested": "default",
@@ -1244,7 +1244,7 @@ STEP 8 runner stopped cleanly; durable state remains in /tmp/omarchestra-vertica
   }
 }
 {
-  "databasePath": "/tmp/omarchestra-vertical-slice-oHjVYC/runner.sqlite",
+  "databasePath": "/tmp/omarchestra-vertical-slice-Slq5xF/runner.sqlite",
   "databaseExists": true,
   "stateDirectoryMode": "0700",
   "databaseMode": "0600"
@@ -1252,9 +1252,9 @@ STEP 8 runner stopped cleanly; durable state remains in /tmp/omarchestra-vertica
 STEP 9 runner recreated over the same scratch database:
 {
   "event": "runner_ready",
-  "pid": 978327,
-  "stateDir": "/tmp/omarchestra-vertical-slice-oHjVYC",
-  "socket": "/tmp/omarchestra-vertical-slice-oHjVYC/runner.sock",
+  "pid": 1054329,
+  "stateDir": "/tmp/omarchestra-vertical-slice-Slq5xF",
+  "socket": "/tmp/omarchestra-vertical-slice-Slq5xF/runner.sock",
   "journalRequested": "default",
   "journalEffective": "delete",
   "sqliteVersion": "3.53.4",
@@ -1273,7 +1273,7 @@ STEP 9 runner recreated over the same scratch database:
   "teamGoal": {
     "id": "team-goal-vertical-slice-1",
     "goalText": "Vertical-slice prototype: prove durable role-labelled visible-agent seams (throwaway).",
-    "createdAt": "2026-09-01T11:26:25.344Z",
+    "createdAt": "2026-09-01T12:18:27.854Z",
     "eventCursor": 12
   },
   "roles": [
@@ -1330,8 +1330,8 @@ STEP 9 runner recreated over the same scratch database:
     "state": "needs_reconciliation",
     "lastAckStatus": "duplicate",
     "prompt": "Harmless prototype assignment: confirm the visible bridge seam by replying with the fixed prototype acknowledgement phrase.",
-    "createdAt": "2026-09-01T11:26:25.344Z",
-    "updatedAt": "2026-09-01T11:26:25.481Z"
+    "createdAt": "2026-09-01T12:18:27.854Z",
+    "updatedAt": "2026-09-01T12:18:28.001Z"
   },
   "journal": {
     "requested": "default",
@@ -1345,13 +1345,13 @@ STEP 10 projection resumed after saved cursor 11 before bridge reconnects:
   "resumedEvents": [
     {
       "sequence": 12,
-      "eventId": "evt-7c99b0df22415247951f08fe",
+      "eventId": "evt-cb93c05608eb516ae567c48d",
       "eventType": "runner_restarted",
       "role": null,
       "payload": {
-        "runnerPid": 978327
+        "runnerPid": 1054329
       },
-      "createdAt": "2026-09-01T11:26:26.037Z"
+      "createdAt": "2026-09-01T12:18:28.552Z"
     }
   ],
   "snapshot": {
@@ -1359,7 +1359,7 @@ STEP 10 projection resumed after saved cursor 11 before bridge reconnects:
     "teamGoal": {
       "id": "team-goal-vertical-slice-1",
       "goalText": "Vertical-slice prototype: prove durable role-labelled visible-agent seams (throwaway).",
-      "createdAt": "2026-09-01T11:26:25.344Z",
+      "createdAt": "2026-09-01T12:18:27.854Z",
       "eventCursor": 12
     },
     "roles": [
@@ -1416,8 +1416,8 @@ STEP 10 projection resumed after saved cursor 11 before bridge reconnects:
       "state": "needs_reconciliation",
       "lastAckStatus": "duplicate",
       "prompt": "Harmless prototype assignment: confirm the visible bridge seam by replying with the fixed prototype acknowledgement phrase.",
-      "createdAt": "2026-09-01T11:26:25.344Z",
-      "updatedAt": "2026-09-01T11:26:25.481Z"
+      "createdAt": "2026-09-01T12:18:27.854Z",
+      "updatedAt": "2026-09-01T12:18:28.001Z"
     },
     "journal": {
       "requested": "default",
@@ -1448,7 +1448,7 @@ STEP 11 same identity tuples reconnected; bindings and labels survived; reconnec
     "teamGoal": {
       "id": "team-goal-vertical-slice-1",
       "goalText": "Vertical-slice prototype: prove durable role-labelled visible-agent seams (throwaway).",
-      "createdAt": "2026-09-01T11:26:25.344Z",
+      "createdAt": "2026-09-01T12:18:27.854Z",
       "eventCursor": 14
     },
     "roles": [
@@ -1505,8 +1505,8 @@ STEP 11 same identity tuples reconnected; bindings and labels survived; reconnec
       "state": "needs_reconciliation",
       "lastAckStatus": "duplicate",
       "prompt": "Harmless prototype assignment: confirm the visible bridge seam by replying with the fixed prototype acknowledgement phrase.",
-      "createdAt": "2026-09-01T11:26:25.344Z",
-      "updatedAt": "2026-09-01T11:26:25.481Z"
+      "createdAt": "2026-09-01T12:18:27.854Z",
+      "updatedAt": "2026-09-01T12:18:28.001Z"
     },
     "journal": {
       "requested": "default",
@@ -1532,7 +1532,7 @@ STEP 11 same identity tuples reconnected; bindings and labels survived; reconnec
   "teamGoal": {
     "id": "team-goal-vertical-slice-1",
     "goalText": "Vertical-slice prototype: prove durable role-labelled visible-agent seams (throwaway).",
-    "createdAt": "2026-09-01T11:26:25.344Z",
+    "createdAt": "2026-09-01T12:18:27.854Z",
     "eventCursor": 15
   },
   "roles": [
@@ -1589,8 +1589,8 @@ STEP 11 same identity tuples reconnected; bindings and labels survived; reconnec
     "state": "needs_reconciliation",
     "lastAckStatus": "duplicate",
     "prompt": "Harmless prototype assignment: confirm the visible bridge seam by replying with the fixed prototype acknowledgement phrase.",
-    "createdAt": "2026-09-01T11:26:25.344Z",
-    "updatedAt": "2026-09-01T11:26:25.481Z"
+    "createdAt": "2026-09-01T12:18:27.854Z",
+    "updatedAt": "2026-09-01T12:18:28.001Z"
   },
   "journal": {
     "requested": "default",
@@ -1605,7 +1605,7 @@ STEP 12 final durable state and complete ordered event list (replayed from curso
   "teamGoal": {
     "id": "team-goal-vertical-slice-1",
     "goalText": "Vertical-slice prototype: prove durable role-labelled visible-agent seams (throwaway).",
-    "createdAt": "2026-09-01T11:26:25.344Z",
+    "createdAt": "2026-09-01T12:18:27.854Z",
     "eventCursor": 15
   },
   "roles": [
@@ -1662,8 +1662,8 @@ STEP 12 final durable state and complete ordered event list (replayed from curso
     "state": "needs_reconciliation",
     "lastAckStatus": "duplicate",
     "prompt": "Harmless prototype assignment: confirm the visible bridge seam by replying with the fixed prototype acknowledgement phrase.",
-    "createdAt": "2026-09-01T11:26:25.344Z",
-    "updatedAt": "2026-09-01T11:26:25.481Z"
+    "createdAt": "2026-09-01T12:18:27.854Z",
+    "updatedAt": "2026-09-01T12:18:28.001Z"
   },
   "journal": {
     "requested": "default",
@@ -1675,7 +1675,7 @@ STEP 12 final durable state and complete ordered event list (replayed from curso
 [
   {
     "sequence": 1,
-    "eventId": "evt-36d76624d05f20cc8f0794c9",
+    "eventId": "evt-12a0fc3d1cf98142e63237d5",
     "eventType": "goal_bootstrapped",
     "role": null,
     "payload": {
@@ -1686,11 +1686,11 @@ STEP 12 final durable state and complete ordered event list (replayed from curso
         "reviewer"
       ]
     },
-    "createdAt": "2026-09-01T11:26:25.348Z"
+    "createdAt": "2026-09-01T12:18:27.859Z"
   },
   {
     "sequence": 2,
-    "eventId": "evt-71d0d395c931a5eee2747a30",
+    "eventId": "evt-f316f162a495b49f8bfe38bf",
     "eventType": "bridge_connected",
     "role": "coordinator",
     "payload": {
@@ -1699,11 +1699,11 @@ STEP 12 final durable state and complete ordered event list (replayed from curso
       "shellRunId": "shell-run-coordinator-1",
       "reconnected": false
     },
-    "createdAt": "2026-09-01T11:26:25.359Z"
+    "createdAt": "2026-09-01T12:18:27.870Z"
   },
   {
     "sequence": 3,
-    "eventId": "evt-d430a598ae6827ef3cdc6cd0",
+    "eventId": "evt-38a35ff92cbf4d2fb60830f8",
     "eventType": "bridge_connected",
     "role": "builder",
     "payload": {
@@ -1712,11 +1712,11 @@ STEP 12 final durable state and complete ordered event list (replayed from curso
       "shellRunId": "shell-run-builder-1",
       "reconnected": false
     },
-    "createdAt": "2026-09-01T11:26:25.361Z"
+    "createdAt": "2026-09-01T12:18:27.874Z"
   },
   {
     "sequence": 4,
-    "eventId": "evt-3b3507194d8d75bcc7081e50",
+    "eventId": "evt-c2d3672702e278c29ba34602",
     "eventType": "assignment_accepted",
     "role": "builder",
     "payload": {
@@ -1724,11 +1724,11 @@ STEP 12 final durable state and complete ordered event list (replayed from curso
       "role": "builder",
       "ack": "accepted"
     },
-    "createdAt": "2026-09-01T11:26:25.364Z"
+    "createdAt": "2026-09-01T12:18:27.877Z"
   },
   {
     "sequence": 5,
-    "eventId": "evt-6c5d85bf0deead71c8781efb",
+    "eventId": "evt-4241a0eb3de0ef8b80369810",
     "eventType": "bridge_connected",
     "role": "reviewer",
     "payload": {
@@ -1737,11 +1737,11 @@ STEP 12 final durable state and complete ordered event list (replayed from curso
       "shellRunId": "shell-run-reviewer-1",
       "reconnected": false
     },
-    "createdAt": "2026-09-01T11:26:25.365Z"
+    "createdAt": "2026-09-01T12:18:27.878Z"
   },
   {
     "sequence": 6,
-    "eventId": "evt-8a8c714baa0c9ec5d4fda103",
+    "eventId": "evt-260d3e7628563c59186cba17",
     "eventType": "bridge_connected",
     "role": "coordinator",
     "payload": {
@@ -1750,11 +1750,11 @@ STEP 12 final durable state and complete ordered event list (replayed from curso
       "shellRunId": "shell-run-coordinator-1",
       "reconnected": true
     },
-    "createdAt": "2026-09-01T11:26:25.369Z"
+    "createdAt": "2026-09-01T12:18:27.884Z"
   },
   {
     "sequence": 7,
-    "eventId": "evt-7075a2a9383e16930c5d7bc9",
+    "eventId": "evt-581654dbc6fdb59668b7791b",
     "eventType": "bridge_connected",
     "role": "coordinator",
     "payload": {
@@ -1763,11 +1763,11 @@ STEP 12 final durable state and complete ordered event list (replayed from curso
       "shellRunId": "shell-run-coordinator-1",
       "reconnected": true
     },
-    "createdAt": "2026-09-01T11:26:25.374Z"
+    "createdAt": "2026-09-01T12:18:27.888Z"
   },
   {
     "sequence": 8,
-    "eventId": "evt-d809c75b1ad8734370910fcb",
+    "eventId": "evt-fd41f1e6d0a6a6fa98476927",
     "eventType": "bridge_connected",
     "role": "builder",
     "payload": {
@@ -1776,11 +1776,11 @@ STEP 12 final durable state and complete ordered event list (replayed from curso
       "shellRunId": "shell-run-builder-1",
       "reconnected": true
     },
-    "createdAt": "2026-09-01T11:26:25.478Z"
+    "createdAt": "2026-09-01T12:18:27.993Z"
   },
   {
     "sequence": 9,
-    "eventId": "evt-3d1b8ce4e85d438837dda95a",
+    "eventId": "evt-5b3c1d4ec6189c8ad333dc8b",
     "eventType": "assignment_duplicate_acknowledged",
     "role": "builder",
     "payload": {
@@ -1788,11 +1788,11 @@ STEP 12 final durable state and complete ordered event list (replayed from curso
       "role": "builder",
       "ack": "duplicate"
     },
-    "createdAt": "2026-09-01T11:26:25.479Z"
+    "createdAt": "2026-09-01T12:18:27.996Z"
   },
   {
     "sequence": 10,
-    "eventId": "evt-72f6b8747e91fa4006189e8c",
+    "eventId": "evt-317fbd89d6f99f4b9325808b",
     "eventType": "human_input_submitted",
     "role": "builder",
     "payload": {
@@ -1800,11 +1800,11 @@ STEP 12 final durable state and complete ordered event list (replayed from curso
       "inputSource": "interactive",
       "charCount": 33
     },
-    "createdAt": "2026-09-01T11:26:25.481Z"
+    "createdAt": "2026-09-01T12:18:28.001Z"
   },
   {
     "sequence": 11,
-    "eventId": "evt-7e55b0d90bb9d245c605a115",
+    "eventId": "evt-5fbc8161cfa638f12e001f58",
     "eventType": "manual_takeover",
     "role": "builder",
     "payload": {
@@ -1814,21 +1814,21 @@ STEP 12 final durable state and complete ordered event list (replayed from curso
       "assignmentId": "assignment-builder-1",
       "assignmentState": "needs_reconciliation"
     },
-    "createdAt": "2026-09-01T11:26:25.482Z"
+    "createdAt": "2026-09-01T12:18:28.001Z"
   },
   {
     "sequence": 12,
-    "eventId": "evt-7c99b0df22415247951f08fe",
+    "eventId": "evt-cb93c05608eb516ae567c48d",
     "eventType": "runner_restarted",
     "role": null,
     "payload": {
-      "runnerPid": 978327
+      "runnerPid": 1054329
     },
-    "createdAt": "2026-09-01T11:26:26.037Z"
+    "createdAt": "2026-09-01T12:18:28.552Z"
   },
   {
     "sequence": 13,
-    "eventId": "evt-1543b01824602074e0f56fad",
+    "eventId": "evt-3f09e14d6421ba9235a021ef",
     "eventType": "bridge_connected",
     "role": "coordinator",
     "payload": {
@@ -1837,11 +1837,11 @@ STEP 12 final durable state and complete ordered event list (replayed from curso
       "shellRunId": "shell-run-coordinator-1",
       "reconnected": true
     },
-    "createdAt": "2026-09-01T11:26:26.049Z"
+    "createdAt": "2026-09-01T12:18:28.567Z"
   },
   {
     "sequence": 14,
-    "eventId": "evt-1e0386d2c16eb286f3291559",
+    "eventId": "evt-05227363632000a1a7e5d9b3",
     "eventType": "bridge_connected",
     "role": "builder",
     "payload": {
@@ -1850,11 +1850,11 @@ STEP 12 final durable state and complete ordered event list (replayed from curso
       "shellRunId": "shell-run-builder-1",
       "reconnected": true
     },
-    "createdAt": "2026-09-01T11:26:26.051Z"
+    "createdAt": "2026-09-01T12:18:28.569Z"
   },
   {
     "sequence": 15,
-    "eventId": "evt-96694898590a1676440efb9e",
+    "eventId": "evt-73bf996142b1c5ae3c992e13",
     "eventType": "bridge_connected",
     "role": "reviewer",
     "payload": {
@@ -1863,7 +1863,7 @@ STEP 12 final durable state and complete ordered event list (replayed from curso
       "shellRunId": "shell-run-reviewer-1",
       "reconnected": true
     },
-    "createdAt": "2026-09-01T11:26:26.053Z"
+    "createdAt": "2026-09-01T12:18:28.571Z"
   }
 ]
 SCENARIO journal=default: PASS (both runner launches recorded; temporary state wiped)
@@ -1871,13 +1871,13 @@ SCENARIO journal=default: PASS (both runner launches recorded; temporary state w
 ======================================================================
 SCENARIO journal=wal (requested and effective modes reported; no mode is ranked)
 ======================================================================
-GATE   fresh caller-owned state directory: /tmp/omarchestra-vertical-slice-qZKfwh
+GATE   fresh caller-owned state directory: /tmp/omarchestra-vertical-slice-C1nae8
 STEP 1 schema/bootstrap — runner readiness report (requested vs effective journal mode):
 {
   "event": "runner_ready",
-  "pid": 978341,
-  "stateDir": "/tmp/omarchestra-vertical-slice-qZKfwh",
-  "socket": "/tmp/omarchestra-vertical-slice-qZKfwh/runner.sock",
+  "pid": 1054363,
+  "stateDir": "/tmp/omarchestra-vertical-slice-C1nae8",
+  "socket": "/tmp/omarchestra-vertical-slice-C1nae8/runner.sock",
   "journalRequested": "wal",
   "journalEffective": "wal",
   "sqliteVersion": "3.53.4",
@@ -1911,7 +1911,7 @@ STEP 1 filesystem and permission checks passed (database outside Git, owner-only
   "teamGoal": {
     "id": "team-goal-vertical-slice-1",
     "goalText": "Vertical-slice prototype: prove durable role-labelled visible-agent seams (throwaway).",
-    "createdAt": "2026-09-01T11:26:26.497Z",
+    "createdAt": "2026-09-01T12:18:29.020Z",
     "eventCursor": 1
   },
   "roles": [
@@ -1968,8 +1968,8 @@ STEP 1 filesystem and permission checks passed (database outside Git, owner-only
     "state": "pending",
     "lastAckStatus": null,
     "prompt": "Harmless prototype assignment: confirm the visible bridge seam by replying with the fixed prototype acknowledgement phrase.",
-    "createdAt": "2026-09-01T11:26:26.497Z",
-    "updatedAt": "2026-09-01T11:26:26.497Z"
+    "createdAt": "2026-09-01T12:18:29.020Z",
+    "updatedAt": "2026-09-01T12:18:29.020Z"
   },
   "journal": {
     "requested": "wal",
@@ -1985,7 +1985,7 @@ STEP 2 all three fake visible-host bridges completed the real handshake over the
   "teamGoal": {
     "id": "team-goal-vertical-slice-1",
     "goalText": "Vertical-slice prototype: prove durable role-labelled visible-agent seams (throwaway).",
-    "createdAt": "2026-09-01T11:26:26.497Z",
+    "createdAt": "2026-09-01T12:18:29.020Z",
     "eventCursor": 2
   },
   "roles": [
@@ -2042,8 +2042,8 @@ STEP 2 all three fake visible-host bridges completed the real handshake over the
     "state": "pending",
     "lastAckStatus": null,
     "prompt": "Harmless prototype assignment: confirm the visible bridge seam by replying with the fixed prototype acknowledgement phrase.",
-    "createdAt": "2026-09-01T11:26:26.497Z",
-    "updatedAt": "2026-09-01T11:26:26.497Z"
+    "createdAt": "2026-09-01T12:18:29.020Z",
+    "updatedAt": "2026-09-01T12:18:29.020Z"
   },
   "journal": {
     "requested": "wal",
@@ -2058,7 +2058,7 @@ STEP 2 all three fake visible-host bridges completed the real handshake over the
   "teamGoal": {
     "id": "team-goal-vertical-slice-1",
     "goalText": "Vertical-slice prototype: prove durable role-labelled visible-agent seams (throwaway).",
-    "createdAt": "2026-09-01T11:26:26.497Z",
+    "createdAt": "2026-09-01T12:18:29.020Z",
     "eventCursor": 3
   },
   "roles": [
@@ -2115,8 +2115,8 @@ STEP 2 all three fake visible-host bridges completed the real handshake over the
     "state": "pending",
     "lastAckStatus": null,
     "prompt": "Harmless prototype assignment: confirm the visible bridge seam by replying with the fixed prototype acknowledgement phrase.",
-    "createdAt": "2026-09-01T11:26:26.497Z",
-    "updatedAt": "2026-09-01T11:26:26.497Z"
+    "createdAt": "2026-09-01T12:18:29.020Z",
+    "updatedAt": "2026-09-01T12:18:29.020Z"
   },
   "journal": {
     "requested": "wal",
@@ -2131,7 +2131,7 @@ STEP 2 all three fake visible-host bridges completed the real handshake over the
   "teamGoal": {
     "id": "team-goal-vertical-slice-1",
     "goalText": "Vertical-slice prototype: prove durable role-labelled visible-agent seams (throwaway).",
-    "createdAt": "2026-09-01T11:26:26.497Z",
+    "createdAt": "2026-09-01T12:18:29.020Z",
     "eventCursor": 5
   },
   "roles": [
@@ -2188,8 +2188,8 @@ STEP 2 all three fake visible-host bridges completed the real handshake over the
     "state": "active",
     "lastAckStatus": "accepted",
     "prompt": "Harmless prototype assignment: confirm the visible bridge seam by replying with the fixed prototype acknowledgement phrase.",
-    "createdAt": "2026-09-01T11:26:26.497Z",
-    "updatedAt": "2026-09-01T11:26:26.513Z"
+    "createdAt": "2026-09-01T12:18:29.020Z",
+    "updatedAt": "2026-09-01T12:18:29.035Z"
   },
   "journal": {
     "requested": "wal",
@@ -2203,7 +2203,7 @@ STEP 2 all three fake visible-host bridges completed the real handshake over the
   "teamGoal": {
     "id": "team-goal-vertical-slice-1",
     "goalText": "Vertical-slice prototype: prove durable role-labelled visible-agent seams (throwaway).",
-    "createdAt": "2026-09-01T11:26:26.497Z",
+    "createdAt": "2026-09-01T12:18:29.020Z",
     "eventCursor": 5
   },
   "roles": [
@@ -2260,8 +2260,8 @@ STEP 2 all three fake visible-host bridges completed the real handshake over the
     "state": "active",
     "lastAckStatus": "accepted",
     "prompt": "Harmless prototype assignment: confirm the visible bridge seam by replying with the fixed prototype acknowledgement phrase.",
-    "createdAt": "2026-09-01T11:26:26.497Z",
-    "updatedAt": "2026-09-01T11:26:26.513Z"
+    "createdAt": "2026-09-01T12:18:29.020Z",
+    "updatedAt": "2026-09-01T12:18:29.035Z"
   },
   "journal": {
     "requested": "wal",
@@ -2275,7 +2275,7 @@ STEP 2 all three fake visible-host bridges completed the real handshake over the
   "teamGoal": {
     "id": "team-goal-vertical-slice-1",
     "goalText": "Vertical-slice prototype: prove durable role-labelled visible-agent seams (throwaway).",
-    "createdAt": "2026-09-01T11:26:26.497Z",
+    "createdAt": "2026-09-01T12:18:29.020Z",
     "eventCursor": 5
   },
   "roles": [
@@ -2332,8 +2332,8 @@ STEP 2 all three fake visible-host bridges completed the real handshake over the
     "state": "active",
     "lastAckStatus": "accepted",
     "prompt": "Harmless prototype assignment: confirm the visible bridge seam by replying with the fixed prototype acknowledgement phrase.",
-    "createdAt": "2026-09-01T11:26:26.497Z",
-    "updatedAt": "2026-09-01T11:26:26.513Z"
+    "createdAt": "2026-09-01T12:18:29.020Z",
+    "updatedAt": "2026-09-01T12:18:29.035Z"
   },
   "journal": {
     "requested": "wal",
@@ -2347,7 +2347,7 @@ STEP 2 all three fake visible-host bridges completed the real handshake over the
   "teamGoal": {
     "id": "team-goal-vertical-slice-1",
     "goalText": "Vertical-slice prototype: prove durable role-labelled visible-agent seams (throwaway).",
-    "createdAt": "2026-09-01T11:26:26.497Z",
+    "createdAt": "2026-09-01T12:18:29.020Z",
     "eventCursor": 6
   },
   "roles": [
@@ -2404,8 +2404,8 @@ STEP 2 all three fake visible-host bridges completed the real handshake over the
     "state": "active",
     "lastAckStatus": "accepted",
     "prompt": "Harmless prototype assignment: confirm the visible bridge seam by replying with the fixed prototype acknowledgement phrase.",
-    "createdAt": "2026-09-01T11:26:26.497Z",
-    "updatedAt": "2026-09-01T11:26:26.513Z"
+    "createdAt": "2026-09-01T12:18:29.020Z",
+    "updatedAt": "2026-09-01T12:18:29.035Z"
   },
   "journal": {
     "requested": "wal",
@@ -2419,7 +2419,7 @@ STEP 2 all three fake visible-host bridges completed the real handshake over the
   "teamGoal": {
     "id": "team-goal-vertical-slice-1",
     "goalText": "Vertical-slice prototype: prove durable role-labelled visible-agent seams (throwaway).",
-    "createdAt": "2026-09-01T11:26:26.497Z",
+    "createdAt": "2026-09-01T12:18:29.020Z",
     "eventCursor": 6
   },
   "roles": [
@@ -2476,8 +2476,8 @@ STEP 2 all three fake visible-host bridges completed the real handshake over the
     "state": "active",
     "lastAckStatus": "accepted",
     "prompt": "Harmless prototype assignment: confirm the visible bridge seam by replying with the fixed prototype acknowledgement phrase.",
-    "createdAt": "2026-09-01T11:26:26.497Z",
-    "updatedAt": "2026-09-01T11:26:26.513Z"
+    "createdAt": "2026-09-01T12:18:29.020Z",
+    "updatedAt": "2026-09-01T12:18:29.035Z"
   },
   "journal": {
     "requested": "wal",
@@ -2486,14 +2486,14 @@ STEP 2 all three fake visible-host bridges completed the real handshake over the
   }
 }
 STEP 2 assignment acknowledgement authorization rejects wrong-role/unknown busy and invalid statuses without durable change.
-STEP 3 initial labels verified: all three roles present both surfaces as waiting and mutually distinct.
+STEP 3 initial presentation verified: Pi-status/title metadata and QML role projections are waiting and mutually distinct.
 --- STATE step-3-initial-label-contract (durable cursor 3) ---
 {
   "cursor": 3,
   "teamGoal": {
     "id": "team-goal-vertical-slice-1",
     "goalText": "Vertical-slice prototype: prove durable role-labelled visible-agent seams (throwaway).",
-    "createdAt": "2026-09-01T11:26:26.497Z",
+    "createdAt": "2026-09-01T12:18:29.020Z",
     "eventCursor": 3
   },
   "roles": [
@@ -2550,8 +2550,8 @@ STEP 3 initial labels verified: all three roles present both surfaces as waiting
     "state": "pending",
     "lastAckStatus": null,
     "prompt": "Harmless prototype assignment: confirm the visible bridge seam by replying with the fixed prototype acknowledgement phrase.",
-    "createdAt": "2026-09-01T11:26:26.497Z",
-    "updatedAt": "2026-09-01T11:26:26.497Z"
+    "createdAt": "2026-09-01T12:18:29.020Z",
+    "updatedAt": "2026-09-01T12:18:29.020Z"
   },
   "journal": {
     "requested": "wal",
@@ -2580,7 +2580,7 @@ STEP 4 first managed assignment accepted through the visible-bridge boundary:
   "teamGoal": {
     "id": "team-goal-vertical-slice-1",
     "goalText": "Vertical-slice prototype: prove durable role-labelled visible-agent seams (throwaway).",
-    "createdAt": "2026-09-01T11:26:26.497Z",
+    "createdAt": "2026-09-01T12:18:29.020Z",
     "eventCursor": 7
   },
   "roles": [
@@ -2637,8 +2637,8 @@ STEP 4 first managed assignment accepted through the visible-bridge boundary:
     "state": "active",
     "lastAckStatus": "accepted",
     "prompt": "Harmless prototype assignment: confirm the visible bridge seam by replying with the fixed prototype acknowledgement phrase.",
-    "createdAt": "2026-09-01T11:26:26.497Z",
-    "updatedAt": "2026-09-01T11:26:26.513Z"
+    "createdAt": "2026-09-01T12:18:29.020Z",
+    "updatedAt": "2026-09-01T12:18:29.035Z"
   },
   "journal": {
     "requested": "wal",
@@ -2658,7 +2658,7 @@ STEP 5 Builder reconnect under management caused replay; the duplicate was suppr
     "teamGoal": {
       "id": "team-goal-vertical-slice-1",
       "goalText": "Vertical-slice prototype: prove durable role-labelled visible-agent seams (throwaway).",
-      "createdAt": "2026-09-01T11:26:26.497Z",
+      "createdAt": "2026-09-01T12:18:29.020Z",
       "eventCursor": 8
     },
     "roles": [
@@ -2715,8 +2715,8 @@ STEP 5 Builder reconnect under management caused replay; the duplicate was suppr
       "state": "active",
       "lastAckStatus": "accepted",
       "prompt": "Harmless prototype assignment: confirm the visible bridge seam by replying with the fixed prototype acknowledgement phrase.",
-      "createdAt": "2026-09-01T11:26:26.497Z",
-      "updatedAt": "2026-09-01T11:26:26.513Z"
+      "createdAt": "2026-09-01T12:18:29.020Z",
+      "updatedAt": "2026-09-01T12:18:29.035Z"
     },
     "journal": {
       "requested": "wal",
@@ -2731,7 +2731,7 @@ STEP 5 Builder reconnect under management caused replay; the duplicate was suppr
   "teamGoal": {
     "id": "team-goal-vertical-slice-1",
     "goalText": "Vertical-slice prototype: prove durable role-labelled visible-agent seams (throwaway).",
-    "createdAt": "2026-09-01T11:26:26.497Z",
+    "createdAt": "2026-09-01T12:18:29.020Z",
     "eventCursor": 9
   },
   "roles": [
@@ -2788,8 +2788,8 @@ STEP 5 Builder reconnect under management caused replay; the duplicate was suppr
     "state": "active",
     "lastAckStatus": "duplicate",
     "prompt": "Harmless prototype assignment: confirm the visible bridge seam by replying with the fixed prototype acknowledgement phrase.",
-    "createdAt": "2026-09-01T11:26:26.497Z",
-    "updatedAt": "2026-09-01T11:26:26.627Z"
+    "createdAt": "2026-09-01T12:18:29.020Z",
+    "updatedAt": "2026-09-01T12:18:29.149Z"
   },
   "journal": {
     "requested": "wal",
@@ -2803,7 +2803,7 @@ STEP 5 Builder reconnect under management caused replay; the duplicate was suppr
   "teamGoal": {
     "id": "team-goal-vertical-slice-1",
     "goalText": "Vertical-slice prototype: prove durable role-labelled visible-agent seams (throwaway).",
-    "createdAt": "2026-09-01T11:26:26.497Z",
+    "createdAt": "2026-09-01T12:18:29.020Z",
     "eventCursor": 11
   },
   "roles": [
@@ -2860,8 +2860,8 @@ STEP 5 Builder reconnect under management caused replay; the duplicate was suppr
     "state": "needs_reconciliation",
     "lastAckStatus": "duplicate",
     "prompt": "Harmless prototype assignment: confirm the visible bridge seam by replying with the fixed prototype acknowledgement phrase.",
-    "createdAt": "2026-09-01T11:26:26.497Z",
-    "updatedAt": "2026-09-01T11:26:26.633Z"
+    "createdAt": "2026-09-01T12:18:29.020Z",
+    "updatedAt": "2026-09-01T12:18:29.154Z"
   },
   "journal": {
     "requested": "wal",
@@ -2885,7 +2885,7 @@ STEP 6 Builder-only manual takeover (both Builder surfaces update; Coordinator a
   "teamGoal": {
     "id": "team-goal-vertical-slice-1",
     "goalText": "Vertical-slice prototype: prove durable role-labelled visible-agent seams (throwaway).",
-    "createdAt": "2026-09-01T11:26:26.497Z",
+    "createdAt": "2026-09-01T12:18:29.020Z",
     "eventCursor": 11
   },
   "roles": [
@@ -2942,8 +2942,8 @@ STEP 6 Builder-only manual takeover (both Builder surfaces update; Coordinator a
     "state": "needs_reconciliation",
     "lastAckStatus": "duplicate",
     "prompt": "Harmless prototype assignment: confirm the visible bridge seam by replying with the fixed prototype acknowledgement phrase.",
-    "createdAt": "2026-09-01T11:26:26.497Z",
-    "updatedAt": "2026-09-01T11:26:26.633Z"
+    "createdAt": "2026-09-01T12:18:29.020Z",
+    "updatedAt": "2026-09-01T12:18:29.154Z"
   },
   "journal": {
     "requested": "wal",
@@ -2959,7 +2959,7 @@ STEP 7 thin projection client captured durable cursor 11 and disconnected.
     "teamGoal": {
       "id": "team-goal-vertical-slice-1",
       "goalText": "Vertical-slice prototype: prove durable role-labelled visible-agent seams (throwaway).",
-      "createdAt": "2026-09-01T11:26:26.497Z",
+      "createdAt": "2026-09-01T12:18:29.020Z",
       "eventCursor": 11
     },
     "roles": [
@@ -3016,8 +3016,8 @@ STEP 7 thin projection client captured durable cursor 11 and disconnected.
       "state": "needs_reconciliation",
       "lastAckStatus": "duplicate",
       "prompt": "Harmless prototype assignment: confirm the visible bridge seam by replying with the fixed prototype acknowledgement phrase.",
-      "createdAt": "2026-09-01T11:26:26.497Z",
-      "updatedAt": "2026-09-01T11:26:26.633Z"
+      "createdAt": "2026-09-01T12:18:29.020Z",
+      "updatedAt": "2026-09-01T12:18:29.154Z"
     },
     "journal": {
       "requested": "wal",
@@ -3026,14 +3026,14 @@ STEP 7 thin projection client captured durable cursor 11 and disconnected.
     }
   }
 }
-STEP 8 runner stopped cleanly; durable state remains in /tmp/omarchestra-vertical-slice-qZKfwh
+STEP 8 runner stopped cleanly; durable state remains in /tmp/omarchestra-vertical-slice-C1nae8
 --- STATE step-8-last-committed-state (durable cursor 11) ---
 {
   "cursor": 11,
   "teamGoal": {
     "id": "team-goal-vertical-slice-1",
     "goalText": "Vertical-slice prototype: prove durable role-labelled visible-agent seams (throwaway).",
-    "createdAt": "2026-09-01T11:26:26.497Z",
+    "createdAt": "2026-09-01T12:18:29.020Z",
     "eventCursor": 11
   },
   "roles": [
@@ -3090,8 +3090,8 @@ STEP 8 runner stopped cleanly; durable state remains in /tmp/omarchestra-vertica
     "state": "needs_reconciliation",
     "lastAckStatus": "duplicate",
     "prompt": "Harmless prototype assignment: confirm the visible bridge seam by replying with the fixed prototype acknowledgement phrase.",
-    "createdAt": "2026-09-01T11:26:26.497Z",
-    "updatedAt": "2026-09-01T11:26:26.633Z"
+    "createdAt": "2026-09-01T12:18:29.020Z",
+    "updatedAt": "2026-09-01T12:18:29.154Z"
   },
   "journal": {
     "requested": "wal",
@@ -3100,7 +3100,7 @@ STEP 8 runner stopped cleanly; durable state remains in /tmp/omarchestra-vertica
   }
 }
 {
-  "databasePath": "/tmp/omarchestra-vertical-slice-qZKfwh/runner.sqlite",
+  "databasePath": "/tmp/omarchestra-vertical-slice-C1nae8/runner.sqlite",
   "databaseExists": true,
   "stateDirectoryMode": "0700",
   "databaseMode": "0600"
@@ -3108,9 +3108,9 @@ STEP 8 runner stopped cleanly; durable state remains in /tmp/omarchestra-vertica
 STEP 9 runner recreated over the same scratch database:
 {
   "event": "runner_ready",
-  "pid": 978358,
-  "stateDir": "/tmp/omarchestra-vertical-slice-qZKfwh",
-  "socket": "/tmp/omarchestra-vertical-slice-qZKfwh/runner.sock",
+  "pid": 1054384,
+  "stateDir": "/tmp/omarchestra-vertical-slice-C1nae8",
+  "socket": "/tmp/omarchestra-vertical-slice-C1nae8/runner.sock",
   "journalRequested": "wal",
   "journalEffective": "wal",
   "sqliteVersion": "3.53.4",
@@ -3129,7 +3129,7 @@ STEP 9 runner recreated over the same scratch database:
   "teamGoal": {
     "id": "team-goal-vertical-slice-1",
     "goalText": "Vertical-slice prototype: prove durable role-labelled visible-agent seams (throwaway).",
-    "createdAt": "2026-09-01T11:26:26.497Z",
+    "createdAt": "2026-09-01T12:18:29.020Z",
     "eventCursor": 12
   },
   "roles": [
@@ -3186,8 +3186,8 @@ STEP 9 runner recreated over the same scratch database:
     "state": "needs_reconciliation",
     "lastAckStatus": "duplicate",
     "prompt": "Harmless prototype assignment: confirm the visible bridge seam by replying with the fixed prototype acknowledgement phrase.",
-    "createdAt": "2026-09-01T11:26:26.497Z",
-    "updatedAt": "2026-09-01T11:26:26.633Z"
+    "createdAt": "2026-09-01T12:18:29.020Z",
+    "updatedAt": "2026-09-01T12:18:29.154Z"
   },
   "journal": {
     "requested": "wal",
@@ -3201,13 +3201,13 @@ STEP 10 projection resumed after saved cursor 11 before bridge reconnects:
   "resumedEvents": [
     {
       "sequence": 12,
-      "eventId": "evt-fb995269bedd010756942860",
+      "eventId": "evt-f61bb01ae8247968a0c577cb",
       "eventType": "runner_restarted",
       "role": null,
       "payload": {
-        "runnerPid": 978358
+        "runnerPid": 1054384
       },
-      "createdAt": "2026-09-01T11:26:27.175Z"
+      "createdAt": "2026-09-01T12:18:29.710Z"
     }
   ],
   "snapshot": {
@@ -3215,7 +3215,7 @@ STEP 10 projection resumed after saved cursor 11 before bridge reconnects:
     "teamGoal": {
       "id": "team-goal-vertical-slice-1",
       "goalText": "Vertical-slice prototype: prove durable role-labelled visible-agent seams (throwaway).",
-      "createdAt": "2026-09-01T11:26:26.497Z",
+      "createdAt": "2026-09-01T12:18:29.020Z",
       "eventCursor": 12
     },
     "roles": [
@@ -3272,8 +3272,8 @@ STEP 10 projection resumed after saved cursor 11 before bridge reconnects:
       "state": "needs_reconciliation",
       "lastAckStatus": "duplicate",
       "prompt": "Harmless prototype assignment: confirm the visible bridge seam by replying with the fixed prototype acknowledgement phrase.",
-      "createdAt": "2026-09-01T11:26:26.497Z",
-      "updatedAt": "2026-09-01T11:26:26.633Z"
+      "createdAt": "2026-09-01T12:18:29.020Z",
+      "updatedAt": "2026-09-01T12:18:29.154Z"
     },
     "journal": {
       "requested": "wal",
@@ -3304,7 +3304,7 @@ STEP 11 same identity tuples reconnected; bindings and labels survived; reconnec
     "teamGoal": {
       "id": "team-goal-vertical-slice-1",
       "goalText": "Vertical-slice prototype: prove durable role-labelled visible-agent seams (throwaway).",
-      "createdAt": "2026-09-01T11:26:26.497Z",
+      "createdAt": "2026-09-01T12:18:29.020Z",
       "eventCursor": 14
     },
     "roles": [
@@ -3361,8 +3361,8 @@ STEP 11 same identity tuples reconnected; bindings and labels survived; reconnec
       "state": "needs_reconciliation",
       "lastAckStatus": "duplicate",
       "prompt": "Harmless prototype assignment: confirm the visible bridge seam by replying with the fixed prototype acknowledgement phrase.",
-      "createdAt": "2026-09-01T11:26:26.497Z",
-      "updatedAt": "2026-09-01T11:26:26.633Z"
+      "createdAt": "2026-09-01T12:18:29.020Z",
+      "updatedAt": "2026-09-01T12:18:29.154Z"
     },
     "journal": {
       "requested": "wal",
@@ -3388,7 +3388,7 @@ STEP 11 same identity tuples reconnected; bindings and labels survived; reconnec
   "teamGoal": {
     "id": "team-goal-vertical-slice-1",
     "goalText": "Vertical-slice prototype: prove durable role-labelled visible-agent seams (throwaway).",
-    "createdAt": "2026-09-01T11:26:26.497Z",
+    "createdAt": "2026-09-01T12:18:29.020Z",
     "eventCursor": 15
   },
   "roles": [
@@ -3445,8 +3445,8 @@ STEP 11 same identity tuples reconnected; bindings and labels survived; reconnec
     "state": "needs_reconciliation",
     "lastAckStatus": "duplicate",
     "prompt": "Harmless prototype assignment: confirm the visible bridge seam by replying with the fixed prototype acknowledgement phrase.",
-    "createdAt": "2026-09-01T11:26:26.497Z",
-    "updatedAt": "2026-09-01T11:26:26.633Z"
+    "createdAt": "2026-09-01T12:18:29.020Z",
+    "updatedAt": "2026-09-01T12:18:29.154Z"
   },
   "journal": {
     "requested": "wal",
@@ -3461,7 +3461,7 @@ STEP 12 final durable state and complete ordered event list (replayed from curso
   "teamGoal": {
     "id": "team-goal-vertical-slice-1",
     "goalText": "Vertical-slice prototype: prove durable role-labelled visible-agent seams (throwaway).",
-    "createdAt": "2026-09-01T11:26:26.497Z",
+    "createdAt": "2026-09-01T12:18:29.020Z",
     "eventCursor": 15
   },
   "roles": [
@@ -3518,8 +3518,8 @@ STEP 12 final durable state and complete ordered event list (replayed from curso
     "state": "needs_reconciliation",
     "lastAckStatus": "duplicate",
     "prompt": "Harmless prototype assignment: confirm the visible bridge seam by replying with the fixed prototype acknowledgement phrase.",
-    "createdAt": "2026-09-01T11:26:26.497Z",
-    "updatedAt": "2026-09-01T11:26:26.633Z"
+    "createdAt": "2026-09-01T12:18:29.020Z",
+    "updatedAt": "2026-09-01T12:18:29.154Z"
   },
   "journal": {
     "requested": "wal",
@@ -3531,7 +3531,7 @@ STEP 12 final durable state and complete ordered event list (replayed from curso
 [
   {
     "sequence": 1,
-    "eventId": "evt-19528b7e96b471e7b220f89b",
+    "eventId": "evt-f32d938b9b57f1e96fa2b019",
     "eventType": "goal_bootstrapped",
     "role": null,
     "payload": {
@@ -3542,11 +3542,11 @@ STEP 12 final durable state and complete ordered event list (replayed from curso
         "reviewer"
       ]
     },
-    "createdAt": "2026-09-01T11:26:26.500Z"
+    "createdAt": "2026-09-01T12:18:29.023Z"
   },
   {
     "sequence": 2,
-    "eventId": "evt-ac67c90e8683a1d8fa0c9b51",
+    "eventId": "evt-bb89070a1db02b99714be0a4",
     "eventType": "bridge_connected",
     "role": "coordinator",
     "payload": {
@@ -3555,11 +3555,11 @@ STEP 12 final durable state and complete ordered event list (replayed from curso
       "shellRunId": "shell-run-coordinator-1",
       "reconnected": false
     },
-    "createdAt": "2026-09-01T11:26:26.510Z"
+    "createdAt": "2026-09-01T12:18:29.033Z"
   },
   {
     "sequence": 3,
-    "eventId": "evt-24205b2e3fe7fda50a0df971",
+    "eventId": "evt-3090681276ec1b9ca53ae3a7",
     "eventType": "bridge_connected",
     "role": "builder",
     "payload": {
@@ -3568,11 +3568,11 @@ STEP 12 final durable state and complete ordered event list (replayed from curso
       "shellRunId": "shell-run-builder-1",
       "reconnected": false
     },
-    "createdAt": "2026-09-01T11:26:26.511Z"
+    "createdAt": "2026-09-01T12:18:29.034Z"
   },
   {
     "sequence": 4,
-    "eventId": "evt-fbfb637d86158a6a9c586558",
+    "eventId": "evt-2c3c603b50f26e58227572e1",
     "eventType": "assignment_accepted",
     "role": "builder",
     "payload": {
@@ -3580,11 +3580,11 @@ STEP 12 final durable state and complete ordered event list (replayed from curso
       "role": "builder",
       "ack": "accepted"
     },
-    "createdAt": "2026-09-01T11:26:26.513Z"
+    "createdAt": "2026-09-01T12:18:29.036Z"
   },
   {
     "sequence": 5,
-    "eventId": "evt-4d514cedafb9185226c7be79",
+    "eventId": "evt-13f949da50e6d78c3db034b0",
     "eventType": "bridge_connected",
     "role": "reviewer",
     "payload": {
@@ -3593,11 +3593,11 @@ STEP 12 final durable state and complete ordered event list (replayed from curso
       "shellRunId": "shell-run-reviewer-1",
       "reconnected": false
     },
-    "createdAt": "2026-09-01T11:26:26.514Z"
+    "createdAt": "2026-09-01T12:18:29.036Z"
   },
   {
     "sequence": 6,
-    "eventId": "evt-303547dd24d727196469657a",
+    "eventId": "evt-62815085842b3027b758b57a",
     "eventType": "bridge_connected",
     "role": "coordinator",
     "payload": {
@@ -3606,11 +3606,11 @@ STEP 12 final durable state and complete ordered event list (replayed from curso
       "shellRunId": "shell-run-coordinator-1",
       "reconnected": true
     },
-    "createdAt": "2026-09-01T11:26:26.517Z"
+    "createdAt": "2026-09-01T12:18:29.040Z"
   },
   {
     "sequence": 7,
-    "eventId": "evt-fb73d545bdd543f385cc529b",
+    "eventId": "evt-9b190ef49328fca1540ad204",
     "eventType": "bridge_connected",
     "role": "coordinator",
     "payload": {
@@ -3619,11 +3619,11 @@ STEP 12 final durable state and complete ordered event list (replayed from curso
       "shellRunId": "shell-run-coordinator-1",
       "reconnected": true
     },
-    "createdAt": "2026-09-01T11:26:26.519Z"
+    "createdAt": "2026-09-01T12:18:29.042Z"
   },
   {
     "sequence": 8,
-    "eventId": "evt-bbc263fdca66ff657940ab43",
+    "eventId": "evt-ee22a8b93536adee26ea07ab",
     "eventType": "bridge_connected",
     "role": "builder",
     "payload": {
@@ -3632,11 +3632,11 @@ STEP 12 final durable state and complete ordered event list (replayed from curso
       "shellRunId": "shell-run-builder-1",
       "reconnected": true
     },
-    "createdAt": "2026-09-01T11:26:26.624Z"
+    "createdAt": "2026-09-01T12:18:29.147Z"
   },
   {
     "sequence": 9,
-    "eventId": "evt-5fa122045d1c6e3d14b3121c",
+    "eventId": "evt-1e049a4ab6c518e1d08d4695",
     "eventType": "assignment_duplicate_acknowledged",
     "role": "builder",
     "payload": {
@@ -3644,11 +3644,11 @@ STEP 12 final durable state and complete ordered event list (replayed from curso
       "role": "builder",
       "ack": "duplicate"
     },
-    "createdAt": "2026-09-01T11:26:26.628Z"
+    "createdAt": "2026-09-01T12:18:29.150Z"
   },
   {
     "sequence": 10,
-    "eventId": "evt-e9c0adb541b4839b11da95e5",
+    "eventId": "evt-823a3085378fe6689080dc73",
     "eventType": "human_input_submitted",
     "role": "builder",
     "payload": {
@@ -3656,11 +3656,11 @@ STEP 12 final durable state and complete ordered event list (replayed from curso
       "inputSource": "interactive",
       "charCount": 33
     },
-    "createdAt": "2026-09-01T11:26:26.633Z"
+    "createdAt": "2026-09-01T12:18:29.153Z"
   },
   {
     "sequence": 11,
-    "eventId": "evt-9cb18943869ec1a77c0c68ed",
+    "eventId": "evt-d735220c384811aa2a31568e",
     "eventType": "manual_takeover",
     "role": "builder",
     "payload": {
@@ -3670,21 +3670,21 @@ STEP 12 final durable state and complete ordered event list (replayed from curso
       "assignmentId": "assignment-builder-1",
       "assignmentState": "needs_reconciliation"
     },
-    "createdAt": "2026-09-01T11:26:26.634Z"
+    "createdAt": "2026-09-01T12:18:29.154Z"
   },
   {
     "sequence": 12,
-    "eventId": "evt-fb995269bedd010756942860",
+    "eventId": "evt-f61bb01ae8247968a0c577cb",
     "eventType": "runner_restarted",
     "role": null,
     "payload": {
-      "runnerPid": 978358
+      "runnerPid": 1054384
     },
-    "createdAt": "2026-09-01T11:26:27.175Z"
+    "createdAt": "2026-09-01T12:18:29.710Z"
   },
   {
     "sequence": 13,
-    "eventId": "evt-a019c9758e0ea1f5d99851bf",
+    "eventId": "evt-4b695687f0c0cd8d8699082f",
     "eventType": "bridge_connected",
     "role": "coordinator",
     "payload": {
@@ -3693,11 +3693,11 @@ STEP 12 final durable state and complete ordered event list (replayed from curso
       "shellRunId": "shell-run-coordinator-1",
       "reconnected": true
     },
-    "createdAt": "2026-09-01T11:26:27.185Z"
+    "createdAt": "2026-09-01T12:18:29.721Z"
   },
   {
     "sequence": 14,
-    "eventId": "evt-9bd3d9161f144bdcd9eb671f",
+    "eventId": "evt-46cf75e65e84ce8d7cd49434",
     "eventType": "bridge_connected",
     "role": "builder",
     "payload": {
@@ -3706,11 +3706,11 @@ STEP 12 final durable state and complete ordered event list (replayed from curso
       "shellRunId": "shell-run-builder-1",
       "reconnected": true
     },
-    "createdAt": "2026-09-01T11:26:27.187Z"
+    "createdAt": "2026-09-01T12:18:29.723Z"
   },
   {
     "sequence": 15,
-    "eventId": "evt-f778283c01ab94faf3983490",
+    "eventId": "evt-f61e8427018a242a8fc91b58",
     "eventType": "bridge_connected",
     "role": "reviewer",
     "payload": {
@@ -3719,7 +3719,7 @@ STEP 12 final durable state and complete ordered event list (replayed from curso
       "shellRunId": "shell-run-reviewer-1",
       "reconnected": true
     },
-    "createdAt": "2026-09-01T11:26:27.188Z"
+    "createdAt": "2026-09-01T12:18:29.724Z"
   }
 ]
 SCENARIO journal=wal: PASS (both runner launches recorded; temporary state wiped)
@@ -3735,8 +3735,8 @@ Supported by this fake-only evidence:
 - strict bounded versioned NDJSON over an owner-only Unix socket with identity
   handshake, snapshot, ordered durable events, acknowledgement/deduplication,
   and reconnect; an SSH-stdio seam exists as an injected-stream interface only;
-- three fixed roles with persistent native-title and Pi-status labels derived
-  from durable state and updated only after the owning transaction commits;
+- three fixed roles with Pi-status labels, dynamic title metadata, and QML
+  projections derived from durable state after the owning transaction commits;
 - one managed Builder assignment with replay suppression (no second turn);
 - Builder-only manual takeover switching assignment state to needs_reconciliation
   while Coordinator and Reviewer projections remain byte-identical;
@@ -3746,7 +3746,7 @@ Supported by this fake-only evidence:
   mutate storage; no hidden agent process is created or required.
 
 Remaining constraints (explicitly unresolved here):
-- fake presentation adapters do not prove real Pi title/status rendering;
+- fake presentation adapters do not prove live Pi or Agent Console rendering;
 - the SSH-stdio transport is an interface with fake streams only;
 - journal mode stays undecided: default and WAL were both measured, none ranked;
 - same-user Unix-socket permissions are the only prototype trust boundary;
@@ -3760,12 +3760,12 @@ Every runner invocation in the process ledger:
 [
   {
     "label": "runner-default-first",
-    "pid": 978301,
+    "pid": 1054295,
     "argv": [
       "/home/woodshape/.local/share/mise/installs/node/26.8.1/bin/node",
       "/home/woodshape/claude/omarchestra/prototypes/first-vertical-slice/src/cli.ts",
       "--state-dir",
-      "/tmp/omarchestra-vertical-slice-C1JCol",
+      "/tmp/omarchestra-vertical-slice-WR4htr",
       "--journal",
       "default",
       "--bootstrap-json",
@@ -3774,12 +3774,12 @@ Every runner invocation in the process ledger:
   },
   {
     "label": "runner-default-first",
-    "pid": 978309,
+    "pid": 1054303,
     "argv": [
       "/home/woodshape/.local/share/mise/installs/node/26.8.1/bin/node",
       "/home/woodshape/claude/omarchestra/prototypes/first-vertical-slice/src/cli.ts",
       "--state-dir",
-      "/tmp/omarchestra-vertical-slice-oHjVYC",
+      "/tmp/omarchestra-vertical-slice-Slq5xF",
       "--journal",
       "default",
       "--bootstrap-json",
@@ -3788,12 +3788,12 @@ Every runner invocation in the process ledger:
   },
   {
     "label": "runner-default-restart",
-    "pid": 978327,
+    "pid": 1054329,
     "argv": [
       "/home/woodshape/.local/share/mise/installs/node/26.8.1/bin/node",
       "/home/woodshape/claude/omarchestra/prototypes/first-vertical-slice/src/cli.ts",
       "--state-dir",
-      "/tmp/omarchestra-vertical-slice-oHjVYC",
+      "/tmp/omarchestra-vertical-slice-Slq5xF",
       "--journal",
       "default",
       "--bootstrap-json",
@@ -3802,12 +3802,12 @@ Every runner invocation in the process ledger:
   },
   {
     "label": "runner-wal-first",
-    "pid": 978341,
+    "pid": 1054363,
     "argv": [
       "/home/woodshape/.local/share/mise/installs/node/26.8.1/bin/node",
       "/home/woodshape/claude/omarchestra/prototypes/first-vertical-slice/src/cli.ts",
       "--state-dir",
-      "/tmp/omarchestra-vertical-slice-qZKfwh",
+      "/tmp/omarchestra-vertical-slice-C1nae8",
       "--journal",
       "wal",
       "--bootstrap-json",
@@ -3816,12 +3816,12 @@ Every runner invocation in the process ledger:
   },
   {
     "label": "runner-wal-restart",
-    "pid": 978358,
+    "pid": 1054384,
     "argv": [
       "/home/woodshape/.local/share/mise/installs/node/26.8.1/bin/node",
       "/home/woodshape/claude/omarchestra/prototypes/first-vertical-slice/src/cli.ts",
       "--state-dir",
-      "/tmp/omarchestra-vertical-slice-qZKfwh",
+      "/tmp/omarchestra-vertical-slice-C1nae8",
       "--journal",
       "wal",
       "--bootstrap-json",

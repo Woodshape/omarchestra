@@ -25,8 +25,8 @@ Supported by the captured evidence:
 - strict bounded versioned NDJSON (`omarchestra.first-vertical-slice/v1`) over
   an owner-only Unix socket with identity handshake, snapshot, ordered events,
   acknowledgement/deduplication, and reconnect;
-- three fixed roles with persistent native-terminal-title and Pi-status label
-  strings derived from committed durable state only;
+- three fixed roles with Pi-status strings, dynamic terminal-title metadata,
+  and QML Agent Console projections derived from committed durable state only;
 - one managed Builder assignment delivered through the visible-bridge boundary
   with replay suppression (identical replay never creates a second turn);
 - Builder-only manual takeover flipping the assignment to
@@ -47,8 +47,10 @@ Supported by the captured evidence:
 
 Constraints that keep this from being "supported" outright:
 
-- presentation adapters are fakes; real Pi title/status rendering is covered
-  only by the plan-only manual gate (`docs/manual-role-label-gate.md`);
+- real same-process Pi status and dynamic terminal metadata are human-proven,
+  but the QML Agent Console remains a fixture rather than a live redundant
+  surface; forced visible Ghostty title bars were rejected as non-native and
+  truncation-prone (`docs/manual-role-label-gate.md`);
 - the SSH-stdio transport is an injected-stream interface; no SSH is exercised;
 - journal mode stays deliberately undecided: the gate measures `default` and
   `WAL` and reports the effective mode of each run without ranking them;
@@ -87,7 +89,7 @@ inspectable state after every guided step:
 1. fresh state directory, schema migration, bootstrap, journal-mode report;
 2. three fake visible-host bridge handshakes over the real owner-only socket,
    followed by wrong-role/unknown acknowledgement rejection with no durable change;
-3. initial labels (all roles `waiting`, both surfaces, mutually distinct);
+3. initial labels (all roles `waiting`, all durable projections mutually distinct);
 4. first managed Builder assignment: `accepted`, exactly one fake visible turn;
 5. Builder disconnect/reconnect under management: replay acknowledged
    `duplicate`, still exactly one turn;
@@ -109,6 +111,20 @@ PTYs, or opens TCP listeners; the injected SSH-stdio seam round-trips frames
 without SSH; and the process ledger contains only the exact local runner
 launches required by the cleanup probe and two journal-mode scenarios.
 
+## Human presentation evidence
+
+Two authorized local attempts resolved the presentation contract. Decorationless
+Omarchy windows proved the three real Pi status labels across waiting, managed,
+takeover, sibling isolation, and one-minute persistence, but exposed no
+persistent terminal-title chrome. Forced Ghostty client decorations made title
+metadata visible, but looked non-native and truncated in narrow Builder and
+Reviewer tiles. The operator rejected that UI.
+
+The accepted contract is decorationless Ghostty, persistent Pi status per
+terminal, redundant Agent Console cards, and dynamic terminal titles as
+window-manager metadata only. The live Agent Console half remains pending; see
+[`docs/manual-role-label-gate.md`](docs/manual-role-label-gate.md).
+
 ## Guided manual walkthrough (optional, no live systems)
 
 1. `just prototype-vertical-slice` — read the printed state blocks in order;
@@ -118,8 +134,8 @@ launches required by the cleanup probe and two journal-mode scenarios.
 3. `service/omarchestra-runner@.service.template` — the intended foreground
    systemd user-unit boundary (never installed, never started).
 4. `qml/AgentProjectionFixture.qml` — the thin-client projection shape.
-5. `docs/manual-role-label-gate.md` — the plan-only human gate for the real
-   Pi status surface and native terminal titles, for a later authorized run.
+5. `docs/manual-role-label-gate.md` — completed human evidence, the rejected
+   visible-title assumption, and the revised decorationless presentation contract.
 
 ## Module boundaries
 
@@ -137,6 +153,7 @@ launches required by the cleanup probe and two journal-mode scenarios.
 | `src/acceptance.ts` | Fake-only acceptance gate; the only module allowed to spawn the runner CLI |
 | `qml/` | Inert QML-facing snapshot and ordered-event projection fixture |
 | `service/` | Non-installed systemd user-unit template |
+| `manual/` | Human-authorized disposable Pi/Ghostty adapter, wizard, and fake-only checks |
 
 ## Non-goals
 
@@ -157,8 +174,10 @@ Evidence-backed items that should become production contracts:
 2. Assignment deduplication needs both a durable runner-side record and a
    surviving-bridge memory; replay after reconnect must be an explicit
    `duplicate` acknowledgement, not a second turn.
-3. Presentation strings must be persisted with the binding row and re-sent
-   only after the corresponding transaction commits.
+3. Pi status, terminal-title metadata, and Agent Console role/state projections
+   must come from one committed presentation value and be sent only after the
+   corresponding transaction commits. Visible Ghostty title bars are not a
+   product surface.
 4. Projection clients need a captured-cursor reconnect: complete ordered pages
    first, authoritative snapshot second, live stream third; the client advances
    and validates its cursor on every page and live event.
@@ -173,7 +192,8 @@ Evidence-backed items that should become production contracts:
 Unresolved questions (deliberately not decided here):
 
 - production journal mode (both modes measured; none ranked);
-- real Pi title/status rendering and its update latency (manual gate);
+- live Agent Console rendering and its agreement/latency relative to the
+  human-proven Pi status surface;
 - socket trust beyond same-user Unix permissions, and the authenticated
   SSH-stdio protocol;
 - recovery beyond a surviving bridge identity (Pi restart, extension reload,

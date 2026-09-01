@@ -83,15 +83,17 @@ Rectangle {
                     spacing: 2
 
                     Label {
-                        text: roleEntry ? roleEntry.nativeTerminalTitle : ""
+                        text: roleEntry ? roleEntry.piStatus : ""
                         color: "#eaeaf4"
+                        font.bold: true
                         font.family: "monospace"
                     }
                     Label {
-                        text: roleEntry ? ("Pi status: " + roleEntry.piStatus
-                              + "  ·  control=" + roleEntry.controlMode
-                              + "  ·  assignment=" + (roleEntry.assignmentState || "none")) : ""
+                        text: roleEntry ? ("control=" + roleEntry.controlMode
+                              + "  ·  assignment=" + (roleEntry.assignmentState || "none")
+                              + "  ·  title metadata=" + roleEntry.nativeTerminalTitle) : ""
                         color: "#9a9ab0"
+                        elide: Text.ElideRight
                         font.family: "monospace"
                     }
                 }
