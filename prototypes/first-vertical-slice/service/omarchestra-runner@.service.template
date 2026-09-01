@@ -1,0 +1,38 @@
+# PROTOTYPE — NOT PRODUCTION
+#
+# Non-installed systemd user-unit TEMPLATE for the Omarchestra first
+# vertical-slice prototype. This file documents the intended foreground
+# process boundary only. Automation never invokes systemd, and this unit is
+# never installed, enabled, or started by the prototype or its acceptance
+# gate.
+#
+# Intended boundary (for human review):
+#   - one foreground runner process per Team Goal instance;
+#   - the runner is plain control-plane infrastructure (no agent inside);
+#   - the runner binds an owner-only Unix socket inside its private state
+#     directory and never opens a TCP listener;
+#   - visible interactive agents live in their own terminal hosts and are
+#     never launched, supervised, or restarted by this unit.
+#
+# Placeholder paths marked @@...@@ must be resolved by a future generator;
+# they are intentionally not wired to any host state.
+
+[Unit]
+Description=Omarchestra Team Runner (PROTOTYPE template — not installed)
+Documentation=file:prototypes/first-vertical-slice/README.md
+
+[Service]
+Type=exec
+ExecStart=@@NODE_BIN@@ @@NODE_FLAGS@@ @@PROTOTYPE_DIR@@/src/cli.ts --state-dir %h/omarchestra/runners/%i --journal default
+Restart=no
+# Foreground lifecycle only: the runner shuts down cleanly on SIGTERM.
+KillSignal=SIGTERM
+TimeoutStopSec=10
+PrivateTmp=yes
+NoNewPrivileges=yes
+# Owner-only runtime boundary: the state directory is chmod 0700 and the
+# runner socket and database are chmod 0600, enforced by the runner itself.
+UMask=0077
+
+[Install]
+WantedBy=default.target

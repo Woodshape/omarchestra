@@ -1,0 +1,9 @@
+{
+  "name": "omarchestra-first-vertical-slice-prototype",
+  "private": true,
+  "type": "module",
+  "description": "PROTOTYPE — NOT PRODUCTION. Removable vertical-slice prototype for the Omarchestra runner seams.",
+  "engines": {
+    "node": ">=22.6.0"
+  }
+}
