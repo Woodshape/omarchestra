@@ -113,7 +113,7 @@ and global stop or restart operations do not authorize cleanup.
 The retained old launcher still implements the rejected loader path and must
 continue to fail before registration of runner, Pi, Ghostty, provider,
 Hyprland, or UI resources. The active replacement procedure has fake-proven
-exact PID, window, socket, FIFO, and directory cleanup plus byte-identical
+exact PID, window, runner/control-socket, and directory cleanup plus byte-identical
 installation fingerprints around runtime clear/hide. Fake cleanup evidence
 does not claim that a combined live run occurred.
 

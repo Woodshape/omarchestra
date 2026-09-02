@@ -10,6 +10,7 @@
     "panel"
   ],
   "activation": "on-demand",
+  "keepLoaded": true,
   "companion": {
     "protocol": "omarchestra.companion/v1"
   },

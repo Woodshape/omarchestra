@@ -15,6 +15,7 @@ import { createHash, randomUUID } from 'node:crypto'
 import fs from 'node:fs'
 import os from 'node:os'
 import path from 'node:path'
+import net from 'node:net'
 import { spawnSync } from 'node:child_process'
 import readline from 'node:readline/promises'
 
@@ -47,6 +48,7 @@ import {
   type PluginConfigurationEntry,
 } from '../companion/contracts.ts'
 import { CompanionInstallation } from '../companion/installation.ts'
+import { normalizeAbsolutePath } from '../companion/path-validation.ts'
 import { FakeOmarchy } from '../companion/fake-omarchy.ts'
 import { DEFAULT_COMPANION_RELEASE, COMPANION_RELEASE } from '../companion/releases.ts'
 import { ProjectionSessionManager } from '../companion/projection-session.ts'
@@ -158,7 +160,7 @@ function assertPluginId(pluginId: string): void {
 
 function requireShellResponse(result: LiveCommandResult, argv: readonly string[]): string {
   const value = result.stdout.trim()
-  if (value === 'unknown' || value === 'error' || value.startsWith('invalid ')) {
+  if (value === 'unknown' || value === 'error' || value === 'false' || value.startsWith('invalid ')) {
     throw new LiveCommandError(argv, { ...result, status: result.status ?? 1 })
   }
   return value
@@ -168,7 +170,6 @@ interface ListedPlugin {
   id: string
   enabled?: boolean
   kinds?: unknown
-  version?: unknown
 }
 
 /**
@@ -180,7 +181,6 @@ export class LiveCompanionShell implements CompanionInstallationShellPort, Compa
   private readonly command: LiveCommandPort
   private readonly release: CompanionRelease
   private readonly commandLog: string[][] = []
-  private pluginGeneration = 1
 
   constructor(command: LiveCommandPort = new DirectLiveCommandPort(), release = DEFAULT_COMPANION_RELEASE) {
     this.command = command
@@ -197,19 +197,28 @@ export class LiveCompanionShell implements CompanionInstallationShellPort, Compa
         `installed Omarchy shell did not report enabled panel ${pluginId}`,
       )
     }
-    if (plugin.version !== undefined && plugin.version !== this.release.version) {
+    const argv = ['omarchy-shell', 'shell', 'call', pluginId, 'capabilities', '{}']
+    let result: LiveCommandResult
+    for (let attempt = 0; ; attempt += 1) {
+      this.commandLog.push([...argv])
+      result = runChecked(this.command, argv)
+      if (result.stdout.trim() !== 'unknown' || attempt >= 39) break
+      waitMilliseconds(50)
+    }
+    const raw = requireShellResponse(result, argv)
+    let parsed: unknown
+    try {
+      parsed = JSON.parse(raw)
+    } catch {
+      throw new CompanionError('invalid_envelope', 'installed Companion returned malformed capabilities JSON')
+    }
+    const response = validateCapabilitiesEnvelope(parsed)
+    if (response.pluginId !== pluginId || response.version !== this.release.version) {
       throw new CompanionError(
         'unsupported_compatibility',
-        `discovered Companion version ${String(plugin.version)} does not equal ${this.release.version}`,
+        `installed Companion identity/version differs from ${pluginId} ${this.release.version}`,
       )
     }
-    const response = validateCapabilitiesEnvelope({
-      protocol: COMPANION_PROTOCOL_ID,
-      pluginId,
-      version: this.release.version,
-      pluginGeneration: this.pluginGeneration,
-      capabilities: [...COMPANION_CAPABILITIES],
-    })
     assertRequiredCapabilities(response.capabilities)
     return response
   }
@@ -225,9 +234,9 @@ export class LiveCompanionShell implements CompanionInstallationShellPort, Compa
 
   call(
     pluginId: string,
-    method: 'applyHandoff' | 'clear' | 'intentResult',
+    method: 'applyHandoff' | 'clear' | 'intentResult' | 'takeIntent',
     payloadJson: string,
-  ): void {
+  ): string {
     assertPluginId(pluginId)
     const payload = requireBoundedPayload(payloadJson)
     const argv = ['omarchy-shell', 'shell', 'call', pluginId, method, payload]
@@ -242,7 +251,7 @@ export class LiveCompanionShell implements CompanionInstallationShellPort, Compa
       if (method !== 'applyHandoff' || result.stdout.trim() !== 'unknown' || attempt >= 39) break
       waitMilliseconds(50)
     }
-    requireShellResponse(result, argv)
+    return requireShellResponse(result, argv)
   }
 
   hide(pluginId: string, payloadJson: string): void {
@@ -262,7 +271,6 @@ export class LiveCompanionShell implements CompanionInstallationShellPort, Compa
     const argv = ['omarchy-shell', 'shell', 'rescanPlugins']
     this.commandLog.push([...argv])
     runChecked(this.command, argv)
-    this.pluginGeneration += 1
   }
 
   enable(pluginId: string): void {
@@ -279,15 +287,6 @@ export class LiveCompanionShell implements CompanionInstallationShellPort, Compa
     this.commandLog.push([...argv])
     const result = runChecked(this.command, argv)
     requireShellResponse(result, argv)
-  }
-
-  /** Record an externally requested plugin reload for a fresh session identity. */
-  notePluginReload(): void {
-    this.pluginGeneration += 1
-  }
-
-  currentPluginGeneration(): number {
-    return this.pluginGeneration
   }
 
   commands(): string[][] {
@@ -317,20 +316,11 @@ export class LiveCompanionShell implements CompanionInstallationShellPort, Compa
   }
 }
 
-/** Explicit names for callers that want to distinguish the live adapters. */
-export const LiveCompanionShellPort = LiveCompanionShell
-export const LiveOmarchyShell = LiveCompanionShell
-export const LiveOmarchyShellPort = LiveCompanionShell
-
 function normalizeAbsolute(input: string): string {
-  if (typeof input !== 'string' || !POSIX.isAbsolute(input) || input.includes('\\')) {
-    throw new CompanionInstallationError('unsafe_path', `live path must be absolute POSIX text: ${String(input)}`)
-  }
-  const normalized = POSIX.normalize(input)
-  if (normalized !== input) {
-    throw new CompanionInstallationError('unsafe_path', `live path must be canonical: ${input}`)
-  }
-  return normalized
+  return normalizeAbsolutePath(input, (reason, value) => new CompanionInstallationError(
+    'unsafe_path',
+    `live path must be ${reason === 'canonical' ? 'canonical' : 'absolute POSIX text'}: ${value}`,
+  ))
 }
 
 function pathPrefixes(input: string): string[] {
@@ -975,8 +965,20 @@ function fakeLiveCommand(state: FakeCommandState): LiveCommandPort {
             id: COMPANION_PLUGIN_ID,
             enabled: true,
             kinds: ['panel'],
-            version: COMPANION_RELEASE.version,
           }]),
+          stderr: '',
+        }
+      }
+      if (argv[0] === 'omarchy-shell' && argv[2] === 'call' && argv[4] === 'capabilities') {
+        return {
+          status: 0,
+          stdout: JSON.stringify({
+            protocol: COMPANION_PROTOCOL_ID,
+            pluginId: COMPANION_PLUGIN_ID,
+            version: COMPANION_RELEASE.version,
+            pluginGeneration: 1,
+            capabilities: [...COMPANION_CAPABILITIES],
+          }),
           stderr: '',
         }
       }
@@ -1013,6 +1015,48 @@ export async function runFakeCheck(): Promise<void> {
     throw new Error('fake live Companion adapter check observed an unexpected command')
   }
   console.log('companion setup-validation check: PASS (fake-only)')
+}
+
+const PROJECTION_CONTROL_COMMANDS = new Set(['reload', 'clear', 'hide', 'fingerprint', 'quit'])
+
+/** Pure multi-message command queue shared by the live Unix-socket adapter and fake-only tests. */
+export class ProjectionControlQueue {
+  private readonly commands: string[] = []
+  private readonly waiters: Array<{ resolve(value: string): void; reject(error: unknown): void }> = []
+  private buffer = ''
+  private failure: Error | null = null
+
+  accept(chunk: string): void {
+    if (this.failure !== null) throw this.failure
+    this.buffer += chunk
+    for (;;) {
+      const newline = this.buffer.indexOf('\n')
+      if (newline < 0) return
+      const command = this.buffer.slice(0, newline).trim()
+      this.buffer = this.buffer.slice(newline + 1)
+      if (!PROJECTION_CONTROL_COMMANDS.has(command)) {
+        const error = new Error(`unknown projection control command: ${command}`)
+        this.fail(error)
+        throw error
+      }
+      const waiter = this.waiters.shift()
+      if (waiter === undefined) this.commands.push(command)
+      else waiter.resolve(command)
+    }
+  }
+
+  next(): Promise<string> {
+    if (this.failure !== null) return Promise.reject(this.failure)
+    const command = this.commands.shift()
+    if (command !== undefined) return Promise.resolve(command)
+    return new Promise<string>((resolve, reject) => this.waiters.push({ resolve, reject }))
+  }
+
+  fail(error: Error): void {
+    if (this.failure !== null) return
+    this.failure = error
+    for (const waiter of this.waiters.splice(0)) waiter.reject(error)
+  }
 }
 
 interface ProjectionOptions {
@@ -1053,9 +1097,30 @@ function projectionFile(directory: string): string {
   return POSIX.join(directory, 'projection.json')
 }
 
+interface LiveSocketIdentity {
+  device: bigint
+  inode: bigint
+}
+
+function captureLiveSocketIdentity(socketPath: string): LiveSocketIdentity {
+  for (const prefix of pathPrefixes(socketPath).slice(0, -1)) {
+    const ancestor = fs.lstatSync(prefix)
+    if (ancestor.isSymbolicLink()) throw new Error(`socket ancestor became a symlink: ${prefix}`)
+  }
+  const identity = fs.lstatSync(socketPath, { bigint: true })
+  if (identity.isSymbolicLink() || !identity.isSocket()) {
+    throw new Error(`control path is not the exact Unix socket: ${socketPath}`)
+  }
+  return { device: identity.dev, inode: identity.ino }
+}
+
+function sameSocketIdentity(left: LiveSocketIdentity, right: LiveSocketIdentity): boolean {
+  return left.device === right.device && left.inode === right.inode
+}
+
 /**
  * Live runtime helper. It owns only one ephemeral ProjectionSession and its
- * control FIFO. It never calls installation, enablement, or removal methods.
+ * owner-only control socket. It never calls installation, enablement, or removal methods.
  */
 export async function runLiveProjection(options: ProjectionOptions): Promise<void> {
   const ports = createLiveCompanionPorts()
@@ -1070,36 +1135,87 @@ export async function runLiveProjection(options: ProjectionOptions): Promise<voi
       appendPrivate(POSIX.join(options.evidenceDirectory, 'projection-events.ndjson'), `${JSON.stringify(handoff)}\n`)
     },
   })
-  const control = readline.createInterface({
-    input: fs.createReadStream(options.controlPath, { encoding: 'utf8' }),
-    crlfDelay: Infinity,
+  const commands = new ProjectionControlQueue()
+  const control = net.createServer((socket) => {
+    let input = ''
+    socket.setEncoding('utf8')
+    socket.on('data', (chunk) => {
+      input += chunk
+      if (Buffer.byteLength(input, 'utf8') > 1024) {
+        socket.destroy(new Error('projection control request is too large'))
+      }
+    })
+    socket.on('end', () => {
+      try {
+        if (!input.endsWith('\n')) throw new Error('incomplete projection control request')
+        commands.accept(input)
+      } catch (error) {
+        commands.fail(error instanceof Error ? error : new Error(String(error)))
+        socket.destroy()
+      }
+    })
+    socket.on('error', (error) => commands.fail(error))
   })
+  await new Promise<void>((resolveListen, rejectListen) => {
+    control.once('error', rejectListen)
+    control.listen(options.controlPath, () => {
+      control.off('error', rejectListen)
+      fs.chmodSync(options.controlPath, 0o600)
+      resolveListen()
+    })
+  })
+  const controlIdentity = captureLiveSocketIdentity(options.controlPath)
   const logPath = POSIX.join(options.evidenceDirectory, 'projection-controller.log')
   writeOwnerOnly(logPath, '')
+  let pollingEnabled = false
+  let pollInFlight = false
+  let pollTimer: ReturnType<typeof setInterval> | null = null
+  let polling = Promise.resolve()
+  const startPolling = (): void => {
+    pollingEnabled = true
+    pollTimer = setInterval(() => {
+      if (!pollingEnabled || pollInFlight) return
+      pollInFlight = true
+      polling = manager.pollPresentationIntent()
+        .then(() => undefined)
+        .catch((error) => commands.fail(error instanceof Error ? error : new Error(String(error))))
+        .finally(() => { pollInFlight = false })
+    }, 100)
+  }
+  const stopPolling = async (): Promise<void> => {
+    pollingEnabled = false
+    if (pollTimer !== null) clearInterval(pollTimer)
+    pollTimer = null
+    await polling
+  }
   try {
     await manager.open({ teamGoalId: options.teamGoalId })
     writeOwnerOnly(POSIX.join(options.evidenceDirectory, 'projection-ready'), 'ready\n')
     appendPrivate(logPath, 'open ready\n')
-    for await (const line of control) {
-      const command = line.trim()
+    startPolling()
+    for (;;) {
+      const command = await commands.next()
       if (command === 'quit') break
       if (command === 'hide') {
+        await stopPolling()
         await manager.hide()
         appendPrivate(logPath, 'hide complete\n')
         writeOwnerOnly(POSIX.join(options.evidenceDirectory, 'projection-hidden'), 'hidden\n')
         continue
       }
       if (command === 'clear') {
-        manager.clear()
-        await new Promise((resolve) => setImmediate(resolve))
+        await stopPolling()
+        await manager.clear()
         appendPrivate(logPath, 'clear complete\n')
         writeOwnerOnly(POSIX.join(options.evidenceDirectory, 'projection-cleared'), 'cleared\n')
         continue
       }
       if (command === 'reload') {
+        await stopPolling()
         ports.shell.rescan(COMPANION_PLUGIN_ID)
         await manager.hide()
         await manager.open({ teamGoalId: options.teamGoalId })
+        startPolling()
         appendPrivate(logPath, 'plugin rescan and fresh Projection Session complete\n')
         writeOwnerOnly(POSIX.join(options.evidenceDirectory, 'projection-reloaded'), 'reloaded\n')
         continue
@@ -1114,7 +1230,24 @@ export async function runLiveProjection(options: ProjectionOptions): Promise<voi
       throw new Error(`unknown projection controller command: ${command}`)
     }
   } finally {
-    control.close()
+    await stopPolling()
+    let currentControlIdentity: LiveSocketIdentity
+    try {
+      currentControlIdentity = captureLiveSocketIdentity(options.controlPath)
+    } catch (error) {
+      control.unref()
+      await manager.hide()
+      throw new Error(`refusing unsafe projection control cleanup: ${errorMessage(error)}`)
+    }
+    if (!sameSocketIdentity(controlIdentity, currentControlIdentity)) {
+      // Closing a Node-created pathname socket unlinks its current path. Do
+      // not authorize that unlink after identity drift; unref lets process
+      // teardown close the descriptor without guessing at the changed path.
+      control.unref()
+      await manager.hide()
+      throw new Error('refusing to close a substituted projection control socket')
+    }
+    await new Promise<void>((resolveClose) => control.close(() => resolveClose()))
     await manager.hide()
   }
 }

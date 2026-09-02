@@ -50,6 +50,37 @@ test('the replacement procedure and live adapter exist without importing live co
   assert.match(adapter, /enablePlugin/)
 })
 
+test('live capability discovery returns the installed plugin response rather than controller-local constants', async () => {
+  const { LiveCompanionShell } = await import('../live-companion-omarchy.ts')
+  const commands = []
+  const command = {
+    run(argv) {
+      commands.push([...argv])
+      if (argv[2] === 'listPlugins') {
+        return { status: 0, stdout: JSON.stringify([{ id: 'omarchestra.agent-console', enabled: true, kinds: ['panel'] }]), stderr: '' }
+      }
+      if (argv[2] === 'call' && argv[4] === 'capabilities') {
+        return {
+          status: 0,
+          stdout: JSON.stringify({
+            protocol: 'omarchestra.companion/v1',
+            pluginId: 'omarchestra.agent-console',
+            version: '0.2.0',
+            pluginGeneration: 771,
+            capabilities: ['session.open', 'session.update', 'session.intent', 'session.hide', 'session.clear', 'session.resnapshot'],
+          }),
+          stderr: '',
+        }
+      }
+      return { status: 0, stdout: 'ok\n', stderr: '' }
+    },
+  }
+  const shell = new LiveCompanionShell(command)
+  const capabilities = await shell.capabilities('omarchestra.agent-console')
+  assert.equal(capabilities.pluginGeneration, 771)
+  assert.ok(commands.some((argv) => argv[2] === 'call' && argv[4] === 'capabilities'))
+})
+
 test('the replacement --check path is the real fake-only invocation', () => {
   const scratch = fs.mkdtempSync(path.join(os.tmpdir(), 'omarchestra-companion-check-'))
   try {
@@ -131,6 +162,21 @@ test('live setup uses supported Omarchy operations and runtime cleanup excludes 
   assert.match(script, /\[\[ "\$INSTALLATION_BEFORE" == "\$INSTALLATION_AFTER" \]\]/)
 })
 
+test('projection control accepts multiple sequential commands without one-writer EOF', async () => {
+  const { ProjectionControlQueue } = await import('../live-companion-omarchy.ts')
+  const queue = new ProjectionControlQueue()
+  queue.accept('reload\n')
+  queue.accept('clear\nhide\n')
+  queue.accept('quit\n')
+  assert.deepEqual([
+    await queue.next(),
+    await queue.next(),
+    await queue.next(),
+    await queue.next(),
+  ], ['reload', 'clear', 'hide', 'quit'])
+  assert.throws(() => queue.accept('unknown\n'), /unknown|control/i)
+})
+
 test('private evidence and exact resource identities are enforced by the live procedure', () => {
   const script = stripComments(read(SCRIPT))
   const adapter = stripComments(read(ADAPTER))
@@ -145,6 +191,15 @@ test('private evidence and exact resource identities are enforced by the live pr
   assert.match(script, /terminate_exact_pid/)
   assert.match(script, /stat -c '%d:%i'/)
   assert.match(script, /remove_exact_socket/)
+  assert.match(script, /CONTROL_SOCKET_IDENTITY/)
+  assert.match(script, /RUNTIME_PARENT_CANONICAL/)
+  assert.match(script, /remove_exact_socket "\$CONTROL_SOCKET" "\$CONTROL_SOCKET_IDENTITY"/)
+  assert.match(adapter, /captureLiveSocketIdentity/)
+  assert.match(adapter, /identity\.dev/)
+  assert.match(adapter, /identity\.ino/)
+  assert.match(adapter, /sameSocketIdentity\(controlIdentity, currentControlIdentity\)/)
+  assert.match(adapter, /control\.unref\(\)/, 'identity drift must avoid Node close-path unlink behavior')
+  assert.doesNotMatch(script, /mkfifo|remove_exact_fifo|CONTROL_FIFO/, 'one-shot FIFOs cannot carry the multi-command gate')
   assert.match(script, /remove_exact_directory/)
   assert.match(script, /WINDOW_ADDRESSES/)
   assert.match(script, /closewindow "address:\$address"/)

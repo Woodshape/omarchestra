@@ -269,7 +269,7 @@ test('one installed Companion persists across two Team Goals while each goal rec
   assert.equal(manager.handoff?.status, 'ready')
   assert.equal(manager.handoff?.cards[1]?.agentRunId, 'agent-run-a-builder')
 
-  manager.clear()
+  await manager.clear()
   assert.equal(manager.handoff, null, 'Team Goal A clear removes only ephemeral projection state')
   await manager.hide()
 
@@ -342,7 +342,7 @@ test('runtime hide, clear, and cleanup leave the plugin tree and shell.json byte
   const agents = agentsFor('b')
 
   await openWithSnapshot(manager, connector, 'team-goal-b', snapshot('team-goal-b', 40, agents))
-  manager.clear()
+  await manager.clear()
   await manager.hide()
   await manager.hide()
 

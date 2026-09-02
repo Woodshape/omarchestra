@@ -599,6 +599,20 @@ test('exact uninstall restores the recorded shell preimage and removes only owne
   assert.equal(uninstallShellCalls.filter((operation: string) => operation === 'rescan').length, 2)
 })
 
+test('uninstall fails and restores the installation when supported disable does not reproduce the recorded shell preimage bytes', async () => {
+  const { fake, installer } = await harness()
+  await installAuthorized(fake, installer, RELEASE_V1)
+  const installed = fingerprint(fake)
+  fake.configuration.rewriteNextDisable((bytes: string) => `${bytes}\n`)
+
+  const plan = await planFor(installer, 'uninstall')
+  await assert.rejects(
+    () => installer.execute(plan, authorize(fake, plan)),
+    /preimage|shell\.json|postcondition|recovery/i,
+  )
+  assert.deepEqual(fake.fingerprint(), installed, 'failed exact uninstall must recover the complete prior installation')
+})
+
 test('uninstall refuses symlink, ownership, mode, and shell drift without deleting anything', async () => {
   const preparations = [
     (fake: any) => fake.filesystem.addSymlink(fake.paths.asset('AgentConsole.qml')),

@@ -1073,6 +1073,13 @@ export class CompanionInstallation {
     // exists. The fake shell restores the recorded shell preimage exactly.
     await this.supportedDisable(plan)
     await this.supportedRescan(plan)
+    const disabledConfiguration = await this.ports.configuration.inspect()
+    if (disabledConfiguration.shellJsonBytes !== receipt.value.shellJson.preimageBytes) {
+      throw new CompanionInstallationError(
+        'postcondition_failed',
+        'supported disable did not restore the recorded shell.json preimage bytes',
+      )
+    }
 
     for (const asset of receipt.value.assets.slice().sort((left, right) => right.path.localeCompare(left.path))) {
       const entry = entryAt(currentTree, asset.path)

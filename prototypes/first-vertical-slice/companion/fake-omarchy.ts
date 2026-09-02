@@ -13,7 +13,6 @@ import path from 'node:path'
 import {
   COMPANION_PLUGIN_ID,
   COMPANION_PLUGIN_VERSION,
-  CompanionError,
   CompanionInstallationError,
   type CompanionAuthorizationPort,
   type CompanionCompatibility,
@@ -34,6 +33,7 @@ import {
   type FilesystemNodeKind,
   type PluginConfigurationEntry,
 } from './contracts.ts'
+import { normalizeAbsolutePath } from './path-validation.ts'
 
 const POSIX = path.posix
 const DEFAULT_OWNER = 'fake-omarchestra-user'
@@ -58,10 +58,9 @@ interface FakeNode {
 }
 
 function normalizeAbsolute(input: string): string {
-  if (typeof input !== 'string' || !input.startsWith('/')) throw new Error(`fake path must be absolute: ${input}`)
-  const normalized = POSIX.normalize(input)
-  if (normalized !== input) throw new Error(`fake path must be canonical: ${input}`)
-  return normalized
+  return normalizeAbsolutePath(input, (reason, value) => new Error(
+    `fake path must be ${reason === 'canonical' ? 'canonical' : 'absolute POSIX text'}: ${value}`,
+  ))
 }
 
 function parentPath(input: string): string {
@@ -390,6 +389,7 @@ class FakeConfiguration implements CompanionConfigurationPort {
   private bytes: string
   private readonly pluginRoot: string
   private readonly enableRestoreBytes = new Map<string, string>()
+  private disableRewriteOnce: ((bytes: string) => string) | null = null
 
   constructor(pluginRoot: string, initialBytes: string) {
     this.pluginRoot = pluginRoot
@@ -448,6 +448,10 @@ class FakeConfiguration implements CompanionConfigurationPort {
     this.bytes = jsonBytes(document)
   }
 
+  rewriteNextDisable(transform: (bytes: string) => string): void {
+    this.disableRewriteOnce = transform
+  }
+
   addDuplicateEnabledPlugin(pluginId: string): void {
     const document = this.parse()
     const enabled = document.enabledPlugins as unknown[]
@@ -499,13 +503,18 @@ class FakeConfiguration implements CompanionConfigurationPort {
     if (restore !== undefined) {
       this.bytes = restore
       this.enableRestoreBytes.delete(pluginId)
-      return
+    } else {
+      const document = this.parse()
+      document.enabledPlugins = (document.enabledPlugins as unknown[]).filter((value) => value !== pluginId)
+      const sources = document.pluginSources as Record<string, unknown>
+      delete sources[pluginId]
+      this.bytes = jsonBytes(document)
     }
-    const document = this.parse()
-    document.enabledPlugins = (document.enabledPlugins as unknown[]).filter((value) => value !== pluginId)
-    const sources = document.pluginSources as Record<string, unknown>
-    delete sources[pluginId]
-    this.bytes = jsonBytes(document)
+    if (this.disableRewriteOnce !== null) {
+      const transform = this.disableRewriteOnce
+      this.disableRewriteOnce = null
+      this.bytes = transform(this.bytes)
+    }
   }
 
   private parse(): Record<string, unknown> {
@@ -686,7 +695,7 @@ class FakeAuthorization implements CompanionAuthorizationPort {
   }
 }
 
-interface FakeFailureController {
+export interface FakeFailureController {
   checkpoint(point: string): void
   beforeRecovery(): void
 }
@@ -917,8 +926,3 @@ export const FAKE_FOREIGN_OWNER = FOREIGN_OWNER
 export const FAKE_RECEIPT_MODE = RECEIPT_MODE
 export const FAKE_DEFAULT_COMPATIBILITY = Object.freeze(clone(DEFAULT_COMPATIBILITY))
 export const FAKE_PLUGIN_VERSION = COMPANION_PLUGIN_VERSION
-
-// Keep these exports available to focused fake-adapter tests without exposing
-// any live adapter or filesystem implementation.
-export type { FakeFailureController }
-export { CompanionError }

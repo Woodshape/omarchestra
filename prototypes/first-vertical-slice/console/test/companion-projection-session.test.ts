@@ -295,6 +295,22 @@ test('capability discovery fails closed on a foreign protocol version without cr
   assert.deepEqual(shell.mutationLog(), [])
 })
 
+test('capability discovery fails closed when the installed Companion release version differs', async () => {
+  const { manager, connector } = await harness({ shell: { version: '9.9.9' } })
+
+  const rejected = assert.rejects(
+    () => manager.open({ teamGoalId: TEAM_GOAL_ID }),
+    /version|compatib|0\.2\.0/i,
+  )
+  await settle()
+  if (connector.channels[0] !== undefined) {
+    connector.channels[0].emit('hello_ack', { connectionKind: 'projection', teamGoalId: TEAM_GOAL_ID, role: null })
+    connector.channels[0].emit('snapshot', snapshot(10) as Record<string, unknown>)
+  }
+  await rejected
+  assert.equal(connector.channels.length, 0, 'a foreign installed release must never reach the runner')
+})
+
 test('capability discovery fails closed when required session capabilities are missing', async () => {
   const { manager, shell, connector } = await harness({
     shell: { capabilities: ['session.open'] },
@@ -360,6 +376,88 @@ test('the panel is summoned only after the first authoritative snapshot and show
   assert.equal(first.body.cursor, 10)
 })
 
+test('open waits for asynchronous summon and initial apply acknowledgement in order', async () => {
+  const { ProjectionSessionManager, FakeCompanionShell } = await modules()
+  const underlying = new FakeCompanionShell({
+    pluginId: PLUGIN_ID,
+    version: '0.2.0',
+    protocol: PROTOCOL,
+    capabilities: [...SESSION_CAPABILITIES],
+  })
+  const connector = new FakeConnector()
+  const pending: Array<{ operation: string; run(): void }> = []
+  const shell = {
+    capabilities: (pluginId: string) => underlying.capabilities(pluginId),
+    summon: (pluginId: string, payloadJson: string) => new Promise<void>((resolve, reject) => {
+      pending.push({ operation: 'summon', run: () => { try { underlying.summon(pluginId, payloadJson); resolve() } catch (error) { reject(error) } } })
+    }),
+    call: (pluginId: string, method: 'applyHandoff' | 'clear' | 'intentResult', payloadJson: string) =>
+      new Promise<void>((resolve, reject) => {
+        pending.push({ operation: method, run: () => { try { underlying.call(pluginId, method, payloadJson); resolve() } catch (error) { reject(error) } } })
+      }),
+    hide: (pluginId: string, payloadJson: string) => underlying.hide(pluginId, payloadJson),
+  }
+  const manager = new ProjectionSessionManager({ pluginId: PLUGIN_ID, protocol: PROTOCOL, shell, connector, clientId: CLIENT_ID })
+  let opened = false
+  const opening = manager.open({ teamGoalId: TEAM_GOAL_ID }).then(() => { opened = true })
+  await settle()
+  const channel = connector.channels[0]
+  channel.emit('hello_ack', { connectionKind: 'projection', teamGoalId: TEAM_GOAL_ID, role: null })
+  channel.emit('snapshot', snapshot(10) as Record<string, unknown>)
+  await settle()
+
+  assert.deepEqual(pending.map((entry) => entry.operation), ['summon'], 'apply must wait for summon completion')
+  assert.equal(opened, false, 'open must not resolve before the plugin accepts its initial projection')
+  pending.shift()!.run()
+  await settle()
+  assert.deepEqual(pending.map((entry) => entry.operation), ['applyHandoff'])
+  assert.equal(opened, false)
+  pending.shift()!.run()
+  await opening
+  assert.equal(opened, true)
+})
+
+test('an asynchronous projection apply failure is observable and closes only the Projection Session', async () => {
+  const { manager, shell, connector } = await harness()
+  const channel = await openSession(manager, connector)
+  const originalCall = shell.call.bind(shell)
+  let rejectNextApply = true
+  shell.call = async (pluginId: string, method: string, payloadJson: string) => {
+    if (method === 'applyHandoff' && rejectNextApply) {
+      rejectNextApply = false
+      throw new Error('injected asynchronous apply failure')
+    }
+    return originalCall(pluginId, method, payloadJson)
+  }
+
+  channel.emit('event', event(11) as Record<string, unknown>)
+  await settle(8)
+
+  assert.match(String(manager.lastError), /asynchronous apply failure/)
+  assert.equal(channel.closed, true)
+  assert.equal(manager.handoff, null)
+})
+
+test('an asynchronous hide failure remains observable while the session still ends', async () => {
+  const { manager, shell, connector } = await harness()
+  await openSession(manager, connector)
+  shell.hide = async () => { throw new Error('injected asynchronous hide failure') }
+
+  await assert.rejects(() => manager.hide(), /asynchronous hide failure/)
+  assert.match(String(manager.lastError), /asynchronous hide failure/)
+  assert.equal(manager.handoff, null)
+})
+
+test('separate manager instances allocate collision-resistant Projection Session identities', async () => {
+  const first = await harness()
+  const second = await harness()
+  await openSession(first.manager, first.connector)
+  await openSession(second.manager, second.connector)
+  const firstId = JSON.parse(first.shell.calls().find((call: any) => call.operation === 'summon').payloadJson).sessionId
+  const secondId = JSON.parse(second.shell.calls().find((call: any) => call.operation === 'summon').payloadJson).sessionId
+  assert.notEqual(firstId, secondId, 'a process restart must not recreate the previous ephemeral identity')
+})
+
 test('a malformed pre-snapshot exchange never opens the panel and never fabricates cards', async () => {
   const { manager, shell, connector } = await harness()
 
@@ -414,6 +512,7 @@ test('contiguous ordered updates advance the reused projection core and resnapsh
   resumed.emit('event_page', { fromCursor: 11, toCursor: 11, events: [] })
   resumed.emit('snapshot', snapshot(11, { builder: 'Builder · managed' }) as Record<string, unknown>)
   reference.resnapshot(snapshot(11, { builder: 'Builder · managed' }) as any)
+  await settle()
 
   assert.equal(manager.handoff?.status, 'ready')
   assert.equal(manager.handoff?.cursor, 11)
@@ -431,6 +530,7 @@ test('cursor gaps become an explicit gap on the panel without advancing the curs
   const channel = await openSession(manager, connector)
 
   channel.emit('event', event(12) as Record<string, unknown>)
+  await settle()
   assert.equal(manager.handoff?.status, 'gap')
   assert.equal(manager.handoff?.cursor, 10, 'a gap event must not advance the cursor')
   assert.equal(cardOf(manager.handoff, 'reviewer')?.piStatus, 'Reviewer · waiting')
@@ -554,6 +654,44 @@ test('late frames from a hidden session are ignored and cannot mutate the presen
 // Acknowledged present-agent intents
 // ---------------------------------------------------------------------------
 
+test('a callable plugin presentation intent reaches the manager and runner acknowledgement path', async () => {
+  const { manager, shell, connector } = await harness()
+  const channel = await openSession(manager, connector)
+  shell.queuePresentationIntent({
+    intentId: 'intent-from-qml',
+    kind: 'present_agent',
+    role: 'builder',
+  })
+
+  assert.equal(await manager.pollPresentationIntent(), true)
+  assert.equal(channel.intentFrames().length, 1)
+  channel.emit('intent_ack', {
+    intentId: 'intent-from-qml',
+    result: 'accepted',
+  })
+  await settle()
+  assert.equal(shell.panel.intentResults.at(-1)?.intentId, 'intent-from-qml')
+})
+
+test('a stale callable QML intent is visibly rejected without ending the Projection Session', async () => {
+  const { manager, shell, connector } = await harness()
+  const channel = await openSession(manager, connector)
+  shell.queuePresentationIntent({
+    intentId: 'intent-stale-qml-role',
+    kind: 'present_agent',
+    role: 'observer',
+  })
+
+  assert.equal(await manager.pollPresentationIntent(), true)
+  await settle(5)
+
+  assert.equal(channel.intentFrames().length, 0)
+  assert.equal(manager.handoff?.status, 'ready')
+  assert.equal(shell.panel.visible, true)
+  assert.equal(shell.panel.intentResults.at(-1)?.intentId, 'intent-stale-qml-role')
+  assert.match(String(shell.panel.intentResults.at(-1)?.result), /invalid|unavailable/)
+})
+
 test('a present-agent intent is forwarded exactly once and resolved only by the runner acknowledgement', async () => {
   const { manager, shell, connector } = await harness()
   const channel = await openSession(manager, connector)
@@ -616,6 +754,26 @@ test('duplicate and already-resolved intent identities are deduplicated without 
   assert.equal(channel.intentFrames().length, 1, 'a resolved intent identity is never re-sent')
 })
 
+test('resolved intent identities are scoped to one Projection Session', async () => {
+  const { manager, connector } = await harness()
+  let channel = await openSession(manager, connector)
+  const first = manager.sendIntent({ intentId: 'intent-session-local', role: 'builder' })
+  channel.emit('intent_ack', { intentId: 'intent-session-local', result: 'accepted' })
+  await first
+  await manager.clear()
+
+  const reopening = manager.open({ teamGoalId: TEAM_GOAL_ID })
+  await settle()
+  channel = connector.channels.at(-1)!
+  channel.emit('hello_ack', { connectionKind: 'projection', teamGoalId: TEAM_GOAL_ID, role: null })
+  channel.emit('snapshot', snapshot(20) as Record<string, unknown>)
+  await reopening
+
+  const second = manager.sendIntent({ intentId: 'intent-session-local', role: 'builder' })
+  channel.emit('intent_ack', { intentId: 'intent-session-local', result: 'accepted' })
+  assert.equal((await second).result, 'accepted')
+})
+
 test('an intent rejected by the runner is surfaced without changing the projection', async () => {
   const { manager, connector } = await harness()
   const channel = await openSession(manager, connector)
@@ -669,7 +827,7 @@ test('clear resets all ephemeral state without hiding, and the next open starts 
   await openSession(manager, connector)
   const fingerprintBefore = shell.installationFingerprint()
 
-  manager.clear()
+  await manager.clear()
   assert.equal(manager.handoff, null, 'clear removes the ephemeral handoff')
   assert.equal(shell.panel.cleared, true, 'the panel is told to clear its ephemeral state')
   assert.equal(shell.panel.visible, true, 'clear does not hide the installed plugin')
@@ -709,6 +867,7 @@ test('reconnect after connection loss recovers only through a fresh authoritativ
 
   recovery.emit('hello_ack', { connectionKind: 'projection', teamGoalId: TEAM_GOAL_ID, role: null })
   recovery.emit('snapshot', snapshot(15, { builder: 'Builder · manual_takeover' }) as Record<string, unknown>)
+  await settle()
 
   assert.equal(manager.handoff?.status, 'ready')
   assert.equal(manager.handoff?.cursor, 15)
@@ -773,6 +932,7 @@ test('the adapted plugin manifest advertises the companion protocol for capabili
   assert.equal(manifest.id, PLUGIN_ID)
   assert.deepEqual(manifest.kinds, ['panel'])
   assert.equal(manifest.entryPoints?.panel, 'AgentConsole.qml')
+  assert.equal(manifest.keepLoaded, true, 'truthful capabilities require one loaded plugin instance per shell generation')
   assert.equal(
     manifest.companion?.protocol,
     PROTOCOL,
@@ -785,8 +945,17 @@ test('the adapted Agent Console QML gains session clear and presentation-intent 
   const cardsSource = readFileSync(join(PROTOTYPE_ROOT, 'console', 'plugin', 'AgentConsoleCards.qml'), 'utf8')
 
   assert.match(consoleSource, /function\s+applyProjection\s*\(/, 'plain projection injection is retained')
+  assert.match(consoleSource, /function\s+capabilities\s*\(/, 'the installed plugin reports its own version and generation')
+  assert.match(consoleSource, /activeSession/, 'the panel retains the current opaque Projection Session identity')
+  assert.match(consoleSource, /sameSession|sessionMatches/, 'stale session calls are rejected at the presentation surface')
   assert.match(consoleSource, /function\s+clear\s*\(/, 'the adapted panel exposes ephemeral state clearing')
   assert.match(consoleSource, /function\s+(?:hide|close)\s*\(/, 'the adapted panel exposes hide')
+  assert.match(consoleSource, /onPresentRequested\s*:/, 'a visible card action emits a presentation intent')
+  assert.match(consoleSource, /root\.intentRequested\s*\(/)
+  assert.match(consoleSource, /function\s+takeIntent\s*\(/, 'the manager can collect emitted intents')
+  assert.match(consoleSource, /lastIntentResult\.result/, 'the runner acknowledgement is rendered as plain data')
+  assert.match(cardsSource, /signal\s+presentRequested\s*\(/)
+  assert.match(cardsSource, /root\.presentRequested\s*\(/)
   assert.match(
     consoleSource + cardsSource,
     /signal\s+\w*intent\w*|function\s+emitIntent\s*\(/i,
@@ -806,6 +975,17 @@ test('the adapted Agent Console QML gains session clear and presentation-intent 
     /\b(?:intent_ack|projection\.hello|event_page|resumeAfter)\b/,
     'QML must not speak the projection protocol; the non-QML adapter owns it',
   )
+})
+
+test('the installable release QML is byte-identical to the canonical plugin sources', async () => {
+  const { COMPANION_RELEASE } = await import('../../companion/releases.ts')
+  for (const file of ['AgentConsole.qml', 'AgentConsoleCards.qml']) {
+    assert.equal(
+      COMPANION_RELEASE.assets[file],
+      readFileSync(join(PROTOTYPE_ROOT, 'console', 'plugin', file), 'utf8'),
+      `${file} must have one canonical source enforced by this executable gate`,
+    )
+  }
 })
 
 test('adapted QML continues to render opaque committed piStatus values without label derivation', () => {

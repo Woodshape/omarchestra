@@ -283,7 +283,7 @@ export async function runCompanionAcceptance(): Promise<CompanionAcceptanceResul
   const teamGoalASessionGeneration = manager.sessionGeneration
   assert.equal(manager.handoff?.status, 'ready')
   assert.equal(manager.handoff?.cards.find((card) => card.role === 'builder')?.agentRunId, 'agent-run-a-builder')
-  manager.clear()
+  await manager.clear()
   assert.equal(manager.handoff, null)
   await manager.hide()
   assert.equal(captureAgents(agentsA), agentsABefore, 'Team Goal A cleanup changed a fake agent')
@@ -352,7 +352,7 @@ export async function runCompanionAcceptance(): Promise<CompanionAcceptanceResul
   assert.equal(agentsUnchanged, true)
   assert.equal(agentsB.every((agent) => agent.connected && agent.interruptions === 0), true)
 
-  manager.clear()
+  await manager.clear()
   await manager.hide()
   await manager.hide()
   assert.equal(manager.handoff, null)

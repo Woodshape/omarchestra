@@ -79,9 +79,9 @@ test at prototypes/first-vertical-slice/companion/test/acceptance.test.ts:339:1
 test at prototypes/first-vertical-slice/companion/test/acceptance.test.ts:370:1
 ✖ routine projection imports cannot reach installation, configuration mutation, or QML rewrite modules (0.627438ms)
   AssertionError [ERR_ASSERTION]: projection-session.ts must exist before this boundary can pass
-  
+
   false !== true
-  
+
       at TestContext.<anonymous> (file:///home/woodshape/claude/omarchestra/prototypes/first-vertical-slice/companion/test/acceptance.test.ts:372:10)
       at Test.runInAsyncScope (node:async_hooks:226:14)
       at Test.run (node:internal/test_runner/test:1402:25)

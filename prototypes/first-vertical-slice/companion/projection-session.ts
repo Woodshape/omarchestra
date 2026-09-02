@@ -22,9 +22,14 @@
  * configuration, plugin assets, or QML.
  */
 
+import { randomUUID } from 'node:crypto'
+
 import {
+  COMPANION_LIMITS,
   COMPANION_PLUGIN_ID,
+  COMPANION_PLUGIN_VERSION,
   COMPANION_PROTOCOL_ID,
+  CompanionCompatibilityError,
   CompanionError,
   CompanionIntentError,
   CompanionPluginUnavailableError,
@@ -72,6 +77,8 @@ export interface ProjectionSessionManagerOptions {
   /** Optional extra observer of every published plain handoff. */
   sink?: (handoff: AgentConsoleHandoff) => void
   clientId?: string
+  /** Injectable only for deterministic tests; production defaults to a fresh UUID. */
+  sessionIdFactory?: () => string
 }
 
 type SessionPhase = 'idle' | 'opening' | 'active' | 'ended'
@@ -114,6 +121,7 @@ export class ProjectionSessionManager {
   private readonly connector: ProjectionConnector
   private readonly pendingIntents = new Map<string, Deferred<ProjectionIntentOutcome>>()
   private readonly completedIntents = new Set<string>()
+  private readonly sessionIdFactory: () => string
 
   private generationCounter = 0
   private phase: SessionPhase = 'idle'
@@ -126,6 +134,8 @@ export class ProjectionSessionManager {
   private lastErrorMessage: string | null = null
   private readonly sharedProjection: AgentConsoleProjection
   private readonly userSink: ((handoff: AgentConsoleHandoff) => void) | null
+  private publishChain: Promise<void> = Promise.resolve()
+  private shellChain: Promise<void> = Promise.resolve()
 
   constructor(options: ProjectionSessionManagerOptions) {
     if (options.pluginId !== COMPANION_PLUGIN_ID) {
@@ -141,6 +151,7 @@ export class ProjectionSessionManager {
     this.shell = options.shell
     this.connector = options.connector
     this.clientId = options.clientId ?? 'omarchestra-companion-client'
+    this.sessionIdFactory = options.sessionIdFactory ?? (() => `companion-session-${randomUUID()}`)
     this.userSink = options.sink ?? null
     this.sharedProjection = new AgentConsoleProjection()
     this.projection = this.sharedProjection
@@ -174,7 +185,7 @@ export class ProjectionSessionManager {
 
     let discovered: CompanionCapabilitiesEnvelope
     try {
-      const response = await this.shell.capabilities(this.pluginId)
+      const response = await this.enqueueShell(() => Promise.resolve(this.shell.capabilities(this.pluginId)))
       const envelope = validateCapabilitiesEnvelope(response)
       if (envelope.pluginId !== this.pluginId) {
         throw new CompanionPluginUnavailableError(
@@ -182,6 +193,11 @@ export class ProjectionSessionManager {
         )
       }
       assertRequiredCapabilities(envelope.capabilities)
+      if (envelope.version !== COMPANION_PLUGIN_VERSION) {
+        throw new CompanionCompatibilityError(
+          `installed Companion version ${envelope.version} does not equal ${COMPANION_PLUGIN_VERSION}`,
+        )
+      }
       discovered = envelope
     } catch (error) {
       this.lastErrorMessage = errorMessage(error)
@@ -190,7 +206,7 @@ export class ProjectionSessionManager {
 
     const generation = ++this.generationCounter
     const identity: ProjectionSessionIdentity = {
-      sessionId: `companion-session-${this.clientId}-${generation}`,
+      sessionId: this.sessionIdFactory(),
       teamGoalId: options.teamGoalId,
       clientId: this.clientId,
       sessionGeneration: generation,
@@ -202,6 +218,9 @@ export class ProjectionSessionManager {
     this.summoned = false
     this.hidden = false
     this.openGate = createDeferred<void>()
+    this.publishChain = Promise.resolve()
+    this.shellChain = Promise.resolve()
+    this.completedIntents.clear()
 
     this.sharedProjection.clearState()
     const adapter = new LiveProjectionAdapter({
@@ -231,11 +250,37 @@ export class ProjectionSessionManager {
     this.lastErrorMessage = null
   }
 
-  /**
-   * Forwards one presentation intent for a present agent. The intent is
-   * validated locally (active session, ready projection, present role, new
-   * identity), sent exactly once, and resolved only by the runner
-   * acknowledgement.
+  /** Collects at most one QML-emitted presentation intent through the
+   * callable plugin surface; validation and runner acknowledgement stay here.
+   */
+  async pollPresentationIntent(): Promise<boolean> {
+    const identity = this.activeSession
+    if (this.phase !== 'active' || identity === null || this.adapter === null) {
+      throw new CompanionIntentError('invalid_intent', 'intent polling requires an active Projection Session')
+    }
+    const operation = this.publishChain.then(async () => {
+      const value = await this.enqueueShell(() => Promise.resolve(this.shell.call(
+        this.pluginId,
+        'takeIntent',
+        encodeJson({
+          protocol: COMPANION_PROTOCOL_ID,
+          type: 'take_intent',
+          session: identity,
+        }),
+      )))
+      const request = this.parsePresentationIntent(value)
+      if (request === null) return false
+      void this.sendIntent(request)
+        .catch((error) => this.deliverLocalIntentRejection(identity, request.intentId, error))
+        .catch((error) => this.failSession(error))
+      return true
+    })
+    this.publishChain = operation.then(() => undefined, (error) => this.failSession(error))
+    return operation
+  }
+
+  /** Forwards one validated presentation intent exactly once and resolves it
+   * only from the runner acknowledgement.
    */
   async sendIntent(request: ProjectionIntentRequest): Promise<ProjectionIntentOutcome> {
     const identity = this.activeSession
@@ -268,6 +313,10 @@ export class ProjectionSessionManager {
       )
     }
 
+    if (this.pendingIntents.size + this.completedIntents.size >= COMPANION_LIMITS.intentHistoryCount) {
+      throw new CompanionIntentError('invalid_intent', 'the Projection Session intent history is full')
+    }
+
     const envelope = validateIntentEnvelope({
       protocol: 'omarchestra.companion/v1',
       type: 'intent',
@@ -298,8 +347,10 @@ export class ProjectionSessionManager {
    */
   async hide(): Promise<void> {
     if (this.hidden) return
+    await this.publishChain
     this.hidden = true
     const identity = this.activeSession ?? this.lastSessionIdentity
+    let hideFailure: unknown = null
     if (identity !== null) {
       try {
         const envelope = validateHideEnvelope({
@@ -307,35 +358,38 @@ export class ProjectionSessionManager {
           type: 'hide',
           session: identity,
         })
-        await Promise.resolve(this.shell.hide(this.pluginId, encodeJson(envelope)))
+        await this.enqueueShell(() => Promise.resolve(this.shell.hide(this.pluginId, encodeJson(envelope))))
       } catch (error) {
         this.lastErrorMessage = errorMessage(error)
+        hideFailure = error
       }
     }
     if (this.phase === 'opening' || this.phase === 'active') {
       this.openGate?.reject(new CompanionIntentError('invalid_projection_state', 'the Projection Session was hidden'))
       this.endSession()
     }
+    if (hideFailure !== null) throw hideFailure
   }
 
   /**
    * Clears all ephemeral projection state without hiding the durable plugin.
    * The next open starts from a fresh authoritative snapshot.
    */
-  clear(): void {
+  async clear(): Promise<void> {
     const identity = this.activeSession
-    if (identity !== null) {
-      try {
+    try {
+      await this.publishChain
+      if (identity !== null) {
         const envelope = validateClearEnvelope({
           protocol: 'omarchestra.companion/v1',
           type: 'clear',
           session: identity,
         })
-        Promise.resolve(this.shell.call(this.pluginId, 'clear', encodeJson(envelope)))
-          .catch((error) => this.failSession(error))
-      } catch (error) {
-        this.failSession(error)
+        await this.enqueueShell(() => Promise.resolve(this.shell.call(this.pluginId, 'clear', encodeJson(envelope))))
       }
+    } catch (error) {
+      this.failSession(error)
+      throw error
     }
     if (this.phase === 'opening' || this.phase === 'active') {
       this.openGate?.reject(new CompanionIntentError('invalid_projection_state', 'the Projection Session was cleared'))
@@ -346,32 +400,34 @@ export class ProjectionSessionManager {
   // --- internals ---
 
   private onPublished(identity: ProjectionSessionIdentity, handoff: AgentConsoleHandoff): void {
+    this.publishChain = this.publishChain
+      .then(() => this.publish(identity, handoff))
+      .catch((error) => this.failSession(error))
+  }
+
+  private async publish(identity: ProjectionSessionIdentity, handoff: AgentConsoleHandoff): Promise<void> {
     if (this.activeSession !== identity || this.phase === 'ended') return
     this.userSink?.(handoff)
-    try {
-      if (!this.summoned) {
-        const openEnvelope = validateOpenEnvelope({
-          protocol: 'omarchestra.companion/v1',
-          ...identity,
-          projection: handoff,
-        })
-        Promise.resolve(this.shell.summon(this.pluginId, encodeJson(openEnvelope)))
-          .catch((error) => this.failSession(error))
-        this.summoned = true
-      }
-      const applyEnvelope = validateProjectionApplyEnvelope({
+    if (!this.summoned) {
+      const openEnvelope = validateOpenEnvelope({
         protocol: 'omarchestra.companion/v1',
         ...identity,
-        status: handoff.status,
-        cursor: handoff.cursor,
-        cards: handoff.cards,
+        projection: handoff,
       })
-      Promise.resolve(this.shell.call(this.pluginId, 'applyHandoff', encodeJson(applyEnvelope)))
-        .catch((error) => this.failSession(error))
-      this.openGate?.resolve()
-    } catch (error) {
-      this.failSession(error)
+      await this.enqueueShell(() => Promise.resolve(this.shell.summon(this.pluginId, encodeJson(openEnvelope))))
+      this.summoned = true
     }
+    const applyEnvelope = validateProjectionApplyEnvelope({
+      protocol: 'omarchestra.companion/v1',
+      ...identity,
+      status: handoff.status,
+      cursor: handoff.cursor,
+      cards: handoff.cards,
+    })
+    await this.enqueueShell(() => Promise.resolve(
+      this.shell.call(this.pluginId, 'applyHandoff', encodeJson(applyEnvelope)),
+    ))
+    this.openGate?.resolve()
   }
 
   private onPreBaselineFailure(identity: ProjectionSessionIdentity, error: unknown): void {
@@ -397,12 +453,69 @@ export class ProjectionSessionManager {
         result: ack.result,
         detail: ack.detail,
       })
-      Promise.resolve(this.shell.call(this.pluginId, 'intentResult', encodeJson(acknowledgement)))
-        .catch((error) => this.failSession(error))
+      this.enqueueShell(() => Promise.resolve(
+        this.shell.call(this.pluginId, 'intentResult', encodeJson(acknowledgement)),
+      )).catch((error) => this.failSession(error))
     } catch (error) {
       this.failSession(error)
     }
     pending.resolve({ intentId: ack.intentId, result: ack.result, detail: ack.detail })
+  }
+
+  private parsePresentationIntent(value: void | string): ProjectionIntentRequest | null {
+    if (value === undefined || value.trim().length === 0) return null
+    if (new TextEncoder().encode(value).byteLength > COMPANION_LIMITS.intentPayloadBytes) {
+      throw new CompanionIntentError('invalid_intent', 'the plugin presentation intent exceeds the byte limit')
+    }
+    let parsed: unknown
+    try {
+      parsed = JSON.parse(value)
+    } catch {
+      throw new CompanionIntentError('invalid_intent', 'the plugin presentation intent is malformed JSON')
+    }
+    if (parsed === null || typeof parsed !== 'object' || Array.isArray(parsed)) {
+      throw new CompanionIntentError('invalid_intent', 'the plugin presentation intent must be an object')
+    }
+    const request = parsed as Record<string, unknown>
+    if (typeof request.intentId !== 'string' || request.kind !== 'present_agent' || typeof request.role !== 'string') {
+      throw new CompanionIntentError('invalid_intent', 'the plugin presentation intent has an invalid shape')
+    }
+    return {
+      intentId: request.intentId,
+      kind: 'present_agent',
+      role: request.role,
+      payload: request.payload as Record<string, unknown> | undefined,
+    }
+  }
+
+  private async deliverLocalIntentRejection(
+    identity: ProjectionSessionIdentity,
+    intentId: string,
+    error: unknown,
+  ): Promise<void> {
+    if (this.activeSession !== identity || this.phase !== 'active') return
+    const result: CompanionIntentResult = error instanceof CompanionError && error.code === 'duplicate_intent'
+      ? 'duplicate'
+      : error instanceof CompanionError && error.code === 'invalid_projection_state'
+        ? 'unavailable'
+        : 'invalid'
+    const acknowledgement = validateIntentAcknowledgementEnvelope({
+      protocol: COMPANION_PROTOCOL_ID,
+      type: 'intent_ack',
+      session: identity,
+      intentId,
+      result,
+      detail: 'the presentation intent was rejected by manager validation',
+    })
+    await this.enqueueShell(() => Promise.resolve(
+      this.shell.call(this.pluginId, 'intentResult', encodeJson(acknowledgement)),
+    ))
+  }
+
+  private enqueueShell<T>(operation: () => Promise<T>): Promise<T> {
+    const result = this.shellChain.then(operation)
+    this.shellChain = result.then(() => undefined, () => undefined)
+    return result
   }
 
   private failSession(error: unknown): void {
@@ -425,6 +538,7 @@ export class ProjectionSessionManager {
         `the Projection Session ended before intent ${intentId} was acknowledged`,
       ))
     }
+    this.completedIntents.clear()
     this.phase = 'ended'
   }
 }

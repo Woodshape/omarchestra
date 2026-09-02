@@ -52,36 +52,39 @@ export const COMPANION_LIMITS = Object.freeze({
   labelCharacters: 512,
   capabilityCount: COMPANION_CAPABILITIES.length,
   intentPayloadBytes: 4096,
+  intentHistoryCount: 256,
   releaseAssetCount: 32,
   releaseAssetBytes: 128 * 1024,
   releaseTotalBytes: 512 * 1024,
   relativePathCharacters: 192,
 })
 
-export type CompanionErrorCode =
-  | 'invalid_envelope'
-  | 'envelope_too_large'
-  | 'unsupported_protocol'
-  | 'unsupported_capability'
-  | 'plugin_not_installed'
-  | 'stale_plugin_generation'
-  | 'stale_projection_session'
-  | 'invalid_projection_state'
-  | 'invalid_intent'
-  | 'duplicate_intent'
-  | 'unsupported_compatibility'
-  | 'invalid_release'
-  | 'invalid_plan'
-  | 'authorization_required'
-  | 'authorization_mismatch'
-  | 'stale_precondition'
-  | 'unsafe_path'
-  | 'foreign_installation'
-  | 'invalid_receipt'
-  | 'configuration_conflict'
-  | 'postcondition_failed'
-  | 'operation_failed'
-  | 'incomplete_recovery'
+export const COMPANION_ERROR_CODES = Object.freeze([
+  'invalid_envelope',
+  'envelope_too_large',
+  'unsupported_protocol',
+  'unsupported_capability',
+  'plugin_not_installed',
+  'stale_plugin_generation',
+  'stale_projection_session',
+  'invalid_projection_state',
+  'invalid_intent',
+  'duplicate_intent',
+  'unsupported_compatibility',
+  'invalid_release',
+  'invalid_plan',
+  'authorization_required',
+  'authorization_mismatch',
+  'stale_precondition',
+  'unsafe_path',
+  'foreign_installation',
+  'invalid_receipt',
+  'configuration_conflict',
+  'postcondition_failed',
+  'operation_failed',
+  'incomplete_recovery',
+] as const)
+export type CompanionErrorCode = (typeof COMPANION_ERROR_CODES)[number]
 
 export class CompanionError extends Error {
   readonly code: CompanionErrorCode
@@ -287,9 +290,9 @@ export interface CompanionShellPort {
   summon(pluginId: string, payloadJson: string): MaybePromise<void>
   call(
     pluginId: string,
-    method: 'applyHandoff' | 'clear' | 'intentResult',
+    method: 'applyHandoff' | 'clear' | 'intentResult' | 'takeIntent',
     payloadJson: string,
-  ): MaybePromise<void>
+  ): MaybePromise<void | string>
   hide(pluginId: string, payloadJson: string): MaybePromise<void>
 }
 

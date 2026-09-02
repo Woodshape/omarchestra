@@ -46,7 +46,7 @@ export type FakeShellOperation = 'capabilities' | 'summon' | 'call' | 'hide'
 export interface FakeCompanionShellCall {
   operation: FakeShellOperation
   pluginId: string
-  method?: 'applyHandoff' | 'clear' | 'intentResult'
+  method?: 'applyHandoff' | 'clear' | 'intentResult' | 'takeIntent'
   payloadJson?: string
 }
 
@@ -80,6 +80,7 @@ export class FakeCompanionShell implements CompanionShellPort {
   private readonly installationSnapshot: Record<string, unknown>
   private holdDepth = 0
   private readonly holdWaiters: Array<() => void> = []
+  private readonly presentationIntents: Array<Record<string, unknown>> = []
 
   constructor(options: FakeCompanionShellOptions = {}) {
     this.pluginId = options.pluginId ?? COMPANION_PLUGIN_ID
@@ -132,9 +133,9 @@ export class FakeCompanionShell implements CompanionShellPort {
 
   call(
     pluginId: string,
-    method: 'applyHandoff' | 'clear' | 'intentResult',
+    method: 'applyHandoff' | 'clear' | 'intentResult' | 'takeIntent',
     payloadJson: string,
-  ): void {
+  ): void | string {
     this.assertKnownPlugin(pluginId)
     const body: unknown = JSON.parse(payloadJson)
     if (method === 'applyHandoff') {
@@ -155,6 +156,18 @@ export class FakeCompanionShell implements CompanionShellPort {
       this.panel.cleared = true
       this.panel.handoffs = []
       return
+    }
+    if (method === 'takeIntent') {
+      const envelope = body as { session?: unknown }
+      const sessionEnvelope = validateHideEnvelope({
+        protocol: COMPANION_PROTOCOL_ID,
+        type: 'hide',
+        session: envelope.session,
+      })
+      assertPluginGeneration(this.generation, sessionEnvelope.session.pluginGeneration)
+      this.records.push({ operation: 'call', pluginId, method, payloadJson })
+      const intent = this.presentationIntents.shift()
+      return intent === undefined ? '' : JSON.stringify(intent)
     }
     if (method === 'intentResult') {
       const envelope = validateIntentAcknowledgementEnvelope(body)
@@ -215,6 +228,15 @@ export class FakeCompanionShell implements CompanionShellPort {
 
   setInstalled(installed: boolean): void {
     this.installed = installed
+  }
+
+  queuePresentationIntent(intent: {
+    intentId: string
+    kind: 'present_agent'
+    role: string
+    payload?: Record<string, unknown>
+  }): void {
+    this.presentationIntents.push({ ...intent })
   }
 
   /**

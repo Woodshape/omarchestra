@@ -27,12 +27,79 @@ Item {
         cards: []
     })
     property var lastIntentResult: null
+    property var activeSession: null
+    property var pendingIntents: []
+    property int intentCounter: 0
+    readonly property double pluginGeneration: Date.now() * 1000 + Math.floor(Math.random() * 1000)
 
     // Presentation-intent surface: the panel may only EMIT a user intent as
     // a plain payload. The non-QML adapter validates, deduplicates, and
     // acknowledges it; this component never speaks the runner protocol or
     // derives any cursor value.
     signal intentRequested(var payload)
+    onIntentRequested: function(payload) {
+        if (activeSession === null || pendingIntents.length >= 16) return
+        var next = pendingIntents.slice()
+        next.push(payload)
+        pendingIntents = next
+    }
+
+    function requestPresent(role) {
+        if (activeSession === null || typeof role !== "string") return
+        intentCounter += 1
+        root.intentRequested({
+            intentId: "present-" + activeSession.sessionId + "-" + String(intentCounter),
+            kind: "present_agent",
+            role: role
+        })
+    }
+
+    function takeIntent(payloadJson) {
+        var value = parsePayload(payloadJson)
+        if (!sessionMatches(value) || pendingIntents.length === 0) return ""
+        var next = pendingIntents.slice()
+        var intent = next.shift()
+        pendingIntents = next
+        return JSON.stringify(intent)
+    }
+
+    function parsePayload(payloadJson) {
+        if (typeof payloadJson !== "string") return payloadJson
+        try {
+            return JSON.parse(payloadJson || "{}")
+        } catch (error) {
+            return null
+        }
+    }
+
+    function sessionFrom(value) {
+        if (!value || typeof value !== "object") return null
+        return value.session && typeof value.session === "object" ? value.session : value
+    }
+
+    function sessionMatches(value) {
+        var session = sessionFrom(value)
+        return activeSession !== null && session !== null
+            && session.sessionId === activeSession.sessionId
+            && session.teamGoalId === activeSession.teamGoalId
+            && session.clientId === activeSession.clientId
+            && session.sessionGeneration === activeSession.sessionGeneration
+            && session.pluginGeneration === activeSession.pluginGeneration
+    }
+
+    function capabilities() {
+        if (!manifest || !manifest.companion) return ""
+        return JSON.stringify({
+            protocol: manifest.companion.protocol,
+            pluginId: manifest.id,
+            version: manifest.version,
+            pluginGeneration: pluginGeneration,
+            capabilities: [
+                "session.open", "session.update", "session.intent",
+                "session.hide", "session.clear", "session.resnapshot"
+            ]
+        })
+    }
 
     function applyProjection(value) {
         if (!value || typeof value !== "object") return false
@@ -55,15 +122,8 @@ Item {
     // The shell calls this with the already validated Companion handoff. QML
     // only applies plain values and returns a presentation result.
     function applyHandoff(payloadJson) {
-        var value = payloadJson
-        if (typeof payloadJson === "string") {
-            try {
-                value = JSON.parse(payloadJson || "{}")
-            } catch (error) {
-                return false
-            }
-        }
-        if (!value || typeof value !== "object") return false
+        var value = parsePayload(payloadJson)
+        if (!value || typeof value !== "object" || !sessionMatches(value)) return false
         return applyProjection({
             status: value.status,
             cursor: value.cursor,
@@ -74,15 +134,8 @@ Item {
     // Intent acknowledgements are displayed as plain data. The adapter, not
     // QML, decides whether an intent is accepted or duplicate.
     function intentResult(payloadJson) {
-        var value = payloadJson
-        if (typeof payloadJson === "string") {
-            try {
-                value = JSON.parse(payloadJson || "{}")
-            } catch (error) {
-                return false
-            }
-        }
-        if (!value || typeof value !== "object"
+        var value = parsePayload(payloadJson)
+        if (!value || typeof value !== "object" || !sessionMatches(value)
                 || typeof value.intentId !== "string"
                 || typeof value.result !== "string") return false
         lastIntentResult = ({
@@ -94,33 +147,50 @@ Item {
     }
 
     function open(payloadJson) {
-        var value = payloadJson
-        if (typeof payloadJson === "string") {
-            try {
-                value = JSON.parse(payloadJson || "{}")
-            } catch (error) {
-                value = null
-            }
-        }
-        if (value && value.projection !== undefined) value = value.projection
+        var envelope = parsePayload(payloadJson)
+        var session = sessionFrom(envelope)
+        if (!envelope || !session
+                || session.pluginGeneration !== pluginGeneration
+                || typeof session.sessionId !== "string"
+                || typeof session.teamGoalId !== "string"
+                || typeof session.clientId !== "string") return false
+        var value = envelope.projection
         // The panel opens only when a validated projection applies. An
         // invalid or missing payload must never open the surface showing
         // QML-authored placeholder state: the authoritative snapshot from
         // the runner adapter is the only thing that may open it.
         if (!applyProjection(value)) return false
+        pendingIntents = []
+        intentCounter = 0
+        activeSession = ({
+            sessionId: session.sessionId,
+            teamGoalId: session.teamGoalId,
+            clientId: session.clientId,
+            sessionGeneration: session.sessionGeneration,
+            pluginGeneration: session.pluginGeneration
+        })
         opened = true
         return true
     }
 
     function close() {
         opened = false
+        activeSession = null
+        projection = ({ status: "reconnecting", cursor: 0, cards: [] })
+        lastIntentResult = null
+        pendingIntents = []
     }
 
     // Clears all ephemeral presentation state without closing the surface or
     // touching any installed plugin state. The next authoritative snapshot
     // fully re-derives the visible projection.
-    function clear() {
+    function clear(payloadJson) {
+        var value = parsePayload(payloadJson)
+        if (!sessionMatches(value)) return false
         projection = ({ status: "reconnecting", cursor: 0, cards: [] })
+        lastIntentResult = null
+        pendingIntents = []
+        activeSession = null
         return true
     }
 
@@ -138,7 +208,7 @@ Item {
         WlrLayershell.layer: WlrLayer.Overlay
         WlrLayershell.keyboardFocus: WlrKeyboardFocus.None
         exclusionMode: ExclusionMode.Ignore
-        mask: Region {}
+        mask: Region { item: surface }
 
         BorderSurface {
             id: surface
@@ -217,6 +287,16 @@ Item {
                 AgentConsoleCards {
                     Layout.fillWidth: true
                     cards: root.projection.cards
+                    onPresentRequested: function(role) { root.requestPresent(role) }
+                }
+
+                Text {
+                    Layout.fillWidth: true
+                    visible: root.lastIntentResult !== null
+                    text: root.lastIntentResult === null ? "" : "Present action: " + root.lastIntentResult.result
+                    color: Qt.darker(Color.popups.text, 1.35)
+                    font.family: Style.font.family
+                    font.pixelSize: Style.font.caption
                 }
             }
         }

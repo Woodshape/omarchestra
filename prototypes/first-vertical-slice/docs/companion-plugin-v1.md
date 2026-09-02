@@ -33,7 +33,7 @@ Routine projection code receives only `CompanionShellPort`. Installation code re
 
 ## Capability discovery
 
-Discovery occurs before a runner connection or panel summon. A successful response has exactly:
+Discovery occurs before a runner connection or panel summon. The manifest uses `keepLoaded: true` so one QML plugin instance owns a stable generation for the shell-generation lifetime. The callable installed plugin—not controller-local constants—returns the exact installed manifest version and its generated plugin identity. A successful response has exactly:
 
 ```json
 {
@@ -68,7 +68,7 @@ Each open allocates this exact identity:
 }
 ```
 
-`sessionId`, `teamGoalId`, and `clientId` are bounded opaque identifiers. Generations are positive safe integers. Session generation is monotonic for a manager instance. Plugin generation comes from capability discovery. Neither is durable installation authority.
+`sessionId`, `teamGoalId`, and `clientId` are bounded opaque identifiers. Every manager instance allocates a fresh UUID-backed session ID, so controller restarts cannot reuse an identity. Generations are positive safe integers. Session generation is monotonic for a manager instance. Plugin generation comes from capability discovery. Neither is durable installation authority.
 
 Every session-bound operation carries the full identity. A plugin-generation mismatch is a `stale_plugin_generation` error. A mismatch in any other identity component is a `stale_projection_session` error. Stale frames and intents cannot resurrect cleared or hidden presentation.
 
@@ -100,7 +100,7 @@ The runtime shell surface is deliberately limited to:
 ```text
 capabilities(pluginId)
 summon(pluginId, payloadJson)
-call(pluginId, applyHandoff | clear | intentResult, payloadJson)
+call(pluginId, applyHandoff | clear | intentResult | takeIntent, payloadJson)
 hide(pluginId, payloadJson)
 ```
 
@@ -108,12 +108,13 @@ There is no runtime install, update, enable, disable, unload, rescan, configurat
 
 ## Intent rules
 
-The prototype supports only `present_agent`. The non-QML manager verifies that:
+The prototype supports only `present_agent`. A visible card action emits plain QML presentation data into a bounded in-memory queue; the non-QML manager collects at most one item through `takeIntent` and remains the only component that can address the runner. The manager verifies that:
 
 - the Projection Session and plugin generation are current;
 - the projection is `ready`;
 - the requested Role is present in the authoritative cards;
-- the intent ID is new and bounded.
+- the intent ID is new and bounded within the current Projection Session;
+- pending plus completed intent history remains below the fixed session-local limit.
 
 The intent is sent once and remains pending until an acknowledgement returns `accepted`, `invalid`, `duplicate`, or `unavailable`. QML emits a presentation intent and renders its result. It does not send protocol frames, deduplicate IDs, decide acknowledgement, or focus a terminal directly.
 

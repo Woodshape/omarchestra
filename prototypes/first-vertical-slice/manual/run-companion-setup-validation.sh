@@ -92,7 +92,8 @@ chmod 700 "$EVIDENCE_DIR"
 
 RUNTIME_DIR=""
 RUNNER_SOCKET=""
-CONTROL_FIFO=""
+CONTROL_SOCKET=""
+CONTROL_SOCKET_IDENTITY=""
 RUNNER_PID=""
 PROJECTION_PID=""
 PIDS=()
@@ -101,7 +102,7 @@ PID_IDENTITIES=()
 WINDOW_CLASSES=()
 WINDOW_ADDRESSES=()
 WINDOW_PIDS=()
-SOCKET_IDENTITY=""
+RUNNER_SOCKET_IDENTITY=""
 PLUGIN_READY=0
 GATE_COMPLETED=0
 CLEANED=0
@@ -181,10 +182,26 @@ close_exact_window() {
   hyprctl dispatch closewindow "address:$address" >/dev/null
 }
 
+reject_symlink_components() {
+  local input="$1" prefix="" part
+  local components=()
+  [[ "$input" == /* ]] || return 1
+  IFS='/' read -r -a components <<< "${input#/}"
+  for part in "${components[@]}"; do
+    [[ -n "$part" ]] || continue
+    prefix="$prefix/$part"
+    [[ ! -L "$prefix" ]] || {
+      printf 'refusing path with symlink component: %s\n' "$prefix" >&2
+      return 1
+    }
+  done
+}
+
 remove_exact_socket() {
   local socket="$1" expected="$2" current
   [[ -n "$socket" ]] || return 0
   [[ -e "$socket" ]] || return 0
+  reject_symlink_components "$socket" || return 1
   [[ ! -L "$socket" && -S "$socket" ]] || {
     printf 'refusing to remove non-socket or symlink at %s\n' "$socket" >&2
     return 1
@@ -197,20 +214,10 @@ remove_exact_socket() {
   rm -f -- "$socket"
 }
 
-remove_exact_fifo() {
-  local fifo="$1"
-  [[ -n "$fifo" ]] || return 0
-  [[ -p "$fifo" && ! -L "$fifo" ]] || {
-    [[ ! -e "$fifo" ]] && return 0
-    printf 'refusing to remove changed control FIFO: %s\n' "$fifo" >&2
-    return 1
-  }
-  rm -f -- "$fifo"
-}
-
 remove_exact_directory() {
   local directory="$1" expected current
   [[ -n "$directory" ]] || return 0
+  reject_symlink_components "$directory" || return 1
   [[ -d "$directory" && ! -L "$directory" ]] || {
     [[ ! -e "$directory" ]] && return 0
     printf 'refusing to remove changed runtime directory: %s\n' "$directory" >&2
@@ -250,8 +257,8 @@ cleanup() {
   for (( index=${#PIDS[@]}-1; index>=0; index-- )); do
     terminate_exact_pid "${PIDS[$index]}" "${PID_IDENTITIES[$index]}" "${PID_LABELS[$index]}" || CLEANUP_SAFE=0
   done
-  remove_exact_socket "$RUNNER_SOCKET" "$SOCKET_IDENTITY" || CLEANUP_SAFE=0
-  remove_exact_fifo "$CONTROL_FIFO" || CLEANUP_SAFE=0
+  remove_exact_socket "$RUNNER_SOCKET" "$RUNNER_SOCKET_IDENTITY" || CLEANUP_SAFE=0
+  remove_exact_socket "$CONTROL_SOCKET" "$CONTROL_SOCKET_IDENTITY" || CLEANUP_SAFE=0
 
   # The directory identity is captured immediately after mktemp. A changed
   # path is preserved for manual reconciliation instead of recursively
@@ -274,6 +281,20 @@ cleanup() {
 }
 trap cleanup EXIT INT TERM
 
+RUNTIME_PARENT="${XDG_RUNTIME_DIR:-/tmp}"
+[[ "$RUNTIME_PARENT" == /* && "$RUNTIME_PARENT" != *'\\'* ]] || {
+  printf 'runtime parent must be absolute POSIX text\n' >&2
+  exit 2
+}
+RUNTIME_PARENT_CANONICAL=$(node -e \
+  'process.stdout.write(require("node:path").posix.normalize(process.argv[1]))' \
+  "$RUNTIME_PARENT")
+[[ "$RUNTIME_PARENT" == "$RUNTIME_PARENT_CANONICAL" ]] || {
+  printf 'runtime parent must be canonical POSIX text\n' >&2
+  exit 2
+}
+reject_symlink_components "$RUNTIME_PARENT" || exit 2
+
 # Compatibility and plan authorization happen before this point creates any
 # runner, socket, Pi process, Ghostty window, or Projection Session.
 node "${NODE_FLAGS[@]}" "$LIVE_ADAPTER" --live --evidence-dir "$EVIDENCE_DIR"
@@ -281,14 +302,13 @@ PLUGIN_READY=1
 write_private "$EVIDENCE_DIR/runtime-boundary.txt" \
   "Runtime cleanup owns only exact runner/Pi/Ghostty/projection/socket/directory identities.\nPersistent plugin: untouched by runtime cleanup.\n"
 
-RUNTIME_DIR=$(mktemp -d "${XDG_RUNTIME_DIR:-/tmp}/omarchestra-companion-gate.XXXXXX")
+RUNTIME_DIR=$(mktemp -d "$RUNTIME_PARENT/omarchestra-companion-gate.XXXXXX")
+reject_symlink_components "$RUNTIME_DIR" || exit 2
 chmod 700 "$RUNTIME_DIR"
 RUNTIME_IDENTITY=$(stat -c '%d:%i' -- "$RUNTIME_DIR")
 mkdir -- "$RUNTIME_DIR/sessions" "$RUNTIME_DIR/state"
 chmod 700 "$RUNTIME_DIR/sessions" "$RUNTIME_DIR/state"
-CONTROL_FIFO="$RUNTIME_DIR/projection-control.fifo"
-mkfifo "$CONTROL_FIFO"
-chmod 600 "$CONTROL_FIFO"
+CONTROL_SOCKET="$RUNTIME_DIR/projection-control.sock"
 RUNNER_SOCKET="$RUNTIME_DIR/state/runner.sock"
 
 cat > "$RUNTIME_DIR/pi-host.sh" <<'HOST'
@@ -380,14 +400,14 @@ chmod 600 "$EVIDENCE_DIR/runner.ndjson"
 for _ in $(seq 1 150); do [[ -S "$RUNNER_SOCKET" ]] && break; sleep 0.1; done
 [[ -S "$RUNNER_SOCKET" ]] || { printf 'runner socket did not become ready\n' >&2; exit 1; }
 [[ ! -L "$RUNNER_SOCKET" ]] || { printf 'runner socket unexpectedly became a symlink\n' >&2; exit 1; }
-SOCKET_IDENTITY=$(stat -c '%d:%i' -- "$RUNNER_SOCKET")
+RUNNER_SOCKET_IDENTITY=$(stat -c '%d:%i' -- "$RUNNER_SOCKET")
 
 # Start the projection controller only after setup and all exact runtime
 # identities are available. It uses UnixProjectionConnector and the live
 # CompanionShellPort, never a temporary plugin registration.
 node "${NODE_FLAGS[@]}" "$LIVE_ADAPTER" --projection \
   --socket "$RUNNER_SOCKET" \
-  --control "$CONTROL_FIFO" \
+  --control "$CONTROL_SOCKET" \
   --evidence "$EVIDENCE_DIR" \
   --team-goal "$TEAM_GOAL_ID" \
   --client-id "$CLIENT_ID" \
@@ -395,6 +415,13 @@ node "${NODE_FLAGS[@]}" "$LIVE_ADAPTER" --projection \
 PROJECTION_PID=$!
 register_pid "$PROJECTION_PID" "Projection Session controller"
 chmod 600 "$EVIDENCE_DIR/projection-controller.stdout"
+
+for _ in $(seq 1 150); do [[ -S "$CONTROL_SOCKET" ]] && break; sleep 0.1; done
+[[ -S "$CONTROL_SOCKET" && ! -L "$CONTROL_SOCKET" ]] || {
+  printf 'projection control socket did not become ready\n' >&2
+  exit 1
+}
+CONTROL_SOCKET_IDENTITY=$(stat -c '%d:%i' -- "$CONTROL_SOCKET")
 
 # Pi hosts are released only after the runner and projection controller exist.
 touch "$RUNTIME_DIR/start-pi"
@@ -450,7 +477,17 @@ wait_for_projection() {
 }
 
 send_projection_control() {
-  printf '%s\n' "$1" > "$CONTROL_FIFO"
+  local command="$1"
+  case "$command" in reload|clear|hide|fingerprint|quit) ;; *) return 2 ;; esac
+  node - "$CONTROL_SOCKET" "$command" <<'NODE'
+const net = require('node:net')
+const [socketPath, command] = process.argv.slice(2)
+const client = net.createConnection(socketPath)
+client.setTimeout(5000)
+client.on('connect', () => client.end(`${command}\n`))
+client.on('timeout', () => client.destroy(new Error('projection control timeout')))
+client.on('error', (error) => { console.error(error.message); process.exitCode = 1 })
+NODE
 }
 
 record_checkpoint() {

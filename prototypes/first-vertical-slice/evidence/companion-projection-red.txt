@@ -384,9 +384,9 @@ test at console/test/companion-projection-session.test.ts:718:1
 test at console/test/companion-projection-session.test.ts:728:1
 ✖ the companion session modules reuse the console projection seam and never import installation or storage code (0.580513ms)
   AssertionError [ERR_ASSERTION]: companion/projection-session.ts must exist
-  
+
   false !== true
-  
+
       at TestContext.<anonymous> (file:///home/woodshape/claude/omarchestra/prototypes/first-vertical-slice/console/test/companion-projection-session.test.ts:729:10)
       at Test.runInAsyncScope (node:async_hooks:226:14)
       at Test.run (node:internal/test_runner/test:1402:25)
@@ -406,10 +406,10 @@ test at console/test/companion-projection-session.test.ts:762:1
 ✖ the adapted plugin manifest advertises the companion protocol for capability discovery (0.698101ms)
   AssertionError [ERR_ASSERTION]: the installed plugin must declare omarchestra.companion/v1 so discovery reads the real installed protocol
   + actual - expected
-  
+
   + undefined
   - 'omarchestra.companion/v1'
-  
+
       at TestContext.<anonymous> (file:///home/woodshape/claude/omarchestra/prototypes/first-vertical-slice/console/test/companion-projection-session.test.ts:768:10)
       at Test.runInAsyncScope (node:async_hooks:226:14)
       at Test.run (node:internal/test_runner/test:1402:25)

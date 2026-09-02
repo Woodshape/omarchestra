@@ -223,8 +223,9 @@ configuration change.
 | `companion/contracts.ts` | Bounded `omarchestra.companion/v1`, typed errors, exact compatibility, installation/session identities, and injected ports |
 | `companion/installation.ts` | Sole explicit install/update/rollback/uninstall policy owner; immutable plans, authorization, receipts, exact recovery |
 | `companion/fake-omarchy.ts` | In-memory no-follow filesystem, configuration, shell, receipt, authorization, mutation, and recovery ports |
+| `companion/path-validation.ts` | Shared lexical absolute-POSIX path validation for injected fake/live adapters |
 | `companion/releases.ts` | Immutable versioned Companion release catalog |
-| `companion/projection-session.ts` | Ephemeral session lifecycle, capability discovery, shell handoff, acknowledged intents, hide/clear, stale-generation handling |
+| `companion/projection-session.ts` | Ephemeral session lifecycle, installed-plugin capability discovery, serialized shell handoff, callable QML intents, hide/clear, stale-generation handling |
 | `companion/fake-companion-shell.ts` | In-memory persistent-plugin shell surface and plugin-generation model |
 | `companion/acceptance.ts` | Standalone fake-only install-once/two-Team-Goal/reload/cleanup acceptance composition |
 | `companion/test/` | Installation and integrated Companion acceptance tests |

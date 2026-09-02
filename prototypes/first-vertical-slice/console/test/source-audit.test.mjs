@@ -372,6 +372,7 @@ test('companion prototype modules contain no live-system, process, or storage to
     'companion/contracts.ts',
     'companion/installation.ts',
     'companion/fake-omarchy.ts',
+    'companion/path-validation.ts',
     'companion/releases.ts',
     'companion/projection-session.ts',
     'companion/fake-companion-shell.ts',

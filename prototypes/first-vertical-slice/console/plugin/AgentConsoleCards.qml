@@ -13,6 +13,7 @@ Item {
 
     property var cards: []
     readonly property color cardText: Color.popups.text
+    signal presentRequested(string role)
     readonly property color cardMutedText: Qt.darker(root.cardText, 1.45)
 
     implicitWidth: cardColumn.implicitWidth
@@ -37,6 +38,13 @@ Item {
                     Qt.rgba(root.cardText.r, root.cardText.g, root.cardText.b, 0.16),
                     Math.max(1, Style.spacing.hairline))
                 radius: Style.cornerRadius
+
+                MouseArea {
+                    anchors.fill: parent
+                    enabled: modelData && typeof modelData.role === "string"
+                    cursorShape: Qt.PointingHandCursor
+                    onClicked: root.presentRequested(modelData.role)
+                }
 
                 ColumnLayout {
                     id: cardContent

@@ -143,7 +143,9 @@ test('QML presents ready, reconnecting, and explicit gap states from injected pr
 test('all QML stays presentation-only and has no forbidden runtime dependencies', () => {
   const forbidden = [
     ['SQLite', /\b(?:sqlite|QSql|QSQLITE|node:sqlite|databasePath|openDatabase)\b/i],
-    ['runner-domain', /(?:src\/)?(?:domain|runner|orchestration|store|thin[-_ ]client|protocol|transport)\b/i],
+    // The installed plugin may report its declared Companion protocol as
+    // capability metadata; it still may not import or implement runner logic.
+    ['runner-domain', /(?:src\/)?(?:domain|runner|orchestration|store|thin[-_ ]client|transport)\b/i],
     ['process supervision', /\b(?:Process|QProcess|child_process|spawn|exec(?:Detached|File)?|startDetached|kill|terminate|IpcHandler)\b/i],
     ['PTY access', /\b(?:pty|pseudo[-_ ]terminal|ansi|escape(?:Sequence|Code)|terminal(?:Output|Text|Input|Capture))\b/i],
     ['SSH or remote execution', /\b(?:ssh|remote(?:Host|Execution|Command)?)\b/i],
