@@ -43,12 +43,6 @@ Rectangle {
     readonly property var latestProjectionEvent: projectionEvents.length > 0
         ? projectionEvents[projectionEvents.length - 1] : null
 
-    readonly property var roleDisplayNames: ({
-        coordinator: "Coordinator",
-        builder: "Builder",
-        reviewer: "Reviewer"
-    })
-
     width: 480
     height: 320
     color: "#14141c"
@@ -86,14 +80,6 @@ Rectangle {
                         text: roleEntry ? roleEntry.piStatus : ""
                         color: "#eaeaf4"
                         font.bold: true
-                        font.family: "monospace"
-                    }
-                    Label {
-                        text: roleEntry ? ("control=" + roleEntry.controlMode
-                              + "  ·  assignment=" + (roleEntry.assignmentState || "none")
-                              + "  ·  title metadata=" + roleEntry.nativeTerminalTitle) : ""
-                        color: "#9a9ab0"
-                        elide: Text.ElideRight
                         font.family: "monospace"
                     }
                 }

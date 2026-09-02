@@ -1,0 +1,169 @@
+✖ every automated prototype recipe is free of live-system launch primitives (5.897692ms)
+✖ the fake-only live Agent Console check invokes only the combined launcher in --check mode (0.291314ms)
+✖ the human-only recipes exist and are never referenced from automated code (0.542148ms)
+✖ default live-console modules contain no live-system or process-supervision tokens (0.635848ms)
+✔ the existing acceptance gate keeps its exact spawn boundary (0.9989ms)
+✖ the combined live gate script exists with a fake-only --check mode (4.561344ms)
+✖ the combined live gate script fails closed before any live resource on this Omarchy API (0.214039ms)
+✔ every agent Ghostty launch stays decorationless and never pins a title (0.847371ms)
+✖ the live Agent Console recipe is human-only and unreachable from automated paths (0.801791ms)
+✔ no automated test or acceptance module reaches the human-only gate (6.253426ms)
+✔ the recorded blocker report exists and names the forbidden fallbacks (0.261896ms)
+✖ no forbidden fallback replaces the blocked Omarchy plugin launch (0.23756ms)
+node:internal/modules/esm/resolve:272
+    throw new ERR_MODULE_NOT_FOUND(
+          ^
+
+Error [ERR_MODULE_NOT_FOUND]: Cannot find module '/home/woodshape/claude/omarchestra/prototypes/first-vertical-slice/manual/live-gate-resources.ts' imported from /home/woodshape/claude/omarchestra/prototypes/first-vertical-slice/manual/test/live-gate-resources.test.ts
+    at finalizeResolution (node:internal/modules/esm/resolve:272:11)
+    at moduleResolve (node:internal/modules/esm/resolve:879:10)
+    at defaultResolve (node:internal/modules/esm/resolve:1006:11)
+    at #cachedDefaultResolve (node:internal/modules/esm/loader:708:20)
+    at #resolveAndMaybeBlockOnLoaderThread (node:internal/modules/esm/loader:728:38)
+    at ModuleLoader.resolveSync (node:internal/modules/esm/loader:766:56)
+    at #resolve (node:internal/modules/esm/loader:690:17)
+    at ModuleLoader.getOrCreateModuleJob (node:internal/modules/esm/loader:610:35)
+    at ModuleJob.syncLink (node:internal/modules/esm/module_job:277:33)
+    at ModuleJob.link (node:internal/modules/esm/module_job:389:17) {
+  code: 'ERR_MODULE_NOT_FOUND',
+  url: 'file:///home/woodshape/claude/omarchestra/prototypes/first-vertical-slice/manual/live-gate-resources.ts'
+}
+
+Node.js v26.8.1
+✖ prototypes/first-vertical-slice/manual/test/live-gate-resources.test.ts (84.79111ms)
+ℹ tests 13
+ℹ suites 0
+ℹ pass 4
+ℹ fail 9
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 105.576278
+
+✖ failing tests:
+
+test at prototypes/first-vertical-slice/console/test/source-audit.test.mjs:95:1
+✖ every automated prototype recipe is free of live-system launch primitives (5.897692ms)
+  AssertionError [ERR_ASSERTION]: justfile must define the automated recipe prototype-live-agent-console-check
+      at TestContext.<anonymous> (file:///home/woodshape/claude/omarchestra/prototypes/first-vertical-slice/console/test/source-audit.test.mjs:99:12)
+      at Test.runInAsyncScope (node:async_hooks:226:14)
+      at Test.run (node:internal/test_runner/test:1402:25)
+      at Test.start (node:internal/test_runner/test:1262:17)
+      at startSubtestAfterBootstrap (node:internal/test_runner/harness:387:17) {
+    generatedMessage: false,
+    code: 'ERR_ASSERTION',
+    actual: false,
+    expected: true,
+    operator: '==',
+    diff: 'simple'
+  }
+
+test at prototypes/first-vertical-slice/console/test/source-audit.test.mjs:118:1
+✖ the fake-only live Agent Console check invokes only the combined launcher in --check mode (0.291314ms)
+  AssertionError [ERR_ASSERTION]: justfile must define the unattended fake-only check recipe
+      at TestContext.<anonymous> (file:///home/woodshape/claude/omarchestra/prototypes/first-vertical-slice/console/test/source-audit.test.mjs:121:10)
+      at Test.runInAsyncScope (node:async_hooks:226:14)
+      at Test.run (node:internal/test_runner/test:1402:25)
+      at Test.processPendingSubtests (node:internal/test_runner/test:974:18)
+      at Test.postRun (node:internal/test_runner/test:1542:19)
+      at Test.run (node:internal/test_runner/test:1467:12)
+      at async startSubtestAfterBootstrap (node:internal/test_runner/harness:387:3) {
+    generatedMessage: false,
+    code: 'ERR_ASSERTION',
+    actual: false,
+    expected: true,
+    operator: '==',
+    diff: 'simple'
+  }
+
+test at prototypes/first-vertical-slice/console/test/source-audit.test.mjs:130:1
+✖ the human-only recipes exist and are never referenced from automated code (0.542148ms)
+  AssertionError [ERR_ASSERTION]: missing human recipe prototype-live-agent-console-gate
+      at TestContext.<anonymous> (file:///home/woodshape/claude/omarchestra/prototypes/first-vertical-slice/console/test/source-audit.test.mjs:133:12)
+      at Test.runInAsyncScope (node:async_hooks:226:14)
+      at Test.run (node:internal/test_runner/test:1402:25)
+      at Test.processPendingSubtests (node:internal/test_runner/test:974:18)
+      at Test.postRun (node:internal/test_runner/test:1542:19)
+      at Test.run (node:internal/test_runner/test:1467:12)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:974:7) {
+    generatedMessage: false,
+    code: 'ERR_ASSERTION',
+    actual: '# Run Fusion Harness against this workspace while keeping the harness itself external.\nset dotenv-path := "/home/woodshape/claude/fusion-harness/.env"\nset dotenv-load := true\n\nfusion_harness := env_var_or_default("FUSION_HARNESS_HOME", "/home/woodshape/claude/fusion-harness")\n\n# PROTOTYPE — NOT PRODUCTION: unattended fake-only acceptance gate for the\n# first vertical-slice prototype. Fresh temporary state per run; starts only\n# the prototype\'s foreground Node runner; no live systems are invoked.\nprototype-vertical-slice:\n    #!/usr/bin/env bash\n    set -euo pipefail\n    root=\'{{justfile_directory()}}\'\n    flags=()\n    if node --help | grep -qE \'(^|[[:space:]])--experimental-sqlite([[:space:]]|$)\'; then\n        flags+=(--experimental-sqlite)\n    fi\n    if node --help | grep -qE \'(^|[[:space:]])--experimental-strip-types([[:space:]]|$)\'; then\n        flags+=(--experimental-strip-types)\n    fi\n    mkdir -p "$root/prototypes/first-vertical-slice/evidence"\n    node "${flags[@]}" "$root/prototypes/first-vertical-slice/src/acceptance.ts" 2>&1 | tee "$root/prototypes/first-vertical-slice/evidence/fake-only-acceptance.txt"\n\n# Fake-only checks for the manual role-label adapter. This never starts Pi,\n# Ghostty, a provider, SSH, Boomux, systemd, or any other live integration.\nprototype-vertical-slice-manual-check:\n    #!/usr/bin/env bash\n    set -euo pipefail\n    root=\'{{justfile_directory()}}\'\n    flags=()\n    if node --help | grep -qE \'(^|[[:space:]])--experimental-strip-types([[:space:]]|$)\'; then\n        flags+=(--experimental-strip-types)\n    fi\n    node "${flags[@]}" --test \\\n        "$root/prototypes/first-vertical-slice/manual/test/live-bridge-core.test.ts" \\\n        "$root/prototypes/first-vertical-slice/manual/test/launcher-contract.test.mjs"\n    node "${flags[@]}" -e "import(\'$root/prototypes/first-vertical-slice/manual/live-role-label-extension.ts\')"\n    bash -n "$root/prototypes/first-vertical-slice/manual/run-role-label-gate.sh"\n    bash "$root/prototypes/first-vertical-slice/manual/run-role-label-gate.sh" --check\n    if command -v shellcheck >/dev/null; then\n        shellcheck "$root/prototypes/first-vertical-slice/manual/run-role-label-gate.sh"\n    fi\n\n# HUMAN-AUTHORIZED LIVE GATE: opens three real Ghostty/Pi windows locally and\n# makes one small Builder model request. Never invoke from automated gates.\nprototype-vertical-slice-role-label-gate:\n    bash \'{{justfile_directory()}}/prototypes/first-vertical-slice/manual/run-role-label-gate.sh\'\n\n# Three-slot Fusion stack. Pi and every child agent use this directory as their CWD.\nfusion *ARGS:\n    pi -e "{{fusion_harness}}/extensions/fusion-harness/fusion-harness.ts" \\\n        --fh-config "{{fusion_harness}}/.pi/fusion-harness/model-stack-fusion.yaml" \\\n        {{ARGS}}\n',
+    expected: /^prototype-live-agent-console-gate:/m,
+    operator: 'match',
+    diff: 'simple'
+  }
+
+test at prototypes/first-vertical-slice/console/test/source-audit.test.mjs:167:1
+✖ default live-console modules contain no live-system or process-supervision tokens (0.635848ms)
+  AssertionError [ERR_ASSERTION]: expected implementation modules to audit: manual/live-gate-resources.ts
+      at TestContext.<anonymous> (file:///home/woodshape/claude/omarchestra/prototypes/first-vertical-slice/console/test/source-audit.test.mjs:176:10)
+      at Test.runInAsyncScope (node:async_hooks:226:14)
+      at Test.run (node:internal/test_runner/test:1402:25)
+      at Test.processPendingSubtests (node:internal/test_runner/test:974:18)
+      at Test.postRun (node:internal/test_runner/test:1542:19)
+      at Test.run (node:internal/test_runner/test:1467:12)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:974:7) {
+    generatedMessage: false,
+    code: 'ERR_ASSERTION',
+    actual: false,
+    expected: true,
+    operator: '==',
+    diff: 'simple'
+  }
+
+test at prototypes/first-vertical-slice/manual/test/live-agent-console-launcher.test.mjs:64:1
+✖ the combined live gate script exists with a fake-only --check mode (4.561344ms)
+  Error: expected human-only launcher manual/run-live-agent-console-gate.sh (not implemented yet)
+      at readIfExists (file:///home/woodshape/claude/omarchestra/prototypes/first-vertical-slice/manual/test/live-agent-console-launcher.test.mjs:33:35)
+      at TestContext.<anonymous> (file:///home/woodshape/claude/omarchestra/prototypes/first-vertical-slice/manual/test/live-agent-console-launcher.test.mjs:65:18)
+      at Test.runInAsyncScope (node:async_hooks:226:14)
+      at Test.run (node:internal/test_runner/test:1402:25)
+      at Test.start (node:internal/test_runner/test:1262:17)
+      at startSubtestAfterBootstrap (node:internal/test_runner/harness:387:17)
+
+test at prototypes/first-vertical-slice/manual/test/live-agent-console-launcher.test.mjs:72:1
+✖ the combined live gate script fails closed before any live resource on this Omarchy API (0.214039ms)
+  Error: expected human-only launcher manual/run-live-agent-console-gate.sh (not implemented yet)
+      at readIfExists (file:///home/woodshape/claude/omarchestra/prototypes/first-vertical-slice/manual/test/live-agent-console-launcher.test.mjs:33:35)
+      at TestContext.<anonymous> (file:///home/woodshape/claude/omarchestra/prototypes/first-vertical-slice/manual/test/live-agent-console-launcher.test.mjs:73:32)
+      at Test.runInAsyncScope (node:async_hooks:226:14)
+      at Test.run (node:internal/test_runner/test:1402:25)
+      at Test.processPendingSubtests (node:internal/test_runner/test:974:18)
+      at Test.postRun (node:internal/test_runner/test:1542:19)
+      at Test.run (node:internal/test_runner/test:1467:12)
+      at async startSubtestAfterBootstrap (node:internal/test_runner/harness:387:3)
+
+test at prototypes/first-vertical-slice/manual/test/live-agent-console-launcher.test.mjs:133:1
+✖ the live Agent Console recipe is human-only and unreachable from automated paths (0.801791ms)
+  AssertionError [ERR_ASSERTION]: justfile must define the clearly named human-only prototype-live-agent-console-gate recipe
+      at TestContext.<anonymous> (file:///home/woodshape/claude/omarchestra/prototypes/first-vertical-slice/manual/test/live-agent-console-launcher.test.mjs:135:10)
+      at Test.runInAsyncScope (node:async_hooks:226:14)
+      at Test.run (node:internal/test_runner/test:1402:25)
+      at Test.processPendingSubtests (node:internal/test_runner/test:974:18)
+      at Test.postRun (node:internal/test_runner/test:1542:19)
+      at Test.run (node:internal/test_runner/test:1467:12)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:974:7) {
+    generatedMessage: false,
+    code: 'ERR_ASSERTION',
+    actual: '# Run Fusion Harness against this workspace while keeping the harness itself external.\nset dotenv-path := "/home/woodshape/claude/fusion-harness/.env"\nset dotenv-load := true\n\nfusion_harness := env_var_or_default("FUSION_HARNESS_HOME", "/home/woodshape/claude/fusion-harness")\n\n# PROTOTYPE — NOT PRODUCTION: unattended fake-only acceptance gate for the\n# first vertical-slice prototype. Fresh temporary state per run; starts only\n# the prototype\'s foreground Node runner; no live systems are invoked.\nprototype-vertical-slice:\n    #!/usr/bin/env bash\n    set -euo pipefail\n    root=\'{{justfile_directory()}}\'\n    flags=()\n    if node --help | grep -qE \'(^|[[:space:]])--experimental-sqlite([[:space:]]|$)\'; then\n        flags+=(--experimental-sqlite)\n    fi\n    if node --help | grep -qE \'(^|[[:space:]])--experimental-strip-types([[:space:]]|$)\'; then\n        flags+=(--experimental-strip-types)\n    fi\n    mkdir -p "$root/prototypes/first-vertical-slice/evidence"\n    node "${flags[@]}" "$root/prototypes/first-vertical-slice/src/acceptance.ts" 2>&1 | tee "$root/prototypes/first-vertical-slice/evidence/fake-only-acceptance.txt"\n\n# Fake-only checks for the manual role-label adapter. This never starts Pi,\n# Ghostty, a provider, SSH, Boomux, systemd, or any other live integration.\nprototype-vertical-slice-manual-check:\n    #!/usr/bin/env bash\n    set -euo pipefail\n    root=\'{{justfile_directory()}}\'\n    flags=()\n    if node --help | grep -qE \'(^|[[:space:]])--experimental-strip-types([[:space:]]|$)\'; then\n        flags+=(--experimental-strip-types)\n    fi\n    node "${flags[@]}" --test \\\n        "$root/prototypes/first-vertical-slice/manual/test/live-bridge-core.test.ts" \\\n        "$root/prototypes/first-vertical-slice/manual/test/launcher-contract.test.mjs"\n    node "${flags[@]}" -e "import(\'$root/prototypes/first-vertical-slice/manual/live-role-label-extension.ts\')"\n    bash -n "$root/prototypes/first-vertical-slice/manual/run-role-label-gate.sh"\n    bash "$root/prototypes/first-vertical-slice/manual/run-role-label-gate.sh" --check\n    if command -v shellcheck >/dev/null; then\n        shellcheck "$root/prototypes/first-vertical-slice/manual/run-role-label-gate.sh"\n    fi\n\n# HUMAN-AUTHORIZED LIVE GATE: opens three real Ghostty/Pi windows locally and\n# makes one small Builder model request. Never invoke from automated gates.\nprototype-vertical-slice-role-label-gate:\n    bash \'{{justfile_directory()}}/prototypes/first-vertical-slice/manual/run-role-label-gate.sh\'\n\n# Three-slot Fusion stack. Pi and every child agent use this directory as their CWD.\nfusion *ARGS:\n    pi -e "{{fusion_harness}}/extensions/fusion-harness/fusion-harness.ts" \\\n        --fh-config "{{fusion_harness}}/.pi/fusion-harness/model-stack-fusion.yaml" \\\n        {{ARGS}}\n',
+    expected: /^prototype-live-agent-console-gate:/m,
+    operator: 'match',
+    diff: 'simple'
+  }
+
+test at prototypes/first-vertical-slice/manual/test/live-agent-console-launcher.test.mjs:205:1
+✖ no forbidden fallback replaces the blocked Omarchy plugin launch (0.23756ms)
+  Error: expected human-only launcher manual/run-live-agent-console-gate.sh (not implemented yet)
+      at readIfExists (file:///home/woodshape/claude/omarchestra/prototypes/first-vertical-slice/manual/test/live-agent-console-launcher.test.mjs:33:35)
+      at TestContext.<anonymous> (file:///home/woodshape/claude/omarchestra/prototypes/first-vertical-slice/manual/test/live-agent-console-launcher.test.mjs:207:40)
+      at Test.runInAsyncScope (node:async_hooks:226:14)
+      at Test.run (node:internal/test_runner/test:1402:25)
+      at Test.processPendingSubtests (node:internal/test_runner/test:974:18)
+      at Test.postRun (node:internal/test_runner/test:1542:19)
+      at Test.run (node:internal/test_runner/test:1467:12)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:974:7)
+
+test at prototypes/first-vertical-slice/manual/test/live-gate-resources.test.ts:1:1
+✖ prototypes/first-vertical-slice/manual/test/live-gate-resources.test.ts (84.79111ms)
+  'test failed'

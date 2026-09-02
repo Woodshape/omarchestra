@@ -1,0 +1,35 @@
+✔ every automated prototype recipe is free of live-system launch primitives (9.696424ms)
+✔ the fake-only live Agent Console check invokes only the combined launcher in --check mode (1.108062ms)
+✔ the human-only recipes exist and are never referenced from automated code (11.977319ms)
+✔ default live-console modules contain no live-system or process-supervision tokens (6.141218ms)
+✔ the existing acceptance gate keeps its exact spawn boundary (3.017684ms)
+✔ the combined live gate script exists with a fake-only --check mode (7.397976ms)
+✔ the combined live gate script fails closed before any live resource on this Omarchy API (2.328654ms)
+✔ every agent Ghostty launch stays decorationless and never pins a title (2.810756ms)
+✔ the live Agent Console recipe is human-only and unreachable from automated paths (1.86222ms)
+✔ no automated test or acceptance module reaches the human-only gate (13.62088ms)
+✔ the recorded blocker report exists and names the forbidden fallbacks (0.665677ms)
+✔ no forbidden fallback replaces the blocked Omarchy plugin launch (2.755674ms)
+✔ a forced failure after registration removes exactly the registered fake resources (8.818511ms)
+✔ cleanup preserves every unrelated fake resource (1.546067ms)
+✔ process registration fails closed unless the expected identity currently matches exactly (1.107386ms)
+✔ exact identity authorizes cleanup: drifted or exited PIDs are refused, never guessed (0.689884ms)
+✔ process cleanup requires exact identity equality, never substring containment (0.448897ms)
+✔ directory registration rejects a symlinked ancestor before cleanup can follow it (0.934482ms)
+✔ cleanup refuses a symlinked ancestor introduced after directory registration (1.159998ms)
+✔ cleanup refuses a different directory inode substituted at the exact path (0.892585ms)
+✔ cleanup refuses a symlinked ancestor introduced after socket registration (1.284147ms)
+✔ cleanup refuses a different socket inode substituted at the exact path (1.333085ms)
+✔ sockets are removed only when they are real sockets and directories only at exact paths (1.48024ms)
+✔ cleanup is idempotent and a second call removes nothing new (1.597296ms)
+✔ refused resources keep cleanup incomplete and remain retryable (0.557243ms)
+✔ cleanup still runs on interruption and assertion paths and is best-effort under control errors (1.336682ms)
+✔ window registration without an injected window control fails closed (0.391447ms)
+ℹ tests 27
+ℹ suites 0
+ℹ pass 27
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 286.761202

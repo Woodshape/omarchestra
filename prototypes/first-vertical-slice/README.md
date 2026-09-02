@@ -1,7 +1,8 @@
 # Omarchestra first vertical-slice prototype
 
 **PROTOTYPE — NOT PRODUCTION.** Removable as one directory
-(`rm -rf prototypes/first-vertical-slice/` plus the one `justfile` recipe).
+(`rm -rf prototypes/first-vertical-slice/` plus the five `justfile` recipes
+listed under "Wipe instructions").
 This directory is throwaway evidence for one question; nothing here is
 production architecture and no file in it is promoted into the product.
 
@@ -122,8 +123,40 @@ Reviewer tiles. The operator rejected that UI.
 
 The accepted contract is decorationless Ghostty, persistent Pi status per
 terminal, redundant Agent Console cards, and dynamic terminal titles as
-window-manager metadata only. The live Agent Console half remains pending; see
+window-manager metadata only; see
 [`docs/manual-role-label-gate.md`](docs/manual-role-label-gate.md).
+
+## Live Agent Console status
+
+The Agent Console projection seam is now implemented and fake-proven, but its
+live Omarchy loading is unsupported and live visual agreement remains a later
+human gate. Classification:
+
+- **Fake-only proof (automated):** `just prototype-live-agent-console-check`
+  runs all five seams unattended — the projection adapter (snapshot
+  initialization, exactly three roles, ordered events, gap/duplicate/
+  malformed/stale-identity rejection, resnapshot and explicit gap recovery),
+  the QML boundary (injected plain values, no storage/process/PTY/SSH/scraping
+  dependency), the launcher contract (decorationless, never `--title`,
+  human-only recipe), the exact-identity failure cleanup, and the
+  recipe/module source audit. Evidence:
+  `evidence/live-agent-console-fake-only.txt`.
+- **Prior terminal-side human proof:** real Pi status labels, transitions,
+  isolation, and persistence
+  ([`docs/manual-role-label-gate.md`](docs/manual-role-label-gate.md)).
+- **Unsupported (fail closed):** repo-local live loading inside the installed
+  Omarchy shell. Third-party plugins are discovered only under the user's
+  plugin configuration directory and enablement persists user shell
+  configuration, so no supported repo-local launch seam exists. The combined
+  launcher therefore always preflights and exits before any resource creation
+  ([`docs/live-agent-console-launch-blocker.md`](docs/live-agent-console-launch-blocker.md)).
+- **Pending:** live Pi + Agent Console visual agreement, established only by a
+  later explicitly human-authorized gate
+  ([`docs/live-agent-console-gate.md`](docs/live-agent-console-gate.md)).
+
+The QML plugin source under `console/plugin/` is schema-checked and linted but
+is never installed, enabled, or loaded; nothing is written under the user's
+Omarchy configuration or installed shell sources.
 
 ## Guided manual walkthrough (optional, no live systems)
 
@@ -134,8 +167,16 @@ window-manager metadata only. The live Agent Console half remains pending; see
 3. `service/omarchestra-runner@.service.template` — the intended foreground
    systemd user-unit boundary (never installed, never started).
 4. `qml/AgentProjectionFixture.qml` — the thin-client projection shape.
-5. `docs/manual-role-label-gate.md` — completed human evidence, the rejected
+5. `console/plugin/AgentConsole.qml` — the presentation-only Agent Console
+   card component (injected values only; never installed or loaded live).
+6. `docs/manual-role-label-gate.md` — completed human evidence, the rejected
    visible-title assumption, and the revised decorationless presentation contract.
+7. `docs/live-agent-console-gate.md` — the pending combined human gate, its
+   failure rules, the fail-closed launcher, and the required upstream capability.
+8. `docs/live-agent-console-launch-blocker.md` — installed-API evidence for
+   the unsupported repo-local Omarchy loading and the required next capability.
+9. `docs/live-agent-console-run-report.md` — the seam-by-seam run report and
+   evidence ledger for this fusion run.
 
 ## Module boundaries
 
@@ -152,7 +193,12 @@ window-manager metadata only. The live Agent Console half remains pending; see
 | `src/cli.ts` | Foreground runner lifecycle; requires `--state-dir` |
 | `src/acceptance.ts` | Fake-only acceptance gate; the only module allowed to spawn the runner CLI |
 | `qml/` | Inert QML-facing snapshot and ordered-event projection fixture |
+| `console/projection-core.ts` | Pure projection state machine: snapshot baseline, three fixed roles, ordered events, gaps, resnapshot, plain handoff |
+| `console/live-projection-adapter.ts` | Foreground connection adapter: validation, cursor checks, reconnect, plain-data handoff; injectable connector/sink |
+| `console/plugin/` | Presentation-only Agent Console QML panel source (manifest, console, cards); never installed or loaded |
 | `service/` | Non-installed systemd user-unit template |
+| `manual/live-gate-resources.ts` | Fake resource registry: exact process identity, filesystem device/inode plus symlink safety, and retryable incomplete cleanup for PIDs, windows, sockets, directories |
+| `manual/run-live-agent-console-gate.sh` | Human-only combined-gate launcher; fail-closed preflight plus fake-only `--check` |
 | `manual/` | Human-authorized disposable Pi/Ghostty adapter, wizard, and fake-only checks |
 
 ## Non-goals
@@ -210,7 +256,12 @@ None found. The slice stays inside the locked MVP decisions; the absent
 
 ```bash
 rm -rf prototypes/first-vertical-slice/
-# and remove the prototype-vertical-slice recipe from the justfile
+# and remove every prototype recipe for this directory from the justfile:
+#   prototype-vertical-slice
+#   prototype-vertical-slice-manual-check
+#   prototype-vertical-slice-role-label-gate
+#   prototype-live-agent-console-check
+#   prototype-live-agent-console-gate
 ```
 
 Scratch state never enters the repository: each run creates its own temporary

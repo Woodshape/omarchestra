@@ -1,0 +1,228 @@
+✖ authoritative snapshot initializes exactly three canonically ordered committed cards (2.087971ms)
+✖ events cannot initialize the projection before an authoritative snapshot (0.523539ms)
+✖ initialization rejects missing or duplicate fixed roles (0.778148ms)
+✖ ordered events retain old cards until a cursor-matched authoritative resnapshot (1.446453ms)
+✖ an event sequence gap is rejected and made explicit without advancing the cursor (0.418927ms)
+✖ duplicate sequences and duplicate event identities are rejected (0.416386ms)
+✖ malformed snapshot and event bodies are rejected by protocol validation (0.351674ms)
+✖ a reconnect snapshot cursor must equal the last accepted ordered event cursor (0.449447ms)
+✖ resnapshot rejects stale role-to-Agent-Run identity bindings (0.718861ms)
+✖ explicit gap recovery requires a fresh authoritative snapshot and preserves identities (0.676435ms)
+✖ runtime adapter uses injected transport and sink, then resnapshots after live events (0.448433ms)
+✖ runtime adapter makes malformed input an explicit gap and recovers only from a fresh snapshot (0.402906ms)
+ℹ tests 12
+ℹ suites 0
+ℹ pass 0
+ℹ fail 12
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 162.745842
+
+✖ failing tests:
+
+test at prototypes/first-vertical-slice/console/test/projection-adapter.test.ts:98:1
+✖ authoritative snapshot initializes exactly three canonically ordered committed cards (2.087971ms)
+  Error [ERR_MODULE_NOT_FOUND]: Cannot find module '/home/woodshape/claude/omarchestra/prototypes/first-vertical-slice/console/projection-core.ts' imported from /home/woodshape/claude/omarchestra/prototypes/first-vertical-slice/console/test/projection-adapter.test.ts
+      at finalizeResolution (node:internal/modules/esm/resolve:272:11)
+      at moduleResolve (node:internal/modules/esm/resolve:879:10)
+      at defaultResolve (node:internal/modules/esm/resolve:1006:11)
+      at #cachedDefaultResolve (node:internal/modules/esm/loader:708:20)
+      at #resolveAndMaybeBlockOnLoaderThread (node:internal/modules/esm/loader:728:38)
+      at ModuleLoader.resolveSync (node:internal/modules/esm/loader:766:56)
+      at #resolve (node:internal/modules/esm/loader:690:17)
+      at ModuleLoader.getOrCreateModuleJob (node:internal/modules/esm/loader:610:35)
+      at node:internal/modules/esm/loader:639:32
+      at TracingChannel.tracePromise (node:diagnostics_channel:547:22) {
+    code: 'ERR_MODULE_NOT_FOUND',
+    url: 'file:///home/woodshape/claude/omarchestra/prototypes/first-vertical-slice/console/projection-core.ts'
+  }
+
+test at prototypes/first-vertical-slice/console/test/projection-adapter.test.ts:131:1
+✖ events cannot initialize the projection before an authoritative snapshot (0.523539ms)
+  Error [ERR_MODULE_NOT_FOUND]: Cannot find module '/home/woodshape/claude/omarchestra/prototypes/first-vertical-slice/console/projection-core.ts' imported from /home/woodshape/claude/omarchestra/prototypes/first-vertical-slice/console/test/projection-adapter.test.ts
+      at finalizeResolution (node:internal/modules/esm/resolve:272:11)
+      at moduleResolve (node:internal/modules/esm/resolve:879:10)
+      at defaultResolve (node:internal/modules/esm/resolve:1006:11)
+      at #cachedDefaultResolve (node:internal/modules/esm/loader:708:20)
+      at #resolveAndMaybeBlockOnLoaderThread (node:internal/modules/esm/loader:728:38)
+      at ModuleLoader.resolveSync (node:internal/modules/esm/loader:766:56)
+      at #resolve (node:internal/modules/esm/loader:690:17)
+      at ModuleLoader.getOrCreateModuleJob (node:internal/modules/esm/loader:610:35)
+      at node:internal/modules/esm/loader:639:32
+      at TracingChannel.tracePromise (node:diagnostics_channel:547:22) {
+    code: 'ERR_MODULE_NOT_FOUND',
+    url: 'file:///home/woodshape/claude/omarchestra/prototypes/first-vertical-slice/console/projection-core.ts'
+  }
+
+test at prototypes/first-vertical-slice/console/test/projection-adapter.test.ts:140:1
+✖ initialization rejects missing or duplicate fixed roles (0.778148ms)
+  Error [ERR_MODULE_NOT_FOUND]: Cannot find module '/home/woodshape/claude/omarchestra/prototypes/first-vertical-slice/console/projection-core.ts' imported from /home/woodshape/claude/omarchestra/prototypes/first-vertical-slice/console/test/projection-adapter.test.ts
+      at finalizeResolution (node:internal/modules/esm/resolve:272:11)
+      at moduleResolve (node:internal/modules/esm/resolve:879:10)
+      at defaultResolve (node:internal/modules/esm/resolve:1006:11)
+      at #cachedDefaultResolve (node:internal/modules/esm/loader:708:20)
+      at #resolveAndMaybeBlockOnLoaderThread (node:internal/modules/esm/loader:728:38)
+      at ModuleLoader.resolveSync (node:internal/modules/esm/loader:766:56)
+      at #resolve (node:internal/modules/esm/loader:690:17)
+      at ModuleLoader.getOrCreateModuleJob (node:internal/modules/esm/loader:610:35)
+      at node:internal/modules/esm/loader:639:32
+      at TracingChannel.tracePromise (node:diagnostics_channel:547:22) {
+    code: 'ERR_MODULE_NOT_FOUND',
+    url: 'file:///home/woodshape/claude/omarchestra/prototypes/first-vertical-slice/console/projection-core.ts'
+  }
+
+test at prototypes/first-vertical-slice/console/test/projection-adapter.test.ts:154:1
+✖ ordered events retain old cards until a cursor-matched authoritative resnapshot (1.446453ms)
+  Error [ERR_MODULE_NOT_FOUND]: Cannot find module '/home/woodshape/claude/omarchestra/prototypes/first-vertical-slice/console/projection-core.ts' imported from /home/woodshape/claude/omarchestra/prototypes/first-vertical-slice/console/test/projection-adapter.test.ts
+      at finalizeResolution (node:internal/modules/esm/resolve:272:11)
+      at moduleResolve (node:internal/modules/esm/resolve:879:10)
+      at defaultResolve (node:internal/modules/esm/resolve:1006:11)
+      at #cachedDefaultResolve (node:internal/modules/esm/loader:708:20)
+      at #resolveAndMaybeBlockOnLoaderThread (node:internal/modules/esm/loader:728:38)
+      at ModuleLoader.resolveSync (node:internal/modules/esm/loader:766:56)
+      at #resolve (node:internal/modules/esm/loader:690:17)
+      at ModuleLoader.getOrCreateModuleJob (node:internal/modules/esm/loader:610:35)
+      at node:internal/modules/esm/loader:639:32
+      at TracingChannel.tracePromise (node:diagnostics_channel:547:22) {
+    code: 'ERR_MODULE_NOT_FOUND',
+    url: 'file:///home/woodshape/claude/omarchestra/prototypes/first-vertical-slice/console/projection-core.ts'
+  }
+
+test at prototypes/first-vertical-slice/console/test/projection-adapter.test.ts:170:1
+✖ an event sequence gap is rejected and made explicit without advancing the cursor (0.418927ms)
+  Error [ERR_MODULE_NOT_FOUND]: Cannot find module '/home/woodshape/claude/omarchestra/prototypes/first-vertical-slice/console/projection-core.ts' imported from /home/woodshape/claude/omarchestra/prototypes/first-vertical-slice/console/test/projection-adapter.test.ts
+      at finalizeResolution (node:internal/modules/esm/resolve:272:11)
+      at moduleResolve (node:internal/modules/esm/resolve:879:10)
+      at defaultResolve (node:internal/modules/esm/resolve:1006:11)
+      at #cachedDefaultResolve (node:internal/modules/esm/loader:708:20)
+      at #resolveAndMaybeBlockOnLoaderThread (node:internal/modules/esm/loader:728:38)
+      at ModuleLoader.resolveSync (node:internal/modules/esm/loader:766:56)
+      at #resolve (node:internal/modules/esm/loader:690:17)
+      at ModuleLoader.getOrCreateModuleJob (node:internal/modules/esm/loader:610:35)
+      at node:internal/modules/esm/loader:639:32
+      at TracingChannel.tracePromise (node:diagnostics_channel:547:22) {
+    code: 'ERR_MODULE_NOT_FOUND',
+    url: 'file:///home/woodshape/claude/omarchestra/prototypes/first-vertical-slice/console/projection-core.ts'
+  }
+
+test at prototypes/first-vertical-slice/console/test/projection-adapter.test.ts:180:1
+✖ duplicate sequences and duplicate event identities are rejected (0.416386ms)
+  Error [ERR_MODULE_NOT_FOUND]: Cannot find module '/home/woodshape/claude/omarchestra/prototypes/first-vertical-slice/console/projection-core.ts' imported from /home/woodshape/claude/omarchestra/prototypes/first-vertical-slice/console/test/projection-adapter.test.ts
+      at finalizeResolution (node:internal/modules/esm/resolve:272:11)
+      at moduleResolve (node:internal/modules/esm/resolve:879:10)
+      at defaultResolve (node:internal/modules/esm/resolve:1006:11)
+      at #cachedDefaultResolve (node:internal/modules/esm/loader:708:20)
+      at #resolveAndMaybeBlockOnLoaderThread (node:internal/modules/esm/loader:728:38)
+      at ModuleLoader.resolveSync (node:internal/modules/esm/loader:766:56)
+      at #resolve (node:internal/modules/esm/loader:690:17)
+      at ModuleLoader.getOrCreateModuleJob (node:internal/modules/esm/loader:610:35)
+      at node:internal/modules/esm/loader:639:32
+      at TracingChannel.tracePromise (node:diagnostics_channel:547:22) {
+    code: 'ERR_MODULE_NOT_FOUND',
+    url: 'file:///home/woodshape/claude/omarchestra/prototypes/first-vertical-slice/console/projection-core.ts'
+  }
+
+test at prototypes/first-vertical-slice/console/test/projection-adapter.test.ts:202:1
+✖ malformed snapshot and event bodies are rejected by protocol validation (0.351674ms)
+  Error [ERR_MODULE_NOT_FOUND]: Cannot find module '/home/woodshape/claude/omarchestra/prototypes/first-vertical-slice/console/projection-core.ts' imported from /home/woodshape/claude/omarchestra/prototypes/first-vertical-slice/console/test/projection-adapter.test.ts
+      at finalizeResolution (node:internal/modules/esm/resolve:272:11)
+      at moduleResolve (node:internal/modules/esm/resolve:879:10)
+      at defaultResolve (node:internal/modules/esm/resolve:1006:11)
+      at #cachedDefaultResolve (node:internal/modules/esm/loader:708:20)
+      at #resolveAndMaybeBlockOnLoaderThread (node:internal/modules/esm/loader:728:38)
+      at ModuleLoader.resolveSync (node:internal/modules/esm/loader:766:56)
+      at #resolve (node:internal/modules/esm/loader:690:17)
+      at ModuleLoader.getOrCreateModuleJob (node:internal/modules/esm/loader:610:35)
+      at node:internal/modules/esm/loader:639:32
+      at TracingChannel.tracePromise (node:diagnostics_channel:547:22) {
+    code: 'ERR_MODULE_NOT_FOUND',
+    url: 'file:///home/woodshape/claude/omarchestra/prototypes/first-vertical-slice/console/projection-core.ts'
+  }
+
+test at prototypes/first-vertical-slice/console/test/projection-adapter.test.ts:214:1
+✖ a reconnect snapshot cursor must equal the last accepted ordered event cursor (0.449447ms)
+  Error [ERR_MODULE_NOT_FOUND]: Cannot find module '/home/woodshape/claude/omarchestra/prototypes/first-vertical-slice/console/projection-core.ts' imported from /home/woodshape/claude/omarchestra/prototypes/first-vertical-slice/console/test/projection-adapter.test.ts
+      at finalizeResolution (node:internal/modules/esm/resolve:272:11)
+      at moduleResolve (node:internal/modules/esm/resolve:879:10)
+      at defaultResolve (node:internal/modules/esm/resolve:1006:11)
+      at #cachedDefaultResolve (node:internal/modules/esm/loader:708:20)
+      at #resolveAndMaybeBlockOnLoaderThread (node:internal/modules/esm/loader:728:38)
+      at ModuleLoader.resolveSync (node:internal/modules/esm/loader:766:56)
+      at #resolve (node:internal/modules/esm/loader:690:17)
+      at ModuleLoader.getOrCreateModuleJob (node:internal/modules/esm/loader:610:35)
+      at node:internal/modules/esm/loader:639:32
+      at TracingChannel.tracePromise (node:diagnostics_channel:547:22) {
+    code: 'ERR_MODULE_NOT_FOUND',
+    url: 'file:///home/woodshape/claude/omarchestra/prototypes/first-vertical-slice/console/projection-core.ts'
+  }
+
+test at prototypes/first-vertical-slice/console/test/projection-adapter.test.ts:224:1
+✖ resnapshot rejects stale role-to-Agent-Run identity bindings (0.718861ms)
+  Error [ERR_MODULE_NOT_FOUND]: Cannot find module '/home/woodshape/claude/omarchestra/prototypes/first-vertical-slice/console/projection-core.ts' imported from /home/woodshape/claude/omarchestra/prototypes/first-vertical-slice/console/test/projection-adapter.test.ts
+      at finalizeResolution (node:internal/modules/esm/resolve:272:11)
+      at moduleResolve (node:internal/modules/esm/resolve:879:10)
+      at defaultResolve (node:internal/modules/esm/resolve:1006:11)
+      at #cachedDefaultResolve (node:internal/modules/esm/loader:708:20)
+      at #resolveAndMaybeBlockOnLoaderThread (node:internal/modules/esm/loader:728:38)
+      at ModuleLoader.resolveSync (node:internal/modules/esm/loader:766:56)
+      at #resolve (node:internal/modules/esm/loader:690:17)
+      at ModuleLoader.getOrCreateModuleJob (node:internal/modules/esm/loader:610:35)
+      at node:internal/modules/esm/loader:639:32
+      at TracingChannel.tracePromise (node:diagnostics_channel:547:22) {
+    code: 'ERR_MODULE_NOT_FOUND',
+    url: 'file:///home/woodshape/claude/omarchestra/prototypes/first-vertical-slice/console/projection-core.ts'
+  }
+
+test at prototypes/first-vertical-slice/console/test/projection-adapter.test.ts:249:1
+✖ explicit gap recovery requires a fresh authoritative snapshot and preserves identities (0.676435ms)
+  Error [ERR_MODULE_NOT_FOUND]: Cannot find module '/home/woodshape/claude/omarchestra/prototypes/first-vertical-slice/console/projection-core.ts' imported from /home/woodshape/claude/omarchestra/prototypes/first-vertical-slice/console/test/projection-adapter.test.ts
+      at finalizeResolution (node:internal/modules/esm/resolve:272:11)
+      at moduleResolve (node:internal/modules/esm/resolve:879:10)
+      at defaultResolve (node:internal/modules/esm/resolve:1006:11)
+      at #cachedDefaultResolve (node:internal/modules/esm/loader:708:20)
+      at #resolveAndMaybeBlockOnLoaderThread (node:internal/modules/esm/loader:728:38)
+      at ModuleLoader.resolveSync (node:internal/modules/esm/loader:766:56)
+      at #resolve (node:internal/modules/esm/loader:690:17)
+      at ModuleLoader.getOrCreateModuleJob (node:internal/modules/esm/loader:610:35)
+      at node:internal/modules/esm/loader:639:32
+      at TracingChannel.tracePromise (node:diagnostics_channel:547:22) {
+    code: 'ERR_MODULE_NOT_FOUND',
+    url: 'file:///home/woodshape/claude/omarchestra/prototypes/first-vertical-slice/console/projection-core.ts'
+  }
+
+test at prototypes/first-vertical-slice/console/test/projection-adapter.test.ts:316:1
+✖ runtime adapter uses injected transport and sink, then resnapshots after live events (0.448433ms)
+  Error [ERR_MODULE_NOT_FOUND]: Cannot find module '/home/woodshape/claude/omarchestra/prototypes/first-vertical-slice/console/live-projection-adapter.ts' imported from /home/woodshape/claude/omarchestra/prototypes/first-vertical-slice/console/test/projection-adapter.test.ts
+      at finalizeResolution (node:internal/modules/esm/resolve:272:11)
+      at moduleResolve (node:internal/modules/esm/resolve:879:10)
+      at defaultResolve (node:internal/modules/esm/resolve:1006:11)
+      at #cachedDefaultResolve (node:internal/modules/esm/loader:708:20)
+      at #resolveAndMaybeBlockOnLoaderThread (node:internal/modules/esm/loader:728:38)
+      at ModuleLoader.resolveSync (node:internal/modules/esm/loader:766:56)
+      at #resolve (node:internal/modules/esm/loader:690:17)
+      at ModuleLoader.getOrCreateModuleJob (node:internal/modules/esm/loader:610:35)
+      at node:internal/modules/esm/loader:639:32
+      at TracingChannel.tracePromise (node:diagnostics_channel:547:22) {
+    code: 'ERR_MODULE_NOT_FOUND',
+    url: 'file:///home/woodshape/claude/omarchestra/prototypes/first-vertical-slice/console/live-projection-adapter.ts'
+  }
+
+test at prototypes/first-vertical-slice/console/test/projection-adapter.test.ts:355:1
+✖ runtime adapter makes malformed input an explicit gap and recovers only from a fresh snapshot (0.402906ms)
+  Error [ERR_MODULE_NOT_FOUND]: Cannot find module '/home/woodshape/claude/omarchestra/prototypes/first-vertical-slice/console/live-projection-adapter.ts' imported from /home/woodshape/claude/omarchestra/prototypes/first-vertical-slice/console/test/projection-adapter.test.ts
+      at finalizeResolution (node:internal/modules/esm/resolve:272:11)
+      at moduleResolve (node:internal/modules/esm/resolve:879:10)
+      at defaultResolve (node:internal/modules/esm/resolve:1006:11)
+      at #cachedDefaultResolve (node:internal/modules/esm/loader:708:20)
+      at #resolveAndMaybeBlockOnLoaderThread (node:internal/modules/esm/loader:728:38)
+      at ModuleLoader.resolveSync (node:internal/modules/esm/loader:766:56)
+      at #resolve (node:internal/modules/esm/loader:690:17)
+      at ModuleLoader.getOrCreateModuleJob (node:internal/modules/esm/loader:610:35)
+      at node:internal/modules/esm/loader:639:32
+      at TracingChannel.tracePromise (node:diagnostics_channel:547:22) {
+    code: 'ERR_MODULE_NOT_FOUND',
+    url: 'file:///home/woodshape/claude/omarchestra/prototypes/first-vertical-slice/console/live-projection-adapter.ts'
+  }
+
+RED_EXIT_STATUS=1
