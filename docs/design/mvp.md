@@ -1,6 +1,6 @@
 # Omarchestra — MVP Design
 
-Status: **MVP product scope and feasibility classifications locked; production technical contracts pending**
+Status: **MVP product scope locked; Companion Plugin vertical slice fake-proven; production technical contracts pending**
 Last updated: 2026-09-02
 Related research: [`foundation-assessment.md`](../research/foundation-assessment.md)
 
@@ -383,6 +383,22 @@ Installation is persistent product state and may write the normal Omarchy plugin
 
 The rejected per-run repository-local loader and its candidate upstream patch remain spike evidence, not an MVP dependency. Omarchestra will not require or submit an upstream Omarchy feature for this surface. A fourth terminal dashboard remains unnecessary while the supported companion-plugin path is available.
 
+### Evidence-backed Companion Plugin prototype contract
+
+The removable first vertical slice now establishes, with fake-only automated evidence:
+
+1. `omarchestra.companion/v1` capability discovery is bounded and fails closed before a runner connection on an absent plugin, foreign protocol, missing capability, or stale plugin generation.
+2. Exact compatibility is initially pinned to Omarchy `4.0.2-1` and Quickshell `0.3.1-1`; unknown versions fail before mutation.
+3. Installation inspection is read-only and produces an immutable digest-bound plan. Install, update, rollback, and exact uninstall require authorization for that exact plan and revalidate filesystem, receipt, and configuration preconditions.
+4. Symlinks, unsafe ownership or modes, malformed or conflicting configuration, foreign targets, and missing, extra, changed, or receipt-inconsistent assets fail closed. Recovery does not overwrite external drift and reports incomplete recovery explicitly.
+5. One installed plugin remains enabled across multiple Team Goals. Each open receives a distinct ephemeral Projection Session and starts from a validated authoritative snapshot.
+6. Ordered updates, reconnect, resnapshot, acknowledged intents, and stale-session handling stay in the reused non-QML projection core and adapter. QML renders plain committed values and emits presentation intents only.
+7. Fake plugin reload rejects the old generation, creates a fresh Projection Session, and reconstructs identical cards without changing fake agent identities, connections, assignments, or delivered turns.
+8. Runtime hide, clear, and cleanup perform no installation operation and leave installed assets, receipt, and `shell.json` bytes identical.
+9. Automated recipes, Fusion reachability, module imports, and QML authority are source-audited as fake-only. The human setup procedure is reachable in automation only through `--check` and static analysis.
+
+The contract and evidence are under [`prototypes/first-vertical-slice/`](../../prototypes/first-vertical-slice/). This closes the bounded Companion packaging/Projection Session milestone only. The live procedure has not been run, and this evidence does not promote the prototype to production.
+
 ### Bar indicator
 
 **Proposed.** Show:
@@ -513,15 +529,16 @@ The MVP is demonstrable when:
 
 ## Implementation readiness
 
-Status: **MVP product scope and the local/remote feasibility classifications are locked; production technical contracts are not yet ready for an end-to-end implementation run.**
+Status: **MVP product scope and the local/remote feasibility classifications are locked; the Companion vertical slice is complete fake-only, while remaining production technical contracts are not ready for an end-to-end implementation run.**
 
-Before delegating broad implementation to Fusion Harness, the project needs:
+Before delegating broad implementation to Fusion Harness, the project still needs:
 
-1. validate explicit Companion Plugin setup plus ephemeral Projection Session reconstruction through a narrow production-shaped vertical slice;
-2. validate opt-in ordinary-terminal Pi observation and exact acknowledged Adoption without granting premature authority;
-3. choose a product policy or upstream capability for Boomux's generic exact-Run presentation race;
-4. define production runner/bridge/observer snapshot, event, intent, SSH trust, deployment, and persistence contracts;
-5. convert the validated slices into milestone-sized implementation slices with executable acceptance gates.
+1. validate opt-in ordinary-terminal Pi observation and exact acknowledged Adoption without granting premature authority;
+2. resolve the product policy or runtime capability for Boomux's generic exact-Run presentation race;
+3. define production runner/bridge/observer snapshot, event, intent, SSH trust, deployment, and persistence contracts;
+4. convert validated prototype slices into milestone-sized production implementation slices with executable acceptance gates.
+
+The separate Companion human procedure remains optional pending live evidence. Its unexecuted status is not an invitation to revive the rejected temporary-loader path.
 
 Fusion Harness is a source of orchestration behavior and a tool for reviewing/building the new product. The new product should not be implemented directly inside the `fusion-harness` repository unless an explicit monorepo decision is made.
 
@@ -539,7 +556,7 @@ Preserved evidence:
 
 ## Product decision status
 
-All MVP product-scope decisions and feasibility classifications are locked. Remaining work is confined to production technical contracts below.
+All MVP product-scope decisions and feasibility classifications are locked. The bounded Companion Plugin packaging and Projection Session prototype milestone is complete fake-only. Remaining work is confined to the production technical contracts below and the separate observer/Adoption slice.
 
 ## Accepted vertical-slice prototype defaults
 
@@ -566,7 +583,10 @@ These are specification/spike outputs rather than product-feature choices, but e
 7. **Cancellation and failure:** interruption behavior, process termination policy, timeouts, bounded retries, preservation of terminals, and separation of process and assignment failure.
 8. **Artifact acceptance:** schemas for plan, implementation, review, corrections, validation, and integrated result; acceptance authority for each artifact.
 9. **Recovery actions:** definition and idempotency of resume/retry, plus how a reconnected visible agent proves the status of uncertain work.
-10. **Companion Plugin packaging:** explicit setup/update/uninstall plans, owned-asset validation, supported Omarchy plugin enablement, compatibility negotiation, rollback, and proof that Team Goal runtime paths never mutate installation state.
+
+### Closed prototype technical milestone
+
+- **Companion Plugin packaging and Projection Sessions:** the bounded prototype now covers explicit plan-bound setup/update/rollback/uninstall, owned-asset and configuration validation, exact compatibility negotiation, incomplete recovery, persistent installation across Team Goals, stale-generation rejection, authoritative reconstruction, acknowledged intents, and byte-identical runtime cleanup. Production packaging, broader compatibility, and live rendering evidence remain separate from this closed prototype milestone.
 
 ## Decision log
 
@@ -594,3 +614,4 @@ These are specification/spike outputs rather than product-feature choices, but e
 - 2026-09-01: Local human presentation evidence rejected persistent Ghostty title bars: Omarchy's decorationless windows hide title metadata, forced client decorations looked non-native, and narrow tiled titles truncated. The locked visual contract is now Pi status per terminal plus redundant Agent Console cards; dynamic terminal titles remain window-manager metadata only.
 - 2026-09-02: The Agent Console installation model was corrected to follow Boomux: explicit setup installs and enables one persistent Omarchestra Companion Plugin; Team Goals own only ephemeral Projection Sessions. Per-run QML registration and an upstream Omarchy loader change were rejected as unnecessary lifecycle coupling.
 - 2026-09-02: An opt-in global Pi observer may list ordinary-terminal Pi sessions as Observed and Unassigned, but observation grants no management authority. Exact same-process acknowledgement, user confirmation, reconciliation, and a durable commit are required for Adoption into a Team Goal.
+- 2026-09-02: The bounded Companion Plugin vertical slice completed fake-only: exact authorized installation lifecycle, one persistent installation across Team Goals, ephemeral session generations, reload reconstruction, acknowledged intents, presentation-only QML, and byte-identical runtime cleanup are green. The human setup/visual gate exists but was not run; observer and Adoption remain unimplemented.

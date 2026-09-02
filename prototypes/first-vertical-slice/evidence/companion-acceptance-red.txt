@@ -1,0 +1,98 @@
+# Integrated Companion acceptance seam — intended RED evidence (task 1.c)
+# Captured: 2026-09-02T12:35:25Z
+# Command: timeout 60s node --experimental-strip-types --test prototypes/first-vertical-slice/companion/test/acceptance.test.ts
+# Exit status: 1 (intended)
+# Fake-only: no live process, shell IPC, GUI, Pi, provider, Boomux, SSH,
+# Hyprland, systemd, user configuration, or installation was contacted.
+# Intended red: contracts.ts, installation.ts, fake-omarchy.ts,
+# projection-session.ts, and fake-companion-shell.ts are not implemented yet.
+# Four behavioral/boundary tests fail for those absent seams. The single
+# presentation-only/fake-only source assertion already holds.
+
+✖ one installed Companion persists across two Team Goals while each goal receives a distinct ephemeral Projection Session (1.489137ms)
+✖ plugin reload rejects the stale session and reconstructs the authoritative projection without interrupting agents (0.703627ms)
+✖ runtime hide, clear, and cleanup leave the plugin tree and shell.json byte-identical (0.147687ms)
+✖ routine projection imports cannot reach installation, configuration mutation, or QML rewrite modules (0.627438ms)
+✔ the integrated acceptance seam itself remains fake-only and preserves the presentation-only QML boundary (0.744803ms)
+ℹ tests 5
+ℹ suites 0
+ℹ pass 1
+ℹ fail 4
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 77.574605
+
+✖ failing tests:
+
+test at prototypes/first-vertical-slice/companion/test/acceptance.test.ts:262:1
+✖ one installed Companion persists across two Team Goals while each goal receives a distinct ephemeral Projection Session (1.489137ms)
+  Error [ERR_MODULE_NOT_FOUND]: Cannot find module '/home/woodshape/claude/omarchestra/prototypes/first-vertical-slice/companion/contracts.ts' imported from /home/woodshape/claude/omarchestra/prototypes/first-vertical-slice/companion/test/acceptance.test.ts
+      at finalizeResolution (node:internal/modules/esm/resolve:272:11)
+      at moduleResolve (node:internal/modules/esm/resolve:879:10)
+      at defaultResolve (node:internal/modules/esm/resolve:1006:11)
+      at #cachedDefaultResolve (node:internal/modules/esm/loader:708:20)
+      at #resolveAndMaybeBlockOnLoaderThread (node:internal/modules/esm/loader:728:38)
+      at ModuleLoader.resolveSync (node:internal/modules/esm/loader:766:56)
+      at #resolve (node:internal/modules/esm/loader:690:17)
+      at ModuleLoader.getOrCreateModuleJob (node:internal/modules/esm/loader:610:35)
+      at node:internal/modules/esm/loader:639:32
+      at TracingChannel.tracePromise (node:diagnostics_channel:547:22) {
+    code: 'ERR_MODULE_NOT_FOUND',
+    url: 'file:///home/woodshape/claude/omarchestra/prototypes/first-vertical-slice/companion/contracts.ts'
+  }
+
+test at prototypes/first-vertical-slice/companion/test/acceptance.test.ts:288:1
+✖ plugin reload rejects the stale session and reconstructs the authoritative projection without interrupting agents (0.703627ms)
+  Error [ERR_MODULE_NOT_FOUND]: Cannot find module '/home/woodshape/claude/omarchestra/prototypes/first-vertical-slice/companion/contracts.ts' imported from /home/woodshape/claude/omarchestra/prototypes/first-vertical-slice/companion/test/acceptance.test.ts
+      at finalizeResolution (node:internal/modules/esm/resolve:272:11)
+      at moduleResolve (node:internal/modules/esm/resolve:879:10)
+      at defaultResolve (node:internal/modules/esm/resolve:1006:11)
+      at #cachedDefaultResolve (node:internal/modules/esm/loader:708:20)
+      at #resolveAndMaybeBlockOnLoaderThread (node:internal/modules/esm/loader:728:38)
+      at ModuleLoader.resolveSync (node:internal/modules/esm/loader:766:56)
+      at #resolve (node:internal/modules/esm/loader:690:17)
+      at ModuleLoader.getOrCreateModuleJob (node:internal/modules/esm/loader:610:35)
+      at node:internal/modules/esm/loader:639:32
+      at TracingChannel.tracePromise (node:diagnostics_channel:547:22) {
+    code: 'ERR_MODULE_NOT_FOUND',
+    url: 'file:///home/woodshape/claude/omarchestra/prototypes/first-vertical-slice/companion/contracts.ts'
+  }
+
+test at prototypes/first-vertical-slice/companion/test/acceptance.test.ts:339:1
+✖ runtime hide, clear, and cleanup leave the plugin tree and shell.json byte-identical (0.147687ms)
+  Error [ERR_MODULE_NOT_FOUND]: Cannot find module '/home/woodshape/claude/omarchestra/prototypes/first-vertical-slice/companion/contracts.ts' imported from /home/woodshape/claude/omarchestra/prototypes/first-vertical-slice/companion/test/acceptance.test.ts
+      at finalizeResolution (node:internal/modules/esm/resolve:272:11)
+      at moduleResolve (node:internal/modules/esm/resolve:879:10)
+      at defaultResolve (node:internal/modules/esm/resolve:1006:11)
+      at #cachedDefaultResolve (node:internal/modules/esm/loader:708:20)
+      at #resolveAndMaybeBlockOnLoaderThread (node:internal/modules/esm/loader:728:38)
+      at ModuleLoader.resolveSync (node:internal/modules/esm/loader:766:56)
+      at #resolve (node:internal/modules/esm/loader:690:17)
+      at ModuleLoader.getOrCreateModuleJob (node:internal/modules/esm/loader:610:35)
+      at node:internal/modules/esm/loader:639:32
+      at TracingChannel.tracePromise (node:diagnostics_channel:547:22) {
+    code: 'ERR_MODULE_NOT_FOUND',
+    url: 'file:///home/woodshape/claude/omarchestra/prototypes/first-vertical-slice/companion/contracts.ts'
+  }
+
+test at prototypes/first-vertical-slice/companion/test/acceptance.test.ts:370:1
+✖ routine projection imports cannot reach installation, configuration mutation, or QML rewrite modules (0.627438ms)
+  AssertionError [ERR_ASSERTION]: projection-session.ts must exist before this boundary can pass
+  
+  false !== true
+  
+      at TestContext.<anonymous> (file:///home/woodshape/claude/omarchestra/prototypes/first-vertical-slice/companion/test/acceptance.test.ts:372:10)
+      at Test.runInAsyncScope (node:async_hooks:226:14)
+      at Test.run (node:internal/test_runner/test:1402:25)
+      at Test.processPendingSubtests (node:internal/test_runner/test:974:18)
+      at Test.postRun (node:internal/test_runner/test:1542:19)
+      at Test.run (node:internal/test_runner/test:1467:12)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:974:7) {
+    generatedMessage: false,
+    code: 'ERR_ASSERTION',
+    actual: false,
+    expected: true,
+    operator: 'strictEqual',
+    diff: 'simple'
+  }

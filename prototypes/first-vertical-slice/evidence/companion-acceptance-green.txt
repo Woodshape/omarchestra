@@ -1,0 +1,33 @@
+# Integrated Companion acceptance — GREEN evidence (task 3.a)
+# Captured: 2026-09-02T13:59:32Z
+# Fake-only: no live filesystem mutation, user configuration, shell IPC, GUI, Pi,
+# provider, Boomux, SSH, Hyprland, systemd, terminal, or child process action.
+
+$ timeout 60s node --experimental-strip-types prototypes/first-vertical-slice/companion/acceptance.ts
+OMARCHESTRA COMPANION ACCEPTANCE — PROTOTYPE, FAKE-ONLY
+INSTALL persistent plugin executions=1 enabled=1
+SESSIONS team-goal-a=1 team-goal-b=2 reconstructed=3
+RELOAD plugin-generation=1->2 stale-rejected=true
+CONTINUITY cards-identical=true agents-identities-connections-assignments-turns-unchanged=true
+CLEANUP runtime-mutations=0 installation-fingerprint=b3e6bd9edc089d2fe829fa0cd6a5c8a277a53a9f2661ed824c34362aea7e4a54
+VERDICT PASS — one persistent installation, ephemeral sessions, authoritative reload recovery, byte-identical cleanup
+
+STANDALONE_ACCEPTANCE_EXIT_STATUS=0
+
+$ timeout 60s node --experimental-strip-types --test prototypes/first-vertical-slice/companion/test/acceptance.test.ts
+✔ one installed Companion persists across two Team Goals while each goal receives a distinct ephemeral Projection Session (161.171467ms)
+✔ plugin reload rejects the stale session and reconstructs the authoritative projection without interrupting agents (15.471724ms)
+✔ runtime hide, clear, and cleanup leave the plugin tree and shell.json byte-identical (14.577835ms)
+✔ routine projection imports cannot reach installation, configuration mutation, or QML rewrite modules (26.942495ms)
+✔ the integrated acceptance seam itself remains fake-only and preserves the presentation-only QML boundary (1.828382ms)
+ℹ tests 5
+ℹ suites 0
+ℹ pass 5
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 463.297714
+
+INTEGRATED_TEST_EXIT_STATUS=0
+GREEN_CONFIRMED: one authorized persistent installation served two Team Goals; session and plugin generations remained distinct; stale work failed closed; fresh authoritative reconstruction preserved cards and active fake-agent identities, connections, assignments, and delivered turns; runtime cleanup preserved exact installed assets, receipt, and shell.json bytes.

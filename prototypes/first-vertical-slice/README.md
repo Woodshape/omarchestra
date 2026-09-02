@@ -1,9 +1,9 @@
 # Omarchestra first vertical-slice prototype
 
 **PROTOTYPE — NOT PRODUCTION.** Removable as one directory
-(`rm -rf prototypes/first-vertical-slice/` plus the five `justfile` recipes
+(`rm -rf prototypes/first-vertical-slice/` plus the six `justfile` recipes
 listed under "Wipe instructions").
-This directory is throwaway evidence for one question; nothing here is
+This directory is throwaway evidence for two bounded questions; nothing here is
 production architecture and no file in it is promoted into the product.
 
 ## The question
@@ -12,7 +12,9 @@ production architecture and no file in it is promoted into the product.
 > truthfully support three persistently role-labelled visible-agent
 > projections, one managed assignment, Builder-only manual takeover, durable
 > runner restart, and reconnect — without coupling QML to persistence or
-> creating a hidden agent process?
+> creating a hidden agent process? Can one separately authorized Companion
+> Plugin installation persist while Team Goals create and clean only
+> ephemeral Projection Sessions?
 
 ## Answer after the automated gate
 
@@ -44,13 +46,24 @@ Supported by the captured evidence:
 - no hidden agent: fakes represent the visible interactive Pi hosts, and the
   scoped source audits plus the exact subprocess ledger show no process creation,
   PTY input, scraping, or SDK/RPC session paths outside the exact runner launches
-  (one intentional failure-cleanup probe plus start/restart for each journal mode).
+  (one intentional failure-cleanup probe plus start/restart for each journal mode);
+- one immutable, plan-bound, authorized Companion install/update/rollback/
+  uninstall seam with exact compatibility, filesystem, receipt, configuration,
+  recovery, and unrelated-resource checks;
+- one persistent fake installation across two Team Goals with distinct
+  Projection Session generations, stale plugin-generation rejection, fresh
+  authoritative reload reconstruction, unchanged fake-agent identities,
+  connections, assignments, and delivered turns, and byte-identical installed
+  assets, receipt, and `shell.json` after runtime cleanup;
+- automated recipe, import-graph, live-adapter reachability, and QML authority
+  audits proving the unattended Companion path is fake-only.
 
 Constraints that keep this from being "supported" outright:
 
 - real same-process Pi status and dynamic terminal metadata are human-proven,
-  but the QML Agent Console remains a fixture rather than a live redundant
-  surface; forced visible Ghostty title bars were rejected as non-native and
+  and the persistent Agent Console source plus Projection Session lifecycle are
+  fake-proven, but live redundant Agent Console rendering has not been run;
+  forced visible Ghostty title bars were rejected as non-native and
   truncation-prone (`docs/manual-role-label-gate.md`);
 - the SSH-stdio transport is an injected-stream interface; no SSH is exercised;
 - journal mode stays deliberately undecided: the gate measures `default` and
@@ -133,50 +146,61 @@ per-run repository-local loader is unsupported and now rejected; live visual
 agreement remains a later human gate through an explicitly installed persistent
 Companion Plugin. Classification:
 
-- **Fake-only proof (automated):** `just prototype-live-agent-console-check`
-  runs all five seams unattended — the projection adapter (snapshot
-  initialization, exactly three roles, ordered events, gap/duplicate/
-  malformed/stale-identity rejection, resnapshot and explicit gap recovery),
-  the QML boundary (injected plain values, no storage/process/PTY/SSH/scraping
-  dependency), the launcher contract (decorationless, never `--title`,
-  human-only recipe), the exact-identity failure cleanup, and the
-  recipe/module source audit. Evidence:
-  `evidence/live-agent-console-fake-only.txt`.
+- **Companion proof (automated):** `just prototype-companion-check` runs the
+  installation, Projection Session, integrated acceptance, and human-procedure
+  `--check` seams plus the standalone acceptance entry point. The test portion
+  is 58/58 green; the standalone verdict proves one install, three distinct
+  session generations across two Team Goals and reload, unchanged agents and
+  cards, and zero runtime installation mutations. Evidence is under
+  `evidence/companion-*-green.txt` and
+  `evidence/companion-red-green-ledger.md`.
+- **Agent Console boundary proof (automated):**
+  `just prototype-live-agent-console-check` runs 58 fake-only adapter, QML,
+  recipe, cleanup, and source-audit tests, the replacement launcher's
+  `--check`, module links, syntax checks, and QML lint. Evidence:
+  `evidence/companion-boundary-green.txt` and the final validation capture.
 - **Prior terminal-side human proof:** real Pi status labels, transitions,
   isolation, and persistence
   ([`docs/manual-role-label-gate.md`](docs/manual-role-label-gate.md)).
-- **Retired (still fail closed):** the existing combined launcher asks for the
+- **Retired (still fail closed):** the retained combined launcher asks for the
   rejected repo-local ephemeral-loader capability and exits before resource
-  creation. It remains safe historical code, not the product path
+  creation. Its justfile recipe is removed from active use; it remains safe
+  historical code, not the product path
   ([`docs/live-agent-console-launch-blocker.md`](docs/live-agent-console-launch-blocker.md)).
-- **Pending:** fake-only setup/update/uninstall proof for a versioned Companion
-  Plugin, followed by live Pi + Agent Console agreement through an ephemeral
-  Projection Session in a later explicitly human-authorized gate
+- **Replacement available:** fake-only setup/update/uninstall proof for the
+  versioned Companion Plugin is green. Live Pi + Agent Console agreement uses
+  the explicitly human-authorized `prototype-companion-setup-validation` gate
+  and remains unclaimed until a human runs it
   ([`docs/live-agent-console-gate.md`](docs/live-agent-console-gate.md)).
 
 The prototype QML source under `console/plugin/` is schema-checked and linted
-but has not been installed or loaded. Explicit product setup—not a Team Goal—
-will own future installation and exact Omarchy configuration changes.
+and is installed only into the in-memory fake during automated acceptance. It
+has not been installed or loaded on a live desktop. Explicit human-authorized
+product setup—not a Team Goal—owns any live installation and exact Omarchy
+configuration change.
 
 ## Guided manual walkthrough (optional, no live systems)
 
 1. `just prototype-vertical-slice` — read the printed state blocks in order;
    each step renders the full snapshot, labels, acknowledgements, and events.
-2. `prototypes/first-vertical-slice/evidence/fake-only-acceptance.txt` — the
-   captured output of the last gate run.
-3. `service/omarchestra-runner@.service.template` — the intended foreground
+2. `just prototype-companion-check` — run the complete unattended persistent
+   installation and ephemeral Projection Session acceptance path.
+3. `evidence/companion-red-green-ledger.md` — inspect the intended red and
+   final green Companion evidence in execution order.
+4. `evidence/fake-only-acceptance.txt` — inspect the durable-runner gate output.
+5. `service/omarchestra-runner@.service.template` — the intended foreground
    systemd user-unit boundary (never installed, never started).
-4. `qml/AgentProjectionFixture.qml` — the thin-client projection shape.
-5. `console/plugin/AgentConsole.qml` — the presentation-only Agent Console
+6. `qml/AgentProjectionFixture.qml` — the thin-client projection shape.
+7. `console/plugin/AgentConsole.qml` — the presentation-only Agent Console
    card component (injected values only; never installed or loaded live).
-6. `docs/manual-role-label-gate.md` — completed human evidence, the rejected
+8. `docs/manual-role-label-gate.md` — completed human evidence, the rejected
    visible-title assumption, and the revised decorationless presentation contract.
-7. `docs/live-agent-console-gate.md` — the replacement Companion Plugin gate
-   plan and the retired launcher's fail-closed disposition.
-8. `docs/live-agent-console-launch-blocker.md` — installed-API evidence for
-   the rejected repo-local loading path and the selected resolution.
-9. `docs/live-agent-console-run-report.md` — the seam-by-seam run report and
-   evidence ledger for this fusion run.
+9. `docs/live-agent-console-gate.md` — the replacement Companion Plugin gate
+   and the retired launcher's fail-closed disposition.
+10. `docs/live-agent-console-launch-blocker.md` — installed-API evidence for
+    the rejected repo-local loading path and the selected resolution.
+11. `docs/live-agent-console-run-report.md` — the seam-by-seam run report and
+    evidence ledger for this fusion run.
 
 ## Module boundaries
 
@@ -195,10 +219,20 @@ will own future installation and exact Omarchy configuration changes.
 | `qml/` | Inert QML-facing snapshot and ordered-event projection fixture |
 | `console/projection-core.ts` | Pure projection state machine: snapshot baseline, three fixed roles, ordered events, gaps, resnapshot, plain handoff |
 | `console/live-projection-adapter.ts` | Foreground connection adapter: validation, cursor checks, reconnect, plain-data handoff; injectable connector/sink |
-| `console/plugin/` | Presentation-only Agent Console QML panel source (manifest, console, cards); never installed or loaded |
+| `console/plugin/` | Presentation-only Agent Console QML panel source (manifest, console, cards); fake-installed only, never loaded live by automation |
+| `companion/contracts.ts` | Bounded `omarchestra.companion/v1`, typed errors, exact compatibility, installation/session identities, and injected ports |
+| `companion/installation.ts` | Sole explicit install/update/rollback/uninstall policy owner; immutable plans, authorization, receipts, exact recovery |
+| `companion/fake-omarchy.ts` | In-memory no-follow filesystem, configuration, shell, receipt, authorization, mutation, and recovery ports |
+| `companion/releases.ts` | Immutable versioned Companion release catalog |
+| `companion/projection-session.ts` | Ephemeral session lifecycle, capability discovery, shell handoff, acknowledged intents, hide/clear, stale-generation handling |
+| `companion/fake-companion-shell.ts` | In-memory persistent-plugin shell surface and plugin-generation model |
+| `companion/acceptance.ts` | Standalone fake-only install-once/two-Team-Goal/reload/cleanup acceptance composition |
+| `companion/test/` | Installation and integrated Companion acceptance tests |
 | `service/` | Non-installed systemd user-unit template |
 | `manual/live-gate-resources.ts` | Fake resource registry: exact process identity, filesystem device/inode plus symlink safety, and retryable incomplete cleanup for PIDs, windows, sockets, directories |
-| `manual/run-live-agent-console-gate.sh` | Human-only combined-gate launcher; fail-closed preflight plus fake-only `--check` |
+| `manual/live-companion-omarchy.ts` | Human-only live installation and CompanionShellPort adapter; fake-only check and Projection Session controller |
+| `manual/run-companion-setup-validation.sh` | Human-only persistent Companion setup, live projection validation, private evidence, and exact runtime cleanup |
+| `manual/run-live-agent-console-gate.sh` | Retained rejected launcher; fail-closed historical preflight plus fake-only `--check` |
 | `manual/` | Human-authorized disposable Pi/Ghostty adapter, wizard, and fake-only checks |
 
 ## Non-goals
@@ -206,8 +240,8 @@ will own future installation and exact Omarchy configuration changes.
 Full workflow DAG, Git writer leases, real Boomux/Pi launching, remote SSH
 execution, provider/model profiles, production QML UI, authentication,
 production migrations/retention, cancellation, artifact review, reconciliation
-(return-to-team), ordinary-terminal observation/Adoption, Companion Plugin
-packaging, Task Capsules, and final packaging. `reconciling` control
+(return-to-team), ordinary-terminal observation/Adoption, production Companion
+packaging and broader compatibility, Task Capsules, and final packaging. `reconciling` control
 mode and return-to-team are intentionally absent from this slice; that is a
 prototype scope limit, not an MVP decision change.
 
@@ -243,8 +277,8 @@ Evidence-backed items that should become production contracts:
 Unresolved questions (deliberately not decided here):
 
 - production journal mode (both modes measured; none ranked);
-- live Companion Plugin rendering and its agreement/latency relative to the
-  human-proven Pi status surface;
+- live Companion Plugin installation/rendering and its agreement/latency
+  relative to the human-proven Pi status surface;
 - observer identity/expiry and exact same-process Adoption protocol;
 - socket trust beyond same-user Unix permissions, and the authenticated
   SSH-stdio protocol;
@@ -256,11 +290,11 @@ Unresolved questions (deliberately not decided here):
 ## Relationship to the authoritative design
 
 The durable runner, managed bridge, projection, and terminal-presentation seams
-remain aligned. The prototype's repository-local per-run QML launcher is a
-known superseded seam and stays fail-closed; production-shaped follow-up uses
-persistent Companion Plugin installation and ephemeral Projection Sessions.
-Ordinary-terminal observation/Adoption and `reconciling` are recorded scope
-limits rather than silently simulated here.
+remain aligned. The persistent Companion Plugin installation and ephemeral
+Projection Session slice is complete fake-only. The repository-local per-run
+QML launcher stays fail-closed as rejected historical evidence and is absent
+from active recipes. Ordinary-terminal observation/Adoption and `reconciling`
+remain explicit scope limits rather than silently simulated behavior.
 
 ## Wipe instructions
 
@@ -271,7 +305,8 @@ rm -rf prototypes/first-vertical-slice/
 #   prototype-vertical-slice-manual-check
 #   prototype-vertical-slice-role-label-gate
 #   prototype-live-agent-console-check
-#   prototype-live-agent-console-gate
+#   prototype-companion-check
+#   prototype-companion-setup-validation
 ```
 
 Scratch state never enters the repository: each run creates its own temporary

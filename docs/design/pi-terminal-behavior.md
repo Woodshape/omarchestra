@@ -64,10 +64,16 @@ Human input is always possible in the visible Pi terminal.
 
 ## Restart and exit
 
-A Companion Plugin reload affects only its Projection Session and never interrupts Pi. A registry/runner restart reconstructs observed and managed presentation from fresh same-process registrations and authoritative snapshots; it does not infer identity from stale terminal metadata.
+A Companion Plugin reload affects only its Projection Session and never interrupts Pi. The bounded fake-only Companion slice now proves that the old plugin generation is rejected, a new Projection Session identity is allocated, identical cards are reconstructed from a fresh authoritative snapshot, and fake agent identities, connections, assignments, and delivered turns remain unchanged. Live Pi/Agent Console agreement has not been run and is not implied by that evidence.
+
+A registry/runner restart reconstructs observed and managed presentation from fresh same-process registrations and authoritative snapshots; it does not infer identity from stale terminal metadata.
 
 When an ordinary Pi exits or its observer disconnects beyond the bounded expiry contract, its Observed Pi Session becomes unavailable and then disappears or is retained only as explicitly stale history. It cannot be adopted or assigned while stale. Managed Agent Run exit follows the Team Runner's failure and recovery policy instead.
 
 ## Installation boundary
 
 Observer and Companion Plugin installation, compatibility verification, update, rollback, and uninstall are explicit product-management operations. Starting or cleaning a Team Goal never installs, updates, disables, or removes either component and never writes Omarchy or Pi global configuration.
+
+The Companion prototype now fake-proves this split through injected ports: one authorized installation remains enabled across two Team Goals, while open, reconnect, clear, hide, and cleanup leave plugin assets, receipt, and `shell.json` bytes unchanged. `just prototype-companion-check` reproduces that unattended evidence. `just prototype-companion-setup-validation` is a separate TTY- and exact-authorization-gated live procedure and has not been executed.
+
+Ordinary-terminal observation and Adoption were not implemented by the Companion milestone. Their observer protocol, packaging, identity, expiry, acknowledgement, and reconciliation contracts remain open exactly as described above.

@@ -10,9 +10,14 @@
 //     the exact local prototype runner launches already authorized by the
 //     existing vertical-slice gate;
 //   - the human-only recipes (`prototype-vertical-slice-role-label-gate`,
-//     `prototype-live-agent-console-gate`) are the only places live systems
+//     `prototype-companion-setup-validation`) are the only places live systems
 //     may ever be referenced, and they are never invoked by an automated
 //     recipe or module;
+//   - the live Companion adapter (`manual/live-companion-omarchy.ts`) is
+//     reachable only from the human setup script and its own seam test;
+//   - routine projection modules never import installation or configuration
+//     mutation code, and Companion modules contain no live-system, process,
+//     or storage tokens;
 //   - default (non-test) modules of the live console seam contain no
 //     process-supervision, scraping, SQLite, or live-system tokens.
 //
@@ -33,10 +38,11 @@ const AUTOMATED_RECIPES = [
   'prototype-vertical-slice',
   'prototype-vertical-slice-manual-check',
   'prototype-live-agent-console-check',
+  'prototype-companion-check',
 ]
 const HUMAN_RECIPES = [
   'prototype-vertical-slice-role-label-gate',
-  'prototype-live-agent-console-gate',
+  'prototype-companion-setup-validation',
 ]
 
 // Tokens that, in executable (comment-stripped) recipe or module text, mean a
@@ -115,13 +121,12 @@ test('every automated prototype recipe is free of live-system launch primitives'
   }
 })
 
-test('the fake-only live Agent Console check invokes only the combined launcher in --check mode', () => {
+test('the fake-only live Agent Console check invokes only the replacement launcher in --check mode', () => {
   const justfile = fs.readFileSync(JUSTFILE, 'utf8')
   const body = justRecipeBody(justfile, 'prototype-live-agent-console-check')
   assert.ok(body !== null, 'justfile must define the unattended fake-only check recipe')
-  if (/run-live-agent-console-gate\.sh/.test(body)) {
-    assert.match(body, /--check/, 'the check recipe may call the combined launcher only with --check')
-  }
+  assert.match(body, /run-companion-setup-validation\.sh/)
+  assert.match(body, /--check/, 'the check recipe may call the replacement launcher only with --check')
   // The check recipe runs the fake-only test suites of every seam.
   assert.match(body, /node --test|node "\$\{flags\[@\]\}" --test|node .*--test/,
     'the check recipe must run the automated test suites')
@@ -135,6 +140,7 @@ test('the human-only recipes exist and are never referenced from automated code'
 
   const automatedRoots = [
     path.join(PROTOTYPE_ROOT, 'src'),
+    path.join(PROTOTYPE_ROOT, 'companion'),
     path.join(PROTOTYPE_ROOT, 'manual', 'test'),
     path.join(PROTOTYPE_ROOT, 'console', 'test'),
   ]
@@ -145,7 +151,7 @@ test('the human-only recipes exist and are never referenced from automated code'
         // The audit/launcher seam tests must statically verify the human-only
         // boundary, so they may name the recipes; no automated module may
         // execute them.
-        const isSeamAudit = /(?:live-agent-console-launcher|source-audit)\.test\.mjs$/.test(file)
+        const isSeamAudit = /(?:live-agent-console-launcher|companion-setup-validation|source-audit)\.test\.mjs$/.test(file)
         if (isSeamAudit) {
           assert.doesNotMatch(
             value,
@@ -212,5 +218,189 @@ test('the existing acceptance gate keeps its exact spawn boundary', () => {
   // No other execution primitives may appear.
   for (const primitive of [/(?<!\.)\bexec\s*\(/, /(?<!\.)\bexecFile\s*\(/, /(?<!\.)\bfork\s*\(/, /(?<!\.)\bspawnSync\s*\(/]) {
     assert.doesNotMatch(acceptance, primitive, `acceptance must not use ${primitive}`)
+  }
+})
+
+// ---------------------------------------------------------------------------
+// Companion milestone boundary extensions (task 3.c)
+// ---------------------------------------------------------------------------
+
+const LIVE_SCRIPTS = ['run-companion-setup-validation.sh', 'run-live-agent-console-gate.sh']
+const LIVE_ADAPTER_FILE = 'live-companion-omarchy.ts'
+
+test('the fusion harness recipe orchestrates agents but can never reach Companion live setup', () => {
+  const justfile = fs.readFileSync(JUSTFILE, 'utf8')
+  const start = justfile.split('\n').findIndex((line) => /^fusion\b/.test(line))
+  assert.ok(start !== -1, 'justfile must define the fusion recipe')
+  const bodyLines = []
+  for (let i = start + 1; i < justfile.split('\n').length; i += 1) {
+    const line = justfile.split('\n')[i]
+    if (line.trim() !== '' && /^[A-Za-z0-9_.*-]+\s*(?:\*\w+)?\s*:\s*$|^[A-Za-z0-9_.*-]+ \*\w+:/.test(line)) break
+    bodyLines.push(line)
+  }
+  const body = stripComments(bodyLines.join('\n'))
+  for (const human of HUMAN_RECIPES) {
+    assert.doesNotMatch(body, new RegExp(`\\b${human}\\b`), 'fusion must never invoke a human-only recipe')
+  }
+  for (const script of LIVE_SCRIPTS) {
+    assert.doesNotMatch(body, new RegExp(script.replace(/\./g, '\\.')), `fusion must never invoke ${script}`)
+  }
+  assert.doesNotMatch(body, new RegExp(LIVE_ADAPTER_FILE), 'fusion must never reference the live Companion adapter')
+  // Beyond its own Fusion Harness `pi -e` command, fusion must not reach any
+  // live desktop, terminal, remote, or service system.
+  const withoutHarnessCommand = body.replace(/pi\s+-e[\s\S]*$/, '')
+  for (const [name, pattern] of LIVE_TOKENS) {
+    if (name === 'Pi') continue
+    assert.doesNotMatch(withoutHarnessCommand, pattern, `fusion must not reach ${name}`)
+  }
+})
+
+test('automated recipes reach the replacement human launcher only through --check', () => {
+  const justfile = fs.readFileSync(JUSTFILE, 'utf8')
+  for (const recipe of AUTOMATED_RECIPES) {
+    const body = justRecipeBody(justfile, recipe)
+    assert.ok(body !== null, `justfile must define the automated recipe ${recipe}`)
+    const launcherLines = body
+      .split('\n')
+      .filter((line) => line.includes('run-companion-setup-validation.sh'))
+    for (const line of launcherLines) {
+      // Only the execution form carries --check; `bash -n` and `shellcheck`
+      // are bounded static analyses that never execute the script.
+      if (/\bbash\s+-n\b|\bshellcheck\b/.test(line)) continue
+      assert.match(
+        line,
+        /--check/,
+        `automated recipe ${recipe} may call the companion launcher only with --check`,
+      )
+    }
+  }
+})
+
+test('the live Companion adapter is reachable only from the human script and its own seam test', () => {
+  const routineRoots = [
+    path.join(PROTOTYPE_ROOT, 'companion'),
+    path.join(PROTOTYPE_ROOT, 'console'),
+    path.join(PROTOTYPE_ROOT, 'src'),
+  ]
+  for (const root of routineRoots) {
+    for (const file of listFiles(root, ['.ts'])) {
+      if (file.includes(`${path.sep}test${path.sep}`)) continue
+      const value = fs.readFileSync(file, 'utf8')
+      assert.doesNotMatch(
+        value,
+        new RegExp(LIVE_ADAPTER_FILE),
+        `${path.relative(PROTOTYPE_ROOT, file)} must never reference the live Companion adapter`,
+      )
+    }
+  }
+  for (const file of listFiles(path.join(PROTOTYPE_ROOT, 'manual'), ['.ts', '.mjs', '.sh'])) {
+    const base = path.basename(file)
+    if (base === 'run-companion-setup-validation.sh' || base === 'companion-setup-validation.test.mjs') continue
+    const value = fs.readFileSync(file, 'utf8')
+    assert.doesNotMatch(
+      value,
+      new RegExp(LIVE_ADAPTER_FILE),
+      `${base} must not reference the live Companion adapter`,
+    )
+  }
+})
+
+function collectImportGraph(entry) {
+  const visited = new Set()
+  const visit = (file) => {
+    const resolved = path.resolve(file)
+    if (visited.has(resolved) || !fs.existsSync(resolved)) return
+    visited.add(resolved)
+    const content = fs.readFileSync(resolved, 'utf8')
+    const importPattern = /(?:import|export)\s+(?:type\s+)?(?:[\s\S]*?\s+from\s+)?['"]([^'"]+)['"]/g
+    for (const match of content.matchAll(importPattern)) {
+      const specifier = match[1]
+      if (!specifier.startsWith('.')) continue
+      visit(path.resolve(path.dirname(resolved), specifier))
+    }
+  }
+  visit(entry)
+  return visited
+}
+
+test('routine projection modules cannot import installation or configuration mutation code', () => {
+  const forbidden = [
+    'companion/installation.ts',
+    'companion/fake-omarchy.ts',
+    'companion/releases.ts',
+    'manual/live-companion-omarchy.ts',
+    'src/store.ts',
+  ]
+  const entries = [
+    path.join(PROTOTYPE_ROOT, 'companion', 'projection-session.ts'),
+    path.join(PROTOTYPE_ROOT, 'companion', 'fake-companion-shell.ts'),
+    path.join(PROTOTYPE_ROOT, 'console', 'projection-core.ts'),
+    path.join(PROTOTYPE_ROOT, 'console', 'live-projection-adapter.ts'),
+  ]
+  for (const entry of entries) {
+    assert.equal(fs.existsSync(entry), true, `expected routine module ${entry}`)
+    const relative = [...collectImportGraph(entry)].map((file) => path.relative(PROTOTYPE_ROOT, file))
+    for (const banned of forbidden) {
+      assert.equal(
+        relative.includes(banned),
+        false,
+        `routine module graph of ${path.basename(entry)} must exclude ${banned}`,
+      )
+    }
+  }
+
+  // Adaptation, not duplication: the session runs on the existing seam.
+  const sessionGraph = [...collectImportGraph(entries[0])].map((file) => path.relative(PROTOTYPE_ROOT, file))
+  assert.ok(sessionGraph.includes('console/projection-core.ts'), 'the session must reuse the existing projection core')
+  assert.ok(sessionGraph.includes('console/live-projection-adapter.ts'), 'the session must reuse the existing live adapter')
+  assert.ok(sessionGraph.includes('companion/contracts.ts'), 'the session must use the shared companion contract')
+})
+
+function stripBlockAndLineComments(source) {
+  return source
+    .replace(/\/\*[\s\S]*?\*\//g, '')
+    .split('\n')
+    .map((line) => line.replace(/(^|[^:])\/\/.*$/, '$1'))
+    .join('\n')
+}
+
+test('companion prototype modules contain no live-system, process, or storage tokens', () => {
+  const files = listFiles(path.join(PROTOTYPE_ROOT, 'companion'), ['.ts']).filter(
+    (file) => !file.includes(`${path.sep}test${path.sep}`),
+  )
+  const expectedModules = [
+    'companion/contracts.ts',
+    'companion/installation.ts',
+    'companion/fake-omarchy.ts',
+    'companion/releases.ts',
+    'companion/projection-session.ts',
+    'companion/fake-companion-shell.ts',
+    'companion/acceptance.ts',
+  ]
+  for (const expected of expectedModules) {
+    assert.ok(files.includes(path.join(PROTOTYPE_ROOT, expected)), `expected module to audit: ${expected}`)
+  }
+
+  // Compatibility field NAMES such as `quickshell: '0.3.1-1'` are data, not
+  // commands; only a quickshell command invocation counts as live.
+  const forbidden = [
+    ['Ghostty', /\bghostty\b/],
+    ['Hyprland action', /\bhyprctl\b/],
+    ['Quickshell command', /\bquickshell\s+(?:-|--|monitor\b|shell\b)/],
+    ['Omarchy shell IPC command', /\bomarchy-shell\b/],
+    ['SSH', /\bssh\b|\bscp\b/],
+    ['Boomux', /\bboomux\b/],
+    ['systemd', /\b(?:systemctl|systemd-run|journalctl)\b/],
+    ['provider request', /\bcurl\b|\bwget\b|\bprovider\b/],
+    ['process spawn', /\b(?:spawn|spawnSync|execSync|execFile|execFileSync|fork)\s*\(|(?<=[^.\w])exec\s*\(/],
+    ['PTY', /\bpty\b|\bpseudo-terminal\b/i],
+    ['SQLite', /\bsqlite\b/i],
+    ['terminal scraping', /\bscrap(?:e|ing)\b|\bparseAnsi\b/i],
+  ]
+  for (const file of files) {
+    const value = stripBlockAndLineComments(fs.readFileSync(file, 'utf8'))
+    for (const [name, pattern] of forbidden) {
+      assert.doesNotMatch(value, pattern, `${name} token in companion module ${path.relative(PROTOTYPE_ROOT, file)}`)
+    }
   }
 })

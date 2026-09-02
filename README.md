@@ -6,9 +6,11 @@ Omarchestra coordinates teams of real interactive coding agents, each shown in i
 
 ## Status
 
-**MVP product scope and feasibility classifications locked; production technical contracts pending.**
+**MVP product scope locked; the Companion Plugin vertical slice is fake-proven and production technical contracts remain pending.**
 
-The visible Pi bridge, local Boomux runtime adapter, and one-Node remote execution are supported with documented constraints after automated and human validation. The desktop follows Boomux's model: an explicitly installed Omarchestra companion plugin is durable product infrastructure, while Team Goal projection sessions are ephemeral. An opt-in global Pi observer will also list ordinary-terminal Pi sessions as observed and unassigned until explicit adoption. The next milestone is a narrow production-shaped vertical slice of those installation, observation, and projection seams.
+The visible Pi bridge, local Boomux runtime adapter, and one-Node remote execution are supported with documented constraints after automated and human validation. The removable first vertical slice now fake-proves one explicitly authorized, versioned Companion Plugin installation across multiple Team Goals, ephemeral Projection Sessions, reload reconstruction, and byte-identical runtime cleanup. The live Companion setup-and-validation procedure exists but has not been run, so live Agent Console rendering is not claimed.
+
+Ordinary-terminal Pi observation and Adoption remain separate open technical work. This milestone did not implement or validate either behavior.
 
 ## Design
 
@@ -19,6 +21,8 @@ The visible Pi bridge, local Boomux runtime adapter, and one-Node remote executi
 - [Remote execution boundary](docs/design/remote-execution.md) — locked single-Node SSH execution scope and recovery semantics
 - [Foundation assessment](docs/research/foundation-assessment.md) — Boomux, Herdr, Fusion Harness, and Omarchy research
 - [Fusion readiness review](docs/reviews/2026-08-30-implementation-readiness/) — independent implementation-blocker review
+- [Companion Plugin v1 prototype contract](prototypes/first-vertical-slice/docs/companion-plugin-v1.md) — persistent installation, ephemeral Projection Sessions, ports, and fail-closed lifecycle
+- [Companion setup and validation](prototypes/first-vertical-slice/docs/live-agent-console-gate.md) — fake-only gate plus the separate human-authorized procedure
 
 ## Fusion workspace
 
@@ -28,4 +32,12 @@ Fusion Harness remains an external development tool. Launch it with this reposit
 just fusion
 ```
 
-For the next prototype, the accepted defaults are TypeScript/Node 22+, SQLite with explicit transactions (journal mode intentionally unlocked), versioned NDJSON over Unix sockets and SSH stdio, a systemd user service, and a thin QML client. These are reversible spike defaults rather than final production commitments.
+The accepted prototype defaults are TypeScript/Node 22+, SQLite with explicit transactions (journal mode intentionally unlocked), versioned NDJSON over Unix sockets and SSH stdio, a systemd user service, and thin presentation-only QML. These remain reversible prototype defaults rather than final production commitments.
+
+Run the complete Companion gate without touching live systems:
+
+```bash
+just prototype-companion-check
+```
+
+The only active live Companion recipe is `just prototype-companion-setup-validation`. It requires a compatible host, an interactive TTY, and the exact displayed authorization phrase. Automation and Fusion never invoke its live path.

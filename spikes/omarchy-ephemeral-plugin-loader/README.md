@@ -224,6 +224,8 @@ This spike exposed the unnecessary assumption that plugin lifecycle had to equal
 
 Retain the contract, fake model, automated evidence, candidate patch, and security findings as rejected-path review artifacts. Do not promote fake code into production, install the patch, or submit it upstream. The candidate remains truthful only against the inspected Omarchy 4.0.2-1 baseline.
 
-## Next step
+## Current disposition
 
-Prototype fake-only setup, compatibility verification, update, rollback, and exact uninstall for a versioned Omarchestra Companion Plugin using the supported third-party plugin path. Then adapt the existing projection core to open, reconnect, hide, and clear ephemeral Projection Sessions without changing Omarchy installation state during a Team Goal. The replacement live gate remains explicitly human-authorized.
+The replacement Companion Plugin packaging and Projection Session vertical slice is complete fake-only. Its automated evidence covers exact compatibility, authorized install/update/rollback/uninstall, persistent installation across Team Goals, reload reconstruction, acknowledged intents, and byte-identical runtime cleanup. Run it with `just prototype-companion-check`.
+
+This spike has no active product action. Retain its contract, fake model, candidate patch, and security findings as rejected-path history only. Do not install or submit the patch. The separate `just prototype-companion-setup-validation` procedure remains human-authorized and has not been run.

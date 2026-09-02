@@ -1,8 +1,8 @@
 # Live Agent Console gate — first vertical-slice prototype
 
-Status: **CURRENT RECIPE RETIRED — replacement gate pending Companion Plugin setup.**
+Status: **RETIRED PATH — replacement Companion setup procedure is implemented; live validation remains human-only.**
 
-This is the manual-gate plan for the removable first vertical-slice prototype. The existing `just prototype-live-agent-console-gate` launcher still fails closed on the absent `registerTemporaryPlugin` API because it implements a rejected per-run QML-loading path. Do not treat that error as a product blocker and do not weaken its preflight; replace the recipe when the explicitly installed Companion Plugin prototype exists.
+This is the manual-gate plan for the removable first vertical-slice prototype. The retained `manual/run-live-agent-console-gate.sh` still fails closed because it implements the rejected per-run QML-loading path. Its justfile recipe is no longer active. Do not treat that historical error as a product blocker or weaken its preflight. Use `just prototype-companion-setup-validation` for the explicitly installed Companion Plugin procedure.
 
 The automated gate remains fake-only and never invokes any visible agent host, terminal emulator, compositor action, provider, terminal runtime, remote transport, service manager, desktop shell process, product setup, or user-configuration mutation.
 
@@ -12,9 +12,10 @@ The automated gate remains fake-only and never invokes any visible agent host, t
 | --- | --- | --- |
 | `just prototype-vertical-slice` | fake-only automated | proven (durable runner, protocol, takeover, restart, reconnect) |
 | `just prototype-vertical-slice-manual-check` | fake-only automated | proven for the role-label adapter |
-| `just prototype-live-agent-console-check` | fake-only automated | green — projection adapter, QML boundary, launcher contract, failure cleanup, source audit |
+| `just prototype-live-agent-console-check` | fake-only automated | green — 58 adapter, QML, historical launcher, setup-contract, cleanup, and source-audit tests plus static checks |
+| `just prototype-companion-check` | fake-only automated | green — 58 installation, Projection Session, acceptance, and setup-contract tests plus standalone acceptance and launcher `--check` |
 | `just prototype-vertical-slice-role-label-gate` | prior human evidence | completed — three decorationless visible Pi hosts, persistent Pi status labels, waiting → managed → manual_takeover, sibling isolation, one-minute persistence |
-| Persistent Companion Plugin setup/update/uninstall | fake-only then human-authorized | pending |
+| Persistent Companion Plugin setup/update/uninstall | fake-only then human-authorized | fake-only proven; live setup path available |
 | Agent Console cards against live Pi | human-only | pending the replacement gate |
 
 ## Locked replacement architecture
@@ -29,20 +30,23 @@ Omarchestra follows Boomux's lifecycle split:
 
 No upstream Omarchy feature or per-run repository-local QML registration is required. The completed ephemeral-loader spike is retained as rejected-path evidence.
 
-## Replacement-gate entry conditions
+## Fake-only entry conditions — satisfied
 
-Before a new live recipe may replace the retired launcher, fake-only tests must prove:
+The replacement procedure is implemented. Its automated entry conditions are green:
 
 - setup plans and mutates only exact Omarchestra-owned plugin assets and the exact intended `shell.json` enablement entry;
-- compatibility verification fails before reload or any live resource creation;
+- exact Omarchy/Quickshell compatibility verification fails before mutation or live resource creation;
 - normal projection open/hide/reconnect/clear paths do not write plugin files or Omarchy configuration;
 - update, rollback, and uninstall detect foreign or changed assets and fail closed;
 - runner absence, stale cursors, duplicate sources, plugin reload, and projection reconnect remain presentation-only failures;
-- success, failure, interruption, and assertion cleanup use exact registered runtime identities and never uninstall the Companion Plugin.
+- success, failure, interruption, and assertion cleanup use exact registered runtime identities and never uninstall the Companion Plugin;
+- Fusion and every automated recipe are statically prevented from reaching live mode; the script is executable in automation only with `--check`.
+
+These are fake and static results. They do not establish that a live shell loaded or rendered the plugin.
 
 ## Human-only replacement gate
 
-The future recipe must require explicit operator authorization, verify the installed plugin version and compatibility, and then:
+`just prototype-companion-setup-validation` requires explicit operator authorization, verifies the installed plugin version and compatibility, and then:
 
 1. start the runner and three decorationless Ghostty/Pi hosts;
 2. ask the already-installed Companion Plugin to open one Projection Session;

@@ -130,6 +130,19 @@ export class AgentConsoleProjection {
     return cloneHandoff(this.current)
   }
 
+  /**
+   * Clears all ephemeral state so the next authoritative snapshot can
+   * initialize a fresh Projection Session. Used by hide and clear only; it
+   * owns no installation or runner authority.
+   */
+  clearState(): void {
+    this.current = null
+    this.teamGoalId = null
+    this.identities.clear()
+    this.eventIds.clear()
+    this.fault = null
+  }
+
   markGap(reason: string): AgentConsoleHandoff {
     if (this.current === null) {
       throw new ProjectionStateError('an authoritative snapshot is required before marking a gap')

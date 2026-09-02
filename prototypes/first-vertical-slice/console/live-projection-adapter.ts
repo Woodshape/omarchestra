@@ -8,6 +8,7 @@
  */
 
 import {
+  isBoundedId,
   validateEventPageBody,
   validateHelloAckBody,
   validateProjectionHello,
@@ -15,6 +16,11 @@ import {
   type DecodedFrame,
   type ProjectionHelloBody,
 } from '../src/protocol.ts'
+import {
+  COMPANION_INTENT_RESULTS,
+  validateIntentEnvelope,
+  type CompanionIntentResult,
+} from '../companion/contracts.ts'
 import {
   connectUnixSocket,
   FrameChannel,
@@ -48,11 +54,23 @@ interface ConnectionState {
   snapshotAccepted: boolean
 }
 
+export interface ProjectionIntentAcknowledgement {
+  intentId: string
+  result: CompanionIntentResult
+  detail: string | null
+}
+
 export interface LiveProjectionAdapterOptions {
   teamGoalId: string
   clientId: string
   connector: ProjectionConnector
   sink: ProjectionSink
+  /** Reuse one projection core instance across session generations. */
+  projection?: AgentConsoleProjection
+  /** Invoked when a connection fails before any authoritative snapshot. */
+  onPreBaselineFailure?: (error: Error) => void
+  /** Invoked for every validated runner intent acknowledgement. */
+  onIntentAck?: (ack: ProjectionIntentAcknowledgement) => void
 }
 
 export interface UnixLiveProjectionAdapterOptions {
@@ -76,12 +94,14 @@ export class UnixProjectionConnector implements ProjectionConnector {
 }
 
 export class LiveProjectionAdapter {
-  readonly projection = new AgentConsoleProjection()
+  readonly projection: AgentConsoleProjection
 
   private readonly teamGoalId: string
   private readonly clientId: string
   private readonly connector: ProjectionConnector
   private readonly sink: ProjectionSink
+  private readonly onPreBaselineFailure: ((error: Error) => void) | null
+  private readonly onIntentAck: ((ack: ProjectionIntentAcknowledgement) => void) | null
   private connection: ConnectionState | null = null
   private generation = 0
   private messageCounter = 0
@@ -94,6 +114,9 @@ export class LiveProjectionAdapter {
     this.clientId = options.clientId
     this.connector = options.connector
     this.sink = options.sink
+    this.projection = options.projection ?? new AgentConsoleProjection()
+    this.onPreBaselineFailure = options.onPreBaselineFailure ?? null
+    this.onIntentAck = options.onIntentAck ?? null
   }
 
   get handoff(): AgentConsoleHandoff | null {
@@ -124,6 +147,25 @@ export class LiveProjectionAdapter {
     const active = this.connection
     this.connection = null
     active?.channel.close()
+  }
+
+  /**
+   * Sends one already-validated present-agent intent envelope on the current
+   * authoritative connection. The adapter owns no intent policy; the caller
+   * deduplicates and the runner acknowledges.
+   */
+  sendProjectionIntent(envelope: Record<string, unknown>): void {
+    if (this.stopped) throw new Error('a stopped projection adapter cannot send intents')
+    const active = this.connection
+    if (active === null || !active.helloAccepted || !active.snapshotAccepted) {
+      throw new Error('projection intents require an established authoritative connection')
+    }
+    const validated = validateIntentEnvelope(envelope)
+    active.channel.send(
+      'projection.intent',
+      `console-${this.clientId}-${++this.messageCounter}`,
+      validated as unknown as Record<string, unknown>,
+    )
   }
 
   async retryFresh(): Promise<void> {
@@ -209,6 +251,11 @@ export class LiveProjectionAdapter {
       throw new Error(`runner projection error: ${String(body.code)}: ${String(body.detail)}`)
     }
 
+    if (frame.type === 'intent_ack' || frame.type === 'projection.intent_ack') {
+      this.acceptIntentAck(frame.body)
+      return
+    }
+
     if (!state.snapshotAccepted && state.mode === 'resume' && frame.type === 'event_page') {
       const page = validateEventPageBody(frame.body)
       const expectedFrom = this.projection.handoff?.cursor
@@ -254,12 +301,28 @@ export class LiveProjectionAdapter {
     throw new Error(`unexpected projection frame ${frame.type}`)
   }
 
+  private acceptIntentAck(body: Record<string, unknown>): void {
+    if (!isBoundedId(body.intentId)) {
+      throw new Error('projection intent acknowledgement has an invalid intentId')
+    }
+    if (typeof body.result !== 'string' || !(COMPANION_INTENT_RESULTS as readonly string[]).includes(body.result)) {
+      throw new Error('projection intent acknowledgement has an invalid result')
+    }
+    const detail = body.detail === undefined || body.detail === null ? null : String(body.detail)
+    this.onIntentAck?.({
+      intentId: body.intentId,
+      result: body.result as CompanionIntentResult,
+      detail,
+    })
+  }
+
   private closed(state: ConnectionState, error: Error | null): void {
     if (!this.isCurrent(state) || this.stopped) return
     this.connection = null
     const detail = error?.message ?? 'projection connection closed'
     if (this.projection.handoff === null) {
       this.errorDetail = detail
+      this.onPreBaselineFailure?.(new Error(detail))
       return
     }
     const shouldRecover = state.mode !== 'recover'
@@ -271,6 +334,7 @@ export class LiveProjectionAdapter {
     if (!this.isCurrent(state)) return
     this.errorDetail = errorMessage(error)
     if (this.projection.handoff !== null) this.enterGap(this.errorDetail)
+    else this.onPreBaselineFailure?.(error instanceof Error ? error : new Error(this.errorDetail))
     const generation = ++this.generation
     void generation
     this.connection = null

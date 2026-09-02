@@ -1,0 +1,410 @@
+$ node --experimental-strip-types --test prototypes/first-vertical-slice/companion/test/installation.test.ts
+✖ the contract pins one persistent plugin, protocol, release, and exact host compatibility (5.280964ms)
+✖ inspection is read-only and returns an immutable plan snapshot with a stable digest (0.509107ms)
+✖ authorization is bound to the exact immutable plan and operation (0.359638ms)
+✖ every install, update, rollback, and uninstall operation rejects forged authorization without writes (0.351099ms)
+✖ compatibility is pinned exactly and unknown host versions fail before mutation (0.406677ms)
+✖ a plan is stale when shell or host state changes after inspection (0.354122ms)
+✖ symlinked ancestors, plugin roots, manifests, and assets are rejected without following them (0.332791ms)
+✖ foreign ownership and unsafe modes on every installation component fail closed (0.624343ms)
+✖ malformed shell.json is rejected before plugin assets or enablement can change (0.549034ms)
+✖ conflicting or duplicate shell enablement is rejected without rewriting unrelated configuration (0.797421ms)
+✖ a pre-existing plugin target without a verified receipt is foreign and cannot be adopted (0.426551ms)
+✖ clean install writes the exact release, receipt, and supported enablement while preserving unrelated resources (0.455681ms)
+✖ update replaces only the verified owned release and records the previous release for rollback (0.291676ms)
+✖ missing, extra, or changed owned assets make update and uninstall fail before mutation (0.340594ms)
+✖ missing, tampered, or inconsistent receipts never authorize destructive operations (0.355574ms)
+✖ forced install and update failures recover the exact prior state (0.285692ms)
+✖ incomplete recovery is reported and never overwrites state drift introduced during recovery (0.291851ms)
+✖ rollback is explicit, receipt-backed, and restores the exact prior release (0.238529ms)
+✖ rollback refuses a drifted current installation rather than overwriting it (0.205309ms)
+✖ exact uninstall restores the recorded shell preimage and removes only owned plugin state (0.286588ms)
+✖ uninstall refuses symlink, ownership, mode, and shell drift without deleting anything (0.259734ms)
+✖ all unauthorized and stale destructive operations preserve unrelated resources byte-for-byte (0.249155ms)
+ℹ tests 22
+ℹ suites 0
+ℹ pass 0
+ℹ fail 22
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 245.905993
+
+✖ failing tests:
+
+test at prototypes/first-vertical-slice/companion/test/installation.test.ts:196:1
+✖ the contract pins one persistent plugin, protocol, release, and exact host compatibility (5.280964ms)
+  Error [ERR_MODULE_NOT_FOUND]: Cannot find module '/home/woodshape/claude/omarchestra/prototypes/first-vertical-slice/companion/contracts.ts' imported from /home/woodshape/claude/omarchestra/prototypes/first-vertical-slice/companion/test/installation.test.ts
+      at finalizeResolution (node:internal/modules/esm/resolve:272:11)
+      at moduleResolve (node:internal/modules/esm/resolve:879:10)
+      at defaultResolve (node:internal/modules/esm/resolve:1006:11)
+      at #cachedDefaultResolve (node:internal/modules/esm/loader:708:20)
+      at #resolveAndMaybeBlockOnLoaderThread (node:internal/modules/esm/loader:728:38)
+      at ModuleLoader.resolveSync (node:internal/modules/esm/loader:766:56)
+      at #resolve (node:internal/modules/esm/loader:690:17)
+      at ModuleLoader.getOrCreateModuleJob (node:internal/modules/esm/loader:610:35)
+      at node:internal/modules/esm/loader:639:32
+      at TracingChannel.tracePromise (node:diagnostics_channel:547:22) {
+    code: 'ERR_MODULE_NOT_FOUND',
+    url: 'file:///home/woodshape/claude/omarchestra/prototypes/first-vertical-slice/companion/contracts.ts'
+  }
+
+test at prototypes/first-vertical-slice/companion/test/installation.test.ts:210:1
+✖ inspection is read-only and returns an immutable plan snapshot with a stable digest (0.509107ms)
+  Error [ERR_MODULE_NOT_FOUND]: Cannot find module '/home/woodshape/claude/omarchestra/prototypes/first-vertical-slice/companion/contracts.ts' imported from /home/woodshape/claude/omarchestra/prototypes/first-vertical-slice/companion/test/installation.test.ts
+      at finalizeResolution (node:internal/modules/esm/resolve:272:11)
+      at moduleResolve (node:internal/modules/esm/resolve:879:10)
+      at defaultResolve (node:internal/modules/esm/resolve:1006:11)
+      at #cachedDefaultResolve (node:internal/modules/esm/loader:708:20)
+      at #resolveAndMaybeBlockOnLoaderThread (node:internal/modules/esm/loader:728:38)
+      at ModuleLoader.resolveSync (node:internal/modules/esm/loader:766:56)
+      at #resolve (node:internal/modules/esm/loader:690:17)
+      at ModuleLoader.getOrCreateModuleJob (node:internal/modules/esm/loader:610:35)
+      at node:internal/modules/esm/loader:639:32
+      at TracingChannel.tracePromise (node:diagnostics_channel:547:22) {
+    code: 'ERR_MODULE_NOT_FOUND',
+    url: 'file:///home/woodshape/claude/omarchestra/prototypes/first-vertical-slice/companion/contracts.ts'
+  }
+
+test at prototypes/first-vertical-slice/companion/test/installation.test.ts:241:1
+✖ authorization is bound to the exact immutable plan and operation (0.359638ms)
+  Error [ERR_MODULE_NOT_FOUND]: Cannot find module '/home/woodshape/claude/omarchestra/prototypes/first-vertical-slice/companion/contracts.ts' imported from /home/woodshape/claude/omarchestra/prototypes/first-vertical-slice/companion/test/installation.test.ts
+      at finalizeResolution (node:internal/modules/esm/resolve:272:11)
+      at moduleResolve (node:internal/modules/esm/resolve:879:10)
+      at defaultResolve (node:internal/modules/esm/resolve:1006:11)
+      at #cachedDefaultResolve (node:internal/modules/esm/loader:708:20)
+      at #resolveAndMaybeBlockOnLoaderThread (node:internal/modules/esm/loader:728:38)
+      at ModuleLoader.resolveSync (node:internal/modules/esm/loader:766:56)
+      at #resolve (node:internal/modules/esm/loader:690:17)
+      at ModuleLoader.getOrCreateModuleJob (node:internal/modules/esm/loader:610:35)
+      at node:internal/modules/esm/loader:639:32
+      at TracingChannel.tracePromise (node:diagnostics_channel:547:22) {
+    code: 'ERR_MODULE_NOT_FOUND',
+    url: 'file:///home/woodshape/claude/omarchestra/prototypes/first-vertical-slice/companion/contracts.ts'
+  }
+
+test at prototypes/first-vertical-slice/companion/test/installation.test.ts:268:1
+✖ every install, update, rollback, and uninstall operation rejects forged authorization without writes (0.351099ms)
+  Error [ERR_MODULE_NOT_FOUND]: Cannot find module '/home/woodshape/claude/omarchestra/prototypes/first-vertical-slice/companion/contracts.ts' imported from /home/woodshape/claude/omarchestra/prototypes/first-vertical-slice/companion/test/installation.test.ts
+      at finalizeResolution (node:internal/modules/esm/resolve:272:11)
+      at moduleResolve (node:internal/modules/esm/resolve:879:10)
+      at defaultResolve (node:internal/modules/esm/resolve:1006:11)
+      at #cachedDefaultResolve (node:internal/modules/esm/loader:708:20)
+      at #resolveAndMaybeBlockOnLoaderThread (node:internal/modules/esm/loader:728:38)
+      at ModuleLoader.resolveSync (node:internal/modules/esm/loader:766:56)
+      at #resolve (node:internal/modules/esm/loader:690:17)
+      at ModuleLoader.getOrCreateModuleJob (node:internal/modules/esm/loader:610:35)
+      at node:internal/modules/esm/loader:639:32
+      at TracingChannel.tracePromise (node:diagnostics_channel:547:22) {
+    code: 'ERR_MODULE_NOT_FOUND',
+    url: 'file:///home/woodshape/claude/omarchestra/prototypes/first-vertical-slice/companion/contracts.ts'
+  }
+
+test at prototypes/first-vertical-slice/companion/test/installation.test.ts:295:1
+✖ compatibility is pinned exactly and unknown host versions fail before mutation (0.406677ms)
+  Error [ERR_MODULE_NOT_FOUND]: Cannot find module '/home/woodshape/claude/omarchestra/prototypes/first-vertical-slice/companion/contracts.ts' imported from /home/woodshape/claude/omarchestra/prototypes/first-vertical-slice/companion/test/installation.test.ts
+      at finalizeResolution (node:internal/modules/esm/resolve:272:11)
+      at moduleResolve (node:internal/modules/esm/resolve:879:10)
+      at defaultResolve (node:internal/modules/esm/resolve:1006:11)
+      at #cachedDefaultResolve (node:internal/modules/esm/loader:708:20)
+      at #resolveAndMaybeBlockOnLoaderThread (node:internal/modules/esm/loader:728:38)
+      at ModuleLoader.resolveSync (node:internal/modules/esm/loader:766:56)
+      at #resolve (node:internal/modules/esm/loader:690:17)
+      at ModuleLoader.getOrCreateModuleJob (node:internal/modules/esm/loader:610:35)
+      at node:internal/modules/esm/loader:639:32
+      at TracingChannel.tracePromise (node:diagnostics_channel:547:22) {
+    code: 'ERR_MODULE_NOT_FOUND',
+    url: 'file:///home/woodshape/claude/omarchestra/prototypes/first-vertical-slice/companion/contracts.ts'
+  }
+
+test at prototypes/first-vertical-slice/companion/test/installation.test.ts:315:1
+✖ a plan is stale when shell or host state changes after inspection (0.354122ms)
+  Error [ERR_MODULE_NOT_FOUND]: Cannot find module '/home/woodshape/claude/omarchestra/prototypes/first-vertical-slice/companion/contracts.ts' imported from /home/woodshape/claude/omarchestra/prototypes/first-vertical-slice/companion/test/installation.test.ts
+      at finalizeResolution (node:internal/modules/esm/resolve:272:11)
+      at moduleResolve (node:internal/modules/esm/resolve:879:10)
+      at defaultResolve (node:internal/modules/esm/resolve:1006:11)
+      at #cachedDefaultResolve (node:internal/modules/esm/loader:708:20)
+      at #resolveAndMaybeBlockOnLoaderThread (node:internal/modules/esm/loader:728:38)
+      at ModuleLoader.resolveSync (node:internal/modules/esm/loader:766:56)
+      at #resolve (node:internal/modules/esm/loader:690:17)
+      at ModuleLoader.getOrCreateModuleJob (node:internal/modules/esm/loader:610:35)
+      at node:internal/modules/esm/loader:639:32
+      at TracingChannel.tracePromise (node:diagnostics_channel:547:22) {
+    code: 'ERR_MODULE_NOT_FOUND',
+    url: 'file:///home/woodshape/claude/omarchestra/prototypes/first-vertical-slice/companion/contracts.ts'
+  }
+
+test at prototypes/first-vertical-slice/companion/test/installation.test.ts:334:1
+✖ symlinked ancestors, plugin roots, manifests, and assets are rejected without following them (0.332791ms)
+  Error [ERR_MODULE_NOT_FOUND]: Cannot find module '/home/woodshape/claude/omarchestra/prototypes/first-vertical-slice/companion/contracts.ts' imported from /home/woodshape/claude/omarchestra/prototypes/first-vertical-slice/companion/test/installation.test.ts
+      at finalizeResolution (node:internal/modules/esm/resolve:272:11)
+      at moduleResolve (node:internal/modules/esm/resolve:879:10)
+      at defaultResolve (node:internal/modules/esm/resolve:1006:11)
+      at #cachedDefaultResolve (node:internal/modules/esm/loader:708:20)
+      at #resolveAndMaybeBlockOnLoaderThread (node:internal/modules/esm/loader:728:38)
+      at ModuleLoader.resolveSync (node:internal/modules/esm/loader:766:56)
+      at #resolve (node:internal/modules/esm/loader:690:17)
+      at ModuleLoader.getOrCreateModuleJob (node:internal/modules/esm/loader:610:35)
+      at node:internal/modules/esm/loader:639:32
+      at TracingChannel.tracePromise (node:diagnostics_channel:547:22) {
+    code: 'ERR_MODULE_NOT_FOUND',
+    url: 'file:///home/woodshape/claude/omarchestra/prototypes/first-vertical-slice/companion/contracts.ts'
+  }
+
+test at prototypes/first-vertical-slice/companion/test/installation.test.ts:355:1
+✖ foreign ownership and unsafe modes on every installation component fail closed (0.624343ms)
+  Error [ERR_MODULE_NOT_FOUND]: Cannot find module '/home/woodshape/claude/omarchestra/prototypes/first-vertical-slice/companion/contracts.ts' imported from /home/woodshape/claude/omarchestra/prototypes/first-vertical-slice/companion/test/installation.test.ts
+      at finalizeResolution (node:internal/modules/esm/resolve:272:11)
+      at moduleResolve (node:internal/modules/esm/resolve:879:10)
+      at defaultResolve (node:internal/modules/esm/resolve:1006:11)
+      at #cachedDefaultResolve (node:internal/modules/esm/loader:708:20)
+      at #resolveAndMaybeBlockOnLoaderThread (node:internal/modules/esm/loader:728:38)
+      at ModuleLoader.resolveSync (node:internal/modules/esm/loader:766:56)
+      at #resolve (node:internal/modules/esm/loader:690:17)
+      at ModuleLoader.getOrCreateModuleJob (node:internal/modules/esm/loader:610:35)
+      at node:internal/modules/esm/loader:639:32
+      at TracingChannel.tracePromise (node:diagnostics_channel:547:22) {
+    code: 'ERR_MODULE_NOT_FOUND',
+    url: 'file:///home/woodshape/claude/omarchestra/prototypes/first-vertical-slice/companion/contracts.ts'
+  }
+
+test at prototypes/first-vertical-slice/companion/test/installation.test.ts:388:1
+✖ malformed shell.json is rejected before plugin assets or enablement can change (0.549034ms)
+  Error [ERR_MODULE_NOT_FOUND]: Cannot find module '/home/woodshape/claude/omarchestra/prototypes/first-vertical-slice/companion/contracts.ts' imported from /home/woodshape/claude/omarchestra/prototypes/first-vertical-slice/companion/test/installation.test.ts
+      at finalizeResolution (node:internal/modules/esm/resolve:272:11)
+      at moduleResolve (node:internal/modules/esm/resolve:879:10)
+      at defaultResolve (node:internal/modules/esm/resolve:1006:11)
+      at #cachedDefaultResolve (node:internal/modules/esm/loader:708:20)
+      at #resolveAndMaybeBlockOnLoaderThread (node:internal/modules/esm/loader:728:38)
+      at ModuleLoader.resolveSync (node:internal/modules/esm/loader:766:56)
+      at #resolve (node:internal/modules/esm/loader:690:17)
+      at ModuleLoader.getOrCreateModuleJob (node:internal/modules/esm/loader:610:35)
+      at node:internal/modules/esm/loader:639:32
+      at TracingChannel.tracePromise (node:diagnostics_channel:547:22) {
+    code: 'ERR_MODULE_NOT_FOUND',
+    url: 'file:///home/woodshape/claude/omarchestra/prototypes/first-vertical-slice/companion/contracts.ts'
+  }
+
+test at prototypes/first-vertical-slice/companion/test/installation.test.ts:394:1
+✖ conflicting or duplicate shell enablement is rejected without rewriting unrelated configuration (0.797421ms)
+  Error [ERR_MODULE_NOT_FOUND]: Cannot find module '/home/woodshape/claude/omarchestra/prototypes/first-vertical-slice/companion/contracts.ts' imported from /home/woodshape/claude/omarchestra/prototypes/first-vertical-slice/companion/test/installation.test.ts
+      at finalizeResolution (node:internal/modules/esm/resolve:272:11)
+      at moduleResolve (node:internal/modules/esm/resolve:879:10)
+      at defaultResolve (node:internal/modules/esm/resolve:1006:11)
+      at #cachedDefaultResolve (node:internal/modules/esm/loader:708:20)
+      at #resolveAndMaybeBlockOnLoaderThread (node:internal/modules/esm/loader:728:38)
+      at ModuleLoader.resolveSync (node:internal/modules/esm/loader:766:56)
+      at #resolve (node:internal/modules/esm/loader:690:17)
+      at ModuleLoader.getOrCreateModuleJob (node:internal/modules/esm/loader:610:35)
+      at node:internal/modules/esm/loader:639:32
+      at TracingChannel.tracePromise (node:diagnostics_channel:547:22) {
+    code: 'ERR_MODULE_NOT_FOUND',
+    url: 'file:///home/woodshape/claude/omarchestra/prototypes/first-vertical-slice/companion/contracts.ts'
+  }
+
+test at prototypes/first-vertical-slice/companion/test/installation.test.ts:407:1
+✖ a pre-existing plugin target without a verified receipt is foreign and cannot be adopted (0.426551ms)
+  Error [ERR_MODULE_NOT_FOUND]: Cannot find module '/home/woodshape/claude/omarchestra/prototypes/first-vertical-slice/companion/contracts.ts' imported from /home/woodshape/claude/omarchestra/prototypes/first-vertical-slice/companion/test/installation.test.ts
+      at finalizeResolution (node:internal/modules/esm/resolve:272:11)
+      at moduleResolve (node:internal/modules/esm/resolve:879:10)
+      at defaultResolve (node:internal/modules/esm/resolve:1006:11)
+      at #cachedDefaultResolve (node:internal/modules/esm/loader:708:20)
+      at #resolveAndMaybeBlockOnLoaderThread (node:internal/modules/esm/loader:728:38)
+      at ModuleLoader.resolveSync (node:internal/modules/esm/loader:766:56)
+      at #resolve (node:internal/modules/esm/loader:690:17)
+      at ModuleLoader.getOrCreateModuleJob (node:internal/modules/esm/loader:610:35)
+      at node:internal/modules/esm/loader:639:32
+      at TracingChannel.tracePromise (node:diagnostics_channel:547:22) {
+    code: 'ERR_MODULE_NOT_FOUND',
+    url: 'file:///home/woodshape/claude/omarchestra/prototypes/first-vertical-slice/companion/contracts.ts'
+  }
+
+test at prototypes/first-vertical-slice/companion/test/installation.test.ts:416:1
+✖ clean install writes the exact release, receipt, and supported enablement while preserving unrelated resources (0.455681ms)
+  Error [ERR_MODULE_NOT_FOUND]: Cannot find module '/home/woodshape/claude/omarchestra/prototypes/first-vertical-slice/companion/contracts.ts' imported from /home/woodshape/claude/omarchestra/prototypes/first-vertical-slice/companion/test/installation.test.ts
+      at finalizeResolution (node:internal/modules/esm/resolve:272:11)
+      at moduleResolve (node:internal/modules/esm/resolve:879:10)
+      at defaultResolve (node:internal/modules/esm/resolve:1006:11)
+      at #cachedDefaultResolve (node:internal/modules/esm/loader:708:20)
+      at #resolveAndMaybeBlockOnLoaderThread (node:internal/modules/esm/loader:728:38)
+      at ModuleLoader.resolveSync (node:internal/modules/esm/loader:766:56)
+      at #resolve (node:internal/modules/esm/loader:690:17)
+      at ModuleLoader.getOrCreateModuleJob (node:internal/modules/esm/loader:610:35)
+      at node:internal/modules/esm/loader:639:32
+      at TracingChannel.tracePromise (node:diagnostics_channel:547:22) {
+    code: 'ERR_MODULE_NOT_FOUND',
+    url: 'file:///home/woodshape/claude/omarchestra/prototypes/first-vertical-slice/companion/contracts.ts'
+  }
+
+test at prototypes/first-vertical-slice/companion/test/installation.test.ts:455:1
+✖ update replaces only the verified owned release and records the previous release for rollback (0.291676ms)
+  Error [ERR_MODULE_NOT_FOUND]: Cannot find module '/home/woodshape/claude/omarchestra/prototypes/first-vertical-slice/companion/contracts.ts' imported from /home/woodshape/claude/omarchestra/prototypes/first-vertical-slice/companion/test/installation.test.ts
+      at finalizeResolution (node:internal/modules/esm/resolve:272:11)
+      at moduleResolve (node:internal/modules/esm/resolve:879:10)
+      at defaultResolve (node:internal/modules/esm/resolve:1006:11)
+      at #cachedDefaultResolve (node:internal/modules/esm/loader:708:20)
+      at #resolveAndMaybeBlockOnLoaderThread (node:internal/modules/esm/loader:728:38)
+      at ModuleLoader.resolveSync (node:internal/modules/esm/loader:766:56)
+      at #resolve (node:internal/modules/esm/loader:690:17)
+      at ModuleLoader.getOrCreateModuleJob (node:internal/modules/esm/loader:610:35)
+      at node:internal/modules/esm/loader:639:32
+      at TracingChannel.tracePromise (node:diagnostics_channel:547:22) {
+    code: 'ERR_MODULE_NOT_FOUND',
+    url: 'file:///home/woodshape/claude/omarchestra/prototypes/first-vertical-slice/companion/contracts.ts'
+  }
+
+test at prototypes/first-vertical-slice/companion/test/installation.test.ts:472:1
+✖ missing, extra, or changed owned assets make update and uninstall fail before mutation (0.340594ms)
+  Error [ERR_MODULE_NOT_FOUND]: Cannot find module '/home/woodshape/claude/omarchestra/prototypes/first-vertical-slice/companion/contracts.ts' imported from /home/woodshape/claude/omarchestra/prototypes/first-vertical-slice/companion/test/installation.test.ts
+      at finalizeResolution (node:internal/modules/esm/resolve:272:11)
+      at moduleResolve (node:internal/modules/esm/resolve:879:10)
+      at defaultResolve (node:internal/modules/esm/resolve:1006:11)
+      at #cachedDefaultResolve (node:internal/modules/esm/loader:708:20)
+      at #resolveAndMaybeBlockOnLoaderThread (node:internal/modules/esm/loader:728:38)
+      at ModuleLoader.resolveSync (node:internal/modules/esm/loader:766:56)
+      at #resolve (node:internal/modules/esm/loader:690:17)
+      at ModuleLoader.getOrCreateModuleJob (node:internal/modules/esm/loader:610:35)
+      at node:internal/modules/esm/loader:639:32
+      at TracingChannel.tracePromise (node:diagnostics_channel:547:22) {
+    code: 'ERR_MODULE_NOT_FOUND',
+    url: 'file:///home/woodshape/claude/omarchestra/prototypes/first-vertical-slice/companion/contracts.ts'
+  }
+
+test at prototypes/first-vertical-slice/companion/test/installation.test.ts:488:1
+✖ missing, tampered, or inconsistent receipts never authorize destructive operations (0.355574ms)
+  Error [ERR_MODULE_NOT_FOUND]: Cannot find module '/home/woodshape/claude/omarchestra/prototypes/first-vertical-slice/companion/contracts.ts' imported from /home/woodshape/claude/omarchestra/prototypes/first-vertical-slice/companion/test/installation.test.ts
+      at finalizeResolution (node:internal/modules/esm/resolve:272:11)
+      at moduleResolve (node:internal/modules/esm/resolve:879:10)
+      at defaultResolve (node:internal/modules/esm/resolve:1006:11)
+      at #cachedDefaultResolve (node:internal/modules/esm/loader:708:20)
+      at #resolveAndMaybeBlockOnLoaderThread (node:internal/modules/esm/loader:728:38)
+      at ModuleLoader.resolveSync (node:internal/modules/esm/loader:766:56)
+      at #resolve (node:internal/modules/esm/loader:690:17)
+      at ModuleLoader.getOrCreateModuleJob (node:internal/modules/esm/loader:610:35)
+      at node:internal/modules/esm/loader:639:32
+      at TracingChannel.tracePromise (node:diagnostics_channel:547:22) {
+    code: 'ERR_MODULE_NOT_FOUND',
+    url: 'file:///home/woodshape/claude/omarchestra/prototypes/first-vertical-slice/companion/contracts.ts'
+  }
+
+test at prototypes/first-vertical-slice/companion/test/installation.test.ts:510:1
+✖ forced install and update failures recover the exact prior state (0.285692ms)
+  Error [ERR_MODULE_NOT_FOUND]: Cannot find module '/home/woodshape/claude/omarchestra/prototypes/first-vertical-slice/companion/contracts.ts' imported from /home/woodshape/claude/omarchestra/prototypes/first-vertical-slice/companion/test/installation.test.ts
+      at finalizeResolution (node:internal/modules/esm/resolve:272:11)
+      at moduleResolve (node:internal/modules/esm/resolve:879:10)
+      at defaultResolve (node:internal/modules/esm/resolve:1006:11)
+      at #cachedDefaultResolve (node:internal/modules/esm/loader:708:20)
+      at #resolveAndMaybeBlockOnLoaderThread (node:internal/modules/esm/loader:728:38)
+      at ModuleLoader.resolveSync (node:internal/modules/esm/loader:766:56)
+      at #resolve (node:internal/modules/esm/loader:690:17)
+      at ModuleLoader.getOrCreateModuleJob (node:internal/modules/esm/loader:610:35)
+      at node:internal/modules/esm/loader:639:32
+      at TracingChannel.tracePromise (node:diagnostics_channel:547:22) {
+    code: 'ERR_MODULE_NOT_FOUND',
+    url: 'file:///home/woodshape/claude/omarchestra/prototypes/first-vertical-slice/companion/contracts.ts'
+  }
+
+test at prototypes/first-vertical-slice/companion/test/installation.test.ts:535:1
+✖ incomplete recovery is reported and never overwrites state drift introduced during recovery (0.291851ms)
+  Error [ERR_MODULE_NOT_FOUND]: Cannot find module '/home/woodshape/claude/omarchestra/prototypes/first-vertical-slice/companion/contracts.ts' imported from /home/woodshape/claude/omarchestra/prototypes/first-vertical-slice/companion/test/installation.test.ts
+      at finalizeResolution (node:internal/modules/esm/resolve:272:11)
+      at moduleResolve (node:internal/modules/esm/resolve:879:10)
+      at defaultResolve (node:internal/modules/esm/resolve:1006:11)
+      at #cachedDefaultResolve (node:internal/modules/esm/loader:708:20)
+      at #resolveAndMaybeBlockOnLoaderThread (node:internal/modules/esm/loader:728:38)
+      at ModuleLoader.resolveSync (node:internal/modules/esm/loader:766:56)
+      at #resolve (node:internal/modules/esm/loader:690:17)
+      at ModuleLoader.getOrCreateModuleJob (node:internal/modules/esm/loader:610:35)
+      at node:internal/modules/esm/loader:639:32
+      at TracingChannel.tracePromise (node:diagnostics_channel:547:22) {
+    code: 'ERR_MODULE_NOT_FOUND',
+    url: 'file:///home/woodshape/claude/omarchestra/prototypes/first-vertical-slice/companion/contracts.ts'
+  }
+
+test at prototypes/first-vertical-slice/companion/test/installation.test.ts:552:1
+✖ rollback is explicit, receipt-backed, and restores the exact prior release (0.238529ms)
+  Error [ERR_MODULE_NOT_FOUND]: Cannot find module '/home/woodshape/claude/omarchestra/prototypes/first-vertical-slice/companion/contracts.ts' imported from /home/woodshape/claude/omarchestra/prototypes/first-vertical-slice/companion/test/installation.test.ts
+      at finalizeResolution (node:internal/modules/esm/resolve:272:11)
+      at moduleResolve (node:internal/modules/esm/resolve:879:10)
+      at defaultResolve (node:internal/modules/esm/resolve:1006:11)
+      at #cachedDefaultResolve (node:internal/modules/esm/loader:708:20)
+      at #resolveAndMaybeBlockOnLoaderThread (node:internal/modules/esm/loader:728:38)
+      at ModuleLoader.resolveSync (node:internal/modules/esm/loader:766:56)
+      at #resolve (node:internal/modules/esm/loader:690:17)
+      at ModuleLoader.getOrCreateModuleJob (node:internal/modules/esm/loader:610:35)
+      at node:internal/modules/esm/loader:639:32
+      at TracingChannel.tracePromise (node:diagnostics_channel:547:22) {
+    code: 'ERR_MODULE_NOT_FOUND',
+    url: 'file:///home/woodshape/claude/omarchestra/prototypes/first-vertical-slice/companion/contracts.ts'
+  }
+
+test at prototypes/first-vertical-slice/companion/test/installation.test.ts:569:1
+✖ rollback refuses a drifted current installation rather than overwriting it (0.205309ms)
+  Error [ERR_MODULE_NOT_FOUND]: Cannot find module '/home/woodshape/claude/omarchestra/prototypes/first-vertical-slice/companion/contracts.ts' imported from /home/woodshape/claude/omarchestra/prototypes/first-vertical-slice/companion/test/installation.test.ts
+      at finalizeResolution (node:internal/modules/esm/resolve:272:11)
+      at moduleResolve (node:internal/modules/esm/resolve:879:10)
+      at defaultResolve (node:internal/modules/esm/resolve:1006:11)
+      at #cachedDefaultResolve (node:internal/modules/esm/loader:708:20)
+      at #resolveAndMaybeBlockOnLoaderThread (node:internal/modules/esm/loader:728:38)
+      at ModuleLoader.resolveSync (node:internal/modules/esm/loader:766:56)
+      at #resolve (node:internal/modules/esm/loader:690:17)
+      at ModuleLoader.getOrCreateModuleJob (node:internal/modules/esm/loader:610:35)
+      at node:internal/modules/esm/loader:639:32
+      at TracingChannel.tracePromise (node:diagnostics_channel:547:22) {
+    code: 'ERR_MODULE_NOT_FOUND',
+    url: 'file:///home/woodshape/claude/omarchestra/prototypes/first-vertical-slice/companion/contracts.ts'
+  }
+
+test at prototypes/first-vertical-slice/companion/test/installation.test.ts:580:1
+✖ exact uninstall restores the recorded shell preimage and removes only owned plugin state (0.286588ms)
+  Error [ERR_MODULE_NOT_FOUND]: Cannot find module '/home/woodshape/claude/omarchestra/prototypes/first-vertical-slice/companion/contracts.ts' imported from /home/woodshape/claude/omarchestra/prototypes/first-vertical-slice/companion/test/installation.test.ts
+      at finalizeResolution (node:internal/modules/esm/resolve:272:11)
+      at moduleResolve (node:internal/modules/esm/resolve:879:10)
+      at defaultResolve (node:internal/modules/esm/resolve:1006:11)
+      at #cachedDefaultResolve (node:internal/modules/esm/loader:708:20)
+      at #resolveAndMaybeBlockOnLoaderThread (node:internal/modules/esm/loader:728:38)
+      at ModuleLoader.resolveSync (node:internal/modules/esm/loader:766:56)
+      at #resolve (node:internal/modules/esm/loader:690:17)
+      at ModuleLoader.getOrCreateModuleJob (node:internal/modules/esm/loader:610:35)
+      at node:internal/modules/esm/loader:639:32
+      at TracingChannel.tracePromise (node:diagnostics_channel:547:22) {
+    code: 'ERR_MODULE_NOT_FOUND',
+    url: 'file:///home/woodshape/claude/omarchestra/prototypes/first-vertical-slice/companion/contracts.ts'
+  }
+
+test at prototypes/first-vertical-slice/companion/test/installation.test.ts:602:1
+✖ uninstall refuses symlink, ownership, mode, and shell drift without deleting anything (0.259734ms)
+  Error [ERR_MODULE_NOT_FOUND]: Cannot find module '/home/woodshape/claude/omarchestra/prototypes/first-vertical-slice/companion/contracts.ts' imported from /home/woodshape/claude/omarchestra/prototypes/first-vertical-slice/companion/test/installation.test.ts
+      at finalizeResolution (node:internal/modules/esm/resolve:272:11)
+      at moduleResolve (node:internal/modules/esm/resolve:879:10)
+      at defaultResolve (node:internal/modules/esm/resolve:1006:11)
+      at #cachedDefaultResolve (node:internal/modules/esm/loader:708:20)
+      at #resolveAndMaybeBlockOnLoaderThread (node:internal/modules/esm/loader:728:38)
+      at ModuleLoader.resolveSync (node:internal/modules/esm/loader:766:56)
+      at #resolve (node:internal/modules/esm/loader:690:17)
+      at ModuleLoader.getOrCreateModuleJob (node:internal/modules/esm/loader:610:35)
+      at node:internal/modules/esm/loader:639:32
+      at TracingChannel.tracePromise (node:diagnostics_channel:547:22) {
+    code: 'ERR_MODULE_NOT_FOUND',
+    url: 'file:///home/woodshape/claude/omarchestra/prototypes/first-vertical-slice/companion/contracts.ts'
+  }
+
+test at prototypes/first-vertical-slice/companion/test/installation.test.ts:620:1
+✖ all unauthorized and stale destructive operations preserve unrelated resources byte-for-byte (0.249155ms)
+  Error [ERR_MODULE_NOT_FOUND]: Cannot find module '/home/woodshape/claude/omarchestra/prototypes/first-vertical-slice/companion/contracts.ts' imported from /home/woodshape/claude/omarchestra/prototypes/first-vertical-slice/companion/test/installation.test.ts
+      at finalizeResolution (node:internal/modules/esm/resolve:272:11)
+      at moduleResolve (node:internal/modules/esm/resolve:879:10)
+      at defaultResolve (node:internal/modules/esm/resolve:1006:11)
+      at #cachedDefaultResolve (node:internal/modules/esm/loader:708:20)
+      at #resolveAndMaybeBlockOnLoaderThread (node:internal/modules/esm/loader:728:38)
+      at ModuleLoader.resolveSync (node:internal/modules/esm/loader:766:56)
+      at #resolve (node:internal/modules/esm/loader:690:17)
+      at ModuleLoader.getOrCreateModuleJob (node:internal/modules/esm/loader:610:35)
+      at node:internal/modules/esm/loader:639:32
+      at TracingChannel.tracePromise (node:diagnostics_channel:547:22) {
+    code: 'ERR_MODULE_NOT_FOUND',
+    url: 'file:///home/woodshape/claude/omarchestra/prototypes/first-vertical-slice/companion/contracts.ts'
+  }
+
+RED_EXIT_STATUS=1
+RED_CONFIRMED: Companion installation contracts and fake adapters are intentionally absent before implementation.

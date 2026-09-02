@@ -34,8 +34,10 @@ The retired recipe and every routine Team Goal path must still reject `quickshel
 
 ## Disposition of the old launcher and spike
 
-`just prototype-live-agent-console-gate` still preflights the absent `registerTemporaryPlugin` interface and exits before live resource creation. Keep that safe behavior until the recipe is replaced; do not implement or install the candidate patch merely to make it pass.
+The retained `manual/run-live-agent-console-gate.sh` still preflights the absent temporary-loader interface and exits before live resource creation. Its old justfile recipe has been removed from active use. Keep the script as safe historical evidence; do not implement or install the candidate patch merely to make it pass.
 
 The bounded [`omarchy-ephemeral-plugin-loader`](../../../spikes/omarchy-ephemeral-plugin-loader/README.md) spike remains useful rejected-path evidence: it confirms the installed API shape and demonstrates the security and cleanup complexity introduced by temporary registration. Its candidate `omarchy.temporary-panel/v1` patch is scratch-validated only, will not be submitted upstream, and is not an Omarchestra dependency.
 
-The next spike is Companion Plugin packaging and Projection Session integration, followed by the replacement human gate described in [`live-agent-console-gate.md`](live-agent-console-gate.md). Until that gate passes, live Pi/Agent Console visual agreement remains unproven.
+The Companion Plugin packaging and Projection Session slice is now complete fake-only: installation lifecycle, exact compatibility, persistent installation across Team Goals, reload reconstruction, acknowledged intents, presentation-only QML, and byte-identical runtime cleanup are green. The active unattended command is `just prototype-companion-check`.
+
+The separate replacement procedure is documented in [`live-agent-console-gate.md`](live-agent-console-gate.md) and invoked only by `just prototype-companion-setup-validation`. It has not been run, so live Pi/Agent Console visual agreement remains unproven. Nothing further is required from this rejected launcher or its candidate patch.

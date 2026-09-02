@@ -198,3 +198,37 @@ test('QML syntax and lint pass through qmllint without launching a UI', () => {
     `${executable} reported QML errors (this invokes only the static linter, never Quickshell):\n${result.stdout}\n${result.stderr}`,
   )
 })
+
+// ---------------------------------------------------------------------------
+// Companion milestone boundary extensions (task 3.c)
+// ---------------------------------------------------------------------------
+
+test('the Companion manifest stays a panel-only surface advertising the companion protocol', () => {
+  const value = manifest()
+  assert.deepEqual(value.kinds, ['panel'], 'the plugin surface must stay panel-only')
+  assert.deepEqual(Object.keys(value.entryPoints ?? {}), ['panel'], 'exactly one panel entry point')
+  assert.equal(value.companion?.protocol, 'omarchestra.companion/v1')
+  assert.doesNotMatch(
+    JSON.stringify(value),
+    /registerTemporaryPlugin|temporary-panel|\bomarchy\./i,
+    'the manifest must not reference rejected registration paths',
+  )
+})
+
+test('the adapted Companion QML gains no filesystem, cursor, reconnect, shell-command, terminal, or orchestration authority', () => {
+  const extraForbidden = [
+    ['filesystem access', /\b(?:FileReader|FileSystemModel|FolderListModel|readDir(?:Sync)?|readdir|rmdir|unlink|mkdir|openDir)\b/i],
+    ['cursor computation', /\bcursor\s*(?:\+\+|--|\+=|-=|[+\-*\/]=)|\bcursor\s*[+\-*\/]\s*\d/],
+    ['reconnect or resnapshot authority', /\b(?:reconnect|resnapshot|resumeAfter|event_page|recoveryCursor)\b/i],
+    ['shell command execution', /\b(?:QProcess|omarchy-shell|hyprctl|systemctl|pkill|killall|popen)\b|\bexec\s*\(|\bbash\b/],
+    ['terminal authority', /\b(?:ghostty|pty|terminal\s+(?:output|input|capture))\b/i],
+    ['orchestration authority', /\b(?:orchestration|assignment\s+dispatch|writer\s+lease|adoption)\b/i],
+    ['installation or configuration paths', /\bshell\.json\b|\.config\/omarchy/],
+  ]
+  for (const file of allQmlSources()) {
+    const value = stripQmlCommentsAndStrings(source(file))
+    for (const [name, pattern] of extraForbidden) {
+      assert.doesNotMatch(value, pattern, `${name} in ${file}`)
+    }
+  }
+})

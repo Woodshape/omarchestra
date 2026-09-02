@@ -44,9 +44,9 @@ prototype-vertical-slice-manual-check:
 # PROTOTYPE — NOT PRODUCTION: unattended fake-only check integrating every
 # live Agent Console seam (projection adapter, QML boundary, launcher
 # contract, failure cleanup, source audit). Runs only Node test/lint
-# processes and the launcher's fake-only --check mode. Never starts Pi,
-# Ghostty, Hyprland actions, Quickshell/Omarchy UI, a provider, SSH, Boomux,
-# systemd, or the human-only gate.
+# processes and the replacement setup procedure's fake-only --check mode.
+# Never starts Pi, Ghostty, Hyprland actions, Quickshell/Omarchy UI, a
+# provider, SSH, Boomux, systemd, or either human-only gate.
 prototype-live-agent-console-check:
     #!/usr/bin/env bash
     set -euo pipefail
@@ -61,32 +61,50 @@ prototype-live-agent-console-check:
         "$root/prototypes/first-vertical-slice/console/test/qml-boundary.test.mjs" \
         "$root/prototypes/first-vertical-slice/console/test/source-audit.test.mjs" \
         "$root/prototypes/first-vertical-slice/manual/test/live-agent-console-launcher.test.mjs" \
+        "$root/prototypes/first-vertical-slice/manual/test/companion-setup-validation.test.mjs" \
         "$root/prototypes/first-vertical-slice/manual/test/live-gate-resources.test.ts"
     node "${flags[@]}" -e "import('$root/prototypes/first-vertical-slice/console/live-projection-adapter.ts')"
     node "${flags[@]}" -e "import('$root/prototypes/first-vertical-slice/manual/live-gate-resources.ts')"
-    bash -n "$root/prototypes/first-vertical-slice/manual/run-live-agent-console-gate.sh"
-    bash "$root/prototypes/first-vertical-slice/manual/run-live-agent-console-gate.sh" --check
+    bash -n "$root/prototypes/first-vertical-slice/manual/run-companion-setup-validation.sh"
+    bash "$root/prototypes/first-vertical-slice/manual/run-companion-setup-validation.sh" --check
     if command -v qmllint >/dev/null; then
         qmllint -I /usr/share/omarchy/shell \
             "$root/prototypes/first-vertical-slice/console/plugin/AgentConsole.qml" \
             "$root/prototypes/first-vertical-slice/console/plugin/AgentConsoleCards.qml"
     fi
     if command -v shellcheck >/dev/null; then
-        shellcheck "$root/prototypes/first-vertical-slice/manual/run-live-agent-console-gate.sh"
+        shellcheck "$root/prototypes/first-vertical-slice/manual/run-companion-setup-validation.sh"
     fi
 
-# RETIRED HUMAN-ONLY GATE: preserves the rejected per-run loader's fail-closed
-# behavior and exits before creating any resource. Replace it with the
-# persistent Companion Plugin gate; never invoke it from automated recipes.
-# See prototypes/first-vertical-slice/docs/live-agent-console-gate.md.
-prototype-live-agent-console-gate:
-    bash '{{justfile_directory()}}/prototypes/first-vertical-slice/manual/run-live-agent-console-gate.sh'
+# PROTOTYPE — NOT PRODUCTION: complete unattended fake-only Companion check.
+# It never invokes the human setup path except through --check.
+prototype-companion-check:
+    #!/usr/bin/env bash
+    set -euo pipefail
+    root='{{justfile_directory()}}'
+    flags=()
+    if node --help | grep -qE '(^|[[:space:]])--experimental-strip-types([[:space:]]|$)'; then
+        flags+=(--experimental-strip-types)
+    fi
+    node "${flags[@]}" --test \
+        "$root/prototypes/first-vertical-slice/companion/test/installation.test.ts" \
+        "$root/prototypes/first-vertical-slice/console/test/companion-projection-session.test.ts" \
+        "$root/prototypes/first-vertical-slice/companion/test/acceptance.test.ts" \
+        "$root/prototypes/first-vertical-slice/manual/test/companion-setup-validation.test.mjs"
+    node "${flags[@]}" "$root/prototypes/first-vertical-slice/companion/acceptance.ts"
+    bash "$root/prototypes/first-vertical-slice/manual/run-companion-setup-validation.sh" --check
 
-# SPIKE — unattended fake-only acceptance gate for the Omarchy ephemeral
-# panel loader spike. Runs the complete seam test graph (including the
-# candidate-patch verifier and source audits) plus the scratch-only patch
-# verifier. Fresh temporary state per run; never starts Pi, Ghostty, Hyprland
-# actions, Quickshell/Omarchy UI, a provider, SSH, Boomux, systemd, or any
+# HUMAN-AUTHORIZED LIVE GATE: explicit persistent Companion setup followed by
+# live Projection Session validation. Never invoke from automated recipes.
+prototype-companion-setup-validation:
+    bash '{{justfile_directory()}}/prototypes/first-vertical-slice/manual/run-companion-setup-validation.sh'
+
+# REJECTED-PATH SPIKE — unattended fake-only preservation gate only; no
+# active Omarchestra recipe depends on this loader. Runs the seam test graph
+# (including the candidate-patch verifier and source audits) plus scratch-only
+# patch verification. Fresh temporary state per run; never starts Pi,
+# Ghostty, Hyprland actions, Quickshell/Omarchy UI, a provider, SSH, Boomux,
+# systemd, or any
 # user/installed mutation. Never applies the patch outside scratch copies.
 spike-omarchy-ephemeral-plugin-loader:
     #!/usr/bin/env bash

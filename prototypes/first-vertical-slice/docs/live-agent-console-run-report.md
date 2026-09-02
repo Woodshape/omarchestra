@@ -1,12 +1,14 @@
 # Live Agent Console implementation run report
 
-Status: **IMPLEMENTATION COMPLETE (fake-only) — all automated seams red→green. The original per-run loader path is retired; live agreement awaits the persistent Companion Plugin replacement gate.**
+Status: **COMPANION MILESTONE COMPLETE (fake-only) — installation, Projection Session, QML, acceptance, and boundary seams are green. The per-run loader is retired; live agreement remains unproven.**
 
 This report belongs to the disposable first vertical slice. It records what the
-original Fusion run proved and is not live or production evidence. Architecture
-disposition on 2026-09-02: keep the projection seam, keep the old launcher
-fail-closed, and replace per-run QML registration with explicit Companion
-Plugin setup plus ephemeral Projection Sessions (ADR 0001).
+original Fusion run and the follow-up Companion milestone proved. It is not
+live or production evidence. Architecture disposition on 2026-09-02: keep the
+projection seam, keep the old launcher fail-closed as rejected evidence, and
+replace per-run QML registration with explicit Companion Plugin setup plus
+ephemeral Projection Sessions (ADR 0001). That replacement is now complete
+fake-only; its human procedure exists but was not run.
 
 ## Scope and authority
 
@@ -78,12 +80,12 @@ Tests must prove:
 
 1. every agent Ghostty launch uses `--window-decoration=none`;
 2. no agent Ghostty launch pins `--title`;
-3. the live Agent Console recipe is clearly human-only and is not referenced by
-   any automated recipe;
-4. the current human recipe checks the unsupported Omarchy capability and
-   exits before creating any live resource;
-5. no standalone Quickshell, generic Qt/GTK, user-config staging, symlink, or
-   preinstalled-plugin fallback exists.
+3. the retired launcher remains fail-closed and absent from active recipes;
+4. the replacement Companion setup recipe is clearly human-only, requires a
+   TTY and exact typed authorization, and is reachable in automation only via
+   `--check` or static analysis;
+5. no standalone Quickshell, generic Qt/GTK, temporary user-config staging,
+   symlink, or assumed preinstalled-plugin fallback exists.
 
 Dynamic `Omarchestra — <Role> — <state>` title metadata remains available to
 Hyprland/window switchers, but is not visible chrome or an independent human
@@ -108,12 +110,12 @@ remain pending and retryable, and `clean` stays false until no registration
 remains. Names, prefixes, substring matches, wildcard matching, current focus,
 and global stop or restart operations do not authorize cleanup.
 
-Because the current human recipe implements the retired loader path, it must
+The retained old launcher still implements the rejected loader path and must
 continue to fail before registration of runner, Pi, Ghostty, provider,
-Hyprland, or UI resources. Fake cleanup evidence does not claim that a combined
-live run occurred. Runtime cleanup for the replacement gate must clear exact
-Projection Session and Team Goal resources while leaving the installed
-Companion Plugin intact.
+Hyprland, or UI resources. The active replacement procedure has fake-proven
+exact PID, window, socket, FIFO, and directory cleanup plus byte-identical
+installation fingerprints around runtime clear/hide. Fake cleanup evidence
+does not claim that a combined live run occurred.
 
 ### S5. Source-audit seam
 
@@ -129,8 +131,29 @@ cannot launch or control:
 - systemd.
 
 The fake-only check may start only its bounded test/lint processes and any
-existing explicitly permitted local prototype runner checks. The human recipe
-must never be reachable from an automated recipe.
+existing explicitly permitted local prototype runner checks. Fusion and every
+automated recipe are statically barred from the live adapter and human path;
+the replacement script may be executed by automation only with `--check`.
+
+### S6. Companion installation seam
+
+The fake-only installation suite fixes immutable inspection plans, exact
+compatibility, plan-bound authorization, no-follow filesystem identity,
+receipt-backed ownership, supported shell enablement, update, rollback, exact
+uninstall, and incomplete recovery. Unknown versions, symlinks, foreign or
+changed assets, ownership/mode errors, malformed/conflicting `shell.json`,
+stale preconditions, and forged authorization fail before unrelated state is
+changed.
+
+### S7. Persistent plugin and ephemeral Projection Session seam
+
+One installed `omarchestra.agent-console` persists across Team Goals. Every
+open receives a new session generation and begins from an authoritative
+snapshot. The existing projection core and adapter own ordered events,
+resnapshot, reconnect, acknowledged intent deduplication, and stale-generation
+rejection. Fake plugin reload reconstructs identical cards without changing
+agent identities, connections, assignments, or delivered turns. Runtime
+clear/hide leaves plugin assets, receipt, and `shell.json` byte-identical.
 
 ## Plain projection handoff contract
 
@@ -202,86 +225,51 @@ only an ephemeral Projection Session and cannot mutate installation state.
 
 ## Evidence ledger
 
-| Evidence | Required result | Current state |
+| Evidence | Intended red | Current green state |
 | --- | --- | --- |
-| Projection adapter red test | Fails for intended missing adapter behavior | Done — `evidence/live-agent-console-adapter-red.txt` (12✖/0✔; implementation modules absent) |
-| QML boundary red test | Fails for intended missing QML behavior | Done — `evidence/live-agent-console-qml-red.txt` (1✔/5✖; plugin sources absent) |
-| Launcher/cleanup/audit red tests | Fail for intended missing contracts | Done — `evidence/live-agent-console-launcher-red.txt` (launcher 5✖/3✔, cleanup module-not-found, audit 4✖/1✔) |
-| Projection adapter green test | Snapshot/event/reconnect/gap cases pass | Done — `evidence/live-agent-console-adapter-green.txt` (12✔/0✖) |
-| QML boundary green test and lint | Injection and forbidden-dependency checks pass | Done — `evidence/live-agent-console-qml-green.txt` (6✔/0✖; `qmllint -I /usr/share/omarchy/shell` passes) |
-| Launcher/cleanup/source-audit green tests | Human-only, exact fake cleanup, fake-only graph pass | Done — `evidence/live-agent-console-launcher-green.txt` (27✔/0✖) and combined in `evidence/live-agent-console-fake-only.txt` |
-| `just prototype-live-agent-console-check` | Unattended and fake-only | Done — 45 tests, 45 pass, 0 fail, plus module link checks, launcher `--check`, and `qmllint` (`evidence/live-agent-console-fake-only.txt`) |
-| Existing automated prototype gates | Remain green | Done — `just prototype-vertical-slice` exit 0 (gate refreshed `evidence/fake-only-acceptance.txt`); `just prototype-vertical-slice-manual-check` exit 0 |
-| Live Pi/Agent Console visual agreement | Later explicit human gate only | Pending Companion Plugin setup and replacement gate |
+| Original projection adapter | `live-agent-console-adapter-red.txt`: 12 fail | `live-agent-console-adapter-green.txt`: 12 pass |
+| Original QML boundary | `live-agent-console-qml-red.txt`: 1 pass / 5 fail | `live-agent-console-qml-green.txt`: 6 pass plus static lint |
+| Original launcher/cleanup/audit | `live-agent-console-launcher-red.txt`: intended missing-contract failures | `live-agent-console-launcher-green.txt`: original seams green; retired launcher remains fail-closed |
+| Companion installation | `companion-installation-red.txt`: 22 intended failures | `companion-installation-green.txt`: 22 pass |
+| Companion Projection Session | `companion-projection-red.txt`: 1 negative assertion pass / 23 intended failures | `companion-projection-green.txt`: 24 pass |
+| Integrated Companion acceptance | `companion-acceptance-red.txt`: 1 boundary pass / 4 intended failures | `companion-acceptance-green.txt`: 5 pass plus standalone acceptance verdict |
+| Extended recipe/module/QML boundary | Assertions added after implementation | `companion-boundary-green.txt`: 18 pass |
+| Human replacement procedure | Live execution prohibited in automation | `companion-human-recipe-check.txt`: TTY, exact authorization, private evidence, exact cleanup, and `--check` boundaries pass; live not run |
+| Complete Companion gate | All fake seams compose | `just prototype-companion-check`: 58/58 tests plus standalone acceptance and launcher `--check` pass |
+| Agent Console fake-only regression | Existing and extended seams remain green | `just prototype-live-agent-console-check`: 58/58 tests plus module links, launcher `--check`, syntax, and QML lint pass |
+| Existing prototype gates | No regression | `prototype-vertical-slice` and `prototype-vertical-slice-manual-check` pass |
+| Live Pi/Agent Console visual agreement | Human-only | Not run and not claimed |
+
+The consolidated Companion chronology is in
+[`../evidence/companion-red-green-ledger.md`](../evidence/companion-red-green-ledger.md).
 
 ## Final report fields
 
-1. **Changed files.**
-
-   - `justfile` — added `prototype-live-agent-console-check` (unattended,
-     fake-only) and `prototype-live-agent-console-gate` (human-only).
-   - `console/projection-core.ts`, `console/live-projection-adapter.ts` —
-     projection state machine and foreground adapter (non-QML, injectable
-     transport/sink).
-   - `console/plugin/manifest.json`, `console/plugin/AgentConsole.qml`,
-     `console/plugin/AgentConsoleCards.qml` — presentation-only Omarchy panel
-     source; never installed, enabled, or loaded.
-   - `console/test/projection-adapter.test.ts`, `console/test/qml-boundary.test.mjs`,
-     `console/test/source-audit.test.mjs` — seam tests.
-   - `manual/live-gate-resources.ts` — fake resource registry, exact-identity-only cleanup.
-   - `manual/run-live-agent-console-gate.sh` — human-only fail-closed launcher
-     with a fake-only `--check` mode.
-   - `manual/test/live-agent-console-launcher.test.mjs`,
-     `manual/test/live-gate-resources.test.ts` — launcher-contract and
-     failure-cleanup seam tests.
-   - `qml/AgentProjectionFixture.qml` — removed the client-side display-name map.
-   - `README.md`, `docs/live-agent-console-gate.md`,
-     `docs/live-agent-console-launch-blocker.md`, this report.
-   - `evidence/live-agent-console-{adapter,qml,launcher}-{red,green}.txt`,
-     `evidence/live-agent-console-fake-only.txt`,
-     `evidence/live-agent-console-validation.txt`.
-
-2. Exact red→green evidence: adapter 12✖→12✔
-   (`evidence/live-agent-console-adapter-{red,green}.txt`), QML boundary
-   1✔/5✖→6✔ (`evidence/live-agent-console-qml-{red,green}.txt`),
-   launcher/cleanup/audit red 4✔/9✖ (`live-agent-console-launcher-red.txt`)
-   → 27✔/0✖ (`live-agent-console-launcher-green.txt`). Final combined run:
-   `just prototype-live-agent-console-check` — 45 tests, 45 pass, 0 fail
-   (`evidence/live-agent-console-fake-only.txt`).
-
-3. Findings. **Fake-only and automated:** all five seams (projection adapter,
-   QML boundary, launcher contract, failure cleanup, source audit) pass with
-   fake transports/registries only. **Human-proven (prior):** Pi status
-   labels, transitions, isolation, persistence
-   (`docs/manual-role-label-gate.md`). **Human-only:**
-   `prototype-vertical-slice-role-label-gate` (completed terminal-side
-   evidence) and the retired `prototype-live-agent-console-gate` (fails closed
-   before any resource creation); neither is reachable from an automated
-   recipe or module. **Rejected path:** repo-local ephemeral loading inside the
-   installed Omarchy shell (`docs/live-agent-console-launch-blocker.md`).
-
-4. Post-review checks: `just prototype-live-agent-console-check` 45/45;
-   `just prototype-vertical-slice` exit 0; `just prototype-vertical-slice-manual-check`
-   exit 0; `qmllint -I /usr/share/omarchy/shell` pass; module link check pass;
-   `bash -n` clean on both wizards; source audits green; secret scan clean;
-   `git diff --check` clean; shellcheck unavailable, recorded as skipped in
-   `evidence/live-agent-console-validation.txt`.
-
-5. Residue: no prototype scratch directories, sockets, repository runtime
-   files, or runner/gate processes remain (`live-agent-console-validation.txt`,
-   post-fix section); no private live evidence path exists in Git.
-
-6. No live GUI, Pi, provider, remote, Boomux, systemd, SSH, Quickshell, or
-   Omarchy UI action occurred during this Fusion run; the human gate was never
-   invoked and the fake-only check reaches the combined launcher only via
-   `--check`.
-
-7. Remaining steps: fake-prove explicit setup, compatibility verification,
-   update, rollback, and exact uninstall for a versioned Companion Plugin;
-   adapt this projection core to open/reconnect/hide/clear Projection Sessions;
-   then run a replacement explicitly human-authorized gate. No upstream
-   Omarchy capability or per-run QML registration is required. Live Pi + Agent
-   Console agreement remains unproven and unclaimed until that gate passes.
+1. **Implemented fake-only.** The shared Companion contract, deep installation
+   lifecycle, fake Omarchy ports, persistent-plugin shell fake, ephemeral
+   Projection Session manager, reused projection core/adapter, adapted QML,
+   integrated acceptance, standalone acceptance, and extended boundary audits
+   are complete.
+2. **Automated entry point.** `just prototype-companion-check` is the complete
+   unattended Companion gate. `just prototype-live-agent-console-check`
+   retains the wider Agent Console regression and static boundary checks.
+3. **Human-only entry point.** `just prototype-companion-setup-validation` is
+   the only active live Companion recipe. It requires a compatible host, TTY,
+   displayed immutable plan, exact typed authorization, owner-only private
+   evidence, and exact runtime cleanup. Its live path was not invoked.
+4. **Retired path.** `manual/run-live-agent-console-gate.sh`, its blocker
+   report, and the ephemeral-loader spike remain fail-closed rejected evidence.
+   No active recipe depends on them.
+5. **Boundaries.** Routine projection imports cannot reach installation or
+   configuration mutation code. QML has no filesystem, protocol, cursor,
+   reconnect, shell-command, terminal, storage, or orchestration authority.
+   Runtime cleanup never removes the persistent plugin.
+6. **Scope.** Ordinary-terminal observation and Adoption remain unimplemented.
+   Production packaging, broader compatibility, and live rendering evidence
+   also remain outside this completed fake-only milestone.
+7. **Live claim.** No live GUI, Pi, provider, remote, Boomux, systemd, SSH,
+   Quickshell, Omarchy UI, installation, or private live-evidence action
+   occurred in this Companion run.
 
 Review findings F1 (console `open()` must apply a validated projection before
 opening), F2 (stale report status), and F3 (wipe instructions) are resolved.
