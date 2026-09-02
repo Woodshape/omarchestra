@@ -1,0 +1,141 @@
+{
+  "schema": "omarchestra.omarchy-ephemeral-plugin-loader-provenance/v1",
+  "recordedAt": "2026-09-02T08:01:16Z",
+  "repository": {
+    "path": "/home/woodshape/claude/omarchestra",
+    "branch": "prototype/live-agent-console-gate",
+    "head": "ce8f4e381c84596cab3da79900d74852141c0637",
+    "initialStatusShort": [],
+    "initialStatusWasClean": true
+  },
+  "installedPackages": {
+    "omarchy": {
+      "version": "4.0.2-1",
+      "metadataPath": "/var/lib/pacman/local/omarchy-4.0.2-1/desc",
+      "metadataSha256": "acb35b54b65249161c548e5a42906bc9602bf21d4b15c0f3e1d326762ca0f17d",
+      "declaredUrl": "https://github.com/basecamp/omarchy",
+      "cacheArchive": {
+        "path": "/var/cache/pacman/pkg/omarchy-4.0.2-1-any.pkg.tar.zst",
+        "sha256": "cb24bb99a4b890fed643b4c92ab729daf353b6c632c29634d8cac09827ce5863"
+      },
+      "cacheSignature": {
+        "path": "/var/cache/pacman/pkg/omarchy-4.0.2-1-any.pkg.tar.zst.sig",
+        "sha256": "d7ea0ae73efbb3f1543d23fcd854268b390fade5044763b0f5173478e1b03736",
+        "verificationPerformedByThisSpike": false
+      }
+    },
+    "quickshell": {
+      "version": "0.3.1-1",
+      "metadataPath": "/var/lib/pacman/local/quickshell-0.3.1-1/desc",
+      "metadataSha256": "949c5b938c65659078e5901a00e1242a675360ab7b60c3c5d01730e09ea29cd8",
+      "declaredUrl": "https://git.outfoxxed.me/quickshell/quickshell",
+      "cacheArchive": {
+        "path": "/var/cache/pacman/pkg/quickshell-0.3.1-1-x86_64.pkg.tar.zst",
+        "sha256": "5988659fdc1b0addf138a3cd8e3540fc1078bfc60c995c6f4cd0fb9054484ec7"
+      },
+      "cacheSignature": {
+        "path": "/var/cache/pacman/pkg/quickshell-0.3.1-1-x86_64.pkg.tar.zst.sig",
+        "sha256": "2713fed678f3236cc0224e71876bfab96c10d55def0ab4b72bf1b8846ce6e22d",
+        "verificationPerformedByThisSpike": false
+      }
+    }
+  },
+  "versionDiscrepancy": {
+    "path": "/usr/share/omarchy/version",
+    "content": "4.0.0.alpha",
+    "sha256": "9d1aaeb0c16104d678742c04d6a8700fed365e7eb65a8eaef5fb3845ddf634e3",
+    "packageVersionRemainsAuthority": "4.0.2-1"
+  },
+  "installedSources": [
+    {
+      "path": "/usr/share/omarchy/shell/README.md",
+      "sha256": "e946c56db6ee1c6f31deb6429e777c9854da8d42ab8e72a1687d3c5f85cfc654",
+      "role": "shell and public IPC documentation"
+    },
+    {
+      "path": "/usr/share/omarchy/shell/plugins/README.md",
+      "sha256": "5af90f436f96cb0f9e1c138209197331fb11e24b6d98bf03bcfbe0f3adfdf8e1",
+      "role": "first-party plugin and session lifecycle documentation"
+    },
+    {
+      "path": "/usr/share/omarchy/shell/services/PluginRegistry.qml",
+      "sha256": "63371e4224f948e5444531282ad9f7c74ca2e578470b549f4c6b898c3a15c50f",
+      "role": "manifest validation, discovery, collisions, and persisted enablement"
+    },
+    {
+      "path": "/usr/share/omarchy/shell/shell.qml",
+      "sha256": "9f1db77dcc3c111ceccc860ac472d19b35d385958a63d270ea51e413ab86f1f0",
+      "role": "panel host, loader lifecycle, configuration writer, and IPC"
+    },
+    {
+      "path": "/usr/share/omarchy/shell/Commons/Util.qml",
+      "sha256": "6894c63190973b5dbe50b13b3f7a99dd5770e143699f3aae1650fb65ca3ebe9b",
+      "role": "plain-object, cloning, canonical ID, and file URL helpers"
+    },
+    {
+      "path": "/usr/share/omarchy/shell/Commons/qmldir",
+      "sha256": "5593fa25d33b1e2d3ed8628ca2e0dce5074497608f2bad6652689e390727e5e8",
+      "role": "Commons module declaration"
+    },
+    {
+      "path": "/usr/share/omarchy/shell/plugins/osd/manifest.json",
+      "sha256": "a000056d0e7e372b2a46960a24fa578ab39a20cfd620d423688536fe68b40054",
+      "role": "first-party panel manifest example"
+    },
+    {
+      "path": "/usr/share/omarchy/shell/plugins/osd/Osd.qml",
+      "sha256": "a139b64d45f89a6b55ebcbd1233347f75b541b020e24b4286d6e00a6d5f5c50c",
+      "role": "panel open, update, close, and direct IPC example"
+    },
+    {
+      "path": "/usr/share/omarchy/shell/plugins/osd/OsdModel.js",
+      "sha256": "ad8cc27c204587a9aac9a7ec0513c72a1a33fe6e83090ee91b4e2c2bfe5fe35c",
+      "role": "direct JavaScript dependency of the panel example"
+    },
+    {
+      "path": "/usr/share/omarchy/shell/plugins/image-picker/manifest.json",
+      "sha256": "b255a60b42c927b1d6e191ca5a70a30fb537601a1a13b95c4bcc0646f7d6f64b",
+      "role": "keep-loaded overlay manifest comparison"
+    },
+    {
+      "path": "/usr/share/omarchy/bin/omarchy-shell",
+      "sha256": "538ece231aba80154c76ab48df8ab013b2f02c5171241d08bddbf08a5fe5ac34",
+      "role": "installed IPC forwarding wrapper"
+    },
+    {
+      "path": "/usr/bin/omarchy-shell",
+      "sha256": "538ece231aba80154c76ab48df8ab013b2f02c5171241d08bddbf08a5fe5ac34",
+      "role": "public IPC forwarding command"
+    }
+  ],
+  "qmlApiEvidence": [
+    {
+      "path": "/usr/lib/qt6/qml/Quickshell/Io/quickshell-io.qmltypes",
+      "sha256": "c136f5428ed3937c233dd28d5edf725c4e939084768535f9d79bcece8d764ab3",
+      "role": "Process, FileView, and IpcHandler API metadata"
+    },
+    {
+      "path": "/usr/lib/qt6/qml/Quickshell/quickshell-core.qmltypes",
+      "sha256": "644dca19bedcdfbc9fbd3db999fb51a3d3c7ce65db564ae3800e7870e2e298bd",
+      "role": "shell instance identity API metadata"
+    },
+    {
+      "path": "/usr/lib/qt6/qml/QtQuick/plugins.qmltypes",
+      "sha256": "e9730d38f14fc9efc38b6cf19e4534a021caeb8ec5d4b528f39864aa509d248c",
+      "role": "Loader source and lifecycle API metadata"
+    }
+  ],
+  "upstreamGitProvenance": {
+    "exactCommitProvenLocally": false,
+    "installedTreeContainsGitMetadata": false,
+    "networkLookupPerformed": false,
+    "classification": "candidate patch against Omarchy 4.0.2-1",
+    "reason": "The package metadata names a repository URL but neither the installed package metadata nor installed tree identifies an exact upstream Git commit."
+  },
+  "collection": {
+    "hashAlgorithm": "SHA-256",
+    "hashTool": "sha256sum",
+    "liveShellContacted": false,
+    "installedOrUserFilesModified": false
+  }
+}

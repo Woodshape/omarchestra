@@ -1,104 +1,41 @@
-# Live Agent Console launch blocker
+# Retired repository-local Agent Console launch path
 
-Status: **UNSUPPORTED — fail closed before creating live resources.**
+Status: **REJECTED PATH — evidence retained; not an MVP blocker.**
 
-This is a disposable first-vertical-slice finding, not a production decision.
-It records the installed Omarchy shell API available to the later human gate.
-
-## Required launch property
-
-The gate needs a supported way for the running Omarchy shell to load and summon
-an Agent Console plugin directly from this repository for one explicitly
-human-authorized run. The launch must be temporary, must not change user
-configuration, and must allow exact unload and cleanup.
-
-The installed public plugin API does not provide that property.
+This disposable first-vertical-slice finding records why the installed Omarchy shell cannot load a repository-local QML plugin temporarily for one Team Goal. That requirement was based on an incorrect lifecycle assumption and has been superseded by the accepted Companion Plugin architecture in `docs/design/mvp.md` and ADR 0001.
 
 ## Installed API evidence
 
-The evidence below comes from the installed, read-only Omarchy files. No live
-shell IPC call or configuration mutation was used to establish it.
+The installed Omarchy shell supports persistent third-party plugins, not per-run absolute-path registration:
 
-1. `/usr/share/omarchy/shell/services/PluginRegistry.qml` sets its third-party
-   plugin directory to `$HOME/.config/omarchy/plugins` through
-   `pluginsDir: home + "/.config/omarchy/plugins"`.
-2. Its third-party scanner walks only direct children of that directory and
-   accepts `<child>/manifest.json`. The other scan root is the packaged
-   first-party plugin directory supplied by the Omarchy shell.
-3. The installed `/usr/share/omarchy/shell/README.md` documents installation as
-   cloning or copying a plugin into `~/.config/omarchy/plugins/<plugin-id>/`.
-   It documents no additional search path or temporary absolute-path loader.
-4. `/usr/share/omarchy/shell/shell.qml` resolves `summon(pluginId, payloadJson)`
-   through the registry, rejects an unknown plugin, and rejects a disabled
-   plugin. `summon` cannot accept a manifest path or QML source path.
-5. Third-party enablement is represented in shell configuration. The registry's
-   `setEnabled` calls the shell config mutator, and `shell.qml` persists that
-   result through the `FileView` for
-   `$HOME/.config/omarchy/shell.json`.
-6. The documented `omarchy-shell` wrapper forwards IPC to the already-running
-   shell. It does not register a repo-local source or start an isolated plugin
-   host.
+1. `/usr/share/omarchy/shell/services/PluginRegistry.qml` scans direct children of `$HOME/.config/omarchy/plugins` plus packaged first-party plugins.
+2. `/usr/share/omarchy/shell/README.md` documents copying or cloning a plugin into `~/.config/omarchy/plugins/<plugin-id>/`.
+3. `summon(pluginId, payloadJson)` resolves a discovered, enabled ID; it does not accept a manifest or source path.
+4. Third-party enablement is persistent shell configuration in `~/.config/omarchy/shell.json`.
+5. The `omarchy-shell` wrapper forwards IPC to the running shell and is not a repository-local plugin host.
 
-Therefore a repository-local Agent Console cannot be discovered, enabled, and
-summoned through the installed supported API without writing under
-`~/.config/omarchy/`.
+Therefore the old recipe correctly cannot discover and summon repository-local Agent Console QML without installation state. Its fail-closed behavior remains valid for that retired recipe.
 
-## Forbidden fallbacks
+## Correct resolution
 
-This prototype must not bypass the blocker by:
+Product installation and Team Goal execution are separate lifecycles:
 
-- launching a second standalone Quickshell instance with `quickshell -p`;
-- substituting a generic Qt, QML, or GTK window for an Omarchy shell plugin;
-- creating a file or directory symlink under `~/.config/omarchy/plugins/`;
-- temporarily copying plugin source under `~/.config`;
-- editing, replacing, backing up, or restoring `shell.json` as part of the run;
-- assuming that the operator has preinstalled or enabled a matching plugin;
-- editing `/usr/share/omarchy` or using an undocumented internal loader.
+- explicit human-authorized setup installs, validates, and enables one versioned Omarchestra Companion Plugin through the supported third-party path;
+- update, rollback, and exact uninstall are also explicit product-management operations;
+- routine Team Goal runs open and clear ephemeral Projection Sessions through the installed plugin;
+- runtime cleanup leaves the installed plugin and Omarchy configuration unchanged;
+- no upstream Omarchy feature, candidate patch, standalone Qt/GTK/Quickshell dashboard, or per-run QML copy/symlink is required.
 
-A manually preinstalled copy is not a repo-local disposable launch seam and
-would leave configuration outside the run's exact resource ownership. It is
-not accepted as a prerequisite.
+The setup path may write exact Omarchestra-owned assets and enablement configuration because those writes are the declared installation operation, not hidden runtime side effects. The old gate's prohibition on configuration mutation still applies to routine Team Goal execution.
 
-## Required failure behavior
+### Retained runtime guardrails
 
-`just prototype-live-agent-console-gate` must remain human-only. On this
-installed API it must report this blocker and exit nonzero **before** it starts
-or contacts a runner, Pi, Ghostty, Hyprland action, provider, Boomux, SSH,
-systemd, or Quickshell/Omarchy UI resource. The automated check must test that
-fail-closed contract with fakes and source audits. Fusion must not invoke the
-human recipe.
+The retired recipe and every routine Team Goal path must still reject `quickshell -p`, a generic Qt/GTK dashboard, per-run copies or symlinks under `~/.config/omarchy/plugins/`, temporary `shell.json` edits, edits below `/usr/share/omarchy`, and an unverified assumed plugin copy. Only the separate explicit setup workflow may install and enable the versioned Companion Plugin.
 
-Repository-local QML plugin source may still be schema-checked, linted, and
-exercised through injected plain values. That proves only a presentation
-boundary, not live Omarchy loading or visual agreement.
+## Disposition of the old launcher and spike
 
-## Smallest next spike
+`just prototype-live-agent-console-gate` still preflights the absent `registerTemporaryPlugin` interface and exits before live resource creation. Keep that safe behavior until the recipe is replaced; do not implement or install the candidate patch merely to make it pass.
 
-Obtain or add one supported public Omarchy capability with this contract:
+The bounded [`omarchy-ephemeral-plugin-loader`](../../../spikes/omarchy-ephemeral-plugin-loader/README.md) spike remains useful rejected-path evidence: it confirms the installed API shape and demonstrates the security and cleanup complexity introduced by temporary registration. Its candidate `omarchy.temporary-panel/v1` patch is scratch-validated only, will not be submitted upstream, and is not an Omarchestra dependency.
 
-```text
-registerTemporaryPlugin(absoluteRepoPluginDirectory) -> opaque registration
-summon(opaque registration, payload)
-hide(opaque registration)
-unregister(opaque registration)
-```
-
-Equivalent API shapes are acceptable if they provide all of these properties:
-
-1. source remains in the repository;
-2. registration and enablement are process-local or explicitly ephemeral;
-3. no write occurs under `~/.config` or `/usr/share/omarchy`;
-4. the plugin runs inside the existing Omarchy shell and receives supported
-   shared theme/component injection;
-5. registration returns an exact identity that authorizes only its own hide
-   and unload operations;
-6. shell restart, crash, interruption, duplicate unregister, and plugin-ID
-   collision semantics are documented and testable;
-7. a non-mutating capability query lets the human launcher fail before it
-   creates any other resource.
-
-After that capability exists, the next authorized human gate can connect the
-repo-local projection adapter to the plugin, exercise waiting → managed →
-manual_takeover, confirm sibling isolation and one-minute persistence, and
-perform exact cleanup. Until then, live Pi/Agent Console visual agreement is
-pending and must not be claimed.
+The next spike is Companion Plugin packaging and Projection Session integration, followed by the replacement human gate described in [`live-agent-console-gate.md`](live-agent-console-gate.md). Until that gate passes, live Pi/Agent Console visual agreement remains unproven.

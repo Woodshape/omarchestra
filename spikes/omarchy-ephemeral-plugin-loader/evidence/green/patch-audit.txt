@@ -1,0 +1,10 @@
+baseline-verified
+copy-ok
+dry-run-ok
+allowlist-ok
+apply-ok
+qmllint-ok (qt6; TemporaryPanelHost.qml and shell.qml)
+forced-cleanup-ok
+installed-unchanged
+cleanup-ok
+residue-clean

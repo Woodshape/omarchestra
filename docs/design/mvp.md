@@ -1,7 +1,7 @@
 # Omarchestra — MVP Design
 
 Status: **MVP product scope and feasibility classifications locked; production technical contracts pending**
-Last updated: 2026-09-01
+Last updated: 2026-09-02
 Related research: [`foundation-assessment.md`](../research/foundation-assessment.md)
 
 This document is the authoritative record of the MVP scope. It supersedes earlier architectural recommendations where they conflict with decisions recorded here.
@@ -26,31 +26,36 @@ A successful MVP lets a user create one Team Goal on the local Omarchy machine o
 1. **Visible execution.** No hidden Pi JSON/RPC worker may perform the work represented by a visible agent.
 2. **One process, two views.** The native Pi TUI is the complete conversational view; the Agent Console is a structured operational projection of that same process.
 3. **One PTY authority.** Only the terminal runtime owns an Agent Run's PTY, process lifetime, attach/detach, and resize.
-4. **Native windows first.** Hyprland arranges terminal windows. The Omarchy plugin does not embed or render terminals.
+4. **Native windows first.** Hyprland arranges terminal windows. The Omarchestra Companion Plugin does not embed or render terminals.
 5. **Structured observability.** Agent state comes from a bridge inside the visible agent, not ANSI/PTY scraping.
 6. **Thin desktop shell.** QML renders projections and sends intents. It does not supervise children, schedule work, enforce Git safety, or own durable state.
 7. **Replaceable terminal runtime.** Boomux is the prototype implementation of a narrow runtime port, not the product's domain model.
 8. **Honest state.** The UI distinguishes observed facts, inferred state, and unavailable telemetry. It must not fabricate transcripts, progress, isolation, or resumability.
 9. **Node-local execution authority.** The selected execution Node owns its Project, Team Runner, agent bridges, validation, artifacts, and durable workflow state. The local desktop consumes projections and sends acknowledged intents.
+10. **Installation is not a Team Goal.** An explicitly installed Omarchestra companion plugin is durable product infrastructure. Team Goals own ephemeral Projection Sessions and never install, register, copy, or unload QML.
+11. **Observation is not management.** A visible Pi started outside Omarchestra may report structured lifecycle facts, but discovery grants no role, assignment, writer, PTY, or process authority. Management begins only through explicit Adoption.
 
 ## MVP architecture
 
 ```text
 Omarchy shell
-└── Our QML plugin
+└── Installed Omarchestra Companion Plugin
     ├── bar indicator
     ├── Agent Console
-    └── create/control/focus intents
+    └── create/control/focus/adopt intents
               │
+              │ ephemeral Projection Session
               │ snapshot + ordered events + intents
               ▼
-Team Runner (our process)
+Team Runner / Agent Registry (our process)
 ├── durable Team Goal state
+├── observed, unassigned Pi sessions
 ├── workflow/orchestration state machine
 ├── writer policy
 ├── artifact and validation records
 ├── presentation projection
-├── Pi bridge connections
+├── managed Pi bridge connections
+├── ordinary-terminal Pi observer connections
 └── TerminalSessionRuntime port
               │
               ▼
@@ -60,6 +65,9 @@ BoomuxRuntime adapter
         ├── Coordinator Shell → native terminal → visible interactive Pi
         ├── Builder Shell     → native terminal → visible interactive Pi
         └── Reviewer Shell    → native terminal → visible interactive Pi
+
+Ordinary Omarchy terminal → visible interactive Pi
+                           └── observer extension → Observed Pi Session
 ```
 
 For a local Team Goal, the Team Runner and Boomux owner are local. For a remote Team Goal, the execution runner, bridge sockets, repository, validation, and durable state live on the selected remote Node; the local desktop reaches them through authenticated SSH transports. The detailed locked boundary is [`remote-execution.md`](remote-execution.md).
@@ -73,9 +81,12 @@ For a local Team Goal, the Team Runner and Boomux owner are local. For a remote 
 | PTY, process, attach/detach and terminal resize | Terminal runtime (Boomux in MVP) |
 | Conversation and model-session semantics | Visible Pi process |
 | Checkout contents and Git history | Git on the selected execution Node |
-| Presentation and user intents | Local Omarchy plugin |
+| Presentation and user intents | Installed local Omarchestra Companion Plugin |
+| Ordinary Pi lifecycle facts | Observer extension inside that visible Pi process |
+| Adoption of an observed session | User confirmation plus exact same-process acknowledgement and Team Runner commit |
+| Product installation and removal | Explicit setup/uninstall workflow, never a Team Goal |
 
-No authority derives canonical state by scraping another authority's presentation output.
+No authority derives canonical state by scraping another authority's presentation output. Plugin presence does not imply a live Projection Session, and observation does not imply management.
 
 ## Terminal runtime boundary
 
@@ -161,6 +172,16 @@ The completed [`visible Pi bridge spike`](../../spikes/pi-visible-bridge/README.
 
 Production message schemas, socket trust/permissions, durable cursor semantics, reconnect reconciliation, and compatibility policy remain open technical-contract work.
 
+### Ordinary-terminal Pi observation
+
+**Locked.** The complete terminal behavior is specified in [`pi-terminal-behavior.md`](pi-terminal-behavior.md). Product setup may install one opt-in global Omarchestra observer extension for Pi. When a user starts a visible interactive Pi in an ordinary terminal, outside an Omarchestra/Boomux-managed ShellRun, the extension may connect to the local owner-only Agent Registry and publish privacy-bounded structured lifecycle facts.
+
+An ordinary session appears in the Agent Console as an **Observed Pi Session** under **Unassigned Agents**. It is not an Agent Run, has no Role or Assignment, and grants Omarchestra no writer, workflow, PTY, terminal, process-lifecycle, or input authority. Omarchestra does not scrape or project its conversation. Failure to connect is fail-open for Pi and visibly unavailable to Omarchestra.
+
+An observed session becomes managed only through **Adoption**: the user selects the exact current session, chooses a Team Goal on the session's Execution Node and an unoccupied Role, confirms the action, and the extension inside that same visible Pi process acknowledges the proposed binding. The Team Runner then reconciles current activity and commits the new Agent Run before dispatching work. Node-mismatched, unknown, stale, busy, exited, already-managed, role-conflicting, or unacknowledged sessions fail closed. Discovery, focus, recency, PID alone, terminal title, cwd, or equal names never authorize Adoption. For the MVP, ordinary-terminal observation is local to the Omarchy Node, so these sessions may enter local Team Goals only.
+
+The observer reports lifecycle and identity metadata only under an explicit telemetry policy. Initial MVP observation excludes prompts, responses, tool-result bodies, thinking, credentials, terminal output, and repository contents. Product setup and uninstall own observer installation; a Team Goal never installs or removes it.
+
 ## Domain model
 
 ### Execution Node
@@ -220,7 +241,23 @@ There is no unqualified `none` mode. A command result never substitutes for sema
 
 ### Agent Run
 
-One exact visible harness process performing one Role. An Agent Run is bound to one terminal session/runtime process run and, when available, one Pi model-session identity.
+One exact visible harness process performing one Role. An Agent Run is managed by a Team Runner and bound to one exact visible Pi process and, when available, one Pi model-session identity. Omarchestra-launched runs also have a terminal Runtime Binding; an adopted ordinary session need not gain PTY authority. An Observed Pi Session is not an Agent Run until Adoption commits.
+
+### Observed Pi Session
+
+One visible interactive Pi session that reports structured lifecycle facts but is not assigned to a Team Goal. It remains observable, unassigned, and unmanaged and carries no Runtime Binding guarantee.
+
+### Adoption
+
+The explicit transition from one exact current Observed Pi Session to an Agent Run in a selected Team Goal on the same Execution Node and an unoccupied Role. Adoption requires user confirmation, same-process acknowledgement, reconciliation, and a durable Team Runner commit.
+
+### Companion Plugin
+
+The versioned Omarchestra-owned QML product surface explicitly installed and enabled through Omarchy's supported third-party plugin mechanism. It persists across Team Goals and owns presentation only.
+
+### Projection Session
+
+An ephemeral presentation relationship between the Companion Plugin and one local or remote projection source. It carries snapshots, ordered events, and acknowledged intents and can reconnect or clear without installing or unloading the Companion Plugin.
 
 ### Agent Control Mode
 
@@ -297,7 +334,9 @@ Terminal lifecycle and assignment lifecycle remain distinct internally even when
 
 **Locked.** Visible agents remain genuinely interactive throughout the MVP.
 
-1. An Agent Run begins in `managed` control mode.
+An Omarchestra-launched Agent Run begins in `managed` control mode. An ordinary-terminal Pi remains an Observed Pi Session with no Agent Control Mode until Adoption completes; observation alone never enters `managed`.
+
+1. An Agent Run begins in `managed` control mode only after managed launch or committed Adoption.
 2. The user may explicitly choose **Take control**, or may submit input directly in the native terminal.
 3. Observed human input during managed work transitions the Agent Run to `manual_takeover`.
 4. The Team Runner pauses new assignments to that Agent Run and all dependent workflow stages. It does not silently kill a running model/tool action.
@@ -336,6 +375,14 @@ For agent-owned or unknown attention, the console reports `needs_attention` and 
 
 ## Omarchy UI scope
 
+### Installation and runtime boundary
+
+**Locked.** Omarchestra follows Boomux's companion-plugin model. An explicitly authorized `omarchestra setup`-class workflow installs, validates, and enables one versioned Omarchestra Companion Plugin through Omarchy's supported third-party plugin mechanism and may reload the shell after showing the exact plan. A matching uninstall workflow removes only unchanged Omarchestra-owned assets and configuration entries.
+
+Installation is persistent product state and may write the normal Omarchy plugin/configuration locations with explicit human consent. Normal Team Goal and Projection Session operations do not install, copy, link, register, enable, update, or unload QML and do not write `shell.json`. The already-installed plugin opens, hides, clears, and reconstructs ephemeral Projection Sessions from authoritative snapshots and events.
+
+The rejected per-run repository-local loader and its candidate upstream patch remain spike evidence, not an MVP dependency. Omarchestra will not require or submit an upstream Omarchy feature for this surface. A fourth terminal dashboard remains unnecessary while the supported companion-plugin path is available.
+
 ### Bar indicator
 
 **Proposed.** Show:
@@ -352,9 +399,10 @@ For agent-owned or unknown attention, the console reports `needs_attention` and 
 1. **Team Goal list** — active and recent goals with overall state.
 2. **Team Goal detail** — goal text, workflow stage and final outcome.
 3. **Agent cards** — persistently visible role and control state, model, current assignment, elapsed time, latest structured event, and attention. These cards are the redundant team-wide role/state surface for the decorationless native terminals.
-4. **Agent actions** — present/focus exact terminal, take control, return to team, reconcile manual work, resolve runner-owned approvals, acknowledge notifications, and cancel where safe. Agent-owned approvals redirect to the terminal.
-5. **Structured activity feed** — ordered orchestration and agent events, not a scraped transcript.
-6. **Create Team Goal form** — Execution Node, Node-qualified Project, goal, validated YAML Team Profile, and Validation Policy. Resolved role/model assignments are shown before launch; `review_and_command` also requires a command.
+4. **Unassigned Agents** — Observed Pi Sessions from ordinary terminals, visibly labelled observed/unmanaged with available lifecycle metadata and no fabricated Role, Assignment, PTY persistence, or control authority.
+5. **Agent actions** — present/focus exact managed terminal, take control, return to team, reconcile manual work, resolve runner-owned approvals, acknowledge notifications, cancel where safe, and explicitly adopt an eligible observed session. Agent-owned approvals redirect to the terminal.
+6. **Structured activity feed** — ordered orchestration and agent events, not a scraped transcript.
+7. **Create Team Goal form** — Execution Node, Node-qualified Project, goal, validated YAML Team Profile, and Validation Policy. Resolved role/model assignments are shown before launch; `review_and_command` also requires a command.
 
 Context usage and cost are displayed only if Pi exposes reliable values through the bridge.
 
@@ -362,14 +410,16 @@ Context usage and cost are displayed only if Pi exposes reliable values through 
 
 **Locked.** Clicking an Agent card presents or focuses the exact native terminal bound to that Agent Run. Closing the terminal window must not kill the agent process. Reopening reconnects to the same process while it remains alive.
 
-Agent windows remain decorationless and visually native to Omarchy. Each visible Pi TUI persistently shows `<Role> · <state>` through the bridge-owned Pi status surface, while the Agent Console persistently repeats role and state across the team. The bridge also publishes `Omarchestra — <Role> — <state>` as dynamic terminal-title metadata for Hyprland, launchers, and window switchers, but title metadata is not treated as persistently visible chrome or as an independent acceptance surface.
+Agent windows remain decorationless and visually native to Omarchy. Each managed visible Pi TUI persistently shows `<Role> · <state>` through the bridge-owned Pi status surface, while the Agent Console persistently repeats role and state across the team. The bridge also publishes `Omarchestra — <Role> — <state>` as dynamic terminal-title metadata for Hyprland, launchers, and window switchers, but title metadata is not treated as persistently visible chrome or as an independent acceptance surface.
+
+An Observed Pi Session displays `Unassigned · observed` in Omarchestra's named Pi status slot without replacing other extension statuses and retains its ordinary terminal title. Omarchestra may focus a currently correlated ordinary terminal as a presentation convenience, but it does not promise Boomux persistence, reattachment, resize, process control, or exact terminal recovery; Adoption alone does not grant PTY authority or fabricate a managed Runtime Binding.
 
 ## Persistence and recovery
 
 ### Required for MVP
 
 - Closing or reopening an agent terminal does not terminate the visible Pi process.
-- Reloading/restarting the Omarchy plugin does not interrupt agents.
+- Reloading/restarting the installed Companion Plugin does not interrupt agents; it creates a new Projection Session and reconstructs presentation.
 - The Team Runner persists Team Goals, assignments, events, artifacts, workflow state, and runtime bindings.
 - After plugin restart, the console reconstructs itself from a runner snapshot plus ordered events.
 - After Team Runner restart, it reconstructs its durable projection and reconnects to surviving visible agents.
@@ -405,6 +455,9 @@ If the Team Runner restarts during an in-flight assignment, it does not guess wh
 15. Every Team Goal requires structured Reviewer acceptance; no validation mode may bypass review.
 16. A deterministic command is required only in `review_and_command` mode, runs as a non-agent subprocess, and cannot by itself mark a goal accepted.
 17. The UI labels successful `review_only` outcomes **Reviewed** and successful `review_and_command` outcomes **Verified**.
+18. Team Goal runtime paths never install, enable, update, or unload the Companion Plugin and never write Omarchy configuration.
+19. An Observed Pi Session is visibly unassigned and receives no Assignment, Role, writer authority, input, or process action before exact acknowledged Adoption commits.
+20. Observer telemetry excludes conversation and terminal content and fails open for the visible Pi process.
 
 ## Explicitly deferred
 
@@ -442,7 +495,7 @@ The MVP is demonstrable when:
 7. The fixed workflow produces plan, implementation, review and integrated-result artifacts.
 8. Only Builder receives write authority during the workflow.
 9. Attention, process failure and assignment failure are visibly distinguishable.
-10. Restarting the Omarchy plugin reconstructs the same Team Goal projection without interrupting agents.
+10. Restarting the installed Companion Plugin reconstructs the same Team Goal projection without interrupting agents.
 11. Restarting the Team Runner preserves recorded state and safely reports uncertain in-flight work rather than guessing.
 12. Cancelling a Team Goal stops further assignment dispatch and reaches a stable recorded outcome.
 13. Submitting a user message to a managed visible agent pauses dependent orchestration and records manual takeover.
@@ -454,6 +507,9 @@ The MVP is demonstrable when:
 19. For a remote goal, all three agents and the Team Runner execute on one preconfigured non-Omarchy GNU/Linux Node while their native terminal windows render locally.
 20. Closing local windows or interrupting SSH does not terminate remote agents or discard durable workflow state.
 21. Reconnection restores the same Node-qualified Team Goal, Agent Runs, and exact surviving terminal attachments, or reports a truthful stale/gap/uncertain state.
+22. An explicit setup installs and enables the versioned Companion Plugin once; creating, running, cancelling, and cleaning up Team Goals causes no plugin or Omarchy-configuration mutation.
+23. Starting Pi in an ordinary local Omarchy terminal with the opt-in observer installed produces an Observed Pi Session under Unassigned Agents without granting management authority or exposing conversation content.
+24. Adopting that session requires exact same-process acknowledgement and user confirmation; stale or unacknowledged adoption changes neither the Pi session nor Team Goal.
 
 ## Implementation readiness
 
@@ -461,10 +517,11 @@ Status: **MVP product scope and the local/remote feasibility classifications are
 
 Before delegating broad implementation to Fusion Harness, the project needs:
 
-1. validate the accepted prototype toolchain through a narrow production-shaped vertical slice;
-2. choose a product policy or upstream capability for Boomux's generic exact-Run presentation race;
-3. define production runner/bridge snapshot, event, intent, SSH trust, deployment, and persistence contracts;
-4. convert the validated vertical slice into milestone-sized implementation slices with executable acceptance gates.
+1. validate explicit Companion Plugin setup plus ephemeral Projection Session reconstruction through a narrow production-shaped vertical slice;
+2. validate opt-in ordinary-terminal Pi observation and exact acknowledged Adoption without granting premature authority;
+3. choose a product policy or upstream capability for Boomux's generic exact-Run presentation race;
+4. define production runner/bridge/observer snapshot, event, intent, SSH trust, deployment, and persistence contracts;
+5. convert the validated slices into milestone-sized implementation slices with executable acceptance gates.
 
 Fusion Harness is a source of orchestration behavior and a tool for reviewing/building the new product. The new product should not be implemented directly inside the `fusion-harness` repository unless an explicit monorepo decision is made.
 
@@ -492,7 +549,7 @@ These defaults are intentionally reversible and do not yet constitute production
 2. Use TypeScript on Node 22+ for the runner, adapters, and control protocol prototype.
 3. Use SQLite with explicit transactions as the persistence candidate. Journal mode remains unlocked; default journaling and WAL must be compared against the actual single-writer workload.
 4. Use versioned NDJSON over owner-only Unix sockets locally and authenticated SSH stdio remotely.
-5. Run the Node-local prototype runner as a systemd user service and keep QML as a thin presentation client.
+5. Run the Node-local prototype runner as a systemd user service and keep the explicitly installed Companion Plugin as a thin QML presentation client. Projection Sessions, not plugin installation, are the runtime lifecycle.
 6. Keep agent Ghostty windows decorationless. Show role plus managed/waiting/takeover state persistently in the Pi status surface and redundantly in Agent Console cards; publish the same identity as dynamic terminal-title metadata for window-manager integrations without treating it as persistent chrome.
 7. Keep Team Profile model selection replaceable. Extra provider authentication and the final Luna/Sol/Reviewer model stack are not prerequisites for this vertical slice.
 
@@ -502,13 +559,14 @@ These are specification/spike outputs rather than product-feature choices, but e
 
 1. **Project boundary:** repository is locked at `~/claude/omarchestra`; the accepted prototype toolchain must be validated before languages, packaging, IPC transport, and service startup become production commitments.
 2. **Runner persistence and protocol:** SQLite is the prototype candidate, but transaction boundaries, journal mode, snapshot/event/intent schemas, cursor ordering, deduplication, acknowledgement, migrations, and retention remain open.
-3. **Pi bridge and presentation fan-out:** feasibility is closed as supported with constraints. Production work remains for socket trust/permissions, exact schemas, durable replay/cursors, telemetry filtering/coalescing, slash-command and user-bash policy, attention coverage, reconciliation commands, compatibility, and one committed role/state value reaching Pi status, title metadata, and Agent Console cards without stale divergence.
+3. **Pi bridge, observer, Adoption, and presentation fan-out:** managed-bridge feasibility is closed as supported with constraints. Production work remains for the opt-in global observer's installation and privacy policy, exact observed-session identity and retention, ordinary-terminal correlation, reconnect, same-process Adoption acknowledgement, busy/stale conflicts, reconciliation into a Role, socket trust/permissions, exact schemas, durable replay/cursors, telemetry filtering/coalescing, slash-command and user-bash policy, attention coverage, compatibility, and one committed role/state value reaching Pi status, title metadata, and Agent Console cards without stale divergence.
 4. **Boomux adapter:** local feasibility is closed as supported with constraints. Production work remains for the generic exact-Run presentation race, version-pinned weak mutation commands, attachment-state unavailability, compatibility policy, and remote Node evidence.
 5. **Remote execution:** Node identity, prerequisite/deployment policy, authenticated SSH stdio protocol, remote runner lifecycle, durable projection replay, disconnection semantics, and Node-qualified runtime routing.
 6. **Checkout safety:** dirty-checkout policy, concurrent Team Goals for one Project, strength of read-only enforcement, writer lease scope, and Builder commit policy.
 7. **Cancellation and failure:** interruption behavior, process termination policy, timeouts, bounded retries, preservation of terminals, and separation of process and assignment failure.
 8. **Artifact acceptance:** schemas for plan, implementation, review, corrections, validation, and integrated result; acceptance authority for each artifact.
 9. **Recovery actions:** definition and idempotency of resume/retry, plus how a reconnected visible agent proves the status of uncertain work.
+10. **Companion Plugin packaging:** explicit setup/update/uninstall plans, owned-asset validation, supported Omarchy plugin enablement, compatibility negotiation, rollback, and proof that Team Goal runtime paths never mutate installation state.
 
 ## Decision log
 
@@ -534,3 +592,5 @@ These are specification/spike outputs rather than product-feature choices, but e
 - 2026-09-01: One-Node remote execution feasibility classified **supported with constraints** after the controlled human gate; missing persistent role labels became an explicit failed acceptance criterion.
 - 2026-09-01: Accepted reversible vertical-slice defaults: TypeScript/Node 22+, SQLite with journal mode deliberately unlocked, versioned NDJSON over Unix sockets/SSH stdio, systemd user service, thin QML, and durable role/state presentation. Final model/provider selection is deferred.
 - 2026-09-01: Local human presentation evidence rejected persistent Ghostty title bars: Omarchy's decorationless windows hide title metadata, forced client decorations looked non-native, and narrow tiled titles truncated. The locked visual contract is now Pi status per terminal plus redundant Agent Console cards; dynamic terminal titles remain window-manager metadata only.
+- 2026-09-02: The Agent Console installation model was corrected to follow Boomux: explicit setup installs and enables one persistent Omarchestra Companion Plugin; Team Goals own only ephemeral Projection Sessions. Per-run QML registration and an upstream Omarchy loader change were rejected as unnecessary lifecycle coupling.
+- 2026-09-02: An opt-in global Pi observer may list ordinary-terminal Pi sessions as Observed and Unassigned, but observation grants no management authority. Exact same-process acknowledgement, user confirmation, reconciliation, and a durable commit are required for Adoption into a Team Goal.

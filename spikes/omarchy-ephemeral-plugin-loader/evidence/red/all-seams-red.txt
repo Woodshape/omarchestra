@@ -1,0 +1,1043 @@
+✖ lib/index.mjs links and exports the frozen public surface (4.066878ms)
+✖ capabilities reports the exact versioned contract (4.474831ms)
+✖ capabilities is non-mutating: no config writes, no fs writes, no loaders (1.319809ms)
+✖ capabilities does not consume registration capacity (0.850006ms)
+✖ valid fake panel registers once: validating -> registered_hidden (5.687339ms)
+✖ re-registration of the same canonical source fails without aliasing (1.477373ms)
+✖ relative, noncanonical, NUL, newline, oversized, missing, and wrong-type paths fail closed (1.198964ms)
+✖ symlink components are rejected at source, manifest, and entry point (3.115587ms)
+✖ non-owned and group/world-writable sources fail closed (1.124124ms)
+✖ manifest bounds: too large, invalid JSON, non-object, over-deep, over-long id (1.147283ms)
+✖ non-panel scopes are rejected: service, bar, bar-widget, overlay, menu, mixed (1.509331ms)
+✖ entry-point escapes fail closed: absolute, traversal, oversized, missing file (1.221022ms)
+✖ id collisions: omarchy prefix, installed first-party and third-party, temporary id (3.886705ms)
+✖ installed source-directory collision is rejected (3.764771ms)
+✖ registration while the installed scan is unresolved is retryably busy (2.588537ms)
+✖ byte-identical duplicate request while validating is retryably duplicate_pending (0.974695ms)
+✖ capacity: seventeenth concurrent registration is retryably exceeded (0.977766ms)
+✖ rejections leave no partial state: zero loaders, later register works (1.627266ms)
+✖ asynchronous validation failure surfaces as an inspectable rejected state (0.886271ms)
+✖ envelope discipline: bad JSON, non-object, bad/missing version, unknown operation (0.904193ms)
+✖ request size bound is enforced (0.83267ms)
+✖ summon queues the open payload; the loaded item receives it in order (4.977591ms)
+✖ call after summon: queued while loading (FIFO after open), immediate once loaded (1.517224ms)
+✖ call return values are truncated at 4096 bytes (1.240189ms)
+✖ call is rejected before any summon has started (1.511957ms)
+✖ method rules: lifecycle-reserved, underscore, syntax, missing, and throwing methods fail closed (1.319659ms)
+✖ payload and queue bounds fail without changing the queue (1.726812ms)
+✖ hide unloads the object but retains registration; duplicate hide is an idempotent no-op (1.348763ms)
+✖ unknown or wrong identity cannot hide or affect the registration (3.420314ms)
+✖ unregister performs exact teardown of only the addressed registration (1.5408ms)
+✖ unregister clears queued payloads and calls: they never reach an item (3.134254ms)
+✖ duplicate unregister: pending response, tombstone response, then unknown (2.871118ms)
+✖ load failure is observable; failed hide is a no-op; unregister stays possible (1.038958ms)
+✖ hide while loading drops queued work; late resolution delivers nothing (1.071295ms)
+✖ resummon after hide creates a fresh loader and delivers the new payload (0.96528ms)
+✖ malformed identities fail closed without state change (4.796134ms)
+✖ unknown identities fail closed for every lifecycle operation (1.536306ms)
+✖ one registration identity cannot affect a sibling (1.222275ms)
+✖ operation identities never grant lifecycle authority (3.269406ms)
+✖ status of unknown operation identities fails closed (1.51111ms)
+✖ shell restart: a fresh host never recognizes pre-restart identities (1.371269ms)
+✖ pre-restart identities cannot be smuggled through status (1.1532ms)
+✖ the full temporary lifecycle never touches configuration or installed state (4.723167ms)
+✖ capability-only sessions are completely inert (1.304569ms)
+✖ rejected registrations never call config writers or leave partial state (1.263546ms)
+✖ a later rescan collision invalidates only the colliding temporary registration (1.381772ms)
+✖ temporary records never leak into the installed registry view (1.174589ms)
+bash: /home/woodshape/claude/omarchestra/spikes/omarchy-ephemeral-plugin-loader/scripts/verify-candidate-patch.sh: No such file or directory
+✖ the candidate patch and its verifier exist (4.55618ms)
+✖ the verifier enforces a touched-file allowlist in its own text (0.625943ms)
+✖ the verifier runs green end to end against the exact baseline (21.97404ms)
+✖ forced failure removes exactly the registered scratch directories (2.958474ms)
+✖ unrelated resources survive exact cleanup (0.860479ms)
+✖ symlinked scratch paths are refused, stay pending, and are retryable (0.750177ms)
+✖ the real-fs cleanup registry removes only its exact directory (bounded, foreground) (0.858727ms)
+✖ scratch cleanup composes with host failure paths without touching hosts (0.713247ms)
+✖ the fake-only recipe spike-omarchy-ephemeral-plugin-loader exists (8.038593ms)
+✖ the spike recipe is free of live-system launch primitives (0.6937ms)
+✔ the spike creates no human/live gate recipe (1.973754ms)
+✔ default spike modules contain no live-system tokens (4.80768ms)
+✔ lib/ and fixtures/ contain no process-spawn primitives; only scripts/ may spawn bounded tools (2.917159ms)
+✔ no spike module references the human-only prototype gate (1.22869ms)
+ℹ tests 61
+ℹ suites 0
+ℹ pass 4
+ℹ fail 57
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 371.235146
+
+✖ failing tests:
+
+test at test/link-check.test.mjs:9:1
+✖ lib/index.mjs links and exports the frozen public surface (4.066878ms)
+  Error [ERR_MODULE_NOT_FOUND]: Cannot find module '/home/woodshape/claude/omarchestra/spikes/omarchy-ephemeral-plugin-loader/lib/index.mjs' imported from /home/woodshape/claude/omarchestra/spikes/omarchy-ephemeral-plugin-loader/test/link-check.test.mjs
+      at finalizeResolution (node:internal/modules/esm/resolve:272:11)
+      at moduleResolve (node:internal/modules/esm/resolve:879:10)
+      at defaultResolve (node:internal/modules/esm/resolve:1006:11)
+      at #cachedDefaultResolve (node:internal/modules/esm/loader:708:20)
+      at #resolveAndMaybeBlockOnLoaderThread (node:internal/modules/esm/loader:728:38)
+      at ModuleLoader.resolveSync (node:internal/modules/esm/loader:766:56)
+      at #resolve (node:internal/modules/esm/loader:690:17)
+      at ModuleLoader.getOrCreateModuleJob (node:internal/modules/esm/loader:610:35)
+      at node:internal/modules/esm/loader:639:32
+      at TracingChannel.tracePromise (node:diagnostics_channel:547:22) {
+    code: 'ERR_MODULE_NOT_FOUND',
+    url: 'file:///home/woodshape/claude/omarchestra/spikes/omarchy-ephemeral-plugin-loader/lib/index.mjs'
+  }
+
+test at test/s1-capability.test.mjs:18:1
+✖ capabilities reports the exact versioned contract (4.474831ms)
+  Error [ERR_MODULE_NOT_FOUND]: Cannot find module '/home/woodshape/claude/omarchestra/spikes/omarchy-ephemeral-plugin-loader/lib/index.mjs' imported from /home/woodshape/claude/omarchestra/spikes/omarchy-ephemeral-plugin-loader/test/helpers.mjs
+      at finalizeResolution (node:internal/modules/esm/resolve:272:11)
+      at moduleResolve (node:internal/modules/esm/resolve:879:10)
+      at defaultResolve (node:internal/modules/esm/resolve:1006:11)
+      at #cachedDefaultResolve (node:internal/modules/esm/loader:708:20)
+      at #resolveAndMaybeBlockOnLoaderThread (node:internal/modules/esm/loader:728:38)
+      at ModuleLoader.resolveSync (node:internal/modules/esm/loader:766:56)
+      at #resolve (node:internal/modules/esm/loader:690:17)
+      at ModuleLoader.getOrCreateModuleJob (node:internal/modules/esm/loader:610:35)
+      at node:internal/modules/esm/loader:639:32
+      at TracingChannel.tracePromise (node:diagnostics_channel:547:22) {
+    code: 'ERR_MODULE_NOT_FOUND',
+    url: 'file:///home/woodshape/claude/omarchestra/spikes/omarchy-ephemeral-plugin-loader/lib/index.mjs'
+  }
+
+test at test/s1-capability.test.mjs:35:1
+✖ capabilities is non-mutating: no config writes, no fs writes, no loaders (1.319809ms)
+  Error [ERR_MODULE_NOT_FOUND]: Cannot find module '/home/woodshape/claude/omarchestra/spikes/omarchy-ephemeral-plugin-loader/lib/index.mjs' imported from /home/woodshape/claude/omarchestra/spikes/omarchy-ephemeral-plugin-loader/test/helpers.mjs
+      at finalizeResolution (node:internal/modules/esm/resolve:272:11)
+      at moduleResolve (node:internal/modules/esm/resolve:879:10)
+      at defaultResolve (node:internal/modules/esm/resolve:1006:11)
+      at #cachedDefaultResolve (node:internal/modules/esm/loader:708:20)
+      at #resolveAndMaybeBlockOnLoaderThread (node:internal/modules/esm/loader:728:38)
+      at ModuleLoader.resolveSync (node:internal/modules/esm/loader:766:56)
+      at #resolve (node:internal/modules/esm/loader:690:17)
+      at ModuleLoader.getOrCreateModuleJob (node:internal/modules/esm/loader:610:35)
+      at node:internal/modules/esm/loader:639:32
+      at TracingChannel.tracePromise (node:diagnostics_channel:547:22) {
+    code: 'ERR_MODULE_NOT_FOUND',
+    url: 'file:///home/woodshape/claude/omarchestra/spikes/omarchy-ephemeral-plugin-loader/lib/index.mjs'
+  }
+
+test at test/s1-capability.test.mjs:44:1
+✖ capabilities does not consume registration capacity (0.850006ms)
+  Error [ERR_MODULE_NOT_FOUND]: Cannot find module '/home/woodshape/claude/omarchestra/spikes/omarchy-ephemeral-plugin-loader/lib/index.mjs' imported from /home/woodshape/claude/omarchestra/spikes/omarchy-ephemeral-plugin-loader/test/helpers.mjs
+      at finalizeResolution (node:internal/modules/esm/resolve:272:11)
+      at moduleResolve (node:internal/modules/esm/resolve:879:10)
+      at defaultResolve (node:internal/modules/esm/resolve:1006:11)
+      at #cachedDefaultResolve (node:internal/modules/esm/loader:708:20)
+      at #resolveAndMaybeBlockOnLoaderThread (node:internal/modules/esm/loader:728:38)
+      at ModuleLoader.resolveSync (node:internal/modules/esm/loader:766:56)
+      at #resolve (node:internal/modules/esm/loader:690:17)
+      at ModuleLoader.getOrCreateModuleJob (node:internal/modules/esm/loader:610:35)
+      at node:internal/modules/esm/loader:639:32
+      at TracingChannel.tracePromise (node:diagnostics_channel:547:22) {
+    code: 'ERR_MODULE_NOT_FOUND',
+    url: 'file:///home/woodshape/claude/omarchestra/spikes/omarchy-ephemeral-plugin-loader/lib/index.mjs'
+  }
+
+test at test/s2-registration.test.mjs:19:1
+✖ valid fake panel registers once: validating -> registered_hidden (5.687339ms)
+  Error [ERR_MODULE_NOT_FOUND]: Cannot find module '/home/woodshape/claude/omarchestra/spikes/omarchy-ephemeral-plugin-loader/lib/index.mjs' imported from /home/woodshape/claude/omarchestra/spikes/omarchy-ephemeral-plugin-loader/test/helpers.mjs
+      at finalizeResolution (node:internal/modules/esm/resolve:272:11)
+      at moduleResolve (node:internal/modules/esm/resolve:879:10)
+      at defaultResolve (node:internal/modules/esm/resolve:1006:11)
+      at #cachedDefaultResolve (node:internal/modules/esm/loader:708:20)
+      at #resolveAndMaybeBlockOnLoaderThread (node:internal/modules/esm/loader:728:38)
+      at ModuleLoader.resolveSync (node:internal/modules/esm/loader:766:56)
+      at #resolve (node:internal/modules/esm/loader:690:17)
+      at ModuleLoader.getOrCreateModuleJob (node:internal/modules/esm/loader:610:35)
+      at node:internal/modules/esm/loader:639:32
+      at TracingChannel.tracePromise (node:diagnostics_channel:547:22) {
+    code: 'ERR_MODULE_NOT_FOUND',
+    url: 'file:///home/woodshape/claude/omarchestra/spikes/omarchy-ephemeral-plugin-loader/lib/index.mjs'
+  }
+
+test at test/s2-registration.test.mjs:43:1
+✖ re-registration of the same canonical source fails without aliasing (1.477373ms)
+  Error [ERR_MODULE_NOT_FOUND]: Cannot find module '/home/woodshape/claude/omarchestra/spikes/omarchy-ephemeral-plugin-loader/lib/index.mjs' imported from /home/woodshape/claude/omarchestra/spikes/omarchy-ephemeral-plugin-loader/test/helpers.mjs
+      at finalizeResolution (node:internal/modules/esm/resolve:272:11)
+      at moduleResolve (node:internal/modules/esm/resolve:879:10)
+      at defaultResolve (node:internal/modules/esm/resolve:1006:11)
+      at #cachedDefaultResolve (node:internal/modules/esm/loader:708:20)
+      at #resolveAndMaybeBlockOnLoaderThread (node:internal/modules/esm/loader:728:38)
+      at ModuleLoader.resolveSync (node:internal/modules/esm/loader:766:56)
+      at #resolve (node:internal/modules/esm/loader:690:17)
+      at ModuleLoader.getOrCreateModuleJob (node:internal/modules/esm/loader:610:35)
+      at node:internal/modules/esm/loader:639:32
+      at TracingChannel.tracePromise (node:diagnostics_channel:547:22) {
+    code: 'ERR_MODULE_NOT_FOUND',
+    url: 'file:///home/woodshape/claude/omarchestra/spikes/omarchy-ephemeral-plugin-loader/lib/index.mjs'
+  }
+
+test at test/s2-registration.test.mjs:52:1
+✖ relative, noncanonical, NUL, newline, oversized, missing, and wrong-type paths fail closed (1.198964ms)
+  Error [ERR_MODULE_NOT_FOUND]: Cannot find module '/home/woodshape/claude/omarchestra/spikes/omarchy-ephemeral-plugin-loader/lib/index.mjs' imported from /home/woodshape/claude/omarchestra/spikes/omarchy-ephemeral-plugin-loader/test/helpers.mjs
+      at finalizeResolution (node:internal/modules/esm/resolve:272:11)
+      at moduleResolve (node:internal/modules/esm/resolve:879:10)
+      at defaultResolve (node:internal/modules/esm/resolve:1006:11)
+      at #cachedDefaultResolve (node:internal/modules/esm/loader:708:20)
+      at #resolveAndMaybeBlockOnLoaderThread (node:internal/modules/esm/loader:728:38)
+      at ModuleLoader.resolveSync (node:internal/modules/esm/loader:766:56)
+      at #resolve (node:internal/modules/esm/loader:690:17)
+      at ModuleLoader.getOrCreateModuleJob (node:internal/modules/esm/loader:610:35)
+      at node:internal/modules/esm/loader:639:32
+      at TracingChannel.tracePromise (node:diagnostics_channel:547:22) {
+    code: 'ERR_MODULE_NOT_FOUND',
+    url: 'file:///home/woodshape/claude/omarchestra/spikes/omarchy-ephemeral-plugin-loader/lib/index.mjs'
+  }
+
+test at test/s2-registration.test.mjs:71:1
+✖ symlink components are rejected at source, manifest, and entry point (3.115587ms)
+  Error [ERR_MODULE_NOT_FOUND]: Cannot find module '/home/woodshape/claude/omarchestra/spikes/omarchy-ephemeral-plugin-loader/lib/index.mjs' imported from /home/woodshape/claude/omarchestra/spikes/omarchy-ephemeral-plugin-loader/test/helpers.mjs
+      at finalizeResolution (node:internal/modules/esm/resolve:272:11)
+      at moduleResolve (node:internal/modules/esm/resolve:879:10)
+      at defaultResolve (node:internal/modules/esm/resolve:1006:11)
+      at #cachedDefaultResolve (node:internal/modules/esm/loader:708:20)
+      at #resolveAndMaybeBlockOnLoaderThread (node:internal/modules/esm/loader:728:38)
+      at ModuleLoader.resolveSync (node:internal/modules/esm/loader:766:56)
+      at #resolve (node:internal/modules/esm/loader:690:17)
+      at ModuleLoader.getOrCreateModuleJob (node:internal/modules/esm/loader:610:35)
+      at node:internal/modules/esm/loader:639:32
+      at TracingChannel.tracePromise (node:diagnostics_channel:547:22) {
+    code: 'ERR_MODULE_NOT_FOUND',
+    url: 'file:///home/woodshape/claude/omarchestra/spikes/omarchy-ephemeral-plugin-loader/lib/index.mjs'
+  }
+
+test at test/s2-registration.test.mjs:94:1
+✖ non-owned and group/world-writable sources fail closed (1.124124ms)
+  Error [ERR_MODULE_NOT_FOUND]: Cannot find module '/home/woodshape/claude/omarchestra/spikes/omarchy-ephemeral-plugin-loader/lib/index.mjs' imported from /home/woodshape/claude/omarchestra/spikes/omarchy-ephemeral-plugin-loader/test/helpers.mjs
+      at finalizeResolution (node:internal/modules/esm/resolve:272:11)
+      at moduleResolve (node:internal/modules/esm/resolve:879:10)
+      at defaultResolve (node:internal/modules/esm/resolve:1006:11)
+      at #cachedDefaultResolve (node:internal/modules/esm/loader:708:20)
+      at #resolveAndMaybeBlockOnLoaderThread (node:internal/modules/esm/loader:728:38)
+      at ModuleLoader.resolveSync (node:internal/modules/esm/loader:766:56)
+      at #resolve (node:internal/modules/esm/loader:690:17)
+      at ModuleLoader.getOrCreateModuleJob (node:internal/modules/esm/loader:610:35)
+      at node:internal/modules/esm/loader:639:32
+      at TracingChannel.tracePromise (node:diagnostics_channel:547:22) {
+    code: 'ERR_MODULE_NOT_FOUND',
+    url: 'file:///home/woodshape/claude/omarchestra/spikes/omarchy-ephemeral-plugin-loader/lib/index.mjs'
+  }
+
+test at test/s2-registration.test.mjs:105:1
+✖ manifest bounds: too large, invalid JSON, non-object, over-deep, over-long id (1.147283ms)
+  Error [ERR_MODULE_NOT_FOUND]: Cannot find module '/home/woodshape/claude/omarchestra/spikes/omarchy-ephemeral-plugin-loader/lib/index.mjs' imported from /home/woodshape/claude/omarchestra/spikes/omarchy-ephemeral-plugin-loader/test/helpers.mjs
+      at finalizeResolution (node:internal/modules/esm/resolve:272:11)
+      at moduleResolve (node:internal/modules/esm/resolve:879:10)
+      at defaultResolve (node:internal/modules/esm/resolve:1006:11)
+      at #cachedDefaultResolve (node:internal/modules/esm/loader:708:20)
+      at #resolveAndMaybeBlockOnLoaderThread (node:internal/modules/esm/loader:728:38)
+      at ModuleLoader.resolveSync (node:internal/modules/esm/loader:766:56)
+      at #resolve (node:internal/modules/esm/loader:690:17)
+      at ModuleLoader.getOrCreateModuleJob (node:internal/modules/esm/loader:610:35)
+      at node:internal/modules/esm/loader:639:32
+      at TracingChannel.tracePromise (node:diagnostics_channel:547:22) {
+    code: 'ERR_MODULE_NOT_FOUND',
+    url: 'file:///home/woodshape/claude/omarchestra/spikes/omarchy-ephemeral-plugin-loader/lib/index.mjs'
+  }
+
+test at test/s2-registration.test.mjs:131:1
+✖ non-panel scopes are rejected: service, bar, bar-widget, overlay, menu, mixed (1.509331ms)
+  Error [ERR_MODULE_NOT_FOUND]: Cannot find module '/home/woodshape/claude/omarchestra/spikes/omarchy-ephemeral-plugin-loader/lib/index.mjs' imported from /home/woodshape/claude/omarchestra/spikes/omarchy-ephemeral-plugin-loader/test/helpers.mjs
+      at finalizeResolution (node:internal/modules/esm/resolve:272:11)
+      at moduleResolve (node:internal/modules/esm/resolve:879:10)
+      at defaultResolve (node:internal/modules/esm/resolve:1006:11)
+      at #cachedDefaultResolve (node:internal/modules/esm/loader:708:20)
+      at #resolveAndMaybeBlockOnLoaderThread (node:internal/modules/esm/loader:728:38)
+      at ModuleLoader.resolveSync (node:internal/modules/esm/loader:766:56)
+      at #resolve (node:internal/modules/esm/loader:690:17)
+      at ModuleLoader.getOrCreateModuleJob (node:internal/modules/esm/loader:610:35)
+      at node:internal/modules/esm/loader:639:32
+      at TracingChannel.tracePromise (node:diagnostics_channel:547:22) {
+    code: 'ERR_MODULE_NOT_FOUND',
+    url: 'file:///home/woodshape/claude/omarchestra/spikes/omarchy-ephemeral-plugin-loader/lib/index.mjs'
+  }
+
+test at test/s2-registration.test.mjs:155:1
+✖ entry-point escapes fail closed: absolute, traversal, oversized, missing file (1.221022ms)
+  Error [ERR_MODULE_NOT_FOUND]: Cannot find module '/home/woodshape/claude/omarchestra/spikes/omarchy-ephemeral-plugin-loader/lib/index.mjs' imported from /home/woodshape/claude/omarchestra/spikes/omarchy-ephemeral-plugin-loader/test/helpers.mjs
+      at finalizeResolution (node:internal/modules/esm/resolve:272:11)
+      at moduleResolve (node:internal/modules/esm/resolve:879:10)
+      at defaultResolve (node:internal/modules/esm/resolve:1006:11)
+      at #cachedDefaultResolve (node:internal/modules/esm/loader:708:20)
+      at #resolveAndMaybeBlockOnLoaderThread (node:internal/modules/esm/loader:728:38)
+      at ModuleLoader.resolveSync (node:internal/modules/esm/loader:766:56)
+      at #resolve (node:internal/modules/esm/loader:690:17)
+      at ModuleLoader.getOrCreateModuleJob (node:internal/modules/esm/loader:610:35)
+      at node:internal/modules/esm/loader:639:32
+      at TracingChannel.tracePromise (node:diagnostics_channel:547:22) {
+    code: 'ERR_MODULE_NOT_FOUND',
+    url: 'file:///home/woodshape/claude/omarchestra/spikes/omarchy-ephemeral-plugin-loader/lib/index.mjs'
+  }
+
+test at test/s2-registration.test.mjs:174:1
+✖ id collisions: omarchy prefix, installed first-party and third-party, temporary id (3.886705ms)
+  Error [ERR_MODULE_NOT_FOUND]: Cannot find module '/home/woodshape/claude/omarchestra/spikes/omarchy-ephemeral-plugin-loader/lib/index.mjs' imported from /home/woodshape/claude/omarchestra/spikes/omarchy-ephemeral-plugin-loader/test/helpers.mjs
+      at finalizeResolution (node:internal/modules/esm/resolve:272:11)
+      at moduleResolve (node:internal/modules/esm/resolve:879:10)
+      at defaultResolve (node:internal/modules/esm/resolve:1006:11)
+      at #cachedDefaultResolve (node:internal/modules/esm/loader:708:20)
+      at #resolveAndMaybeBlockOnLoaderThread (node:internal/modules/esm/loader:728:38)
+      at ModuleLoader.resolveSync (node:internal/modules/esm/loader:766:56)
+      at #resolve (node:internal/modules/esm/loader:690:17)
+      at ModuleLoader.getOrCreateModuleJob (node:internal/modules/esm/loader:610:35)
+      at node:internal/modules/esm/loader:639:32
+      at TracingChannel.tracePromise (node:diagnostics_channel:547:22) {
+    code: 'ERR_MODULE_NOT_FOUND',
+    url: 'file:///home/woodshape/claude/omarchestra/spikes/omarchy-ephemeral-plugin-loader/lib/index.mjs'
+  }
+
+test at test/s2-registration.test.mjs:198:1
+✖ installed source-directory collision is rejected (3.764771ms)
+  Error [ERR_MODULE_NOT_FOUND]: Cannot find module '/home/woodshape/claude/omarchestra/spikes/omarchy-ephemeral-plugin-loader/lib/index.mjs' imported from /home/woodshape/claude/omarchestra/spikes/omarchy-ephemeral-plugin-loader/test/helpers.mjs
+      at finalizeResolution (node:internal/modules/esm/resolve:272:11)
+      at moduleResolve (node:internal/modules/esm/resolve:879:10)
+      at defaultResolve (node:internal/modules/esm/resolve:1006:11)
+      at #cachedDefaultResolve (node:internal/modules/esm/loader:708:20)
+      at #resolveAndMaybeBlockOnLoaderThread (node:internal/modules/esm/loader:728:38)
+      at ModuleLoader.resolveSync (node:internal/modules/esm/loader:766:56)
+      at #resolve (node:internal/modules/esm/loader:690:17)
+      at ModuleLoader.getOrCreateModuleJob (node:internal/modules/esm/loader:610:35)
+      at node:internal/modules/esm/loader:639:32
+      at TracingChannel.tracePromise (node:diagnostics_channel:547:22) {
+    code: 'ERR_MODULE_NOT_FOUND',
+    url: 'file:///home/woodshape/claude/omarchestra/spikes/omarchy-ephemeral-plugin-loader/lib/index.mjs'
+  }
+
+test at test/s2-registration.test.mjs:208:1
+✖ registration while the installed scan is unresolved is retryably busy (2.588537ms)
+  Error [ERR_MODULE_NOT_FOUND]: Cannot find module '/home/woodshape/claude/omarchestra/spikes/omarchy-ephemeral-plugin-loader/lib/index.mjs' imported from /home/woodshape/claude/omarchestra/spikes/omarchy-ephemeral-plugin-loader/test/helpers.mjs
+      at finalizeResolution (node:internal/modules/esm/resolve:272:11)
+      at moduleResolve (node:internal/modules/esm/resolve:879:10)
+      at defaultResolve (node:internal/modules/esm/resolve:1006:11)
+      at #cachedDefaultResolve (node:internal/modules/esm/loader:708:20)
+      at #resolveAndMaybeBlockOnLoaderThread (node:internal/modules/esm/loader:728:38)
+      at ModuleLoader.resolveSync (node:internal/modules/esm/loader:766:56)
+      at #resolve (node:internal/modules/esm/loader:690:17)
+      at ModuleLoader.getOrCreateModuleJob (node:internal/modules/esm/loader:610:35)
+      at node:internal/modules/esm/loader:639:32
+      at TracingChannel.tracePromise (node:diagnostics_channel:547:22) {
+    code: 'ERR_MODULE_NOT_FOUND',
+    url: 'file:///home/woodshape/claude/omarchestra/spikes/omarchy-ephemeral-plugin-loader/lib/index.mjs'
+  }
+
+test at test/s2-registration.test.mjs:219:1
+✖ byte-identical duplicate request while validating is retryably duplicate_pending (0.974695ms)
+  Error [ERR_MODULE_NOT_FOUND]: Cannot find module '/home/woodshape/claude/omarchestra/spikes/omarchy-ephemeral-plugin-loader/lib/index.mjs' imported from /home/woodshape/claude/omarchestra/spikes/omarchy-ephemeral-plugin-loader/test/helpers.mjs
+      at finalizeResolution (node:internal/modules/esm/resolve:272:11)
+      at moduleResolve (node:internal/modules/esm/resolve:879:10)
+      at defaultResolve (node:internal/modules/esm/resolve:1006:11)
+      at #cachedDefaultResolve (node:internal/modules/esm/loader:708:20)
+      at #resolveAndMaybeBlockOnLoaderThread (node:internal/modules/esm/loader:728:38)
+      at ModuleLoader.resolveSync (node:internal/modules/esm/loader:766:56)
+      at #resolve (node:internal/modules/esm/loader:690:17)
+      at ModuleLoader.getOrCreateModuleJob (node:internal/modules/esm/loader:610:35)
+      at node:internal/modules/esm/loader:639:32
+      at TracingChannel.tracePromise (node:diagnostics_channel:547:22) {
+    code: 'ERR_MODULE_NOT_FOUND',
+    url: 'file:///home/woodshape/claude/omarchestra/spikes/omarchy-ephemeral-plugin-loader/lib/index.mjs'
+  }
+
+test at test/s2-registration.test.mjs:230:1
+✖ capacity: seventeenth concurrent registration is retryably exceeded (0.977766ms)
+  Error [ERR_MODULE_NOT_FOUND]: Cannot find module '/home/woodshape/claude/omarchestra/spikes/omarchy-ephemeral-plugin-loader/lib/index.mjs' imported from /home/woodshape/claude/omarchestra/spikes/omarchy-ephemeral-plugin-loader/test/helpers.mjs
+      at finalizeResolution (node:internal/modules/esm/resolve:272:11)
+      at moduleResolve (node:internal/modules/esm/resolve:879:10)
+      at defaultResolve (node:internal/modules/esm/resolve:1006:11)
+      at #cachedDefaultResolve (node:internal/modules/esm/loader:708:20)
+      at #resolveAndMaybeBlockOnLoaderThread (node:internal/modules/esm/loader:728:38)
+      at ModuleLoader.resolveSync (node:internal/modules/esm/loader:766:56)
+      at #resolve (node:internal/modules/esm/loader:690:17)
+      at ModuleLoader.getOrCreateModuleJob (node:internal/modules/esm/loader:610:35)
+      at node:internal/modules/esm/loader:639:32
+      at TracingChannel.tracePromise (node:diagnostics_channel:547:22) {
+    code: 'ERR_MODULE_NOT_FOUND',
+    url: 'file:///home/woodshape/claude/omarchestra/spikes/omarchy-ephemeral-plugin-loader/lib/index.mjs'
+  }
+
+test at test/s2-registration.test.mjs:247:1
+✖ rejections leave no partial state: zero loaders, later register works (1.627266ms)
+  Error [ERR_MODULE_NOT_FOUND]: Cannot find module '/home/woodshape/claude/omarchestra/spikes/omarchy-ephemeral-plugin-loader/lib/index.mjs' imported from /home/woodshape/claude/omarchestra/spikes/omarchy-ephemeral-plugin-loader/test/helpers.mjs
+      at finalizeResolution (node:internal/modules/esm/resolve:272:11)
+      at moduleResolve (node:internal/modules/esm/resolve:879:10)
+      at defaultResolve (node:internal/modules/esm/resolve:1006:11)
+      at #cachedDefaultResolve (node:internal/modules/esm/loader:708:20)
+      at #resolveAndMaybeBlockOnLoaderThread (node:internal/modules/esm/loader:728:38)
+      at ModuleLoader.resolveSync (node:internal/modules/esm/loader:766:56)
+      at #resolve (node:internal/modules/esm/loader:690:17)
+      at ModuleLoader.getOrCreateModuleJob (node:internal/modules/esm/loader:610:35)
+      at node:internal/modules/esm/loader:639:32
+      at TracingChannel.tracePromise (node:diagnostics_channel:547:22) {
+    code: 'ERR_MODULE_NOT_FOUND',
+    url: 'file:///home/woodshape/claude/omarchestra/spikes/omarchy-ephemeral-plugin-loader/lib/index.mjs'
+  }
+
+test at test/s2-registration.test.mjs:264:1
+✖ asynchronous validation failure surfaces as an inspectable rejected state (0.886271ms)
+  Error [ERR_MODULE_NOT_FOUND]: Cannot find module '/home/woodshape/claude/omarchestra/spikes/omarchy-ephemeral-plugin-loader/lib/index.mjs' imported from /home/woodshape/claude/omarchestra/spikes/omarchy-ephemeral-plugin-loader/test/helpers.mjs
+      at finalizeResolution (node:internal/modules/esm/resolve:272:11)
+      at moduleResolve (node:internal/modules/esm/resolve:879:10)
+      at defaultResolve (node:internal/modules/esm/resolve:1006:11)
+      at #cachedDefaultResolve (node:internal/modules/esm/loader:708:20)
+      at #resolveAndMaybeBlockOnLoaderThread (node:internal/modules/esm/loader:728:38)
+      at ModuleLoader.resolveSync (node:internal/modules/esm/loader:766:56)
+      at #resolve (node:internal/modules/esm/loader:690:17)
+      at ModuleLoader.getOrCreateModuleJob (node:internal/modules/esm/loader:610:35)
+      at node:internal/modules/esm/loader:639:32
+      at TracingChannel.tracePromise (node:diagnostics_channel:547:22) {
+    code: 'ERR_MODULE_NOT_FOUND',
+    url: 'file:///home/woodshape/claude/omarchestra/spikes/omarchy-ephemeral-plugin-loader/lib/index.mjs'
+  }
+
+test at test/s2-registration.test.mjs:286:1
+✖ envelope discipline: bad JSON, non-object, bad/missing version, unknown operation (0.904193ms)
+  Error [ERR_MODULE_NOT_FOUND]: Cannot find module '/home/woodshape/claude/omarchestra/spikes/omarchy-ephemeral-plugin-loader/lib/index.mjs' imported from /home/woodshape/claude/omarchestra/spikes/omarchy-ephemeral-plugin-loader/test/helpers.mjs
+      at finalizeResolution (node:internal/modules/esm/resolve:272:11)
+      at moduleResolve (node:internal/modules/esm/resolve:879:10)
+      at defaultResolve (node:internal/modules/esm/resolve:1006:11)
+      at #cachedDefaultResolve (node:internal/modules/esm/loader:708:20)
+      at #resolveAndMaybeBlockOnLoaderThread (node:internal/modules/esm/loader:728:38)
+      at ModuleLoader.resolveSync (node:internal/modules/esm/loader:766:56)
+      at #resolve (node:internal/modules/esm/loader:690:17)
+      at ModuleLoader.getOrCreateModuleJob (node:internal/modules/esm/loader:610:35)
+      at node:internal/modules/esm/loader:639:32
+      at TracingChannel.tracePromise (node:diagnostics_channel:547:22) {
+    code: 'ERR_MODULE_NOT_FOUND',
+    url: 'file:///home/woodshape/claude/omarchestra/spikes/omarchy-ephemeral-plugin-loader/lib/index.mjs'
+  }
+
+test at test/s2-registration.test.mjs:298:1
+✖ request size bound is enforced (0.83267ms)
+  Error [ERR_MODULE_NOT_FOUND]: Cannot find module '/home/woodshape/claude/omarchestra/spikes/omarchy-ephemeral-plugin-loader/lib/index.mjs' imported from /home/woodshape/claude/omarchestra/spikes/omarchy-ephemeral-plugin-loader/test/helpers.mjs
+      at finalizeResolution (node:internal/modules/esm/resolve:272:11)
+      at moduleResolve (node:internal/modules/esm/resolve:879:10)
+      at defaultResolve (node:internal/modules/esm/resolve:1006:11)
+      at #cachedDefaultResolve (node:internal/modules/esm/loader:708:20)
+      at #resolveAndMaybeBlockOnLoaderThread (node:internal/modules/esm/loader:728:38)
+      at ModuleLoader.resolveSync (node:internal/modules/esm/loader:766:56)
+      at #resolve (node:internal/modules/esm/loader:690:17)
+      at ModuleLoader.getOrCreateModuleJob (node:internal/modules/esm/loader:610:35)
+      at node:internal/modules/esm/loader:639:32
+      at TracingChannel.tracePromise (node:diagnostics_channel:547:22) {
+    code: 'ERR_MODULE_NOT_FOUND',
+    url: 'file:///home/woodshape/claude/omarchestra/spikes/omarchy-ephemeral-plugin-loader/lib/index.mjs'
+  }
+
+test at test/s3-lifecycle.test.mjs:21:1
+✖ summon queues the open payload; the loaded item receives it in order (4.977591ms)
+  Error [ERR_MODULE_NOT_FOUND]: Cannot find module '/home/woodshape/claude/omarchestra/spikes/omarchy-ephemeral-plugin-loader/lib/index.mjs' imported from /home/woodshape/claude/omarchestra/spikes/omarchy-ephemeral-plugin-loader/test/helpers.mjs
+      at finalizeResolution (node:internal/modules/esm/resolve:272:11)
+      at moduleResolve (node:internal/modules/esm/resolve:879:10)
+      at defaultResolve (node:internal/modules/esm/resolve:1006:11)
+      at #cachedDefaultResolve (node:internal/modules/esm/loader:708:20)
+      at #resolveAndMaybeBlockOnLoaderThread (node:internal/modules/esm/loader:728:38)
+      at ModuleLoader.resolveSync (node:internal/modules/esm/loader:766:56)
+      at #resolve (node:internal/modules/esm/loader:690:17)
+      at ModuleLoader.getOrCreateModuleJob (node:internal/modules/esm/loader:610:35)
+      at node:internal/modules/esm/loader:639:32
+      at TracingChannel.tracePromise (node:diagnostics_channel:547:22) {
+    code: 'ERR_MODULE_NOT_FOUND',
+    url: 'file:///home/woodshape/claude/omarchestra/spikes/omarchy-ephemeral-plugin-loader/lib/index.mjs'
+  }
+
+test at test/s3-lifecycle.test.mjs:40:1
+✖ call after summon: queued while loading (FIFO after open), immediate once loaded (1.517224ms)
+  Error [ERR_MODULE_NOT_FOUND]: Cannot find module '/home/woodshape/claude/omarchestra/spikes/omarchy-ephemeral-plugin-loader/lib/index.mjs' imported from /home/woodshape/claude/omarchestra/spikes/omarchy-ephemeral-plugin-loader/test/helpers.mjs
+      at finalizeResolution (node:internal/modules/esm/resolve:272:11)
+      at moduleResolve (node:internal/modules/esm/resolve:879:10)
+      at defaultResolve (node:internal/modules/esm/resolve:1006:11)
+      at #cachedDefaultResolve (node:internal/modules/esm/loader:708:20)
+      at #resolveAndMaybeBlockOnLoaderThread (node:internal/modules/esm/loader:728:38)
+      at ModuleLoader.resolveSync (node:internal/modules/esm/loader:766:56)
+      at #resolve (node:internal/modules/esm/loader:690:17)
+      at ModuleLoader.getOrCreateModuleJob (node:internal/modules/esm/loader:610:35)
+      at node:internal/modules/esm/loader:639:32
+      at TracingChannel.tracePromise (node:diagnostics_channel:547:22) {
+    code: 'ERR_MODULE_NOT_FOUND',
+    url: 'file:///home/woodshape/claude/omarchestra/spikes/omarchy-ephemeral-plugin-loader/lib/index.mjs'
+  }
+
+test at test/s3-lifecycle.test.mjs:62:1
+✖ call return values are truncated at 4096 bytes (1.240189ms)
+  Error [ERR_MODULE_NOT_FOUND]: Cannot find module '/home/woodshape/claude/omarchestra/spikes/omarchy-ephemeral-plugin-loader/lib/index.mjs' imported from /home/woodshape/claude/omarchestra/spikes/omarchy-ephemeral-plugin-loader/test/helpers.mjs
+      at finalizeResolution (node:internal/modules/esm/resolve:272:11)
+      at moduleResolve (node:internal/modules/esm/resolve:879:10)
+      at defaultResolve (node:internal/modules/esm/resolve:1006:11)
+      at #cachedDefaultResolve (node:internal/modules/esm/loader:708:20)
+      at #resolveAndMaybeBlockOnLoaderThread (node:internal/modules/esm/loader:728:38)
+      at ModuleLoader.resolveSync (node:internal/modules/esm/loader:766:56)
+      at #resolve (node:internal/modules/esm/loader:690:17)
+      at ModuleLoader.getOrCreateModuleJob (node:internal/modules/esm/loader:610:35)
+      at node:internal/modules/esm/loader:639:32
+      at TracingChannel.tracePromise (node:diagnostics_channel:547:22) {
+    code: 'ERR_MODULE_NOT_FOUND',
+    url: 'file:///home/woodshape/claude/omarchestra/spikes/omarchy-ephemeral-plugin-loader/lib/index.mjs'
+  }
+
+test at test/s3-lifecycle.test.mjs:73:1
+✖ call is rejected before any summon has started (1.511957ms)
+  Error [ERR_MODULE_NOT_FOUND]: Cannot find module '/home/woodshape/claude/omarchestra/spikes/omarchy-ephemeral-plugin-loader/lib/index.mjs' imported from /home/woodshape/claude/omarchestra/spikes/omarchy-ephemeral-plugin-loader/test/helpers.mjs
+      at finalizeResolution (node:internal/modules/esm/resolve:272:11)
+      at moduleResolve (node:internal/modules/esm/resolve:879:10)
+      at defaultResolve (node:internal/modules/esm/resolve:1006:11)
+      at #cachedDefaultResolve (node:internal/modules/esm/loader:708:20)
+      at #resolveAndMaybeBlockOnLoaderThread (node:internal/modules/esm/loader:728:38)
+      at ModuleLoader.resolveSync (node:internal/modules/esm/loader:766:56)
+      at #resolve (node:internal/modules/esm/loader:690:17)
+      at ModuleLoader.getOrCreateModuleJob (node:internal/modules/esm/loader:610:35)
+      at node:internal/modules/esm/loader:639:32
+      at TracingChannel.tracePromise (node:diagnostics_channel:547:22) {
+    code: 'ERR_MODULE_NOT_FOUND',
+    url: 'file:///home/woodshape/claude/omarchestra/spikes/omarchy-ephemeral-plugin-loader/lib/index.mjs'
+  }
+
+test at test/s3-lifecycle.test.mjs:78:1
+✖ method rules: lifecycle-reserved, underscore, syntax, missing, and throwing methods fail closed (1.319659ms)
+  Error [ERR_MODULE_NOT_FOUND]: Cannot find module '/home/woodshape/claude/omarchestra/spikes/omarchy-ephemeral-plugin-loader/lib/index.mjs' imported from /home/woodshape/claude/omarchestra/spikes/omarchy-ephemeral-plugin-loader/test/helpers.mjs
+      at finalizeResolution (node:internal/modules/esm/resolve:272:11)
+      at moduleResolve (node:internal/modules/esm/resolve:879:10)
+      at defaultResolve (node:internal/modules/esm/resolve:1006:11)
+      at #cachedDefaultResolve (node:internal/modules/esm/loader:708:20)
+      at #resolveAndMaybeBlockOnLoaderThread (node:internal/modules/esm/loader:728:38)
+      at ModuleLoader.resolveSync (node:internal/modules/esm/loader:766:56)
+      at #resolve (node:internal/modules/esm/loader:690:17)
+      at ModuleLoader.getOrCreateModuleJob (node:internal/modules/esm/loader:610:35)
+      at node:internal/modules/esm/loader:639:32
+      at TracingChannel.tracePromise (node:diagnostics_channel:547:22) {
+    code: 'ERR_MODULE_NOT_FOUND',
+    url: 'file:///home/woodshape/claude/omarchestra/spikes/omarchy-ephemeral-plugin-loader/lib/index.mjs'
+  }
+
+test at test/s3-lifecycle.test.mjs:92:1
+✖ payload and queue bounds fail without changing the queue (1.726812ms)
+  Error [ERR_MODULE_NOT_FOUND]: Cannot find module '/home/woodshape/claude/omarchestra/spikes/omarchy-ephemeral-plugin-loader/lib/index.mjs' imported from /home/woodshape/claude/omarchestra/spikes/omarchy-ephemeral-plugin-loader/test/helpers.mjs
+      at finalizeResolution (node:internal/modules/esm/resolve:272:11)
+      at moduleResolve (node:internal/modules/esm/resolve:879:10)
+      at defaultResolve (node:internal/modules/esm/resolve:1006:11)
+      at #cachedDefaultResolve (node:internal/modules/esm/loader:708:20)
+      at #resolveAndMaybeBlockOnLoaderThread (node:internal/modules/esm/loader:728:38)
+      at ModuleLoader.resolveSync (node:internal/modules/esm/loader:766:56)
+      at #resolve (node:internal/modules/esm/loader:690:17)
+      at ModuleLoader.getOrCreateModuleJob (node:internal/modules/esm/loader:610:35)
+      at node:internal/modules/esm/loader:639:32
+      at TracingChannel.tracePromise (node:diagnostics_channel:547:22) {
+    code: 'ERR_MODULE_NOT_FOUND',
+    url: 'file:///home/woodshape/claude/omarchestra/spikes/omarchy-ephemeral-plugin-loader/lib/index.mjs'
+  }
+
+test at test/s3-lifecycle.test.mjs:117:1
+✖ hide unloads the object but retains registration; duplicate hide is an idempotent no-op (1.348763ms)
+  Error [ERR_MODULE_NOT_FOUND]: Cannot find module '/home/woodshape/claude/omarchestra/spikes/omarchy-ephemeral-plugin-loader/lib/index.mjs' imported from /home/woodshape/claude/omarchestra/spikes/omarchy-ephemeral-plugin-loader/test/helpers.mjs
+      at finalizeResolution (node:internal/modules/esm/resolve:272:11)
+      at moduleResolve (node:internal/modules/esm/resolve:879:10)
+      at defaultResolve (node:internal/modules/esm/resolve:1006:11)
+      at #cachedDefaultResolve (node:internal/modules/esm/loader:708:20)
+      at #resolveAndMaybeBlockOnLoaderThread (node:internal/modules/esm/loader:728:38)
+      at ModuleLoader.resolveSync (node:internal/modules/esm/loader:766:56)
+      at #resolve (node:internal/modules/esm/loader:690:17)
+      at ModuleLoader.getOrCreateModuleJob (node:internal/modules/esm/loader:610:35)
+      at node:internal/modules/esm/loader:639:32
+      at TracingChannel.tracePromise (node:diagnostics_channel:547:22) {
+    code: 'ERR_MODULE_NOT_FOUND',
+    url: 'file:///home/woodshape/claude/omarchestra/spikes/omarchy-ephemeral-plugin-loader/lib/index.mjs'
+  }
+
+test at test/s3-lifecycle.test.mjs:135:1
+✖ unknown or wrong identity cannot hide or affect the registration (3.420314ms)
+  Error [ERR_MODULE_NOT_FOUND]: Cannot find module '/home/woodshape/claude/omarchestra/spikes/omarchy-ephemeral-plugin-loader/lib/index.mjs' imported from /home/woodshape/claude/omarchestra/spikes/omarchy-ephemeral-plugin-loader/test/helpers.mjs
+      at finalizeResolution (node:internal/modules/esm/resolve:272:11)
+      at moduleResolve (node:internal/modules/esm/resolve:879:10)
+      at defaultResolve (node:internal/modules/esm/resolve:1006:11)
+      at #cachedDefaultResolve (node:internal/modules/esm/loader:708:20)
+      at #resolveAndMaybeBlockOnLoaderThread (node:internal/modules/esm/loader:728:38)
+      at ModuleLoader.resolveSync (node:internal/modules/esm/loader:766:56)
+      at #resolve (node:internal/modules/esm/loader:690:17)
+      at ModuleLoader.getOrCreateModuleJob (node:internal/modules/esm/loader:610:35)
+      at node:internal/modules/esm/loader:639:32
+      at TracingChannel.tracePromise (node:diagnostics_channel:547:22) {
+    code: 'ERR_MODULE_NOT_FOUND',
+    url: 'file:///home/woodshape/claude/omarchestra/spikes/omarchy-ephemeral-plugin-loader/lib/index.mjs'
+  }
+
+test at test/s3-lifecycle.test.mjs:150:1
+✖ unregister performs exact teardown of only the addressed registration (1.5408ms)
+  Error [ERR_MODULE_NOT_FOUND]: Cannot find module '/home/woodshape/claude/omarchestra/spikes/omarchy-ephemeral-plugin-loader/lib/index.mjs' imported from /home/woodshape/claude/omarchestra/spikes/omarchy-ephemeral-plugin-loader/test/helpers.mjs
+      at finalizeResolution (node:internal/modules/esm/resolve:272:11)
+      at moduleResolve (node:internal/modules/esm/resolve:879:10)
+      at defaultResolve (node:internal/modules/esm/resolve:1006:11)
+      at #cachedDefaultResolve (node:internal/modules/esm/loader:708:20)
+      at #resolveAndMaybeBlockOnLoaderThread (node:internal/modules/esm/loader:728:38)
+      at ModuleLoader.resolveSync (node:internal/modules/esm/loader:766:56)
+      at #resolve (node:internal/modules/esm/loader:690:17)
+      at ModuleLoader.getOrCreateModuleJob (node:internal/modules/esm/loader:610:35)
+      at node:internal/modules/esm/loader:639:32
+      at TracingChannel.tracePromise (node:diagnostics_channel:547:22) {
+    code: 'ERR_MODULE_NOT_FOUND',
+    url: 'file:///home/woodshape/claude/omarchestra/spikes/omarchy-ephemeral-plugin-loader/lib/index.mjs'
+  }
+
+test at test/s3-lifecycle.test.mjs:181:1
+✖ unregister clears queued payloads and calls: they never reach an item (3.134254ms)
+  Error [ERR_MODULE_NOT_FOUND]: Cannot find module '/home/woodshape/claude/omarchestra/spikes/omarchy-ephemeral-plugin-loader/lib/index.mjs' imported from /home/woodshape/claude/omarchestra/spikes/omarchy-ephemeral-plugin-loader/test/helpers.mjs
+      at finalizeResolution (node:internal/modules/esm/resolve:272:11)
+      at moduleResolve (node:internal/modules/esm/resolve:879:10)
+      at defaultResolve (node:internal/modules/esm/resolve:1006:11)
+      at #cachedDefaultResolve (node:internal/modules/esm/loader:708:20)
+      at #resolveAndMaybeBlockOnLoaderThread (node:internal/modules/esm/loader:728:38)
+      at ModuleLoader.resolveSync (node:internal/modules/esm/loader:766:56)
+      at #resolve (node:internal/modules/esm/loader:690:17)
+      at ModuleLoader.getOrCreateModuleJob (node:internal/modules/esm/loader:610:35)
+      at node:internal/modules/esm/loader:639:32
+      at TracingChannel.tracePromise (node:diagnostics_channel:547:22) {
+    code: 'ERR_MODULE_NOT_FOUND',
+    url: 'file:///home/woodshape/claude/omarchestra/spikes/omarchy-ephemeral-plugin-loader/lib/index.mjs'
+  }
+
+test at test/s3-lifecycle.test.mjs:198:1
+✖ duplicate unregister: pending response, tombstone response, then unknown (2.871118ms)
+  Error [ERR_MODULE_NOT_FOUND]: Cannot find module '/home/woodshape/claude/omarchestra/spikes/omarchy-ephemeral-plugin-loader/lib/index.mjs' imported from /home/woodshape/claude/omarchestra/spikes/omarchy-ephemeral-plugin-loader/test/helpers.mjs
+      at finalizeResolution (node:internal/modules/esm/resolve:272:11)
+      at moduleResolve (node:internal/modules/esm/resolve:879:10)
+      at defaultResolve (node:internal/modules/esm/resolve:1006:11)
+      at #cachedDefaultResolve (node:internal/modules/esm/loader:708:20)
+      at #resolveAndMaybeBlockOnLoaderThread (node:internal/modules/esm/loader:728:38)
+      at ModuleLoader.resolveSync (node:internal/modules/esm/loader:766:56)
+      at #resolve (node:internal/modules/esm/loader:690:17)
+      at ModuleLoader.getOrCreateModuleJob (node:internal/modules/esm/loader:610:35)
+      at node:internal/modules/esm/loader:639:32
+      at TracingChannel.tracePromise (node:diagnostics_channel:547:22) {
+    code: 'ERR_MODULE_NOT_FOUND',
+    url: 'file:///home/woodshape/claude/omarchestra/spikes/omarchy-ephemeral-plugin-loader/lib/index.mjs'
+  }
+
+test at test/s3-lifecycle.test.mjs:213:1
+✖ load failure is observable; failed hide is a no-op; unregister stays possible (1.038958ms)
+  Error [ERR_MODULE_NOT_FOUND]: Cannot find module '/home/woodshape/claude/omarchestra/spikes/omarchy-ephemeral-plugin-loader/lib/index.mjs' imported from /home/woodshape/claude/omarchestra/spikes/omarchy-ephemeral-plugin-loader/test/helpers.mjs
+      at finalizeResolution (node:internal/modules/esm/resolve:272:11)
+      at moduleResolve (node:internal/modules/esm/resolve:879:10)
+      at defaultResolve (node:internal/modules/esm/resolve:1006:11)
+      at #cachedDefaultResolve (node:internal/modules/esm/loader:708:20)
+      at #resolveAndMaybeBlockOnLoaderThread (node:internal/modules/esm/loader:728:38)
+      at ModuleLoader.resolveSync (node:internal/modules/esm/loader:766:56)
+      at #resolve (node:internal/modules/esm/loader:690:17)
+      at ModuleLoader.getOrCreateModuleJob (node:internal/modules/esm/loader:610:35)
+      at node:internal/modules/esm/loader:639:32
+      at TracingChannel.tracePromise (node:diagnostics_channel:547:22) {
+    code: 'ERR_MODULE_NOT_FOUND',
+    url: 'file:///home/woodshape/claude/omarchestra/spikes/omarchy-ephemeral-plugin-loader/lib/index.mjs'
+  }
+
+test at test/s3-lifecycle.test.mjs:230:1
+✖ hide while loading drops queued work; late resolution delivers nothing (1.071295ms)
+  Error [ERR_MODULE_NOT_FOUND]: Cannot find module '/home/woodshape/claude/omarchestra/spikes/omarchy-ephemeral-plugin-loader/lib/index.mjs' imported from /home/woodshape/claude/omarchestra/spikes/omarchy-ephemeral-plugin-loader/test/helpers.mjs
+      at finalizeResolution (node:internal/modules/esm/resolve:272:11)
+      at moduleResolve (node:internal/modules/esm/resolve:879:10)
+      at defaultResolve (node:internal/modules/esm/resolve:1006:11)
+      at #cachedDefaultResolve (node:internal/modules/esm/loader:708:20)
+      at #resolveAndMaybeBlockOnLoaderThread (node:internal/modules/esm/loader:728:38)
+      at ModuleLoader.resolveSync (node:internal/modules/esm/loader:766:56)
+      at #resolve (node:internal/modules/esm/loader:690:17)
+      at ModuleLoader.getOrCreateModuleJob (node:internal/modules/esm/loader:610:35)
+      at node:internal/modules/esm/loader:639:32
+      at TracingChannel.tracePromise (node:diagnostics_channel:547:22) {
+    code: 'ERR_MODULE_NOT_FOUND',
+    url: 'file:///home/woodshape/claude/omarchestra/spikes/omarchy-ephemeral-plugin-loader/lib/index.mjs'
+  }
+
+test at test/s3-lifecycle.test.mjs:247:1
+✖ resummon after hide creates a fresh loader and delivers the new payload (0.96528ms)
+  Error [ERR_MODULE_NOT_FOUND]: Cannot find module '/home/woodshape/claude/omarchestra/spikes/omarchy-ephemeral-plugin-loader/lib/index.mjs' imported from /home/woodshape/claude/omarchestra/spikes/omarchy-ephemeral-plugin-loader/test/helpers.mjs
+      at finalizeResolution (node:internal/modules/esm/resolve:272:11)
+      at moduleResolve (node:internal/modules/esm/resolve:879:10)
+      at defaultResolve (node:internal/modules/esm/resolve:1006:11)
+      at #cachedDefaultResolve (node:internal/modules/esm/loader:708:20)
+      at #resolveAndMaybeBlockOnLoaderThread (node:internal/modules/esm/loader:728:38)
+      at ModuleLoader.resolveSync (node:internal/modules/esm/loader:766:56)
+      at #resolve (node:internal/modules/esm/loader:690:17)
+      at ModuleLoader.getOrCreateModuleJob (node:internal/modules/esm/loader:610:35)
+      at node:internal/modules/esm/loader:639:32
+      at TracingChannel.tracePromise (node:diagnostics_channel:547:22) {
+    code: 'ERR_MODULE_NOT_FOUND',
+    url: 'file:///home/woodshape/claude/omarchestra/spikes/omarchy-ephemeral-plugin-loader/lib/index.mjs'
+  }
+
+test at test/s4-identity-restart.test.mjs:15:1
+✖ malformed identities fail closed without state change (4.796134ms)
+  Error [ERR_MODULE_NOT_FOUND]: Cannot find module '/home/woodshape/claude/omarchestra/spikes/omarchy-ephemeral-plugin-loader/lib/index.mjs' imported from /home/woodshape/claude/omarchestra/spikes/omarchy-ephemeral-plugin-loader/test/helpers.mjs
+      at finalizeResolution (node:internal/modules/esm/resolve:272:11)
+      at moduleResolve (node:internal/modules/esm/resolve:879:10)
+      at defaultResolve (node:internal/modules/esm/resolve:1006:11)
+      at #cachedDefaultResolve (node:internal/modules/esm/loader:708:20)
+      at #resolveAndMaybeBlockOnLoaderThread (node:internal/modules/esm/loader:728:38)
+      at ModuleLoader.resolveSync (node:internal/modules/esm/loader:766:56)
+      at #resolve (node:internal/modules/esm/loader:690:17)
+      at ModuleLoader.getOrCreateModuleJob (node:internal/modules/esm/loader:610:35)
+      at node:internal/modules/esm/loader:639:32
+      at TracingChannel.tracePromise (node:diagnostics_channel:547:22) {
+    code: 'ERR_MODULE_NOT_FOUND',
+    url: 'file:///home/woodshape/claude/omarchestra/spikes/omarchy-ephemeral-plugin-loader/lib/index.mjs'
+  }
+
+test at test/s4-identity-restart.test.mjs:27:1
+✖ unknown identities fail closed for every lifecycle operation (1.536306ms)
+  Error [ERR_MODULE_NOT_FOUND]: Cannot find module '/home/woodshape/claude/omarchestra/spikes/omarchy-ephemeral-plugin-loader/lib/index.mjs' imported from /home/woodshape/claude/omarchestra/spikes/omarchy-ephemeral-plugin-loader/test/helpers.mjs
+      at finalizeResolution (node:internal/modules/esm/resolve:272:11)
+      at moduleResolve (node:internal/modules/esm/resolve:879:10)
+      at defaultResolve (node:internal/modules/esm/resolve:1006:11)
+      at #cachedDefaultResolve (node:internal/modules/esm/loader:708:20)
+      at #resolveAndMaybeBlockOnLoaderThread (node:internal/modules/esm/loader:728:38)
+      at ModuleLoader.resolveSync (node:internal/modules/esm/loader:766:56)
+      at #resolve (node:internal/modules/esm/loader:690:17)
+      at ModuleLoader.getOrCreateModuleJob (node:internal/modules/esm/loader:610:35)
+      at node:internal/modules/esm/loader:639:32
+      at TracingChannel.tracePromise (node:diagnostics_channel:547:22) {
+    code: 'ERR_MODULE_NOT_FOUND',
+    url: 'file:///home/woodshape/claude/omarchestra/spikes/omarchy-ephemeral-plugin-loader/lib/index.mjs'
+  }
+
+test at test/s4-identity-restart.test.mjs:40:1
+✖ one registration identity cannot affect a sibling (1.222275ms)
+  Error [ERR_MODULE_NOT_FOUND]: Cannot find module '/home/woodshape/claude/omarchestra/spikes/omarchy-ephemeral-plugin-loader/lib/index.mjs' imported from /home/woodshape/claude/omarchestra/spikes/omarchy-ephemeral-plugin-loader/test/helpers.mjs
+      at finalizeResolution (node:internal/modules/esm/resolve:272:11)
+      at moduleResolve (node:internal/modules/esm/resolve:879:10)
+      at defaultResolve (node:internal/modules/esm/resolve:1006:11)
+      at #cachedDefaultResolve (node:internal/modules/esm/loader:708:20)
+      at #resolveAndMaybeBlockOnLoaderThread (node:internal/modules/esm/loader:728:38)
+      at ModuleLoader.resolveSync (node:internal/modules/esm/loader:766:56)
+      at #resolve (node:internal/modules/esm/loader:690:17)
+      at ModuleLoader.getOrCreateModuleJob (node:internal/modules/esm/loader:610:35)
+      at node:internal/modules/esm/loader:639:32
+      at TracingChannel.tracePromise (node:diagnostics_channel:547:22) {
+    code: 'ERR_MODULE_NOT_FOUND',
+    url: 'file:///home/woodshape/claude/omarchestra/spikes/omarchy-ephemeral-plugin-loader/lib/index.mjs'
+  }
+
+test at test/s4-identity-restart.test.mjs:57:1
+✖ operation identities never grant lifecycle authority (3.269406ms)
+  Error [ERR_MODULE_NOT_FOUND]: Cannot find module '/home/woodshape/claude/omarchestra/spikes/omarchy-ephemeral-plugin-loader/lib/index.mjs' imported from /home/woodshape/claude/omarchestra/spikes/omarchy-ephemeral-plugin-loader/test/helpers.mjs
+      at finalizeResolution (node:internal/modules/esm/resolve:272:11)
+      at moduleResolve (node:internal/modules/esm/resolve:879:10)
+      at defaultResolve (node:internal/modules/esm/resolve:1006:11)
+      at #cachedDefaultResolve (node:internal/modules/esm/loader:708:20)
+      at #resolveAndMaybeBlockOnLoaderThread (node:internal/modules/esm/loader:728:38)
+      at ModuleLoader.resolveSync (node:internal/modules/esm/loader:766:56)
+      at #resolve (node:internal/modules/esm/loader:690:17)
+      at ModuleLoader.getOrCreateModuleJob (node:internal/modules/esm/loader:610:35)
+      at node:internal/modules/esm/loader:639:32
+      at TracingChannel.tracePromise (node:diagnostics_channel:547:22) {
+    code: 'ERR_MODULE_NOT_FOUND',
+    url: 'file:///home/woodshape/claude/omarchestra/spikes/omarchy-ephemeral-plugin-loader/lib/index.mjs'
+  }
+
+test at test/s4-identity-restart.test.mjs:72:1
+✖ status of unknown operation identities fails closed (1.51111ms)
+  Error [ERR_MODULE_NOT_FOUND]: Cannot find module '/home/woodshape/claude/omarchestra/spikes/omarchy-ephemeral-plugin-loader/lib/index.mjs' imported from /home/woodshape/claude/omarchestra/spikes/omarchy-ephemeral-plugin-loader/test/helpers.mjs
+      at finalizeResolution (node:internal/modules/esm/resolve:272:11)
+      at moduleResolve (node:internal/modules/esm/resolve:879:10)
+      at defaultResolve (node:internal/modules/esm/resolve:1006:11)
+      at #cachedDefaultResolve (node:internal/modules/esm/loader:708:20)
+      at #resolveAndMaybeBlockOnLoaderThread (node:internal/modules/esm/loader:728:38)
+      at ModuleLoader.resolveSync (node:internal/modules/esm/loader:766:56)
+      at #resolve (node:internal/modules/esm/loader:690:17)
+      at ModuleLoader.getOrCreateModuleJob (node:internal/modules/esm/loader:610:35)
+      at node:internal/modules/esm/loader:639:32
+      at TracingChannel.tracePromise (node:diagnostics_channel:547:22) {
+    code: 'ERR_MODULE_NOT_FOUND',
+    url: 'file:///home/woodshape/claude/omarchestra/spikes/omarchy-ephemeral-plugin-loader/lib/index.mjs'
+  }
+
+test at test/s4-identity-restart.test.mjs:80:1
+✖ shell restart: a fresh host never recognizes pre-restart identities (1.371269ms)
+  Error [ERR_MODULE_NOT_FOUND]: Cannot find module '/home/woodshape/claude/omarchestra/spikes/omarchy-ephemeral-plugin-loader/lib/index.mjs' imported from /home/woodshape/claude/omarchestra/spikes/omarchy-ephemeral-plugin-loader/test/helpers.mjs
+      at finalizeResolution (node:internal/modules/esm/resolve:272:11)
+      at moduleResolve (node:internal/modules/esm/resolve:879:10)
+      at defaultResolve (node:internal/modules/esm/resolve:1006:11)
+      at #cachedDefaultResolve (node:internal/modules/esm/loader:708:20)
+      at #resolveAndMaybeBlockOnLoaderThread (node:internal/modules/esm/loader:728:38)
+      at ModuleLoader.resolveSync (node:internal/modules/esm/loader:766:56)
+      at #resolve (node:internal/modules/esm/loader:690:17)
+      at ModuleLoader.getOrCreateModuleJob (node:internal/modules/esm/loader:610:35)
+      at node:internal/modules/esm/loader:639:32
+      at TracingChannel.tracePromise (node:diagnostics_channel:547:22) {
+    code: 'ERR_MODULE_NOT_FOUND',
+    url: 'file:///home/woodshape/claude/omarchestra/spikes/omarchy-ephemeral-plugin-loader/lib/index.mjs'
+  }
+
+test at test/s4-identity-restart.test.mjs:112:1
+✖ pre-restart identities cannot be smuggled through status (1.1532ms)
+  Error [ERR_MODULE_NOT_FOUND]: Cannot find module '/home/woodshape/claude/omarchestra/spikes/omarchy-ephemeral-plugin-loader/lib/index.mjs' imported from /home/woodshape/claude/omarchestra/spikes/omarchy-ephemeral-plugin-loader/test/helpers.mjs
+      at finalizeResolution (node:internal/modules/esm/resolve:272:11)
+      at moduleResolve (node:internal/modules/esm/resolve:879:10)
+      at defaultResolve (node:internal/modules/esm/resolve:1006:11)
+      at #cachedDefaultResolve (node:internal/modules/esm/loader:708:20)
+      at #resolveAndMaybeBlockOnLoaderThread (node:internal/modules/esm/loader:728:38)
+      at ModuleLoader.resolveSync (node:internal/modules/esm/loader:766:56)
+      at #resolve (node:internal/modules/esm/loader:690:17)
+      at ModuleLoader.getOrCreateModuleJob (node:internal/modules/esm/loader:610:35)
+      at node:internal/modules/esm/loader:639:32
+      at TracingChannel.tracePromise (node:diagnostics_channel:547:22) {
+    code: 'ERR_MODULE_NOT_FOUND',
+    url: 'file:///home/woodshape/claude/omarchestra/spikes/omarchy-ephemeral-plugin-loader/lib/index.mjs'
+  }
+
+test at test/s5-persistence-isolation.test.mjs:24:1
+✖ the full temporary lifecycle never touches configuration or installed state (4.723167ms)
+  Error [ERR_MODULE_NOT_FOUND]: Cannot find module '/home/woodshape/claude/omarchestra/spikes/omarchy-ephemeral-plugin-loader/lib/index.mjs' imported from /home/woodshape/claude/omarchestra/spikes/omarchy-ephemeral-plugin-loader/test/helpers.mjs
+      at finalizeResolution (node:internal/modules/esm/resolve:272:11)
+      at moduleResolve (node:internal/modules/esm/resolve:879:10)
+      at defaultResolve (node:internal/modules/esm/resolve:1006:11)
+      at #cachedDefaultResolve (node:internal/modules/esm/loader:708:20)
+      at #resolveAndMaybeBlockOnLoaderThread (node:internal/modules/esm/loader:728:38)
+      at ModuleLoader.resolveSync (node:internal/modules/esm/loader:766:56)
+      at #resolve (node:internal/modules/esm/loader:690:17)
+      at ModuleLoader.getOrCreateModuleJob (node:internal/modules/esm/loader:610:35)
+      at node:internal/modules/esm/loader:639:32
+      at TracingChannel.tracePromise (node:diagnostics_channel:547:22) {
+    code: 'ERR_MODULE_NOT_FOUND',
+    url: 'file:///home/woodshape/claude/omarchestra/spikes/omarchy-ephemeral-plugin-loader/lib/index.mjs'
+  }
+
+test at test/s5-persistence-isolation.test.mjs:51:1
+✖ capability-only sessions are completely inert (1.304569ms)
+  Error [ERR_MODULE_NOT_FOUND]: Cannot find module '/home/woodshape/claude/omarchestra/spikes/omarchy-ephemeral-plugin-loader/lib/index.mjs' imported from /home/woodshape/claude/omarchestra/spikes/omarchy-ephemeral-plugin-loader/test/helpers.mjs
+      at finalizeResolution (node:internal/modules/esm/resolve:272:11)
+      at moduleResolve (node:internal/modules/esm/resolve:879:10)
+      at defaultResolve (node:internal/modules/esm/resolve:1006:11)
+      at #cachedDefaultResolve (node:internal/modules/esm/loader:708:20)
+      at #resolveAndMaybeBlockOnLoaderThread (node:internal/modules/esm/loader:728:38)
+      at ModuleLoader.resolveSync (node:internal/modules/esm/loader:766:56)
+      at #resolve (node:internal/modules/esm/loader:690:17)
+      at ModuleLoader.getOrCreateModuleJob (node:internal/modules/esm/loader:610:35)
+      at node:internal/modules/esm/loader:639:32
+      at TracingChannel.tracePromise (node:diagnostics_channel:547:22) {
+    code: 'ERR_MODULE_NOT_FOUND',
+    url: 'file:///home/woodshape/claude/omarchestra/spikes/omarchy-ephemeral-plugin-loader/lib/index.mjs'
+  }
+
+test at test/s5-persistence-isolation.test.mjs:58:1
+✖ rejected registrations never call config writers or leave partial state (1.263546ms)
+  Error [ERR_MODULE_NOT_FOUND]: Cannot find module '/home/woodshape/claude/omarchestra/spikes/omarchy-ephemeral-plugin-loader/lib/index.mjs' imported from /home/woodshape/claude/omarchestra/spikes/omarchy-ephemeral-plugin-loader/test/helpers.mjs
+      at finalizeResolution (node:internal/modules/esm/resolve:272:11)
+      at moduleResolve (node:internal/modules/esm/resolve:879:10)
+      at defaultResolve (node:internal/modules/esm/resolve:1006:11)
+      at #cachedDefaultResolve (node:internal/modules/esm/loader:708:20)
+      at #resolveAndMaybeBlockOnLoaderThread (node:internal/modules/esm/loader:728:38)
+      at ModuleLoader.resolveSync (node:internal/modules/esm/loader:766:56)
+      at #resolve (node:internal/modules/esm/loader:690:17)
+      at ModuleLoader.getOrCreateModuleJob (node:internal/modules/esm/loader:610:35)
+      at node:internal/modules/esm/loader:639:32
+      at TracingChannel.tracePromise (node:diagnostics_channel:547:22) {
+    code: 'ERR_MODULE_NOT_FOUND',
+    url: 'file:///home/woodshape/claude/omarchestra/spikes/omarchy-ephemeral-plugin-loader/lib/index.mjs'
+  }
+
+test at test/s5-persistence-isolation.test.mjs:74:1
+✖ a later rescan collision invalidates only the colliding temporary registration (1.381772ms)
+  Error [ERR_MODULE_NOT_FOUND]: Cannot find module '/home/woodshape/claude/omarchestra/spikes/omarchy-ephemeral-plugin-loader/lib/index.mjs' imported from /home/woodshape/claude/omarchestra/spikes/omarchy-ephemeral-plugin-loader/test/helpers.mjs
+      at finalizeResolution (node:internal/modules/esm/resolve:272:11)
+      at moduleResolve (node:internal/modules/esm/resolve:879:10)
+      at defaultResolve (node:internal/modules/esm/resolve:1006:11)
+      at #cachedDefaultResolve (node:internal/modules/esm/loader:708:20)
+      at #resolveAndMaybeBlockOnLoaderThread (node:internal/modules/esm/loader:728:38)
+      at ModuleLoader.resolveSync (node:internal/modules/esm/loader:766:56)
+      at #resolve (node:internal/modules/esm/loader:690:17)
+      at ModuleLoader.getOrCreateModuleJob (node:internal/modules/esm/loader:610:35)
+      at node:internal/modules/esm/loader:639:32
+      at TracingChannel.tracePromise (node:diagnostics_channel:547:22) {
+    code: 'ERR_MODULE_NOT_FOUND',
+    url: 'file:///home/woodshape/claude/omarchestra/spikes/omarchy-ephemeral-plugin-loader/lib/index.mjs'
+  }
+
+test at test/s5-persistence-isolation.test.mjs:120:1
+✖ temporary records never leak into the installed registry view (1.174589ms)
+  Error [ERR_MODULE_NOT_FOUND]: Cannot find module '/home/woodshape/claude/omarchestra/spikes/omarchy-ephemeral-plugin-loader/lib/index.mjs' imported from /home/woodshape/claude/omarchestra/spikes/omarchy-ephemeral-plugin-loader/test/helpers.mjs
+      at finalizeResolution (node:internal/modules/esm/resolve:272:11)
+      at moduleResolve (node:internal/modules/esm/resolve:879:10)
+      at defaultResolve (node:internal/modules/esm/resolve:1006:11)
+      at #cachedDefaultResolve (node:internal/modules/esm/loader:708:20)
+      at #resolveAndMaybeBlockOnLoaderThread (node:internal/modules/esm/loader:728:38)
+      at ModuleLoader.resolveSync (node:internal/modules/esm/loader:766:56)
+      at #resolve (node:internal/modules/esm/loader:690:17)
+      at ModuleLoader.getOrCreateModuleJob (node:internal/modules/esm/loader:610:35)
+      at node:internal/modules/esm/loader:639:32
+      at TracingChannel.tracePromise (node:diagnostics_channel:547:22) {
+    code: 'ERR_MODULE_NOT_FOUND',
+    url: 'file:///home/woodshape/claude/omarchestra/spikes/omarchy-ephemeral-plugin-loader/lib/index.mjs'
+  }
+
+test at test/s6-patch-verification.test.mjs:40:1
+✖ the candidate patch and its verifier exist (4.55618ms)
+  AssertionError [ERR_ASSERTION]: missing spikes/omarchy-ephemeral-plugin-loader/upstream/omarchy-4.0.2-1-temporary-panel-v1.patch
+      at TestContext.<anonymous> (file:///home/woodshape/claude/omarchestra/spikes/omarchy-ephemeral-plugin-loader/test/s6-patch-verification.test.mjs:41:10)
+      at Test.runInAsyncScope (node:async_hooks:226:14)
+      at Test.run (node:internal/test_runner/test:1402:25)
+      at Test.start (node:internal/test_runner/test:1262:17)
+      at startSubtestAfterBootstrap (node:internal/test_runner/harness:387:17) {
+    generatedMessage: false,
+    code: 'ERR_ASSERTION',
+    actual: false,
+    expected: true,
+    operator: '==',
+    diff: 'simple'
+  }
+
+test at test/s6-patch-verification.test.mjs:45:1
+✖ the verifier enforces a touched-file allowlist in its own text (0.625943ms)
+  Error: ENOENT: no such file or directory, open '/home/woodshape/claude/omarchestra/spikes/omarchy-ephemeral-plugin-loader/scripts/verify-candidate-patch.sh'
+      at Object.readFileSync (node:fs:621:20)
+      at TestContext.<anonymous> (file:///home/woodshape/claude/omarchestra/spikes/omarchy-ephemeral-plugin-loader/test/s6-patch-verification.test.mjs:46:21)
+      at Test.runInAsyncScope (node:async_hooks:226:14)
+      at Test.run (node:internal/test_runner/test:1402:25)
+      at Test.processPendingSubtests (node:internal/test_runner/test:974:18)
+      at Test.postRun (node:internal/test_runner/test:1542:19)
+      at Test.run (node:internal/test_runner/test:1467:12)
+      at async startSubtestAfterBootstrap (node:internal/test_runner/harness:387:3) {
+    errno: -2,
+    code: 'ENOENT',
+    syscall: 'open',
+    path: '/home/woodshape/claude/omarchestra/spikes/omarchy-ephemeral-plugin-loader/scripts/verify-candidate-patch.sh'
+  }
+
+test at test/s6-patch-verification.test.mjs:54:1
+✖ the verifier runs green end to end against the exact baseline (21.97404ms)
+  AssertionError [ERR_ASSERTION]: verifier failed: Error: Command failed: bash /home/woodshape/claude/omarchestra/spikes/omarchy-ephemeral-plugin-loader/scripts/verify-candidate-patch.sh
+  bash: /home/woodshape/claude/omarchestra/spikes/omarchy-ephemeral-plugin-loader/scripts/verify-candidate-patch.sh: No such file or directory
+
+      at TestContext.<anonymous> (file:///home/woodshape/claude/omarchestra/spikes/omarchy-ephemeral-plugin-loader/test/s6-patch-verification.test.mjs:64:12)
+      at Test.runInAsyncScope (node:async_hooks:226:14)
+      at Test.run (node:internal/test_runner/test:1402:25)
+      at Test.processPendingSubtests (node:internal/test_runner/test:974:18)
+      at Test.postRun (node:internal/test_runner/test:1542:19)
+      at Test.run (node:internal/test_runner/test:1467:12)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:974:7) {
+    generatedMessage: false,
+    code: 'ERR_ASSERTION',
+    actual: undefined,
+    expected: undefined,
+    operator: 'fail',
+    diff: 'simple'
+  }
+
+test at test/s7-failure-cleanup.test.mjs:30:1
+✖ forced failure removes exactly the registered scratch directories (2.958474ms)
+  Error [ERR_MODULE_NOT_FOUND]: Cannot find module '/home/woodshape/claude/omarchestra/spikes/omarchy-ephemeral-plugin-loader/lib/index.mjs' imported from /home/woodshape/claude/omarchestra/spikes/omarchy-ephemeral-plugin-loader/test/helpers.mjs
+      at finalizeResolution (node:internal/modules/esm/resolve:272:11)
+      at moduleResolve (node:internal/modules/esm/resolve:879:10)
+      at defaultResolve (node:internal/modules/esm/resolve:1006:11)
+      at #cachedDefaultResolve (node:internal/modules/esm/loader:708:20)
+      at #resolveAndMaybeBlockOnLoaderThread (node:internal/modules/esm/loader:728:38)
+      at ModuleLoader.resolveSync (node:internal/modules/esm/loader:766:56)
+      at #resolve (node:internal/modules/esm/loader:690:17)
+      at ModuleLoader.getOrCreateModuleJob (node:internal/modules/esm/loader:610:35)
+      at node:internal/modules/esm/loader:639:32
+      at TracingChannel.tracePromise (node:diagnostics_channel:547:22) {
+    code: 'ERR_MODULE_NOT_FOUND',
+    url: 'file:///home/woodshape/claude/omarchestra/spikes/omarchy-ephemeral-plugin-loader/lib/index.mjs'
+  }
+
+test at test/s7-failure-cleanup.test.mjs:49:1
+✖ unrelated resources survive exact cleanup (0.860479ms)
+  Error [ERR_MODULE_NOT_FOUND]: Cannot find module '/home/woodshape/claude/omarchestra/spikes/omarchy-ephemeral-plugin-loader/lib/index.mjs' imported from /home/woodshape/claude/omarchestra/spikes/omarchy-ephemeral-plugin-loader/test/helpers.mjs
+      at finalizeResolution (node:internal/modules/esm/resolve:272:11)
+      at moduleResolve (node:internal/modules/esm/resolve:879:10)
+      at defaultResolve (node:internal/modules/esm/resolve:1006:11)
+      at #cachedDefaultResolve (node:internal/modules/esm/loader:708:20)
+      at #resolveAndMaybeBlockOnLoaderThread (node:internal/modules/esm/loader:728:38)
+      at ModuleLoader.resolveSync (node:internal/modules/esm/loader:766:56)
+      at #resolve (node:internal/modules/esm/loader:690:17)
+      at ModuleLoader.getOrCreateModuleJob (node:internal/modules/esm/loader:610:35)
+      at node:internal/modules/esm/loader:639:32
+      at TracingChannel.tracePromise (node:diagnostics_channel:547:22) {
+    code: 'ERR_MODULE_NOT_FOUND',
+    url: 'file:///home/woodshape/claude/omarchestra/spikes/omarchy-ephemeral-plugin-loader/lib/index.mjs'
+  }
+
+test at test/s7-failure-cleanup.test.mjs:65:1
+✖ symlinked scratch paths are refused, stay pending, and are retryable (0.750177ms)
+  Error [ERR_MODULE_NOT_FOUND]: Cannot find module '/home/woodshape/claude/omarchestra/spikes/omarchy-ephemeral-plugin-loader/lib/index.mjs' imported from /home/woodshape/claude/omarchestra/spikes/omarchy-ephemeral-plugin-loader/test/helpers.mjs
+      at finalizeResolution (node:internal/modules/esm/resolve:272:11)
+      at moduleResolve (node:internal/modules/esm/resolve:879:10)
+      at defaultResolve (node:internal/modules/esm/resolve:1006:11)
+      at #cachedDefaultResolve (node:internal/modules/esm/loader:708:20)
+      at #resolveAndMaybeBlockOnLoaderThread (node:internal/modules/esm/loader:728:38)
+      at ModuleLoader.resolveSync (node:internal/modules/esm/loader:766:56)
+      at #resolve (node:internal/modules/esm/loader:690:17)
+      at ModuleLoader.getOrCreateModuleJob (node:internal/modules/esm/loader:610:35)
+      at node:internal/modules/esm/loader:639:32
+      at TracingChannel.tracePromise (node:diagnostics_channel:547:22) {
+    code: 'ERR_MODULE_NOT_FOUND',
+    url: 'file:///home/woodshape/claude/omarchestra/spikes/omarchy-ephemeral-plugin-loader/lib/index.mjs'
+  }
+
+test at test/s7-failure-cleanup.test.mjs:88:1
+✖ the real-fs cleanup registry removes only its exact directory (bounded, foreground) (0.858727ms)
+  Error [ERR_MODULE_NOT_FOUND]: Cannot find module '/home/woodshape/claude/omarchestra/spikes/omarchy-ephemeral-plugin-loader/lib/index.mjs' imported from /home/woodshape/claude/omarchestra/spikes/omarchy-ephemeral-plugin-loader/test/helpers.mjs
+      at finalizeResolution (node:internal/modules/esm/resolve:272:11)
+      at moduleResolve (node:internal/modules/esm/resolve:879:10)
+      at defaultResolve (node:internal/modules/esm/resolve:1006:11)
+      at #cachedDefaultResolve (node:internal/modules/esm/loader:708:20)
+      at #resolveAndMaybeBlockOnLoaderThread (node:internal/modules/esm/loader:728:38)
+      at ModuleLoader.resolveSync (node:internal/modules/esm/loader:766:56)
+      at #resolve (node:internal/modules/esm/loader:690:17)
+      at ModuleLoader.getOrCreateModuleJob (node:internal/modules/esm/loader:610:35)
+      at node:internal/modules/esm/loader:639:32
+      at TracingChannel.tracePromise (node:diagnostics_channel:547:22) {
+    code: 'ERR_MODULE_NOT_FOUND',
+    url: 'file:///home/woodshape/claude/omarchestra/spikes/omarchy-ephemeral-plugin-loader/lib/index.mjs'
+  }
+
+test at test/s7-failure-cleanup.test.mjs:110:1
+✖ scratch cleanup composes with host failure paths without touching hosts (0.713247ms)
+  Error [ERR_MODULE_NOT_FOUND]: Cannot find module '/home/woodshape/claude/omarchestra/spikes/omarchy-ephemeral-plugin-loader/lib/index.mjs' imported from /home/woodshape/claude/omarchestra/spikes/omarchy-ephemeral-plugin-loader/test/helpers.mjs
+      at finalizeResolution (node:internal/modules/esm/resolve:272:11)
+      at moduleResolve (node:internal/modules/esm/resolve:879:10)
+      at defaultResolve (node:internal/modules/esm/resolve:1006:11)
+      at #cachedDefaultResolve (node:internal/modules/esm/loader:708:20)
+      at #resolveAndMaybeBlockOnLoaderThread (node:internal/modules/esm/loader:728:38)
+      at ModuleLoader.resolveSync (node:internal/modules/esm/loader:766:56)
+      at #resolve (node:internal/modules/esm/loader:690:17)
+      at ModuleLoader.getOrCreateModuleJob (node:internal/modules/esm/loader:610:35)
+      at node:internal/modules/esm/loader:639:32
+      at TracingChannel.tracePromise (node:diagnostics_channel:547:22) {
+    code: 'ERR_MODULE_NOT_FOUND',
+    url: 'file:///home/woodshape/claude/omarchestra/spikes/omarchy-ephemeral-plugin-loader/lib/index.mjs'
+  }
+
+test at test/s8-source-audit.test.mjs:79:1
+✖ the fake-only recipe spike-omarchy-ephemeral-plugin-loader exists (8.038593ms)
+  AssertionError [ERR_ASSERTION]: justfile must define the unattended fake-only recipe spike-omarchy-ephemeral-plugin-loader
+      at TestContext.<anonymous> (file:///home/woodshape/claude/omarchestra/spikes/omarchy-ephemeral-plugin-loader/test/s8-source-audit.test.mjs:82:10)
+      at Test.runInAsyncScope (node:async_hooks:226:14)
+      at Test.run (node:internal/test_runner/test:1402:25)
+      at Test.start (node:internal/test_runner/test:1262:17)
+      at startSubtestAfterBootstrap (node:internal/test_runner/harness:387:17) {
+    generatedMessage: false,
+    code: 'ERR_ASSERTION',
+    actual: false,
+    expected: true,
+    operator: '==',
+    diff: 'simple'
+  }
+
+test at test/s8-source-audit.test.mjs:85:1
+✖ the spike recipe is free of live-system launch primitives (0.6937ms)
+  AssertionError [ERR_ASSERTION]: missing recipe spike-omarchy-ephemeral-plugin-loader (red until task 4.b adds it)
+      at TestContext.<anonymous> (file:///home/woodshape/claude/omarchestra/spikes/omarchy-ephemeral-plugin-loader/test/s8-source-audit.test.mjs:89:12)
+      at Test.runInAsyncScope (node:async_hooks:226:14)
+      at Test.run (node:internal/test_runner/test:1402:25)
+      at Test.processPendingSubtests (node:internal/test_runner/test:974:18)
+      at Test.postRun (node:internal/test_runner/test:1542:19)
+      at Test.run (node:internal/test_runner/test:1467:12)
+      at async startSubtestAfterBootstrap (node:internal/test_runner/harness:387:3) {
+    generatedMessage: false,
+    code: 'ERR_ASSERTION',
+    actual: undefined,
+    expected: undefined,
+    operator: 'fail',
+    diff: 'simple'
+  }

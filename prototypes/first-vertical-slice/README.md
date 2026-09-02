@@ -128,9 +128,10 @@ window-manager metadata only; see
 
 ## Live Agent Console status
 
-The Agent Console projection seam is now implemented and fake-proven, but its
-live Omarchy loading is unsupported and live visual agreement remains a later
-human gate. Classification:
+The Agent Console projection seam is implemented and fake-proven. Its original
+per-run repository-local loader is unsupported and now rejected; live visual
+agreement remains a later human gate through an explicitly installed persistent
+Companion Plugin. Classification:
 
 - **Fake-only proof (automated):** `just prototype-live-agent-console-check`
   runs all five seams unattended — the projection adapter (snapshot
@@ -144,19 +145,18 @@ human gate. Classification:
 - **Prior terminal-side human proof:** real Pi status labels, transitions,
   isolation, and persistence
   ([`docs/manual-role-label-gate.md`](docs/manual-role-label-gate.md)).
-- **Unsupported (fail closed):** repo-local live loading inside the installed
-  Omarchy shell. Third-party plugins are discovered only under the user's
-  plugin configuration directory and enablement persists user shell
-  configuration, so no supported repo-local launch seam exists. The combined
-  launcher therefore always preflights and exits before any resource creation
+- **Retired (still fail closed):** the existing combined launcher asks for the
+  rejected repo-local ephemeral-loader capability and exits before resource
+  creation. It remains safe historical code, not the product path
   ([`docs/live-agent-console-launch-blocker.md`](docs/live-agent-console-launch-blocker.md)).
-- **Pending:** live Pi + Agent Console visual agreement, established only by a
-  later explicitly human-authorized gate
+- **Pending:** fake-only setup/update/uninstall proof for a versioned Companion
+  Plugin, followed by live Pi + Agent Console agreement through an ephemeral
+  Projection Session in a later explicitly human-authorized gate
   ([`docs/live-agent-console-gate.md`](docs/live-agent-console-gate.md)).
 
-The QML plugin source under `console/plugin/` is schema-checked and linted but
-is never installed, enabled, or loaded; nothing is written under the user's
-Omarchy configuration or installed shell sources.
+The prototype QML source under `console/plugin/` is schema-checked and linted
+but has not been installed or loaded. Explicit product setup—not a Team Goal—
+will own future installation and exact Omarchy configuration changes.
 
 ## Guided manual walkthrough (optional, no live systems)
 
@@ -171,10 +171,10 @@ Omarchy configuration or installed shell sources.
    card component (injected values only; never installed or loaded live).
 6. `docs/manual-role-label-gate.md` — completed human evidence, the rejected
    visible-title assumption, and the revised decorationless presentation contract.
-7. `docs/live-agent-console-gate.md` — the pending combined human gate, its
-   failure rules, the fail-closed launcher, and the required upstream capability.
+7. `docs/live-agent-console-gate.md` — the replacement Companion Plugin gate
+   plan and the retired launcher's fail-closed disposition.
 8. `docs/live-agent-console-launch-blocker.md` — installed-API evidence for
-   the unsupported repo-local Omarchy loading and the required next capability.
+   the rejected repo-local loading path and the selected resolution.
 9. `docs/live-agent-console-run-report.md` — the seam-by-seam run report and
    evidence ledger for this fusion run.
 
@@ -206,7 +206,8 @@ Omarchy configuration or installed shell sources.
 Full workflow DAG, Git writer leases, real Boomux/Pi launching, remote SSH
 execution, provider/model profiles, production QML UI, authentication,
 production migrations/retention, cancellation, artifact review, reconciliation
-(return-to-team), Task Capsules, and final packaging. `reconciling` control
+(return-to-team), ordinary-terminal observation/Adoption, Companion Plugin
+packaging, Task Capsules, and final packaging. `reconciling` control
 mode and return-to-team are intentionally absent from this slice; that is a
 prototype scope limit, not an MVP decision change.
 
@@ -234,12 +235,17 @@ Evidence-backed items that should become production contracts:
    belongs in the store open path, not the caller.
 7. The thin-client dependency boundary is enforceable by a source audit that
    inspects the module graph, not just file text.
+8. Product installation and Team Goal execution need separate lifecycles: a
+   persistent Companion Plugin survives exact Projection Session cleanup.
+9. Ordinary-terminal Pi discovery needs a separate observed/unassigned state;
+   reusing managed Agent Run semantics would grant authority before Adoption.
 
 Unresolved questions (deliberately not decided here):
 
 - production journal mode (both modes measured; none ranked);
-- live Agent Console rendering and its agreement/latency relative to the
+- live Companion Plugin rendering and its agreement/latency relative to the
   human-proven Pi status surface;
+- observer identity/expiry and exact same-process Adoption protocol;
 - socket trust beyond same-user Unix permissions, and the authenticated
   SSH-stdio protocol;
 - recovery beyond a surviving bridge identity (Pi restart, extension reload,
@@ -247,10 +253,14 @@ Unresolved questions (deliberately not decided here):
 - migrations, retention, cancellation, and reconciliation semantics;
 - production event-page sizing and retention policy within the 16 KiB frame bound.
 
-## Contradictions with authoritative designs
+## Relationship to the authoritative design
 
-None found. The slice stays inside the locked MVP decisions; the absent
-`reconciling` mode and return-to-team flow are recorded scope limits above.
+The durable runner, managed bridge, projection, and terminal-presentation seams
+remain aligned. The prototype's repository-local per-run QML launcher is a
+known superseded seam and stays fail-closed; production-shaped follow-up uses
+persistent Companion Plugin installation and ephemeral Projection Sessions.
+Ordinary-terminal observation/Adoption and `reconciling` are recorded scope
+limits rather than silently simulated here.
 
 ## Wipe instructions
 

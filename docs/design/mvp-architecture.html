@@ -361,14 +361,14 @@
 
     <section>
       <h2>System architecture</h2>
-      <p class="section-intro">Each module owns one kind of complexity. The Omarchy shell remains a thin presentation client.</p>
+      <p class="section-intro">Each module owns one kind of complexity. An explicitly installed Companion Plugin remains a thin presentation client while Projection Sessions stay ephemeral.</p>
       <div class="architecture">
         <div class="layer">
           <div class="layer-label">Desktop presentation</div>
           <div class="layer-body">
-            <div class="node"><strong>Bar indicator</strong><span>Active teams, working agents, attention</span></div>
-            <div class="node"><strong>Agent Console</strong><span>Goals, roles, state, activity, outcomes</span></div>
-            <div class="node"><strong>User intents</strong><span>Create, focus, acknowledge, cancel</span></div>
+            <div class="node"><strong>Installed Companion Plugin</strong><span>Bar indicator and Agent Console</span></div>
+            <div class="node"><strong>Projection Sessions</strong><span>Goals, roles, unassigned agents, activity, outcomes</span></div>
+            <div class="node"><strong>User intents</strong><span>Create, focus, adopt, acknowledge, cancel</span></div>
           </div>
         </div>
         <div class="arrow">↓ snapshot · events · intents</div>
@@ -377,7 +377,8 @@
           <div class="layer-body">
             <div class="node"><strong>Orchestration</strong><span>Workflow, assignments, writer policy</span></div>
             <div class="node"><strong>Durable state</strong><span>Goals, events, artifacts, runtime bindings</span></div>
-            <div class="node"><strong>Projection</strong><span>One UI-ready snapshot and ordered stream</span></div>
+            <div class="node"><strong>Projection</strong><span>UI-ready snapshots and ordered streams</span></div>
+            <div class="node"><strong>Agent registry</strong><span>Observed ordinary Pi sessions remain unassigned</span></div>
           </div>
         </div>
         <div class="arrow">↓ terminal lifecycle port</div>
@@ -396,6 +397,7 @@
             <div class="node"><strong>Coordinator</strong><span>Interactive Pi + bridge extension</span></div>
             <div class="node"><strong>Builder</strong><span>Interactive Pi + bridge extension</span></div>
             <div class="node"><strong>Reviewer</strong><span>Interactive Pi + bridge extension</span></div>
+            <div class="node"><strong>Unassigned</strong><span>Ordinary interactive Pi + observer extension</span></div>
           </div>
         </div>
       </div>
@@ -408,7 +410,8 @@
         <article class="card half">
           <h3>Local Omarchy Node</h3>
           <ul>
-            <li>QML Agent Console and bar indicator</li>
+            <li>Explicitly installed QML Companion Plugin</li>
+            <li>Ephemeral Projection Sessions and observed-agent registry</li>
             <li>Native Ghostty windows tiled by Hyprland</li>
             <li>Desktop coordinator and validated user intents</li>
             <li>Boomux coordinating Node and SSH presentation</li>
@@ -478,7 +481,7 @@
           <tr><td>PTY, process lifetime and attach/detach</td><td>Boomux during the MVP</td></tr>
           <tr><td>Conversation and model session</td><td>The visible Pi process</td></tr>
           <tr><td>Checkout contents and history</td><td>Git on the selected execution Node</td></tr>
-          <tr><td>Desktop presentation and user intents</td><td>Our Omarchy plugin</td></tr>
+          <tr><td>Desktop presentation and user intents</td><td>Installed Omarchestra Companion Plugin</td></tr>
         </tbody>
       </table>
     </section>
@@ -524,6 +527,8 @@
             <li>One Team Goal with visible roles</li>
             <li>Validated YAML Team Profiles for role/model configuration</li>
             <li>Structured status and activity feed</li>
+            <li>Observed, unassigned ordinary Pi sessions with explicit Adoption</li>
+            <li>Persistent Companion Plugin with ephemeral Projection Sessions</li>
             <li>Managed/manual takeover with reconciled return</li>
             <li>Focus/open exact agent terminal</li>
             <li>Console approvals only for runner-owned decisions</li>
@@ -565,7 +570,7 @@
     </section>
 
     <footer>
-      Working architectural overview · 2026-08-30<br>
+      Working architectural overview · 2026-09-02<br>
       Detailed scope: <code>docs/design/mvp.md</code>
     </footer>
   </main>

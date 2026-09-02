@@ -75,12 +75,31 @@ prototype-live-agent-console-check:
         shellcheck "$root/prototypes/first-vertical-slice/manual/run-live-agent-console-gate.sh"
     fi
 
-# HUMAN-AUTHORIZED LIVE GATE (currently fail-closed on the installed Omarchy
-# API): the combined live Agent Console gate. Reports the recorded launch
-# blocker and exits before creating any resource. Never invoke from automated
-# gates; see prototypes/first-vertical-slice/docs/live-agent-console-gate.md.
+# RETIRED HUMAN-ONLY GATE: preserves the rejected per-run loader's fail-closed
+# behavior and exits before creating any resource. Replace it with the
+# persistent Companion Plugin gate; never invoke it from automated recipes.
+# See prototypes/first-vertical-slice/docs/live-agent-console-gate.md.
 prototype-live-agent-console-gate:
     bash '{{justfile_directory()}}/prototypes/first-vertical-slice/manual/run-live-agent-console-gate.sh'
+
+# SPIKE — unattended fake-only acceptance gate for the Omarchy ephemeral
+# panel loader spike. Runs the complete seam test graph (including the
+# candidate-patch verifier and source audits) plus the scratch-only patch
+# verifier. Fresh temporary state per run; never starts Pi, Ghostty, Hyprland
+# actions, Quickshell/Omarchy UI, a provider, SSH, Boomux, systemd, or any
+# user/installed mutation. Never applies the patch outside scratch copies.
+spike-omarchy-ephemeral-plugin-loader:
+    #!/usr/bin/env bash
+    set -euo pipefail
+    root='{{justfile_directory()}}'
+    spike="$root/spikes/omarchy-ephemeral-plugin-loader"
+    node "$spike/scripts/run-fake-checks.mjs" --all 2>&1 \
+        | tee "$spike/evidence/final-automated.txt"
+    {
+        printf '# candidate patch scratch verifier\n'
+        bash "$spike/scripts/verify-candidate-patch.sh"
+        printf '# patch-verifier-exit: 0\n'
+    } 2>&1 | tee -a "$spike/evidence/final-automated.txt"
 
 # HUMAN-AUTHORIZED LIVE GATE: opens three real Ghostty/Pi windows locally and
 # makes one small Builder model request. Never invoke from automated gates.
