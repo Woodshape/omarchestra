@@ -72,12 +72,30 @@ export interface LiveCommandPort {
   run(argv: readonly string[]): LiveCommandResult
 }
 
+function boundedCommandDiagnostic(result: LiveCommandResult): string {
+  const stdout = result.stdout.trim()
+  if (stdout.length > 0) return `; stdout=${JSON.stringify(stdout.slice(0, 256))}`
+  const stderr = result.stderr.trim()
+  if (stderr.length > 0) return `; stderr=${JSON.stringify(stderr.slice(0, 256))}`
+  return ''
+}
+
+function displayLiveArgv(argv: readonly string[]): string {
+  if (argv[0] === 'omarchy-shell' && (argv[2] === 'summon' || argv[2] === 'call')) {
+    const payloadIndex = argv[2] === 'summon' ? 4 : 5
+    return argv.map((part, index) => index === payloadIndex
+      ? `<payload:${Buffer.byteLength(part, 'utf8')} bytes>`
+      : part).join(' ')
+  }
+  return argv.join(' ')
+}
+
 export class LiveCommandError extends Error {
   readonly argv: readonly string[]
   readonly result: LiveCommandResult
 
   constructor(argv: readonly string[], result: LiveCommandResult) {
-    super(`live command failed (${String(result.status)}): ${argv.join(' ')}`)
+    super(`live command failed (${String(result.status)}): ${displayLiveArgv(argv)}${boundedCommandDiagnostic(result)}`)
     this.name = 'LiveCommandError'
     this.argv = [...argv]
     this.result = result
@@ -271,6 +289,22 @@ export class LiveCompanionShell implements CompanionInstallationShellPort, Compa
     const argv = ['omarchy-shell', 'shell', 'rescanPlugins']
     this.commandLog.push([...argv])
     runChecked(this.command, argv)
+
+    // rescanPlugins starts an asynchronous registry reload inside the shell.
+    // Give its Qt.callLater step a bounded scheduling turn, then do not attempt
+    // the one authorized enable mutation until read-only discovery proves that
+    // the exact installed panel is addressable.
+    waitMilliseconds(50)
+    for (let attempt = 0; ; attempt += 1) {
+      const plugin = this.listPlugins().find((entry) => entry.id === pluginId)
+      if (plugin !== undefined && Array.isArray(plugin.kinds) && plugin.kinds.includes('panel')) return
+      if (attempt >= 39) {
+        throw new CompanionPluginUnavailableError(
+          `installed panel ${pluginId} did not become discoverable after rescan`,
+        )
+      }
+      waitMilliseconds(50)
+    }
   }
 
   enable(pluginId: string): void {

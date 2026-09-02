@@ -81,6 +81,53 @@ test('live capability discovery returns the installed plugin response rather tha
   assert.ok(commands.some((argv) => argv[2] === 'call' && argv[4] === 'capabilities'))
 })
 
+test('a rejected exit-zero shell response is included in the bounded live error', async () => {
+  const { LiveCompanionShell } = await import('../live-companion-omarchy.ts')
+  const shell = new LiveCompanionShell({
+    run() { return { status: 0, stdout: 'unknown\n', stderr: '' } },
+  })
+
+  assert.throws(
+    () => shell.enable('omarchestra.agent-console'),
+    /stdout="unknown"/,
+  )
+})
+
+test('rescan waits until the installed plugin is discoverable before one enable attempt', async () => {
+  const { LiveCompanionShell } = await import('../live-companion-omarchy.ts')
+  const commands = []
+  let listAttempts = 0
+  const command = {
+    run(argv) {
+      commands.push([...argv])
+      if (argv[2] === 'rescanPlugins') return { status: 0, stdout: '', stderr: '' }
+      if (argv[2] === 'listPlugins') {
+        listAttempts += 1
+        const plugins = listAttempts < 3
+          ? []
+          : [{ id: 'omarchestra.agent-console', enabled: false, kinds: ['panel'] }]
+        return { status: 0, stdout: JSON.stringify(plugins), stderr: '' }
+      }
+      if (argv[2] === 'enablePlugin') {
+        return listAttempts >= 3
+          ? { status: 0, stdout: 'ok\n', stderr: '' }
+          : { status: 0, stdout: 'unknown\n', stderr: '' }
+      }
+      throw new Error(`unexpected command: ${argv.join(' ')}`)
+    },
+  }
+  const shell = new LiveCompanionShell(command)
+
+  await shell.rescan('omarchestra.agent-console')
+  await shell.enable('omarchestra.agent-console')
+
+  assert.equal(listAttempts, 3)
+  assert.equal(commands.filter((argv) => argv[2] === 'enablePlugin').length, 1)
+  assert.deepEqual(commands.map((argv) => argv[2]), [
+    'rescanPlugins', 'listPlugins', 'listPlugins', 'listPlugins', 'enablePlugin',
+  ])
+})
+
 test('the replacement --check path is the real fake-only invocation', () => {
   const scratch = fs.mkdtempSync(path.join(os.tmpdir(), 'omarchestra-companion-check-'))
   try {

@@ -166,7 +166,7 @@ Update and rollback require an exact recursive asset inventory. Missing, extra, 
 
 ### Mutation order and recovery
 
-Execution stages bounded changes, revalidates exact identities before each destructive step, invokes only supported `rescan`, `enable`, or `disable` shell operations, and checks postconditions. It never invokes a second untracked `shell.json` writer.
+Execution stages bounded changes, revalidates exact identities before each destructive step, invokes only supported `rescan`, `enable`, or `disable` shell operations, and checks postconditions. Because the installed shell completes `rescan` asynchronously, the live adapter establishes a bounded read-only `listPlugins` discovery barrier before making the one authorized enable attempt. It never invokes a second untracked `shell.json` writer.
 
 On failure, recovery restores the exact prior state only while recovery preconditions still match. If external drift appears during recovery, the operation does not overwrite it. It returns and records `incomplete_recovery` with expected/observed state digests and preserved drift paths. Incomplete recovery is explicit, never reported as success.
 
