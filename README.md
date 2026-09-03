@@ -27,13 +27,17 @@ Ordinary-terminal Pi observation and Adoption remain separate open technical wor
 
 ## Fusion workspace
 
-Fusion Harness remains an external development tool. `just fusion` requires a clean checkout, creates or resumes `prototype/observer-adoption-gate` from `main`, and starts `/fh-collaborate` with the committed observer/Adoption plan:
+Fusion Harness remains an external development tool. Launch the general, unprompted three-slot stack with:
 
 ```bash
 just fusion
 ```
 
-Use `just fusion-shell` when an unprompted general Fusion session is needed.
+To explicitly create or resume `prototype/observer-adoption-gate` and start `/fh-collaborate` with the committed observer/Adoption plan, run:
+
+```bash
+just fusion-observer-adoption
+```
 
 The accepted prototype defaults are TypeScript/Node 22+, SQLite with explicit transactions (journal mode intentionally unlocked), versioned NDJSON over Unix sockets and SSH stdio, a systemd user service, and thin presentation-only QML. These remain reversible prototype defaults rather than final production commitments.
 
