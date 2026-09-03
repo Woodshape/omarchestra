@@ -263,6 +263,21 @@ test('runtime identity files contain real newlines and cleanup binds every expec
   assert.match(script, /\[\[ ! -e "\/proc\/\$pid" \]\] && return 0/)
 })
 
+test('exact cleanup accepts a recorded Ghostty only after it reaches zombie shutdown', () => {
+  const script = stripComments(read(SCRIPT))
+  const start = script.indexOf('terminate_exact_pid() {')
+  const end = script.indexOf('\nclose_exact_window() {', start)
+  assert.ok(start >= 0 && end > start)
+  const termination = script.slice(start, end)
+  const zombieCheck = termination.indexOf('recorded_process_is_zombie "$pid" "$expected"')
+  const identityRead = termination.indexOf('current=$(process_identity "$pid"')
+  assert.ok(zombieCheck >= 0 && zombieCheck < identityRead,
+    'an exact recorded zombie must be reaped before its empty cmdline can look like drift')
+  assert.match(script, /recorded_process_is_zombie\(\)/)
+  assert.match(script, /"\$actual_start" == "\$expected_start"/)
+  assert.match(script, /"\$state" == Z/)
+})
+
 test('Pi PID registration waits for the visible host exec identity', () => {
   const script = stripComments(read(SCRIPT))
   const helperStart = script.indexOf('register_pi_pid_after_exec() {')

@@ -167,10 +167,22 @@ register_pi_pid_after_exec() {
   return 1
 }
 
+recorded_process_is_zombie() {
+  local pid="$1" expected="$2" state actual_start expected_start
+  [[ -r "/proc/$pid/stat" ]] || return 1
+  read -r state actual_start < <(awk '{print $3, $22}' "/proc/$pid/stat" 2>/dev/null) || return 1
+  expected_start="${expected%%$'\t'*}"
+  [[ "$actual_start" == "$expected_start" && "$state" == Z ]]
+}
+
 terminate_exact_pid() {
   local pid="$1" expected="$2" label="$3" current
   [[ -n "$pid" ]] || return 0
   if [[ ! -e "/proc/$pid" ]]; then return 0; fi
+  if recorded_process_is_zombie "$pid" "$expected"; then
+    wait "$pid" 2>/dev/null || true
+    return 0
+  fi
   if ! current=$(process_identity "$pid" 2>/dev/null); then
     [[ ! -e "/proc/$pid" ]] && return 0
     printf 'refusing to terminate %s PID %s: exact process identity is unreadable\n' "$label" "$pid" >&2
@@ -183,7 +195,7 @@ terminate_exact_pid() {
   kill -TERM "$pid" 2>/dev/null || true
   for _ in $(seq 1 100); do
     [[ ! -e "/proc/$pid" ]] && return 0
-    if [[ -r "/proc/$pid/stat" && "$(awk '{print $3}' "/proc/$pid/stat" 2>/dev/null)" == Z ]]; then
+    if recorded_process_is_zombie "$pid" "$expected"; then
       wait "$pid" 2>/dev/null || true
       return 0
     fi
