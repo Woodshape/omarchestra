@@ -1,0 +1,20 @@
+✔ authoritative snapshot initializes exactly three canonically ordered committed cards (9.513103ms)
+✔ events cannot initialize the projection before an authoritative snapshot (0.703074ms)
+✔ initialization rejects missing or duplicate fixed roles (0.597322ms)
+✔ ordered events retain old cards until a cursor-matched authoritative resnapshot (0.756973ms)
+✔ an event sequence gap is rejected and made explicit without advancing the cursor (0.431972ms)
+✔ duplicate sequences and duplicate event identities are rejected (0.567119ms)
+✔ malformed snapshot and event bodies are rejected by protocol validation (0.493832ms)
+✔ a reconnect snapshot cursor must equal the last accepted ordered event cursor (0.387165ms)
+✔ resnapshot rejects stale role-to-Agent-Run identity bindings (0.749417ms)
+✔ explicit gap recovery requires a fresh authoritative snapshot and preserves identities (0.690682ms)
+✔ runtime adapter uses injected transport and sink, then resnapshots after live events (5.925328ms)
+✔ runtime adapter makes malformed input an explicit gap and recovers only from a fresh snapshot (0.53338ms)
+ℹ tests 12
+ℹ suites 0
+ℹ pass 12
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 164.276931

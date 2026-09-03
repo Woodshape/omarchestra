@@ -1,0 +1,80 @@
+# Companion Plugin final validation record
+# Captured: 2026-09-02T15:17:17Z
+# Review disposition: task 4.c PASS, no required integration fixes.
+
+## Validation matrix
+
+| Check | Bounded command or scope | Result |
+| --- | --- | --- |
+| Companion acceptance | `timeout 60s just prototype-companion-check` | PASS, 58/58 tests plus standalone verdict and setup `--check` |
+| Existing vertical slice | `timeout 60s just prototype-vertical-slice` | PASS, default and WAL scenarios, temporary state wiped |
+| Existing manual adapter | `timeout 60s just prototype-vertical-slice-manual-check` | PASS, 6/6 tests and wizard check |
+| Integrated console gate | `timeout 60s just prototype-live-agent-console-check` | PASS, 58/58 tests, QML/source boundaries green |
+| Rejected loader preservation gate | `timeout 60s just spike-omarchy-ephemeral-plugin-loader` | PASS, 69/69 tests and scratch verifier |
+| Focused final boundaries | source-audit, retired-launcher, setup-procedure tests | PASS, 23/23 |
+| Replacement script check | `timeout 60s bash .../run-companion-setup-validation.sh --check` | PASS, fake-only |
+| Prototype module links | dynamic import of 23 non-test TypeScript modules | PASS |
+| Spike module link | bounded Node link test | PASS, 1/1 |
+| QML lint | bounded `qmllint` on both plugin QML files | PASS, 2 files |
+| Packaged plugin/source sync | bounded release-catalog comparison | PASS, both QML assets exact and manifest advertises `omarchestra.companion/v1` |
+| Bash syntax | bounded `bash -n` on 4 prototype/spike scripts | PASS |
+| Shellcheck | same 4 scripts | SKIPPED, executable unavailable |
+| TypeScript compiler | tool availability check | SKIPPED, `tsc` unavailable |
+| Whitespace | `git diff --check` plus changed source/doc scan | PASS, 31 source/doc files |
+| Credential scan | README, CONTEXT, docs, prototypes, spikes, and justfile | PASS, no key/token patterns |
+| Active documentation and recipe audit | 19 active Markdown files plus justfile | PASS |
+| Runtime residue | bounded process and `/tmp` prototype pattern checks | PASS, zero processes and paths |
+| Repository runtime files | prototype socket/SQLite/WAL/SHM search | PASS, zero files |
+| Private evidence | Git path and repository directory scan | PASS, zero paths |
+
+## Concrete Companion result
+
+The final standalone acceptance used one explicit fake installation execution
+and exactly one enabled plugin. It opened Team Goal session generations `1`
+and `2`, reloaded plugin generation `1->2`, rejected the stale session, and
+reconstructed identical cards in fresh session generation `3`. Fake agent
+identities, connections, assignments, and delivered turns remained unchanged.
+Runtime installation mutations remained `0`; the plugin tree, owner-only
+receipt, and `shell.json` remained byte-identical with installation fingerprint
+`a0a91004c9fdcd0e2f6ad48b4232f65b982f1284c53e0f8c4fc100be99fd146b`.
+
+## Active documentation and recipe disposition
+
+The 19-file active-document audit returned:
+
+- `ACTIVE_DOC_REGISTER_TEMPORARY_PLUGIN_MATCHES=0`
+- `ACTIVE_DOC_UPSTREAM_ACCEPTANCE_REQUESTS=0`
+- `ACTIVE_DOC_NEXT_STEP_OR_BLOCKER_HEADINGS=0`
+- `ACTIVE_RETIRED_RECIPE_DEFINITIONS=0`
+- `ACTIVE_RETIRED_LAUNCHER_INVOCATIONS=0`
+- `ACTIVE_REPLACEMENT_HUMAN_RECIPES=1`
+
+The focused 23/23 source/recipe tests independently prove that automated
+recipes cannot invoke the retired launcher or the replacement live path. The
+old launcher, blocker report, and ephemeral-loader spike remain rejected
+historical evidence only.
+
+`just prototype-companion-setup-validation` is the sole active live Companion
+recipe. Its script documents the persistent-installation/runtime split,
+requires a TTY and exact displayed-plan authorization in live mode, preserves
+owner-only private evidence, and performs exact identity cleanup without
+uninstalling the plugin. Only its fake-only `--check` branch was executed.
+
+## Isolation and residue
+
+No human recipe was invoked:
+
+- `just prototype-companion-setup-validation` — NOT RUN
+- `just prototype-vertical-slice-role-label-gate` — NOT RUN
+
+No live Omarchy shell IPC, GUI, Pi, provider, Boomux, SSH, Hyprland, systemd,
+user configuration, live installation, or private evidence action occurred.
+The validation used only fake/static paths, the bounded local prototype runner,
+and the rejected spike's isolated scratch-copy verifier. All exact runtime
+checks completed with no matching process, temporary gate directory, socket,
+database, WAL, or SHM residue. Temporary task-validation logs were removed.
+
+No commit or push command was invoked. The implementation remains uncommitted
+at repository HEAD `78df7b29a902274ae8de932ed03a3412ddf144b0`.
+
+FINAL_RESULT=PASS (fake-only Companion milestone complete; live validation not claimed)

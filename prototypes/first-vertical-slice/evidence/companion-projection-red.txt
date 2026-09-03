@@ -1,0 +1,444 @@
+# Companion Projection Session seam — intended RED evidence (task 1.b)
+# Captured: 2026-09-02T12:26:58Z
+# Command: node --test console/test/companion-projection-session.test.ts (fake-only)
+# Intended red: companion/projection-session.ts and companion/fake-companion-shell.ts
+# are not implemented yet, and the plugin manifest/QML are not yet adapted.
+# 23 of 24 tests fail as intended; the single pass is a negative
+# presentation-only assertion that already holds (see Luna 1.a precedent).
+
+✖ open performs omarchestra.companion/v1 capability discovery before any runner connection (1.233554ms)
+✖ capability discovery fails closed on a foreign protocol version without creating a session (0.130366ms)
+✖ capability discovery fails closed when required session capabilities are missing (0.118493ms)
+✖ open fails closed when the Companion Plugin is not installed and never contacts the runner (0.131425ms)
+✖ the panel is summoned only after the first authoritative snapshot and shows its committed cards (0.144023ms)
+✖ a malformed pre-snapshot exchange never opens the panel and never fabricates cards (0.099829ms)
+✖ contiguous ordered updates advance the reused projection core and resnapshot on the resume connection (0.15178ms)
+✖ cursor gaps become an explicit gap on the panel without advancing the cursor or hiding the plugin (0.121242ms)
+✖ duplicate sequences and duplicate event identities are rejected through the reused core (0.203188ms)
+✖ opening while a session is already active fails closed and preserves the active session (0.249957ms)
+✖ a plugin reload makes the running session stale: shell operations fail closed, the session stops, and a fresh open reconstructs identical cards (0.191716ms)
+✖ late frames from a hidden session are ignored and cannot mutate the presentation (0.091855ms)
+✖ a present-agent intent is forwarded exactly once and resolved only by the runner acknowledgement (0.088955ms)
+✖ intents for agents that are not present, or while the projection is not ready, are rejected locally without a runner frame (0.126678ms)
+✖ duplicate and already-resolved intent identities are deduplicated without a second runner frame (0.135393ms)
+✖ an intent rejected by the runner is surfaced without changing the projection (0.091863ms)
+✖ hide hides the panel, clears ephemeral state, and leaves installation state byte-identical (0.112657ms)
+✖ clear resets all ephemeral state without hiding, and the next open starts from a fresh authoritative snapshot (0.100575ms)
+✖ reconnect after connection loss recovers only through a fresh authoritative snapshot (0.098408ms)
+✖ the session controller delegates to the existing projection core rather than a second state machine (0.058186ms)
+✖ the companion session modules reuse the console projection seam and never import installation or storage code (0.580513ms)
+✖ the adapted plugin manifest advertises the companion protocol for capability discovery (0.698101ms)
+✖ the adapted Agent Console QML gains session clear and presentation-intent surfaces without protocol authority (0.367607ms)
+✔ adapted QML continues to render opaque committed piStatus values without label derivation (0.336881ms)
+ℹ tests 24
+ℹ suites 0
+ℹ pass 1
+ℹ fail 23
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 91.900385
+
+✖ failing tests:
+
+test at console/test/companion-projection-session.test.ts:256:1
+✖ open performs omarchestra.companion/v1 capability discovery before any runner connection (1.233554ms)
+  Error [ERR_MODULE_NOT_FOUND]: Cannot find module '/home/woodshape/claude/omarchestra/prototypes/first-vertical-slice/companion/projection-session.ts' imported from /home/woodshape/claude/omarchestra/prototypes/first-vertical-slice/console/test/companion-projection-session.test.ts
+      at finalizeResolution (node:internal/modules/esm/resolve:272:11)
+      at moduleResolve (node:internal/modules/esm/resolve:879:10)
+      at defaultResolve (node:internal/modules/esm/resolve:1006:11)
+      at #cachedDefaultResolve (node:internal/modules/esm/loader:708:20)
+      at #resolveAndMaybeBlockOnLoaderThread (node:internal/modules/esm/loader:728:38)
+      at ModuleLoader.resolveSync (node:internal/modules/esm/loader:766:56)
+      at #resolve (node:internal/modules/esm/loader:690:17)
+      at ModuleLoader.getOrCreateModuleJob (node:internal/modules/esm/loader:610:35)
+      at node:internal/modules/esm/loader:639:32
+      at TracingChannel.tracePromise (node:diagnostics_channel:547:22) {
+    code: 'ERR_MODULE_NOT_FOUND',
+    url: 'file:///home/woodshape/claude/omarchestra/prototypes/first-vertical-slice/companion/projection-session.ts'
+  }
+
+test at console/test/companion-projection-session.test.ts:275:1
+✖ capability discovery fails closed on a foreign protocol version without creating a session (0.130366ms)
+  Error [ERR_MODULE_NOT_FOUND]: Cannot find module '/home/woodshape/claude/omarchestra/prototypes/first-vertical-slice/companion/projection-session.ts' imported from /home/woodshape/claude/omarchestra/prototypes/first-vertical-slice/console/test/companion-projection-session.test.ts
+      at finalizeResolution (node:internal/modules/esm/resolve:272:11)
+      at moduleResolve (node:internal/modules/esm/resolve:879:10)
+      at defaultResolve (node:internal/modules/esm/resolve:1006:11)
+      at #cachedDefaultResolve (node:internal/modules/esm/loader:708:20)
+      at #resolveAndMaybeBlockOnLoaderThread (node:internal/modules/esm/loader:728:38)
+      at ModuleLoader.resolveSync (node:internal/modules/esm/loader:766:56)
+      at #resolve (node:internal/modules/esm/loader:690:17)
+      at ModuleLoader.getOrCreateModuleJob (node:internal/modules/esm/loader:610:35)
+      at node:internal/modules/esm/loader:639:32
+      at TracingChannel.tracePromise (node:diagnostics_channel:547:22) {
+    code: 'ERR_MODULE_NOT_FOUND',
+    url: 'file:///home/woodshape/claude/omarchestra/prototypes/first-vertical-slice/companion/projection-session.ts'
+  }
+
+test at console/test/companion-projection-session.test.ts:291:1
+✖ capability discovery fails closed when required session capabilities are missing (0.118493ms)
+  Error [ERR_MODULE_NOT_FOUND]: Cannot find module '/home/woodshape/claude/omarchestra/prototypes/first-vertical-slice/companion/projection-session.ts' imported from /home/woodshape/claude/omarchestra/prototypes/first-vertical-slice/console/test/companion-projection-session.test.ts
+      at finalizeResolution (node:internal/modules/esm/resolve:272:11)
+      at moduleResolve (node:internal/modules/esm/resolve:879:10)
+      at defaultResolve (node:internal/modules/esm/resolve:1006:11)
+      at #cachedDefaultResolve (node:internal/modules/esm/loader:708:20)
+      at #resolveAndMaybeBlockOnLoaderThread (node:internal/modules/esm/loader:728:38)
+      at ModuleLoader.resolveSync (node:internal/modules/esm/loader:766:56)
+      at #resolve (node:internal/modules/esm/loader:690:17)
+      at ModuleLoader.getOrCreateModuleJob (node:internal/modules/esm/loader:610:35)
+      at node:internal/modules/esm/loader:639:32
+      at TracingChannel.tracePromise (node:diagnostics_channel:547:22) {
+    code: 'ERR_MODULE_NOT_FOUND',
+    url: 'file:///home/woodshape/claude/omarchestra/prototypes/first-vertical-slice/companion/projection-session.ts'
+  }
+
+test at console/test/companion-projection-session.test.ts:305:1
+✖ open fails closed when the Companion Plugin is not installed and never contacts the runner (0.131425ms)
+  Error [ERR_MODULE_NOT_FOUND]: Cannot find module '/home/woodshape/claude/omarchestra/prototypes/first-vertical-slice/companion/projection-session.ts' imported from /home/woodshape/claude/omarchestra/prototypes/first-vertical-slice/console/test/companion-projection-session.test.ts
+      at finalizeResolution (node:internal/modules/esm/resolve:272:11)
+      at moduleResolve (node:internal/modules/esm/resolve:879:10)
+      at defaultResolve (node:internal/modules/esm/resolve:1006:11)
+      at #cachedDefaultResolve (node:internal/modules/esm/loader:708:20)
+      at #resolveAndMaybeBlockOnLoaderThread (node:internal/modules/esm/loader:728:38)
+      at ModuleLoader.resolveSync (node:internal/modules/esm/loader:766:56)
+      at #resolve (node:internal/modules/esm/loader:690:17)
+      at ModuleLoader.getOrCreateModuleJob (node:internal/modules/esm/loader:610:35)
+      at node:internal/modules/esm/loader:639:32
+      at TracingChannel.tracePromise (node:diagnostics_channel:547:22) {
+    code: 'ERR_MODULE_NOT_FOUND',
+    url: 'file:///home/woodshape/claude/omarchestra/prototypes/first-vertical-slice/companion/projection-session.ts'
+  }
+
+test at console/test/companion-projection-session.test.ts:318:1
+✖ the panel is summoned only after the first authoritative snapshot and shows its committed cards (0.144023ms)
+  Error [ERR_MODULE_NOT_FOUND]: Cannot find module '/home/woodshape/claude/omarchestra/prototypes/first-vertical-slice/companion/projection-session.ts' imported from /home/woodshape/claude/omarchestra/prototypes/first-vertical-slice/console/test/companion-projection-session.test.ts
+      at finalizeResolution (node:internal/modules/esm/resolve:272:11)
+      at moduleResolve (node:internal/modules/esm/resolve:879:10)
+      at defaultResolve (node:internal/modules/esm/resolve:1006:11)
+      at #cachedDefaultResolve (node:internal/modules/esm/loader:708:20)
+      at #resolveAndMaybeBlockOnLoaderThread (node:internal/modules/esm/loader:728:38)
+      at ModuleLoader.resolveSync (node:internal/modules/esm/loader:766:56)
+      at #resolve (node:internal/modules/esm/loader:690:17)
+      at ModuleLoader.getOrCreateModuleJob (node:internal/modules/esm/loader:610:35)
+      at node:internal/modules/esm/loader:639:32
+      at TracingChannel.tracePromise (node:diagnostics_channel:547:22) {
+    code: 'ERR_MODULE_NOT_FOUND',
+    url: 'file:///home/woodshape/claude/omarchestra/prototypes/first-vertical-slice/companion/projection-session.ts'
+  }
+
+test at console/test/companion-projection-session.test.ts:356:1
+✖ a malformed pre-snapshot exchange never opens the panel and never fabricates cards (0.099829ms)
+  Error [ERR_MODULE_NOT_FOUND]: Cannot find module '/home/woodshape/claude/omarchestra/prototypes/first-vertical-slice/companion/projection-session.ts' imported from /home/woodshape/claude/omarchestra/prototypes/first-vertical-slice/console/test/companion-projection-session.test.ts
+      at finalizeResolution (node:internal/modules/esm/resolve:272:11)
+      at moduleResolve (node:internal/modules/esm/resolve:879:10)
+      at defaultResolve (node:internal/modules/esm/resolve:1006:11)
+      at #cachedDefaultResolve (node:internal/modules/esm/loader:708:20)
+      at #resolveAndMaybeBlockOnLoaderThread (node:internal/modules/esm/loader:728:38)
+      at ModuleLoader.resolveSync (node:internal/modules/esm/loader:766:56)
+      at #resolve (node:internal/modules/esm/loader:690:17)
+      at ModuleLoader.getOrCreateModuleJob (node:internal/modules/esm/loader:610:35)
+      at node:internal/modules/esm/loader:639:32
+      at TracingChannel.tracePromise (node:diagnostics_channel:547:22) {
+    code: 'ERR_MODULE_NOT_FOUND',
+    url: 'file:///home/woodshape/claude/omarchestra/prototypes/first-vertical-slice/companion/projection-session.ts'
+  }
+
+test at console/test/companion-projection-session.test.ts:383:1
+✖ contiguous ordered updates advance the reused projection core and resnapshot on the resume connection (0.15178ms)
+  Error [ERR_MODULE_NOT_FOUND]: Cannot find module '/home/woodshape/claude/omarchestra/prototypes/first-vertical-slice/companion/projection-session.ts' imported from /home/woodshape/claude/omarchestra/prototypes/first-vertical-slice/console/test/companion-projection-session.test.ts
+      at finalizeResolution (node:internal/modules/esm/resolve:272:11)
+      at moduleResolve (node:internal/modules/esm/resolve:879:10)
+      at defaultResolve (node:internal/modules/esm/resolve:1006:11)
+      at #cachedDefaultResolve (node:internal/modules/esm/loader:708:20)
+      at #resolveAndMaybeBlockOnLoaderThread (node:internal/modules/esm/loader:728:38)
+      at ModuleLoader.resolveSync (node:internal/modules/esm/loader:766:56)
+      at #resolve (node:internal/modules/esm/loader:690:17)
+      at ModuleLoader.getOrCreateModuleJob (node:internal/modules/esm/loader:610:35)
+      at node:internal/modules/esm/loader:639:32
+      at TracingChannel.tracePromise (node:diagnostics_channel:547:22) {
+    code: 'ERR_MODULE_NOT_FOUND',
+    url: 'file:///home/woodshape/claude/omarchestra/prototypes/first-vertical-slice/companion/projection-session.ts'
+  }
+
+test at console/test/companion-projection-session.test.ts:421:1
+✖ cursor gaps become an explicit gap on the panel without advancing the cursor or hiding the plugin (0.121242ms)
+  Error [ERR_MODULE_NOT_FOUND]: Cannot find module '/home/woodshape/claude/omarchestra/prototypes/first-vertical-slice/companion/projection-session.ts' imported from /home/woodshape/claude/omarchestra/prototypes/first-vertical-slice/console/test/companion-projection-session.test.ts
+      at finalizeResolution (node:internal/modules/esm/resolve:272:11)
+      at moduleResolve (node:internal/modules/esm/resolve:879:10)
+      at defaultResolve (node:internal/modules/esm/resolve:1006:11)
+      at #cachedDefaultResolve (node:internal/modules/esm/loader:708:20)
+      at #resolveAndMaybeBlockOnLoaderThread (node:internal/modules/esm/loader:728:38)
+      at ModuleLoader.resolveSync (node:internal/modules/esm/loader:766:56)
+      at #resolve (node:internal/modules/esm/loader:690:17)
+      at ModuleLoader.getOrCreateModuleJob (node:internal/modules/esm/loader:610:35)
+      at node:internal/modules/esm/loader:639:32
+      at TracingChannel.tracePromise (node:diagnostics_channel:547:22) {
+    code: 'ERR_MODULE_NOT_FOUND',
+    url: 'file:///home/woodshape/claude/omarchestra/prototypes/first-vertical-slice/companion/projection-session.ts'
+  }
+
+test at console/test/companion-projection-session.test.ts:442:1
+✖ duplicate sequences and duplicate event identities are rejected through the reused core (0.203188ms)
+  Error [ERR_MODULE_NOT_FOUND]: Cannot find module '/home/woodshape/claude/omarchestra/prototypes/first-vertical-slice/companion/projection-session.ts' imported from /home/woodshape/claude/omarchestra/prototypes/first-vertical-slice/console/test/companion-projection-session.test.ts
+      at finalizeResolution (node:internal/modules/esm/resolve:272:11)
+      at moduleResolve (node:internal/modules/esm/resolve:879:10)
+      at defaultResolve (node:internal/modules/esm/resolve:1006:11)
+      at #cachedDefaultResolve (node:internal/modules/esm/loader:708:20)
+      at #resolveAndMaybeBlockOnLoaderThread (node:internal/modules/esm/loader:728:38)
+      at ModuleLoader.resolveSync (node:internal/modules/esm/loader:766:56)
+      at #resolve (node:internal/modules/esm/loader:690:17)
+      at ModuleLoader.getOrCreateModuleJob (node:internal/modules/esm/loader:610:35)
+      at node:internal/modules/esm/loader:639:32
+      at TracingChannel.tracePromise (node:diagnostics_channel:547:22) {
+    code: 'ERR_MODULE_NOT_FOUND',
+    url: 'file:///home/woodshape/claude/omarchestra/prototypes/first-vertical-slice/companion/projection-session.ts'
+  }
+
+test at console/test/companion-projection-session.test.ts:466:1
+✖ opening while a session is already active fails closed and preserves the active session (0.249957ms)
+  Error [ERR_MODULE_NOT_FOUND]: Cannot find module '/home/woodshape/claude/omarchestra/prototypes/first-vertical-slice/companion/projection-session.ts' imported from /home/woodshape/claude/omarchestra/prototypes/first-vertical-slice/console/test/companion-projection-session.test.ts
+      at finalizeResolution (node:internal/modules/esm/resolve:272:11)
+      at moduleResolve (node:internal/modules/esm/resolve:879:10)
+      at defaultResolve (node:internal/modules/esm/resolve:1006:11)
+      at #cachedDefaultResolve (node:internal/modules/esm/loader:708:20)
+      at #resolveAndMaybeBlockOnLoaderThread (node:internal/modules/esm/loader:728:38)
+      at ModuleLoader.resolveSync (node:internal/modules/esm/loader:766:56)
+      at #resolve (node:internal/modules/esm/loader:690:17)
+      at ModuleLoader.getOrCreateModuleJob (node:internal/modules/esm/loader:610:35)
+      at node:internal/modules/esm/loader:639:32
+      at TracingChannel.tracePromise (node:diagnostics_channel:547:22) {
+    code: 'ERR_MODULE_NOT_FOUND',
+    url: 'file:///home/woodshape/claude/omarchestra/prototypes/first-vertical-slice/companion/projection-session.ts'
+  }
+
+test at console/test/companion-projection-session.test.ts:482:1
+✖ a plugin reload makes the running session stale: shell operations fail closed, the session stops, and a fresh open reconstructs identical cards (0.191716ms)
+  Error [ERR_MODULE_NOT_FOUND]: Cannot find module '/home/woodshape/claude/omarchestra/prototypes/first-vertical-slice/companion/projection-session.ts' imported from /home/woodshape/claude/omarchestra/prototypes/first-vertical-slice/console/test/companion-projection-session.test.ts
+      at finalizeResolution (node:internal/modules/esm/resolve:272:11)
+      at moduleResolve (node:internal/modules/esm/resolve:879:10)
+      at defaultResolve (node:internal/modules/esm/resolve:1006:11)
+      at #cachedDefaultResolve (node:internal/modules/esm/loader:708:20)
+      at #resolveAndMaybeBlockOnLoaderThread (node:internal/modules/esm/loader:728:38)
+      at ModuleLoader.resolveSync (node:internal/modules/esm/loader:766:56)
+      at #resolve (node:internal/modules/esm/loader:690:17)
+      at ModuleLoader.getOrCreateModuleJob (node:internal/modules/esm/loader:610:35)
+      at node:internal/modules/esm/loader:639:32
+      at TracingChannel.tracePromise (node:diagnostics_channel:547:22) {
+    code: 'ERR_MODULE_NOT_FOUND',
+    url: 'file:///home/woodshape/claude/omarchestra/prototypes/first-vertical-slice/companion/projection-session.ts'
+  }
+
+test at console/test/companion-projection-session.test.ts:527:1
+✖ late frames from a hidden session are ignored and cannot mutate the presentation (0.091855ms)
+  Error [ERR_MODULE_NOT_FOUND]: Cannot find module '/home/woodshape/claude/omarchestra/prototypes/first-vertical-slice/companion/projection-session.ts' imported from /home/woodshape/claude/omarchestra/prototypes/first-vertical-slice/console/test/companion-projection-session.test.ts
+      at finalizeResolution (node:internal/modules/esm/resolve:272:11)
+      at moduleResolve (node:internal/modules/esm/resolve:879:10)
+      at defaultResolve (node:internal/modules/esm/resolve:1006:11)
+      at #cachedDefaultResolve (node:internal/modules/esm/loader:708:20)
+      at #resolveAndMaybeBlockOnLoaderThread (node:internal/modules/esm/loader:728:38)
+      at ModuleLoader.resolveSync (node:internal/modules/esm/loader:766:56)
+      at #resolve (node:internal/modules/esm/loader:690:17)
+      at ModuleLoader.getOrCreateModuleJob (node:internal/modules/esm/loader:610:35)
+      at node:internal/modules/esm/loader:639:32
+      at TracingChannel.tracePromise (node:diagnostics_channel:547:22) {
+    code: 'ERR_MODULE_NOT_FOUND',
+    url: 'file:///home/woodshape/claude/omarchestra/prototypes/first-vertical-slice/companion/projection-session.ts'
+  }
+
+test at console/test/companion-projection-session.test.ts:549:1
+✖ a present-agent intent is forwarded exactly once and resolved only by the runner acknowledgement (0.088955ms)
+  Error [ERR_MODULE_NOT_FOUND]: Cannot find module '/home/woodshape/claude/omarchestra/prototypes/first-vertical-slice/companion/projection-session.ts' imported from /home/woodshape/claude/omarchestra/prototypes/first-vertical-slice/console/test/companion-projection-session.test.ts
+      at finalizeResolution (node:internal/modules/esm/resolve:272:11)
+      at moduleResolve (node:internal/modules/esm/resolve:879:10)
+      at defaultResolve (node:internal/modules/esm/resolve:1006:11)
+      at #cachedDefaultResolve (node:internal/modules/esm/loader:708:20)
+      at #resolveAndMaybeBlockOnLoaderThread (node:internal/modules/esm/loader:728:38)
+      at ModuleLoader.resolveSync (node:internal/modules/esm/loader:766:56)
+      at #resolve (node:internal/modules/esm/loader:690:17)
+      at ModuleLoader.getOrCreateModuleJob (node:internal/modules/esm/loader:610:35)
+      at node:internal/modules/esm/loader:639:32
+      at TracingChannel.tracePromise (node:diagnostics_channel:547:22) {
+    code: 'ERR_MODULE_NOT_FOUND',
+    url: 'file:///home/woodshape/claude/omarchestra/prototypes/first-vertical-slice/companion/projection-session.ts'
+  }
+
+test at console/test/companion-projection-session.test.ts:570:1
+✖ intents for agents that are not present, or while the projection is not ready, are rejected locally without a runner frame (0.126678ms)
+  Error [ERR_MODULE_NOT_FOUND]: Cannot find module '/home/woodshape/claude/omarchestra/prototypes/first-vertical-slice/companion/projection-session.ts' imported from /home/woodshape/claude/omarchestra/prototypes/first-vertical-slice/console/test/companion-projection-session.test.ts
+      at finalizeResolution (node:internal/modules/esm/resolve:272:11)
+      at moduleResolve (node:internal/modules/esm/resolve:879:10)
+      at defaultResolve (node:internal/modules/esm/resolve:1006:11)
+      at #cachedDefaultResolve (node:internal/modules/esm/loader:708:20)
+      at #resolveAndMaybeBlockOnLoaderThread (node:internal/modules/esm/loader:728:38)
+      at ModuleLoader.resolveSync (node:internal/modules/esm/loader:766:56)
+      at #resolve (node:internal/modules/esm/loader:690:17)
+      at ModuleLoader.getOrCreateModuleJob (node:internal/modules/esm/loader:610:35)
+      at node:internal/modules/esm/loader:639:32
+      at TracingChannel.tracePromise (node:diagnostics_channel:547:22) {
+    code: 'ERR_MODULE_NOT_FOUND',
+    url: 'file:///home/woodshape/claude/omarchestra/prototypes/first-vertical-slice/companion/projection-session.ts'
+  }
+
+test at console/test/companion-projection-session.test.ts:590:1
+✖ duplicate and already-resolved intent identities are deduplicated without a second runner frame (0.135393ms)
+  Error [ERR_MODULE_NOT_FOUND]: Cannot find module '/home/woodshape/claude/omarchestra/prototypes/first-vertical-slice/companion/projection-session.ts' imported from /home/woodshape/claude/omarchestra/prototypes/first-vertical-slice/console/test/companion-projection-session.test.ts
+      at finalizeResolution (node:internal/modules/esm/resolve:272:11)
+      at moduleResolve (node:internal/modules/esm/resolve:879:10)
+      at defaultResolve (node:internal/modules/esm/resolve:1006:11)
+      at #cachedDefaultResolve (node:internal/modules/esm/loader:708:20)
+      at #resolveAndMaybeBlockOnLoaderThread (node:internal/modules/esm/loader:728:38)
+      at ModuleLoader.resolveSync (node:internal/modules/esm/loader:766:56)
+      at #resolve (node:internal/modules/esm/loader:690:17)
+      at ModuleLoader.getOrCreateModuleJob (node:internal/modules/esm/loader:610:35)
+      at node:internal/modules/esm/loader:639:32
+      at TracingChannel.tracePromise (node:diagnostics_channel:547:22) {
+    code: 'ERR_MODULE_NOT_FOUND',
+    url: 'file:///home/woodshape/claude/omarchestra/prototypes/first-vertical-slice/companion/projection-session.ts'
+  }
+
+test at console/test/companion-projection-session.test.ts:611:1
+✖ an intent rejected by the runner is surfaced without changing the projection (0.091863ms)
+  Error [ERR_MODULE_NOT_FOUND]: Cannot find module '/home/woodshape/claude/omarchestra/prototypes/first-vertical-slice/companion/projection-session.ts' imported from /home/woodshape/claude/omarchestra/prototypes/first-vertical-slice/console/test/companion-projection-session.test.ts
+      at finalizeResolution (node:internal/modules/esm/resolve:272:11)
+      at moduleResolve (node:internal/modules/esm/resolve:879:10)
+      at defaultResolve (node:internal/modules/esm/resolve:1006:11)
+      at #cachedDefaultResolve (node:internal/modules/esm/loader:708:20)
+      at #resolveAndMaybeBlockOnLoaderThread (node:internal/modules/esm/loader:728:38)
+      at ModuleLoader.resolveSync (node:internal/modules/esm/loader:766:56)
+      at #resolve (node:internal/modules/esm/loader:690:17)
+      at ModuleLoader.getOrCreateModuleJob (node:internal/modules/esm/loader:610:35)
+      at node:internal/modules/esm/loader:639:32
+      at TracingChannel.tracePromise (node:diagnostics_channel:547:22) {
+    code: 'ERR_MODULE_NOT_FOUND',
+    url: 'file:///home/woodshape/claude/omarchestra/prototypes/first-vertical-slice/companion/projection-session.ts'
+  }
+
+test at console/test/companion-projection-session.test.ts:629:1
+✖ hide hides the panel, clears ephemeral state, and leaves installation state byte-identical (0.112657ms)
+  Error [ERR_MODULE_NOT_FOUND]: Cannot find module '/home/woodshape/claude/omarchestra/prototypes/first-vertical-slice/companion/projection-session.ts' imported from /home/woodshape/claude/omarchestra/prototypes/first-vertical-slice/console/test/companion-projection-session.test.ts
+      at finalizeResolution (node:internal/modules/esm/resolve:272:11)
+      at moduleResolve (node:internal/modules/esm/resolve:879:10)
+      at defaultResolve (node:internal/modules/esm/resolve:1006:11)
+      at #cachedDefaultResolve (node:internal/modules/esm/loader:708:20)
+      at #resolveAndMaybeBlockOnLoaderThread (node:internal/modules/esm/loader:728:38)
+      at ModuleLoader.resolveSync (node:internal/modules/esm/loader:766:56)
+      at #resolve (node:internal/modules/esm/loader:690:17)
+      at ModuleLoader.getOrCreateModuleJob (node:internal/modules/esm/loader:610:35)
+      at node:internal/modules/esm/loader:639:32
+      at TracingChannel.tracePromise (node:diagnostics_channel:547:22) {
+    code: 'ERR_MODULE_NOT_FOUND',
+    url: 'file:///home/woodshape/claude/omarchestra/prototypes/first-vertical-slice/companion/projection-session.ts'
+  }
+
+test at console/test/companion-projection-session.test.ts:659:1
+✖ clear resets all ephemeral state without hiding, and the next open starts from a fresh authoritative snapshot (0.100575ms)
+  Error [ERR_MODULE_NOT_FOUND]: Cannot find module '/home/woodshape/claude/omarchestra/prototypes/first-vertical-slice/companion/projection-session.ts' imported from /home/woodshape/claude/omarchestra/prototypes/first-vertical-slice/console/test/companion-projection-session.test.ts
+      at finalizeResolution (node:internal/modules/esm/resolve:272:11)
+      at moduleResolve (node:internal/modules/esm/resolve:879:10)
+      at defaultResolve (node:internal/modules/esm/resolve:1006:11)
+      at #cachedDefaultResolve (node:internal/modules/esm/loader:708:20)
+      at #resolveAndMaybeBlockOnLoaderThread (node:internal/modules/esm/loader:728:38)
+      at ModuleLoader.resolveSync (node:internal/modules/esm/loader:766:56)
+      at #resolve (node:internal/modules/esm/loader:690:17)
+      at ModuleLoader.getOrCreateModuleJob (node:internal/modules/esm/loader:610:35)
+      at node:internal/modules/esm/loader:639:32
+      at TracingChannel.tracePromise (node:diagnostics_channel:547:22) {
+    code: 'ERR_MODULE_NOT_FOUND',
+    url: 'file:///home/woodshape/claude/omarchestra/prototypes/first-vertical-slice/companion/projection-session.ts'
+  }
+
+test at console/test/companion-projection-session.test.ts:690:1
+✖ reconnect after connection loss recovers only through a fresh authoritative snapshot (0.098408ms)
+  Error [ERR_MODULE_NOT_FOUND]: Cannot find module '/home/woodshape/claude/omarchestra/prototypes/first-vertical-slice/companion/projection-session.ts' imported from /home/woodshape/claude/omarchestra/prototypes/first-vertical-slice/console/test/companion-projection-session.test.ts
+      at finalizeResolution (node:internal/modules/esm/resolve:272:11)
+      at moduleResolve (node:internal/modules/esm/resolve:879:10)
+      at defaultResolve (node:internal/modules/esm/resolve:1006:11)
+      at #cachedDefaultResolve (node:internal/modules/esm/loader:708:20)
+      at #resolveAndMaybeBlockOnLoaderThread (node:internal/modules/esm/loader:728:38)
+      at ModuleLoader.resolveSync (node:internal/modules/esm/loader:766:56)
+      at #resolve (node:internal/modules/esm/loader:690:17)
+      at ModuleLoader.getOrCreateModuleJob (node:internal/modules/esm/loader:610:35)
+      at node:internal/modules/esm/loader:639:32
+      at TracingChannel.tracePromise (node:diagnostics_channel:547:22) {
+    code: 'ERR_MODULE_NOT_FOUND',
+    url: 'file:///home/woodshape/claude/omarchestra/prototypes/first-vertical-slice/companion/projection-session.ts'
+  }
+
+test at console/test/companion-projection-session.test.ts:718:1
+✖ the session controller delegates to the existing projection core rather than a second state machine (0.058186ms)
+  Error [ERR_MODULE_NOT_FOUND]: Cannot find module '/home/woodshape/claude/omarchestra/prototypes/first-vertical-slice/companion/projection-session.ts' imported from /home/woodshape/claude/omarchestra/prototypes/first-vertical-slice/console/test/companion-projection-session.test.ts
+      at finalizeResolution (node:internal/modules/esm/resolve:272:11)
+      at moduleResolve (node:internal/modules/esm/resolve:879:10)
+      at defaultResolve (node:internal/modules/esm/resolve:1006:11)
+      at #cachedDefaultResolve (node:internal/modules/esm/loader:708:20)
+      at #resolveAndMaybeBlockOnLoaderThread (node:internal/modules/esm/loader:728:38)
+      at ModuleLoader.resolveSync (node:internal/modules/esm/loader:766:56)
+      at #resolve (node:internal/modules/esm/loader:690:17)
+      at ModuleLoader.getOrCreateModuleJob (node:internal/modules/esm/loader:610:35)
+      at node:internal/modules/esm/loader:639:32
+      at TracingChannel.tracePromise (node:diagnostics_channel:547:22) {
+    code: 'ERR_MODULE_NOT_FOUND',
+    url: 'file:///home/woodshape/claude/omarchestra/prototypes/first-vertical-slice/companion/projection-session.ts'
+  }
+
+test at console/test/companion-projection-session.test.ts:728:1
+✖ the companion session modules reuse the console projection seam and never import installation or storage code (0.580513ms)
+  AssertionError [ERR_ASSERTION]: companion/projection-session.ts must exist
+
+  false !== true
+
+      at TestContext.<anonymous> (file:///home/woodshape/claude/omarchestra/prototypes/first-vertical-slice/console/test/companion-projection-session.test.ts:729:10)
+      at Test.runInAsyncScope (node:async_hooks:226:14)
+      at Test.run (node:internal/test_runner/test:1402:25)
+      at Test.processPendingSubtests (node:internal/test_runner/test:974:18)
+      at Test.postRun (node:internal/test_runner/test:1542:19)
+      at Test.run (node:internal/test_runner/test:1467:12)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:974:7) {
+    generatedMessage: false,
+    code: 'ERR_ASSERTION',
+    actual: false,
+    expected: true,
+    operator: 'strictEqual',
+    diff: 'simple'
+  }
+
+test at console/test/companion-projection-session.test.ts:762:1
+✖ the adapted plugin manifest advertises the companion protocol for capability discovery (0.698101ms)
+  AssertionError [ERR_ASSERTION]: the installed plugin must declare omarchestra.companion/v1 so discovery reads the real installed protocol
+  + actual - expected
+
+  + undefined
+  - 'omarchestra.companion/v1'
+
+      at TestContext.<anonymous> (file:///home/woodshape/claude/omarchestra/prototypes/first-vertical-slice/console/test/companion-projection-session.test.ts:768:10)
+      at Test.runInAsyncScope (node:async_hooks:226:14)
+      at Test.run (node:internal/test_runner/test:1402:25)
+      at Test.processPendingSubtests (node:internal/test_runner/test:974:18)
+      at Test.postRun (node:internal/test_runner/test:1542:19)
+      at Test.run (node:internal/test_runner/test:1467:12)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:974:7) {
+    generatedMessage: false,
+    code: 'ERR_ASSERTION',
+    actual: undefined,
+    expected: 'omarchestra.companion/v1',
+    operator: 'strictEqual',
+    diff: 'simple'
+  }
+
+test at console/test/companion-projection-session.test.ts:775:1
+✖ the adapted Agent Console QML gains session clear and presentation-intent surfaces without protocol authority (0.367607ms)
+  AssertionError [ERR_ASSERTION]: the adapted panel exposes ephemeral state clearing
+      at TestContext.<anonymous> (file:///home/woodshape/claude/omarchestra/prototypes/first-vertical-slice/console/test/companion-projection-session.test.ts:780:10)
+      at Test.runInAsyncScope (node:async_hooks:226:14)
+      at Test.run (node:internal/test_runner/test:1402:25)
+      at Test.processPendingSubtests (node:internal/test_runner/test:974:18)
+      at Test.postRun (node:internal/test_runner/test:1542:19)
+      at Test.run (node:internal/test_runner/test:1467:12)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:974:7) {
+    generatedMessage: false,
+    code: 'ERR_ASSERTION',
+    actual: '// PROTOTYPE — NOT PRODUCTION.\n//\n// Presentation-only Omarchy panel. A host injects a validated plain\n// projection through open() or applyProjection(). The Team Runner and the\n// non-QML adapter remain the authorities for status, identity, and cursor.\nimport QtQuick\nimport QtQuick.Controls\nimport QtQuick.Layouts\nimport Quickshell\nimport Quickshell.Wayland\nimport qs.Commons\nimport qs.Ui\n\nItem {\n    id: root\n\n    property var shell: null\n    property var manifest: null\n    property bool opened: false\n    property var projection: ({\n        status: "reconnecting",\n        cursor: 0,\n        cards: []\n    })\n\n    function applyProjection(value) {\n        if (!value || typeof value !== "object") return false\n        if (value.status !== "ready"\n                && value.status !== "reconnecting"\n                && value.status !== "gap") return false\n        if (!Array.isArray(value.cards) || value.cards.length !== 3) return false\n\n        for (var index = 0; index < value.cards.length; index += 1) {\n            var card = value.cards[index]\n            if (!card || typeof card.role !== "string"\n                    || typeof card.agentRunId !== "string"\n                    || typeof card.piStatus !== "string") return false\n        }\n\n        projection = value\n        return true\n    }\n\n    function open(payloadJson) {\n        var value = payloadJson\n        if (typeof payloadJson === "string") {\n            try {\n                value = JSON.parse(payloadJson || "{}")\n            } catch (error) {\n                value = null\n            }\n        }\n        if (value && value.projection !== undefined) value = value.projection\n        // The panel opens only when a validated projection applies. An\n        // invalid or missing payload must never open the surface showing\n        // QML-authored placeholder state: the authoritative snapshot from\n        // the runner adapter is the only thing that may open it.\n        if (!applyProjection(value)) return false\n        opened = true\n        return true\n    }\n\n    function close() {\n        opened = false\n    }\n\n    PanelWindow {\n        id: panel\n        visible: root.opened\n        anchors {\n            top: true\n            bottom: true\n            left: true\n            right: true\n        }\n        color: "transparent"\n        WlrLayershell.namespace: "omarchestra-agent-console"\n        WlrLayershell.layer: WlrLayer.Overlay\n        WlrLayershell.keyboardFocus: WlrKeyboardFocus.None\n        exclusionMode: ExclusionMode.Ignore\n        mask: Region {}\n\n        BorderSurface {\n            id: surface\n            width: Math.min(parent.width - Style.space(48), Style.space(900))\n            height: consoleColumn.implicitHeight + Style.space(36)\n            anchors.centerIn: parent\n            color: Color.popups.background\n            borderSpec: Border.surfaceSpec(\n                "popups", "border", Color.popups.border, Math.max(1, Style.space(2)))\n            radius: Style.cornerRadius\n\n            ColumnLayout {\n                id: consoleColumn\n                anchors.fill: parent\n                anchors.margins: Style.space(18)\n                spacing: Style.space(12)\n\n                RowLayout {\n                    Layout.fillWidth: true\n                    spacing: Style.space(10)\n\n                    Text {\n                        Layout.fillWidth: true\n                        text: "Agent Console"\n                        color: Color.popups.text\n                        font.family: Style.font.family\n                        font.pixelSize: Style.font.heading\n                        font.bold: true\n                    }\n\n                    Text {\n                        text: "cursor " + String(root.projection.cursor)\n                        color: Qt.darker(Color.popups.text, 1.45)\n                        font.family: Style.font.family\n                        font.pixelSize: Style.font.caption\n                    }\n                }\n\n                Text {\n                    Layout.fillWidth: true\n                    text: root.projection.status\n                    color: root.projection.status === "gap"\n                        ? Color.urgent : Color.accent\n                    font.family: Style.font.family\n                    font.pixelSize: Style.font.body\n                    font.bold: true\n                }\n\n                Text {\n                    Layout.fillWidth: true\n                    visible: root.projection.status === "ready"\n                    text: "Projection ready"\n                    color: Qt.darker(Color.popups.text, 1.35)\n                    font.family: Style.font.family\n                    font.pixelSize: Style.font.caption\n                }\n\n                Text {\n                    Layout.fillWidth: true\n                    visible: root.projection.status === "reconnecting"\n                    text: "Reconnecting to the Team Runner projection"\n                    color: Qt.darker(Color.popups.text, 1.35)\n                    font.family: Style.font.family\n                    font.pixelSize: Style.font.caption\n                }\n\n                Text {\n                    Layout.fillWidth: true\n                    visible: root.projection.status === "gap"\n                    text: "Projection gap: awaiting an authoritative snapshot"\n                    color: Color.urgent\n                    font.family: Style.font.family\n                    font.pixelSize: Style.font.caption\n                }\n\n                AgentConsoleCards {\n                    Layout.fillWidth: true\n                    cards: root.projection.cards\n                }\n            }\n        }\n    }\n}\n',
+    expected: /function\s+clear\s*\(/,
+    operator: 'match',
+    diff: 'simple'
+  }

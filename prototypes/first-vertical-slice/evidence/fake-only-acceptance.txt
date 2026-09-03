@@ -1,0 +1,3833 @@
+OMARCHESTRA FIRST VERTICAL SLICE — PROTOTYPE, NOT PRODUCTION
+node v26.8.1, platform linux
+AUDIT  source-audits: PASS (sole SQLite owner; QML snapshot/events storage-free; no process/GUI/TCP coupling)
+AUDIT  module-link-check: PASS (all runner modules parse and link under the installed Node)
+AUDIT  protocol-negative-checks: PASS (outgoing/incoming bounds, strict fields, version and enum validation)
+AUDIT  ssh-stdio-seam: PASS (interface-only round trip over injected streams; no SSH process exists)
+AUDIT  domain-safety-negatives: PASS (direct/ancestor symlinks, wrong-role ack, premature duplicate, changed Shell Run rejected)
+
+======================================================================
+SCENARIO journal=default (requested and effective modes reported; no mode is ranked)
+======================================================================
+GATE   fresh caller-owned state directory: /tmp/omarchestra-vertical-slice-idWnLI
+AUDIT  failed-scenario-cleanup: PASS (exact runner and scratch directory absent)
+
+======================================================================
+SCENARIO journal=default (requested and effective modes reported; no mode is ranked)
+======================================================================
+GATE   fresh caller-owned state directory: /tmp/omarchestra-vertical-slice-bERuCq
+STEP 1 schema/bootstrap — runner readiness report (requested vs effective journal mode):
+{
+  "event": "runner_ready",
+  "pid": 1986258,
+  "stateDir": "/tmp/omarchestra-vertical-slice-bERuCq",
+  "socket": "/tmp/omarchestra-vertical-slice-bERuCq/runner.sock",
+  "journalRequested": "default",
+  "journalEffective": "delete",
+  "sqliteVersion": "3.53.4",
+  "schemaVersion": 1,
+  "mount": {
+    "fstype": "tmpfs",
+    "magic": 16914836,
+    "source": "tmpfs",
+    "local": true,
+    "detection": "best-effort: statfs magic plus /proc/self/mountinfo fstype; known network/FUSE families rejected, locality not proven"
+  }
+}
+STEP 1 filesystem and permission checks passed (database outside Git, owner-only files and socket).
+{
+  "schemaVersion": 1,
+  "uid": 1000,
+  "directoryMode": "0700",
+  "databaseMode": "0600",
+  "socketMode": "0600",
+  "mount": {
+    "fstype": "tmpfs",
+    "magic": 16914836,
+    "source": "tmpfs",
+    "local": true,
+    "detection": "best-effort: statfs magic plus /proc/self/mountinfo fstype; known network/FUSE families rejected, locality not proven"
+  }
+}
+--- STATE step-1-bootstrap (durable cursor 1) ---
+{
+  "cursor": 1,
+  "teamGoal": {
+    "id": "team-goal-vertical-slice-1",
+    "goalText": "Vertical-slice prototype: prove durable role-labelled visible-agent seams (throwaway).",
+    "createdAt": "2026-09-02T15:12:46.787Z",
+    "eventCursor": 1
+  },
+  "roles": [
+    {
+      "role": "coordinator",
+      "agentRunId": "agent-run-coordinator-1",
+      "terminalSessionRef": "terminal-coordinator-1",
+      "shellRunId": "shell-run-coordinator-1",
+      "piSessionId": "pi-session-coordinator-1",
+      "extensionInstanceId": "bridge-ext-coordinator-1",
+      "hostPid": 41001,
+      "hostMode": "tui",
+      "controlMode": "managed",
+      "agentState": "waiting",
+      "assignmentState": null,
+      "nativeTerminalTitle": "Omarchestra — Coordinator — waiting",
+      "piStatus": "Coordinator · waiting"
+    },
+    {
+      "role": "builder",
+      "agentRunId": "agent-run-builder-1",
+      "terminalSessionRef": "terminal-builder-1",
+      "shellRunId": "shell-run-builder-1",
+      "piSessionId": "pi-session-builder-1",
+      "extensionInstanceId": "bridge-ext-builder-1",
+      "hostPid": 41002,
+      "hostMode": "tui",
+      "controlMode": "managed",
+      "agentState": "waiting",
+      "assignmentState": "pending",
+      "nativeTerminalTitle": "Omarchestra — Builder — waiting",
+      "piStatus": "Builder · waiting"
+    },
+    {
+      "role": "reviewer",
+      "agentRunId": "agent-run-reviewer-1",
+      "terminalSessionRef": "terminal-reviewer-1",
+      "shellRunId": "shell-run-reviewer-1",
+      "piSessionId": "pi-session-reviewer-1",
+      "extensionInstanceId": "bridge-ext-reviewer-1",
+      "hostPid": 41003,
+      "hostMode": "tui",
+      "controlMode": "managed",
+      "agentState": "waiting",
+      "assignmentState": null,
+      "nativeTerminalTitle": "Omarchestra — Reviewer — waiting",
+      "piStatus": "Reviewer · waiting"
+    }
+  ],
+  "assignment": {
+    "id": "assignment-builder-1",
+    "role": "builder",
+    "agentRunId": "agent-run-builder-1",
+    "state": "pending",
+    "lastAckStatus": null,
+    "prompt": "Harmless prototype assignment: confirm the visible bridge seam by replying with the fixed prototype acknowledgement phrase.",
+    "createdAt": "2026-09-02T15:12:46.787Z",
+    "updatedAt": "2026-09-02T15:12:46.787Z"
+  },
+  "journal": {
+    "requested": "default",
+    "effective": "delete",
+    "sqliteVersion": "3.53.4"
+  }
+}
+STEP 2 all three fake visible-host bridges completed the real handshake over the owner-only Unix socket:
+  coordinator: agentRunId=agent-run-coordinator-1 hostPid=41001 shellRunId=shell-run-coordinator-1
+--- STATE handshake-coordinator (durable cursor 2) ---
+{
+  "cursor": 2,
+  "teamGoal": {
+    "id": "team-goal-vertical-slice-1",
+    "goalText": "Vertical-slice prototype: prove durable role-labelled visible-agent seams (throwaway).",
+    "createdAt": "2026-09-02T15:12:46.787Z",
+    "eventCursor": 2
+  },
+  "roles": [
+    {
+      "role": "coordinator",
+      "agentRunId": "agent-run-coordinator-1",
+      "terminalSessionRef": "terminal-coordinator-1",
+      "shellRunId": "shell-run-coordinator-1",
+      "piSessionId": "pi-session-coordinator-1",
+      "extensionInstanceId": "bridge-ext-coordinator-1",
+      "hostPid": 41001,
+      "hostMode": "tui",
+      "controlMode": "managed",
+      "agentState": "waiting",
+      "assignmentState": null,
+      "nativeTerminalTitle": "Omarchestra — Coordinator — waiting",
+      "piStatus": "Coordinator · waiting"
+    },
+    {
+      "role": "builder",
+      "agentRunId": "agent-run-builder-1",
+      "terminalSessionRef": "terminal-builder-1",
+      "shellRunId": "shell-run-builder-1",
+      "piSessionId": "pi-session-builder-1",
+      "extensionInstanceId": "bridge-ext-builder-1",
+      "hostPid": 41002,
+      "hostMode": "tui",
+      "controlMode": "managed",
+      "agentState": "waiting",
+      "assignmentState": "pending",
+      "nativeTerminalTitle": "Omarchestra — Builder — waiting",
+      "piStatus": "Builder · waiting"
+    },
+    {
+      "role": "reviewer",
+      "agentRunId": "agent-run-reviewer-1",
+      "terminalSessionRef": "terminal-reviewer-1",
+      "shellRunId": "shell-run-reviewer-1",
+      "piSessionId": "pi-session-reviewer-1",
+      "extensionInstanceId": "bridge-ext-reviewer-1",
+      "hostPid": 41003,
+      "hostMode": "tui",
+      "controlMode": "managed",
+      "agentState": "waiting",
+      "assignmentState": null,
+      "nativeTerminalTitle": "Omarchestra — Reviewer — waiting",
+      "piStatus": "Reviewer · waiting"
+    }
+  ],
+  "assignment": {
+    "id": "assignment-builder-1",
+    "role": "builder",
+    "agentRunId": "agent-run-builder-1",
+    "state": "pending",
+    "lastAckStatus": null,
+    "prompt": "Harmless prototype assignment: confirm the visible bridge seam by replying with the fixed prototype acknowledgement phrase.",
+    "createdAt": "2026-09-02T15:12:46.787Z",
+    "updatedAt": "2026-09-02T15:12:46.787Z"
+  },
+  "journal": {
+    "requested": "default",
+    "effective": "delete",
+    "sqliteVersion": "3.53.4"
+  }
+}
+  builder: agentRunId=agent-run-builder-1 hostPid=41002 shellRunId=shell-run-builder-1
+--- STATE handshake-builder (durable cursor 3) ---
+{
+  "cursor": 3,
+  "teamGoal": {
+    "id": "team-goal-vertical-slice-1",
+    "goalText": "Vertical-slice prototype: prove durable role-labelled visible-agent seams (throwaway).",
+    "createdAt": "2026-09-02T15:12:46.787Z",
+    "eventCursor": 3
+  },
+  "roles": [
+    {
+      "role": "coordinator",
+      "agentRunId": "agent-run-coordinator-1",
+      "terminalSessionRef": "terminal-coordinator-1",
+      "shellRunId": "shell-run-coordinator-1",
+      "piSessionId": "pi-session-coordinator-1",
+      "extensionInstanceId": "bridge-ext-coordinator-1",
+      "hostPid": 41001,
+      "hostMode": "tui",
+      "controlMode": "managed",
+      "agentState": "waiting",
+      "assignmentState": null,
+      "nativeTerminalTitle": "Omarchestra — Coordinator — waiting",
+      "piStatus": "Coordinator · waiting"
+    },
+    {
+      "role": "builder",
+      "agentRunId": "agent-run-builder-1",
+      "terminalSessionRef": "terminal-builder-1",
+      "shellRunId": "shell-run-builder-1",
+      "piSessionId": "pi-session-builder-1",
+      "extensionInstanceId": "bridge-ext-builder-1",
+      "hostPid": 41002,
+      "hostMode": "tui",
+      "controlMode": "managed",
+      "agentState": "waiting",
+      "assignmentState": "pending",
+      "nativeTerminalTitle": "Omarchestra — Builder — waiting",
+      "piStatus": "Builder · waiting"
+    },
+    {
+      "role": "reviewer",
+      "agentRunId": "agent-run-reviewer-1",
+      "terminalSessionRef": "terminal-reviewer-1",
+      "shellRunId": "shell-run-reviewer-1",
+      "piSessionId": "pi-session-reviewer-1",
+      "extensionInstanceId": "bridge-ext-reviewer-1",
+      "hostPid": 41003,
+      "hostMode": "tui",
+      "controlMode": "managed",
+      "agentState": "waiting",
+      "assignmentState": null,
+      "nativeTerminalTitle": "Omarchestra — Reviewer — waiting",
+      "piStatus": "Reviewer · waiting"
+    }
+  ],
+  "assignment": {
+    "id": "assignment-builder-1",
+    "role": "builder",
+    "agentRunId": "agent-run-builder-1",
+    "state": "pending",
+    "lastAckStatus": null,
+    "prompt": "Harmless prototype assignment: confirm the visible bridge seam by replying with the fixed prototype acknowledgement phrase.",
+    "createdAt": "2026-09-02T15:12:46.787Z",
+    "updatedAt": "2026-09-02T15:12:46.787Z"
+  },
+  "journal": {
+    "requested": "default",
+    "effective": "delete",
+    "sqliteVersion": "3.53.4"
+  }
+}
+  reviewer: agentRunId=agent-run-reviewer-1 hostPid=41003 shellRunId=shell-run-reviewer-1
+--- STATE handshake-reviewer (durable cursor 5) ---
+{
+  "cursor": 5,
+  "teamGoal": {
+    "id": "team-goal-vertical-slice-1",
+    "goalText": "Vertical-slice prototype: prove durable role-labelled visible-agent seams (throwaway).",
+    "createdAt": "2026-09-02T15:12:46.787Z",
+    "eventCursor": 5
+  },
+  "roles": [
+    {
+      "role": "coordinator",
+      "agentRunId": "agent-run-coordinator-1",
+      "terminalSessionRef": "terminal-coordinator-1",
+      "shellRunId": "shell-run-coordinator-1",
+      "piSessionId": "pi-session-coordinator-1",
+      "extensionInstanceId": "bridge-ext-coordinator-1",
+      "hostPid": 41001,
+      "hostMode": "tui",
+      "controlMode": "managed",
+      "agentState": "waiting",
+      "assignmentState": null,
+      "nativeTerminalTitle": "Omarchestra — Coordinator — waiting",
+      "piStatus": "Coordinator · waiting"
+    },
+    {
+      "role": "builder",
+      "agentRunId": "agent-run-builder-1",
+      "terminalSessionRef": "terminal-builder-1",
+      "shellRunId": "shell-run-builder-1",
+      "piSessionId": "pi-session-builder-1",
+      "extensionInstanceId": "bridge-ext-builder-1",
+      "hostPid": 41002,
+      "hostMode": "tui",
+      "controlMode": "managed",
+      "agentState": "working",
+      "assignmentState": "active",
+      "nativeTerminalTitle": "Omarchestra — Builder — managed",
+      "piStatus": "Builder · managed"
+    },
+    {
+      "role": "reviewer",
+      "agentRunId": "agent-run-reviewer-1",
+      "terminalSessionRef": "terminal-reviewer-1",
+      "shellRunId": "shell-run-reviewer-1",
+      "piSessionId": "pi-session-reviewer-1",
+      "extensionInstanceId": "bridge-ext-reviewer-1",
+      "hostPid": 41003,
+      "hostMode": "tui",
+      "controlMode": "managed",
+      "agentState": "waiting",
+      "assignmentState": null,
+      "nativeTerminalTitle": "Omarchestra — Reviewer — waiting",
+      "piStatus": "Reviewer · waiting"
+    }
+  ],
+  "assignment": {
+    "id": "assignment-builder-1",
+    "role": "builder",
+    "agentRunId": "agent-run-builder-1",
+    "state": "active",
+    "lastAckStatus": "accepted",
+    "prompt": "Harmless prototype assignment: confirm the visible bridge seam by replying with the fixed prototype acknowledgement phrase.",
+    "createdAt": "2026-09-02T15:12:46.787Z",
+    "updatedAt": "2026-09-02T15:12:46.843Z"
+  },
+  "journal": {
+    "requested": "default",
+    "effective": "delete",
+    "sqliteVersion": "3.53.4"
+  }
+}
+--- STATE before-wrong-role-busy-ack (durable cursor 5) ---
+{
+  "cursor": 5,
+  "teamGoal": {
+    "id": "team-goal-vertical-slice-1",
+    "goalText": "Vertical-slice prototype: prove durable role-labelled visible-agent seams (throwaway).",
+    "createdAt": "2026-09-02T15:12:46.787Z",
+    "eventCursor": 5
+  },
+  "roles": [
+    {
+      "role": "coordinator",
+      "agentRunId": "agent-run-coordinator-1",
+      "terminalSessionRef": "terminal-coordinator-1",
+      "shellRunId": "shell-run-coordinator-1",
+      "piSessionId": "pi-session-coordinator-1",
+      "extensionInstanceId": "bridge-ext-coordinator-1",
+      "hostPid": 41001,
+      "hostMode": "tui",
+      "controlMode": "managed",
+      "agentState": "waiting",
+      "assignmentState": null,
+      "nativeTerminalTitle": "Omarchestra — Coordinator — waiting",
+      "piStatus": "Coordinator · waiting"
+    },
+    {
+      "role": "builder",
+      "agentRunId": "agent-run-builder-1",
+      "terminalSessionRef": "terminal-builder-1",
+      "shellRunId": "shell-run-builder-1",
+      "piSessionId": "pi-session-builder-1",
+      "extensionInstanceId": "bridge-ext-builder-1",
+      "hostPid": 41002,
+      "hostMode": "tui",
+      "controlMode": "managed",
+      "agentState": "working",
+      "assignmentState": "active",
+      "nativeTerminalTitle": "Omarchestra — Builder — managed",
+      "piStatus": "Builder · managed"
+    },
+    {
+      "role": "reviewer",
+      "agentRunId": "agent-run-reviewer-1",
+      "terminalSessionRef": "terminal-reviewer-1",
+      "shellRunId": "shell-run-reviewer-1",
+      "piSessionId": "pi-session-reviewer-1",
+      "extensionInstanceId": "bridge-ext-reviewer-1",
+      "hostPid": 41003,
+      "hostMode": "tui",
+      "controlMode": "managed",
+      "agentState": "waiting",
+      "assignmentState": null,
+      "nativeTerminalTitle": "Omarchestra — Reviewer — waiting",
+      "piStatus": "Reviewer · waiting"
+    }
+  ],
+  "assignment": {
+    "id": "assignment-builder-1",
+    "role": "builder",
+    "agentRunId": "agent-run-builder-1",
+    "state": "active",
+    "lastAckStatus": "accepted",
+    "prompt": "Harmless prototype assignment: confirm the visible bridge seam by replying with the fixed prototype acknowledgement phrase.",
+    "createdAt": "2026-09-02T15:12:46.787Z",
+    "updatedAt": "2026-09-02T15:12:46.843Z"
+  },
+  "journal": {
+    "requested": "default",
+    "effective": "delete",
+    "sqliteVersion": "3.53.4"
+  }
+}
+--- STATE after-wrong-role-busy-ack (durable cursor 5) ---
+{
+  "cursor": 5,
+  "teamGoal": {
+    "id": "team-goal-vertical-slice-1",
+    "goalText": "Vertical-slice prototype: prove durable role-labelled visible-agent seams (throwaway).",
+    "createdAt": "2026-09-02T15:12:46.787Z",
+    "eventCursor": 5
+  },
+  "roles": [
+    {
+      "role": "coordinator",
+      "agentRunId": "agent-run-coordinator-1",
+      "terminalSessionRef": "terminal-coordinator-1",
+      "shellRunId": "shell-run-coordinator-1",
+      "piSessionId": "pi-session-coordinator-1",
+      "extensionInstanceId": "bridge-ext-coordinator-1",
+      "hostPid": 41001,
+      "hostMode": "tui",
+      "controlMode": "managed",
+      "agentState": "waiting",
+      "assignmentState": null,
+      "nativeTerminalTitle": "Omarchestra — Coordinator — waiting",
+      "piStatus": "Coordinator · waiting"
+    },
+    {
+      "role": "builder",
+      "agentRunId": "agent-run-builder-1",
+      "terminalSessionRef": "terminal-builder-1",
+      "shellRunId": "shell-run-builder-1",
+      "piSessionId": "pi-session-builder-1",
+      "extensionInstanceId": "bridge-ext-builder-1",
+      "hostPid": 41002,
+      "hostMode": "tui",
+      "controlMode": "managed",
+      "agentState": "working",
+      "assignmentState": "active",
+      "nativeTerminalTitle": "Omarchestra — Builder — managed",
+      "piStatus": "Builder · managed"
+    },
+    {
+      "role": "reviewer",
+      "agentRunId": "agent-run-reviewer-1",
+      "terminalSessionRef": "terminal-reviewer-1",
+      "shellRunId": "shell-run-reviewer-1",
+      "piSessionId": "pi-session-reviewer-1",
+      "extensionInstanceId": "bridge-ext-reviewer-1",
+      "hostPid": 41003,
+      "hostMode": "tui",
+      "controlMode": "managed",
+      "agentState": "waiting",
+      "assignmentState": null,
+      "nativeTerminalTitle": "Omarchestra — Reviewer — waiting",
+      "piStatus": "Reviewer · waiting"
+    }
+  ],
+  "assignment": {
+    "id": "assignment-builder-1",
+    "role": "builder",
+    "agentRunId": "agent-run-builder-1",
+    "state": "active",
+    "lastAckStatus": "accepted",
+    "prompt": "Harmless prototype assignment: confirm the visible bridge seam by replying with the fixed prototype acknowledgement phrase.",
+    "createdAt": "2026-09-02T15:12:46.787Z",
+    "updatedAt": "2026-09-02T15:12:46.843Z"
+  },
+  "journal": {
+    "requested": "default",
+    "effective": "delete",
+    "sqliteVersion": "3.53.4"
+  }
+}
+--- STATE before-unknown-invalid-ack (durable cursor 6) ---
+{
+  "cursor": 6,
+  "teamGoal": {
+    "id": "team-goal-vertical-slice-1",
+    "goalText": "Vertical-slice prototype: prove durable role-labelled visible-agent seams (throwaway).",
+    "createdAt": "2026-09-02T15:12:46.787Z",
+    "eventCursor": 6
+  },
+  "roles": [
+    {
+      "role": "coordinator",
+      "agentRunId": "agent-run-coordinator-1",
+      "terminalSessionRef": "terminal-coordinator-1",
+      "shellRunId": "shell-run-coordinator-1",
+      "piSessionId": "pi-session-coordinator-1",
+      "extensionInstanceId": "bridge-ext-coordinator-1",
+      "hostPid": 41001,
+      "hostMode": "tui",
+      "controlMode": "managed",
+      "agentState": "waiting",
+      "assignmentState": null,
+      "nativeTerminalTitle": "Omarchestra — Coordinator — waiting",
+      "piStatus": "Coordinator · waiting"
+    },
+    {
+      "role": "builder",
+      "agentRunId": "agent-run-builder-1",
+      "terminalSessionRef": "terminal-builder-1",
+      "shellRunId": "shell-run-builder-1",
+      "piSessionId": "pi-session-builder-1",
+      "extensionInstanceId": "bridge-ext-builder-1",
+      "hostPid": 41002,
+      "hostMode": "tui",
+      "controlMode": "managed",
+      "agentState": "working",
+      "assignmentState": "active",
+      "nativeTerminalTitle": "Omarchestra — Builder — managed",
+      "piStatus": "Builder · managed"
+    },
+    {
+      "role": "reviewer",
+      "agentRunId": "agent-run-reviewer-1",
+      "terminalSessionRef": "terminal-reviewer-1",
+      "shellRunId": "shell-run-reviewer-1",
+      "piSessionId": "pi-session-reviewer-1",
+      "extensionInstanceId": "bridge-ext-reviewer-1",
+      "hostPid": 41003,
+      "hostMode": "tui",
+      "controlMode": "managed",
+      "agentState": "waiting",
+      "assignmentState": null,
+      "nativeTerminalTitle": "Omarchestra — Reviewer — waiting",
+      "piStatus": "Reviewer · waiting"
+    }
+  ],
+  "assignment": {
+    "id": "assignment-builder-1",
+    "role": "builder",
+    "agentRunId": "agent-run-builder-1",
+    "state": "active",
+    "lastAckStatus": "accepted",
+    "prompt": "Harmless prototype assignment: confirm the visible bridge seam by replying with the fixed prototype acknowledgement phrase.",
+    "createdAt": "2026-09-02T15:12:46.787Z",
+    "updatedAt": "2026-09-02T15:12:46.843Z"
+  },
+  "journal": {
+    "requested": "default",
+    "effective": "delete",
+    "sqliteVersion": "3.53.4"
+  }
+}
+--- STATE after-unknown-invalid-ack (durable cursor 6) ---
+{
+  "cursor": 6,
+  "teamGoal": {
+    "id": "team-goal-vertical-slice-1",
+    "goalText": "Vertical-slice prototype: prove durable role-labelled visible-agent seams (throwaway).",
+    "createdAt": "2026-09-02T15:12:46.787Z",
+    "eventCursor": 6
+  },
+  "roles": [
+    {
+      "role": "coordinator",
+      "agentRunId": "agent-run-coordinator-1",
+      "terminalSessionRef": "terminal-coordinator-1",
+      "shellRunId": "shell-run-coordinator-1",
+      "piSessionId": "pi-session-coordinator-1",
+      "extensionInstanceId": "bridge-ext-coordinator-1",
+      "hostPid": 41001,
+      "hostMode": "tui",
+      "controlMode": "managed",
+      "agentState": "waiting",
+      "assignmentState": null,
+      "nativeTerminalTitle": "Omarchestra — Coordinator — waiting",
+      "piStatus": "Coordinator · waiting"
+    },
+    {
+      "role": "builder",
+      "agentRunId": "agent-run-builder-1",
+      "terminalSessionRef": "terminal-builder-1",
+      "shellRunId": "shell-run-builder-1",
+      "piSessionId": "pi-session-builder-1",
+      "extensionInstanceId": "bridge-ext-builder-1",
+      "hostPid": 41002,
+      "hostMode": "tui",
+      "controlMode": "managed",
+      "agentState": "working",
+      "assignmentState": "active",
+      "nativeTerminalTitle": "Omarchestra — Builder — managed",
+      "piStatus": "Builder · managed"
+    },
+    {
+      "role": "reviewer",
+      "agentRunId": "agent-run-reviewer-1",
+      "terminalSessionRef": "terminal-reviewer-1",
+      "shellRunId": "shell-run-reviewer-1",
+      "piSessionId": "pi-session-reviewer-1",
+      "extensionInstanceId": "bridge-ext-reviewer-1",
+      "hostPid": 41003,
+      "hostMode": "tui",
+      "controlMode": "managed",
+      "agentState": "waiting",
+      "assignmentState": null,
+      "nativeTerminalTitle": "Omarchestra — Reviewer — waiting",
+      "piStatus": "Reviewer · waiting"
+    }
+  ],
+  "assignment": {
+    "id": "assignment-builder-1",
+    "role": "builder",
+    "agentRunId": "agent-run-builder-1",
+    "state": "active",
+    "lastAckStatus": "accepted",
+    "prompt": "Harmless prototype assignment: confirm the visible bridge seam by replying with the fixed prototype acknowledgement phrase.",
+    "createdAt": "2026-09-02T15:12:46.787Z",
+    "updatedAt": "2026-09-02T15:12:46.843Z"
+  },
+  "journal": {
+    "requested": "default",
+    "effective": "delete",
+    "sqliteVersion": "3.53.4"
+  }
+}
+STEP 2 assignment acknowledgement authorization rejects wrong-role/unknown busy and invalid statuses without durable change.
+STEP 3 initial presentation verified: Pi-status/title metadata and QML role projections are waiting and mutually distinct.
+--- STATE step-3-initial-label-contract (durable cursor 3) ---
+{
+  "cursor": 3,
+  "teamGoal": {
+    "id": "team-goal-vertical-slice-1",
+    "goalText": "Vertical-slice prototype: prove durable role-labelled visible-agent seams (throwaway).",
+    "createdAt": "2026-09-02T15:12:46.787Z",
+    "eventCursor": 3
+  },
+  "roles": [
+    {
+      "role": "coordinator",
+      "agentRunId": "agent-run-coordinator-1",
+      "terminalSessionRef": "terminal-coordinator-1",
+      "shellRunId": "shell-run-coordinator-1",
+      "piSessionId": "pi-session-coordinator-1",
+      "extensionInstanceId": "bridge-ext-coordinator-1",
+      "hostPid": 41001,
+      "hostMode": "tui",
+      "controlMode": "managed",
+      "agentState": "waiting",
+      "assignmentState": null,
+      "nativeTerminalTitle": "Omarchestra — Coordinator — waiting",
+      "piStatus": "Coordinator · waiting"
+    },
+    {
+      "role": "builder",
+      "agentRunId": "agent-run-builder-1",
+      "terminalSessionRef": "terminal-builder-1",
+      "shellRunId": "shell-run-builder-1",
+      "piSessionId": "pi-session-builder-1",
+      "extensionInstanceId": "bridge-ext-builder-1",
+      "hostPid": 41002,
+      "hostMode": "tui",
+      "controlMode": "managed",
+      "agentState": "waiting",
+      "assignmentState": "pending",
+      "nativeTerminalTitle": "Omarchestra — Builder — waiting",
+      "piStatus": "Builder · waiting"
+    },
+    {
+      "role": "reviewer",
+      "agentRunId": "agent-run-reviewer-1",
+      "terminalSessionRef": "terminal-reviewer-1",
+      "shellRunId": "shell-run-reviewer-1",
+      "piSessionId": "pi-session-reviewer-1",
+      "extensionInstanceId": "bridge-ext-reviewer-1",
+      "hostPid": 41003,
+      "hostMode": "tui",
+      "controlMode": "managed",
+      "agentState": "waiting",
+      "assignmentState": null,
+      "nativeTerminalTitle": "Omarchestra — Reviewer — waiting",
+      "piStatus": "Reviewer · waiting"
+    }
+  ],
+  "assignment": {
+    "id": "assignment-builder-1",
+    "role": "builder",
+    "agentRunId": "agent-run-builder-1",
+    "state": "pending",
+    "lastAckStatus": null,
+    "prompt": "Harmless prototype assignment: confirm the visible bridge seam by replying with the fixed prototype acknowledgement phrase.",
+    "createdAt": "2026-09-02T15:12:46.787Z",
+    "updatedAt": "2026-09-02T15:12:46.787Z"
+  },
+  "journal": {
+    "requested": "default",
+    "effective": "delete",
+    "sqliteVersion": "3.53.4"
+  }
+}
+STEP 4 first managed assignment accepted through the visible-bridge boundary:
+{
+  "ack": {
+    "assignmentId": "assignment-builder-1",
+    "ack": "accepted"
+  },
+  "fakeVisibleTurns": 1,
+  "presentationUpdate": {
+    "role": "builder",
+    "agentRunId": "agent-run-builder-1",
+    "eventCursor": 4,
+    "nativeTerminalTitle": "Omarchestra — Builder — managed",
+    "piStatus": "Builder · managed"
+  }
+}
+--- STATE step-4-assignment-accepted (durable cursor 7) ---
+{
+  "cursor": 7,
+  "teamGoal": {
+    "id": "team-goal-vertical-slice-1",
+    "goalText": "Vertical-slice prototype: prove durable role-labelled visible-agent seams (throwaway).",
+    "createdAt": "2026-09-02T15:12:46.787Z",
+    "eventCursor": 7
+  },
+  "roles": [
+    {
+      "role": "coordinator",
+      "agentRunId": "agent-run-coordinator-1",
+      "terminalSessionRef": "terminal-coordinator-1",
+      "shellRunId": "shell-run-coordinator-1",
+      "piSessionId": "pi-session-coordinator-1",
+      "extensionInstanceId": "bridge-ext-coordinator-1",
+      "hostPid": 41001,
+      "hostMode": "tui",
+      "controlMode": "managed",
+      "agentState": "waiting",
+      "assignmentState": null,
+      "nativeTerminalTitle": "Omarchestra — Coordinator — waiting",
+      "piStatus": "Coordinator · waiting"
+    },
+    {
+      "role": "builder",
+      "agentRunId": "agent-run-builder-1",
+      "terminalSessionRef": "terminal-builder-1",
+      "shellRunId": "shell-run-builder-1",
+      "piSessionId": "pi-session-builder-1",
+      "extensionInstanceId": "bridge-ext-builder-1",
+      "hostPid": 41002,
+      "hostMode": "tui",
+      "controlMode": "managed",
+      "agentState": "working",
+      "assignmentState": "active",
+      "nativeTerminalTitle": "Omarchestra — Builder — managed",
+      "piStatus": "Builder · managed"
+    },
+    {
+      "role": "reviewer",
+      "agentRunId": "agent-run-reviewer-1",
+      "terminalSessionRef": "terminal-reviewer-1",
+      "shellRunId": "shell-run-reviewer-1",
+      "piSessionId": "pi-session-reviewer-1",
+      "extensionInstanceId": "bridge-ext-reviewer-1",
+      "hostPid": 41003,
+      "hostMode": "tui",
+      "controlMode": "managed",
+      "agentState": "waiting",
+      "assignmentState": null,
+      "nativeTerminalTitle": "Omarchestra — Reviewer — waiting",
+      "piStatus": "Reviewer · waiting"
+    }
+  ],
+  "assignment": {
+    "id": "assignment-builder-1",
+    "role": "builder",
+    "agentRunId": "agent-run-builder-1",
+    "state": "active",
+    "lastAckStatus": "accepted",
+    "prompt": "Harmless prototype assignment: confirm the visible bridge seam by replying with the fixed prototype acknowledgement phrase.",
+    "createdAt": "2026-09-02T15:12:46.787Z",
+    "updatedAt": "2026-09-02T15:12:46.843Z"
+  },
+  "journal": {
+    "requested": "default",
+    "effective": "delete",
+    "sqliteVersion": "3.53.4"
+  }
+}
+STEP 5 Builder reconnect under management caused replay; the duplicate was suppressed:
+{
+  "ack": {
+    "assignmentId": "assignment-builder-1",
+    "ack": "duplicate"
+  },
+  "fakeVisibleTurns": 1,
+  "snapshot": {
+    "cursor": 8,
+    "teamGoal": {
+      "id": "team-goal-vertical-slice-1",
+      "goalText": "Vertical-slice prototype: prove durable role-labelled visible-agent seams (throwaway).",
+      "createdAt": "2026-09-02T15:12:46.787Z",
+      "eventCursor": 8
+    },
+    "roles": [
+      {
+        "role": "coordinator",
+        "agentRunId": "agent-run-coordinator-1",
+        "terminalSessionRef": "terminal-coordinator-1",
+        "shellRunId": "shell-run-coordinator-1",
+        "piSessionId": "pi-session-coordinator-1",
+        "extensionInstanceId": "bridge-ext-coordinator-1",
+        "hostPid": 41001,
+        "hostMode": "tui",
+        "controlMode": "managed",
+        "agentState": "waiting",
+        "assignmentState": null,
+        "nativeTerminalTitle": "Omarchestra — Coordinator — waiting",
+        "piStatus": "Coordinator · waiting"
+      },
+      {
+        "role": "builder",
+        "agentRunId": "agent-run-builder-1",
+        "terminalSessionRef": "terminal-builder-1",
+        "shellRunId": "shell-run-builder-1",
+        "piSessionId": "pi-session-builder-1",
+        "extensionInstanceId": "bridge-ext-builder-1",
+        "hostPid": 41002,
+        "hostMode": "tui",
+        "controlMode": "managed",
+        "agentState": "working",
+        "assignmentState": "active",
+        "nativeTerminalTitle": "Omarchestra — Builder — managed",
+        "piStatus": "Builder · managed"
+      },
+      {
+        "role": "reviewer",
+        "agentRunId": "agent-run-reviewer-1",
+        "terminalSessionRef": "terminal-reviewer-1",
+        "shellRunId": "shell-run-reviewer-1",
+        "piSessionId": "pi-session-reviewer-1",
+        "extensionInstanceId": "bridge-ext-reviewer-1",
+        "hostPid": 41003,
+        "hostMode": "tui",
+        "controlMode": "managed",
+        "agentState": "waiting",
+        "assignmentState": null,
+        "nativeTerminalTitle": "Omarchestra — Reviewer — waiting",
+        "piStatus": "Reviewer · waiting"
+      }
+    ],
+    "assignment": {
+      "id": "assignment-builder-1",
+      "role": "builder",
+      "agentRunId": "agent-run-builder-1",
+      "state": "active",
+      "lastAckStatus": "accepted",
+      "prompt": "Harmless prototype assignment: confirm the visible bridge seam by replying with the fixed prototype acknowledgement phrase.",
+      "createdAt": "2026-09-02T15:12:46.787Z",
+      "updatedAt": "2026-09-02T15:12:46.843Z"
+    },
+    "journal": {
+      "requested": "default",
+      "effective": "delete",
+      "sqliteVersion": "3.53.4"
+    }
+  }
+}
+--- STATE step-5-duplicate-suppressed (durable cursor 9) ---
+{
+  "cursor": 9,
+  "teamGoal": {
+    "id": "team-goal-vertical-slice-1",
+    "goalText": "Vertical-slice prototype: prove durable role-labelled visible-agent seams (throwaway).",
+    "createdAt": "2026-09-02T15:12:46.787Z",
+    "eventCursor": 9
+  },
+  "roles": [
+    {
+      "role": "coordinator",
+      "agentRunId": "agent-run-coordinator-1",
+      "terminalSessionRef": "terminal-coordinator-1",
+      "shellRunId": "shell-run-coordinator-1",
+      "piSessionId": "pi-session-coordinator-1",
+      "extensionInstanceId": "bridge-ext-coordinator-1",
+      "hostPid": 41001,
+      "hostMode": "tui",
+      "controlMode": "managed",
+      "agentState": "waiting",
+      "assignmentState": null,
+      "nativeTerminalTitle": "Omarchestra — Coordinator — waiting",
+      "piStatus": "Coordinator · waiting"
+    },
+    {
+      "role": "builder",
+      "agentRunId": "agent-run-builder-1",
+      "terminalSessionRef": "terminal-builder-1",
+      "shellRunId": "shell-run-builder-1",
+      "piSessionId": "pi-session-builder-1",
+      "extensionInstanceId": "bridge-ext-builder-1",
+      "hostPid": 41002,
+      "hostMode": "tui",
+      "controlMode": "managed",
+      "agentState": "working",
+      "assignmentState": "active",
+      "nativeTerminalTitle": "Omarchestra — Builder — managed",
+      "piStatus": "Builder · managed"
+    },
+    {
+      "role": "reviewer",
+      "agentRunId": "agent-run-reviewer-1",
+      "terminalSessionRef": "terminal-reviewer-1",
+      "shellRunId": "shell-run-reviewer-1",
+      "piSessionId": "pi-session-reviewer-1",
+      "extensionInstanceId": "bridge-ext-reviewer-1",
+      "hostPid": 41003,
+      "hostMode": "tui",
+      "controlMode": "managed",
+      "agentState": "waiting",
+      "assignmentState": null,
+      "nativeTerminalTitle": "Omarchestra — Reviewer — waiting",
+      "piStatus": "Reviewer · waiting"
+    }
+  ],
+  "assignment": {
+    "id": "assignment-builder-1",
+    "role": "builder",
+    "agentRunId": "agent-run-builder-1",
+    "state": "active",
+    "lastAckStatus": "duplicate",
+    "prompt": "Harmless prototype assignment: confirm the visible bridge seam by replying with the fixed prototype acknowledgement phrase.",
+    "createdAt": "2026-09-02T15:12:46.787Z",
+    "updatedAt": "2026-09-02T15:12:46.980Z"
+  },
+  "journal": {
+    "requested": "default",
+    "effective": "delete",
+    "sqliteVersion": "3.53.4"
+  }
+}
+--- STATE step-6-builder-takeover (durable cursor 11) ---
+{
+  "cursor": 11,
+  "teamGoal": {
+    "id": "team-goal-vertical-slice-1",
+    "goalText": "Vertical-slice prototype: prove durable role-labelled visible-agent seams (throwaway).",
+    "createdAt": "2026-09-02T15:12:46.787Z",
+    "eventCursor": 11
+  },
+  "roles": [
+    {
+      "role": "coordinator",
+      "agentRunId": "agent-run-coordinator-1",
+      "terminalSessionRef": "terminal-coordinator-1",
+      "shellRunId": "shell-run-coordinator-1",
+      "piSessionId": "pi-session-coordinator-1",
+      "extensionInstanceId": "bridge-ext-coordinator-1",
+      "hostPid": 41001,
+      "hostMode": "tui",
+      "controlMode": "managed",
+      "agentState": "waiting",
+      "assignmentState": null,
+      "nativeTerminalTitle": "Omarchestra — Coordinator — waiting",
+      "piStatus": "Coordinator · waiting"
+    },
+    {
+      "role": "builder",
+      "agentRunId": "agent-run-builder-1",
+      "terminalSessionRef": "terminal-builder-1",
+      "shellRunId": "shell-run-builder-1",
+      "piSessionId": "pi-session-builder-1",
+      "extensionInstanceId": "bridge-ext-builder-1",
+      "hostPid": 41002,
+      "hostMode": "tui",
+      "controlMode": "manual_takeover",
+      "agentState": "working",
+      "assignmentState": "needs_reconciliation",
+      "nativeTerminalTitle": "Omarchestra — Builder — manual_takeover",
+      "piStatus": "Builder · manual_takeover"
+    },
+    {
+      "role": "reviewer",
+      "agentRunId": "agent-run-reviewer-1",
+      "terminalSessionRef": "terminal-reviewer-1",
+      "shellRunId": "shell-run-reviewer-1",
+      "piSessionId": "pi-session-reviewer-1",
+      "extensionInstanceId": "bridge-ext-reviewer-1",
+      "hostPid": 41003,
+      "hostMode": "tui",
+      "controlMode": "managed",
+      "agentState": "waiting",
+      "assignmentState": null,
+      "nativeTerminalTitle": "Omarchestra — Reviewer — waiting",
+      "piStatus": "Reviewer · waiting"
+    }
+  ],
+  "assignment": {
+    "id": "assignment-builder-1",
+    "role": "builder",
+    "agentRunId": "agent-run-builder-1",
+    "state": "needs_reconciliation",
+    "lastAckStatus": "duplicate",
+    "prompt": "Harmless prototype assignment: confirm the visible bridge seam by replying with the fixed prototype acknowledgement phrase.",
+    "createdAt": "2026-09-02T15:12:46.787Z",
+    "updatedAt": "2026-09-02T15:12:46.985Z"
+  },
+  "journal": {
+    "requested": "default",
+    "effective": "delete",
+    "sqliteVersion": "3.53.4"
+  }
+}
+STEP 6 Builder-only manual takeover (both Builder surfaces update; Coordinator and Reviewer byte-identical):
+{
+  "builderPresentationUpdate": {
+    "role": "builder",
+    "agentRunId": "agent-run-builder-1",
+    "eventCursor": 11,
+    "nativeTerminalTitle": "Omarchestra — Builder — manual_takeover",
+    "piStatus": "Builder · manual_takeover"
+  }
+}
+--- STATE step-6-complete-state (durable cursor 11) ---
+{
+  "cursor": 11,
+  "teamGoal": {
+    "id": "team-goal-vertical-slice-1",
+    "goalText": "Vertical-slice prototype: prove durable role-labelled visible-agent seams (throwaway).",
+    "createdAt": "2026-09-02T15:12:46.787Z",
+    "eventCursor": 11
+  },
+  "roles": [
+    {
+      "role": "coordinator",
+      "agentRunId": "agent-run-coordinator-1",
+      "terminalSessionRef": "terminal-coordinator-1",
+      "shellRunId": "shell-run-coordinator-1",
+      "piSessionId": "pi-session-coordinator-1",
+      "extensionInstanceId": "bridge-ext-coordinator-1",
+      "hostPid": 41001,
+      "hostMode": "tui",
+      "controlMode": "managed",
+      "agentState": "waiting",
+      "assignmentState": null,
+      "nativeTerminalTitle": "Omarchestra — Coordinator — waiting",
+      "piStatus": "Coordinator · waiting"
+    },
+    {
+      "role": "builder",
+      "agentRunId": "agent-run-builder-1",
+      "terminalSessionRef": "terminal-builder-1",
+      "shellRunId": "shell-run-builder-1",
+      "piSessionId": "pi-session-builder-1",
+      "extensionInstanceId": "bridge-ext-builder-1",
+      "hostPid": 41002,
+      "hostMode": "tui",
+      "controlMode": "manual_takeover",
+      "agentState": "working",
+      "assignmentState": "needs_reconciliation",
+      "nativeTerminalTitle": "Omarchestra — Builder — manual_takeover",
+      "piStatus": "Builder · manual_takeover"
+    },
+    {
+      "role": "reviewer",
+      "agentRunId": "agent-run-reviewer-1",
+      "terminalSessionRef": "terminal-reviewer-1",
+      "shellRunId": "shell-run-reviewer-1",
+      "piSessionId": "pi-session-reviewer-1",
+      "extensionInstanceId": "bridge-ext-reviewer-1",
+      "hostPid": 41003,
+      "hostMode": "tui",
+      "controlMode": "managed",
+      "agentState": "waiting",
+      "assignmentState": null,
+      "nativeTerminalTitle": "Omarchestra — Reviewer — waiting",
+      "piStatus": "Reviewer · waiting"
+    }
+  ],
+  "assignment": {
+    "id": "assignment-builder-1",
+    "role": "builder",
+    "agentRunId": "agent-run-builder-1",
+    "state": "needs_reconciliation",
+    "lastAckStatus": "duplicate",
+    "prompt": "Harmless prototype assignment: confirm the visible bridge seam by replying with the fixed prototype acknowledgement phrase.",
+    "createdAt": "2026-09-02T15:12:46.787Z",
+    "updatedAt": "2026-09-02T15:12:46.985Z"
+  },
+  "journal": {
+    "requested": "default",
+    "effective": "delete",
+    "sqliteVersion": "3.53.4"
+  }
+}
+STEP 7 thin projection client captured durable cursor 11 and disconnected.
+{
+  "savedCursor": 11,
+  "snapshot": {
+    "cursor": 11,
+    "teamGoal": {
+      "id": "team-goal-vertical-slice-1",
+      "goalText": "Vertical-slice prototype: prove durable role-labelled visible-agent seams (throwaway).",
+      "createdAt": "2026-09-02T15:12:46.787Z",
+      "eventCursor": 11
+    },
+    "roles": [
+      {
+        "role": "coordinator",
+        "agentRunId": "agent-run-coordinator-1",
+        "terminalSessionRef": "terminal-coordinator-1",
+        "shellRunId": "shell-run-coordinator-1",
+        "piSessionId": "pi-session-coordinator-1",
+        "extensionInstanceId": "bridge-ext-coordinator-1",
+        "hostPid": 41001,
+        "hostMode": "tui",
+        "controlMode": "managed",
+        "agentState": "waiting",
+        "assignmentState": null,
+        "nativeTerminalTitle": "Omarchestra — Coordinator — waiting",
+        "piStatus": "Coordinator · waiting"
+      },
+      {
+        "role": "builder",
+        "agentRunId": "agent-run-builder-1",
+        "terminalSessionRef": "terminal-builder-1",
+        "shellRunId": "shell-run-builder-1",
+        "piSessionId": "pi-session-builder-1",
+        "extensionInstanceId": "bridge-ext-builder-1",
+        "hostPid": 41002,
+        "hostMode": "tui",
+        "controlMode": "manual_takeover",
+        "agentState": "working",
+        "assignmentState": "needs_reconciliation",
+        "nativeTerminalTitle": "Omarchestra — Builder — manual_takeover",
+        "piStatus": "Builder · manual_takeover"
+      },
+      {
+        "role": "reviewer",
+        "agentRunId": "agent-run-reviewer-1",
+        "terminalSessionRef": "terminal-reviewer-1",
+        "shellRunId": "shell-run-reviewer-1",
+        "piSessionId": "pi-session-reviewer-1",
+        "extensionInstanceId": "bridge-ext-reviewer-1",
+        "hostPid": 41003,
+        "hostMode": "tui",
+        "controlMode": "managed",
+        "agentState": "waiting",
+        "assignmentState": null,
+        "nativeTerminalTitle": "Omarchestra — Reviewer — waiting",
+        "piStatus": "Reviewer · waiting"
+      }
+    ],
+    "assignment": {
+      "id": "assignment-builder-1",
+      "role": "builder",
+      "agentRunId": "agent-run-builder-1",
+      "state": "needs_reconciliation",
+      "lastAckStatus": "duplicate",
+      "prompt": "Harmless prototype assignment: confirm the visible bridge seam by replying with the fixed prototype acknowledgement phrase.",
+      "createdAt": "2026-09-02T15:12:46.787Z",
+      "updatedAt": "2026-09-02T15:12:46.985Z"
+    },
+    "journal": {
+      "requested": "default",
+      "effective": "delete",
+      "sqliteVersion": "3.53.4"
+    }
+  }
+}
+STEP 8 runner stopped cleanly; durable state remains in /tmp/omarchestra-vertical-slice-bERuCq
+--- STATE step-8-last-committed-state (durable cursor 11) ---
+{
+  "cursor": 11,
+  "teamGoal": {
+    "id": "team-goal-vertical-slice-1",
+    "goalText": "Vertical-slice prototype: prove durable role-labelled visible-agent seams (throwaway).",
+    "createdAt": "2026-09-02T15:12:46.787Z",
+    "eventCursor": 11
+  },
+  "roles": [
+    {
+      "role": "coordinator",
+      "agentRunId": "agent-run-coordinator-1",
+      "terminalSessionRef": "terminal-coordinator-1",
+      "shellRunId": "shell-run-coordinator-1",
+      "piSessionId": "pi-session-coordinator-1",
+      "extensionInstanceId": "bridge-ext-coordinator-1",
+      "hostPid": 41001,
+      "hostMode": "tui",
+      "controlMode": "managed",
+      "agentState": "waiting",
+      "assignmentState": null,
+      "nativeTerminalTitle": "Omarchestra — Coordinator — waiting",
+      "piStatus": "Coordinator · waiting"
+    },
+    {
+      "role": "builder",
+      "agentRunId": "agent-run-builder-1",
+      "terminalSessionRef": "terminal-builder-1",
+      "shellRunId": "shell-run-builder-1",
+      "piSessionId": "pi-session-builder-1",
+      "extensionInstanceId": "bridge-ext-builder-1",
+      "hostPid": 41002,
+      "hostMode": "tui",
+      "controlMode": "manual_takeover",
+      "agentState": "working",
+      "assignmentState": "needs_reconciliation",
+      "nativeTerminalTitle": "Omarchestra — Builder — manual_takeover",
+      "piStatus": "Builder · manual_takeover"
+    },
+    {
+      "role": "reviewer",
+      "agentRunId": "agent-run-reviewer-1",
+      "terminalSessionRef": "terminal-reviewer-1",
+      "shellRunId": "shell-run-reviewer-1",
+      "piSessionId": "pi-session-reviewer-1",
+      "extensionInstanceId": "bridge-ext-reviewer-1",
+      "hostPid": 41003,
+      "hostMode": "tui",
+      "controlMode": "managed",
+      "agentState": "waiting",
+      "assignmentState": null,
+      "nativeTerminalTitle": "Omarchestra — Reviewer — waiting",
+      "piStatus": "Reviewer · waiting"
+    }
+  ],
+  "assignment": {
+    "id": "assignment-builder-1",
+    "role": "builder",
+    "agentRunId": "agent-run-builder-1",
+    "state": "needs_reconciliation",
+    "lastAckStatus": "duplicate",
+    "prompt": "Harmless prototype assignment: confirm the visible bridge seam by replying with the fixed prototype acknowledgement phrase.",
+    "createdAt": "2026-09-02T15:12:46.787Z",
+    "updatedAt": "2026-09-02T15:12:46.985Z"
+  },
+  "journal": {
+    "requested": "default",
+    "effective": "delete",
+    "sqliteVersion": "3.53.4"
+  }
+}
+{
+  "databasePath": "/tmp/omarchestra-vertical-slice-bERuCq/runner.sqlite",
+  "databaseExists": true,
+  "stateDirectoryMode": "0700",
+  "databaseMode": "0600"
+}
+STEP 9 runner recreated over the same scratch database:
+{
+  "event": "runner_ready",
+  "pid": 1986288,
+  "stateDir": "/tmp/omarchestra-vertical-slice-bERuCq",
+  "socket": "/tmp/omarchestra-vertical-slice-bERuCq/runner.sock",
+  "journalRequested": "default",
+  "journalEffective": "delete",
+  "sqliteVersion": "3.53.4",
+  "schemaVersion": 1,
+  "mount": {
+    "fstype": "tmpfs",
+    "magic": 16914836,
+    "source": "tmpfs",
+    "local": true,
+    "detection": "best-effort: statfs magic plus /proc/self/mountinfo fstype; known network/FUSE families rejected, locality not proven"
+  }
+}
+--- STATE step-9-recovered-before-bridge-reconnect (durable cursor 12) ---
+{
+  "cursor": 12,
+  "teamGoal": {
+    "id": "team-goal-vertical-slice-1",
+    "goalText": "Vertical-slice prototype: prove durable role-labelled visible-agent seams (throwaway).",
+    "createdAt": "2026-09-02T15:12:46.787Z",
+    "eventCursor": 12
+  },
+  "roles": [
+    {
+      "role": "coordinator",
+      "agentRunId": "agent-run-coordinator-1",
+      "terminalSessionRef": "terminal-coordinator-1",
+      "shellRunId": "shell-run-coordinator-1",
+      "piSessionId": "pi-session-coordinator-1",
+      "extensionInstanceId": "bridge-ext-coordinator-1",
+      "hostPid": 41001,
+      "hostMode": "tui",
+      "controlMode": "managed",
+      "agentState": "waiting",
+      "assignmentState": null,
+      "nativeTerminalTitle": "Omarchestra — Coordinator — waiting",
+      "piStatus": "Coordinator · waiting"
+    },
+    {
+      "role": "builder",
+      "agentRunId": "agent-run-builder-1",
+      "terminalSessionRef": "terminal-builder-1",
+      "shellRunId": "shell-run-builder-1",
+      "piSessionId": "pi-session-builder-1",
+      "extensionInstanceId": "bridge-ext-builder-1",
+      "hostPid": 41002,
+      "hostMode": "tui",
+      "controlMode": "manual_takeover",
+      "agentState": "working",
+      "assignmentState": "needs_reconciliation",
+      "nativeTerminalTitle": "Omarchestra — Builder — manual_takeover",
+      "piStatus": "Builder · manual_takeover"
+    },
+    {
+      "role": "reviewer",
+      "agentRunId": "agent-run-reviewer-1",
+      "terminalSessionRef": "terminal-reviewer-1",
+      "shellRunId": "shell-run-reviewer-1",
+      "piSessionId": "pi-session-reviewer-1",
+      "extensionInstanceId": "bridge-ext-reviewer-1",
+      "hostPid": 41003,
+      "hostMode": "tui",
+      "controlMode": "managed",
+      "agentState": "waiting",
+      "assignmentState": null,
+      "nativeTerminalTitle": "Omarchestra — Reviewer — waiting",
+      "piStatus": "Reviewer · waiting"
+    }
+  ],
+  "assignment": {
+    "id": "assignment-builder-1",
+    "role": "builder",
+    "agentRunId": "agent-run-builder-1",
+    "state": "needs_reconciliation",
+    "lastAckStatus": "duplicate",
+    "prompt": "Harmless prototype assignment: confirm the visible bridge seam by replying with the fixed prototype acknowledgement phrase.",
+    "createdAt": "2026-09-02T15:12:46.787Z",
+    "updatedAt": "2026-09-02T15:12:46.985Z"
+  },
+  "journal": {
+    "requested": "default",
+    "effective": "delete",
+    "sqliteVersion": "3.53.4"
+  }
+}
+STEP 10 projection resumed after saved cursor 11 before bridge reconnects:
+{
+  "resumeAfter": 11,
+  "resumedEvents": [
+    {
+      "sequence": 12,
+      "eventId": "evt-dcbfdf6a435eb47bac472f92",
+      "eventType": "runner_restarted",
+      "role": null,
+      "payload": {
+        "runnerPid": 1986288
+      },
+      "createdAt": "2026-09-02T15:12:47.647Z"
+    }
+  ],
+  "snapshot": {
+    "cursor": 12,
+    "teamGoal": {
+      "id": "team-goal-vertical-slice-1",
+      "goalText": "Vertical-slice prototype: prove durable role-labelled visible-agent seams (throwaway).",
+      "createdAt": "2026-09-02T15:12:46.787Z",
+      "eventCursor": 12
+    },
+    "roles": [
+      {
+        "role": "coordinator",
+        "agentRunId": "agent-run-coordinator-1",
+        "terminalSessionRef": "terminal-coordinator-1",
+        "shellRunId": "shell-run-coordinator-1",
+        "piSessionId": "pi-session-coordinator-1",
+        "extensionInstanceId": "bridge-ext-coordinator-1",
+        "hostPid": 41001,
+        "hostMode": "tui",
+        "controlMode": "managed",
+        "agentState": "waiting",
+        "assignmentState": null,
+        "nativeTerminalTitle": "Omarchestra — Coordinator — waiting",
+        "piStatus": "Coordinator · waiting"
+      },
+      {
+        "role": "builder",
+        "agentRunId": "agent-run-builder-1",
+        "terminalSessionRef": "terminal-builder-1",
+        "shellRunId": "shell-run-builder-1",
+        "piSessionId": "pi-session-builder-1",
+        "extensionInstanceId": "bridge-ext-builder-1",
+        "hostPid": 41002,
+        "hostMode": "tui",
+        "controlMode": "manual_takeover",
+        "agentState": "working",
+        "assignmentState": "needs_reconciliation",
+        "nativeTerminalTitle": "Omarchestra — Builder — manual_takeover",
+        "piStatus": "Builder · manual_takeover"
+      },
+      {
+        "role": "reviewer",
+        "agentRunId": "agent-run-reviewer-1",
+        "terminalSessionRef": "terminal-reviewer-1",
+        "shellRunId": "shell-run-reviewer-1",
+        "piSessionId": "pi-session-reviewer-1",
+        "extensionInstanceId": "bridge-ext-reviewer-1",
+        "hostPid": 41003,
+        "hostMode": "tui",
+        "controlMode": "managed",
+        "agentState": "waiting",
+        "assignmentState": null,
+        "nativeTerminalTitle": "Omarchestra — Reviewer — waiting",
+        "piStatus": "Reviewer · waiting"
+      }
+    ],
+    "assignment": {
+      "id": "assignment-builder-1",
+      "role": "builder",
+      "agentRunId": "agent-run-builder-1",
+      "state": "needs_reconciliation",
+      "lastAckStatus": "duplicate",
+      "prompt": "Harmless prototype assignment: confirm the visible bridge seam by replying with the fixed prototype acknowledgement phrase.",
+      "createdAt": "2026-09-02T15:12:46.787Z",
+      "updatedAt": "2026-09-02T15:12:46.985Z"
+    },
+    "journal": {
+      "requested": "default",
+      "effective": "delete",
+      "sqliteVersion": "3.53.4"
+    }
+  }
+}
+STEP 11 same identity tuples reconnected; bindings and labels survived; reconnect events streamed live:
+{
+  "builder": {
+    "role": "builder",
+    "agentRunId": "agent-run-builder-1",
+    "terminalSessionRef": "terminal-builder-1",
+    "shellRunId": "shell-run-builder-1",
+    "piSessionId": "pi-session-builder-1",
+    "extensionInstanceId": "bridge-ext-builder-1",
+    "hostPid": 41002,
+    "hostMode": "tui",
+    "controlMode": "manual_takeover",
+    "agentState": "working",
+    "assignmentState": "needs_reconciliation",
+    "nativeTerminalTitle": "Omarchestra — Builder — manual_takeover",
+    "piStatus": "Builder · manual_takeover"
+  },
+  "snapshot": {
+    "cursor": 14,
+    "teamGoal": {
+      "id": "team-goal-vertical-slice-1",
+      "goalText": "Vertical-slice prototype: prove durable role-labelled visible-agent seams (throwaway).",
+      "createdAt": "2026-09-02T15:12:46.787Z",
+      "eventCursor": 14
+    },
+    "roles": [
+      {
+        "role": "coordinator",
+        "agentRunId": "agent-run-coordinator-1",
+        "terminalSessionRef": "terminal-coordinator-1",
+        "shellRunId": "shell-run-coordinator-1",
+        "piSessionId": "pi-session-coordinator-1",
+        "extensionInstanceId": "bridge-ext-coordinator-1",
+        "hostPid": 41001,
+        "hostMode": "tui",
+        "controlMode": "managed",
+        "agentState": "waiting",
+        "assignmentState": null,
+        "nativeTerminalTitle": "Omarchestra — Coordinator — waiting",
+        "piStatus": "Coordinator · waiting"
+      },
+      {
+        "role": "builder",
+        "agentRunId": "agent-run-builder-1",
+        "terminalSessionRef": "terminal-builder-1",
+        "shellRunId": "shell-run-builder-1",
+        "piSessionId": "pi-session-builder-1",
+        "extensionInstanceId": "bridge-ext-builder-1",
+        "hostPid": 41002,
+        "hostMode": "tui",
+        "controlMode": "manual_takeover",
+        "agentState": "working",
+        "assignmentState": "needs_reconciliation",
+        "nativeTerminalTitle": "Omarchestra — Builder — manual_takeover",
+        "piStatus": "Builder · manual_takeover"
+      },
+      {
+        "role": "reviewer",
+        "agentRunId": "agent-run-reviewer-1",
+        "terminalSessionRef": "terminal-reviewer-1",
+        "shellRunId": "shell-run-reviewer-1",
+        "piSessionId": "pi-session-reviewer-1",
+        "extensionInstanceId": "bridge-ext-reviewer-1",
+        "hostPid": 41003,
+        "hostMode": "tui",
+        "controlMode": "managed",
+        "agentState": "waiting",
+        "assignmentState": null,
+        "nativeTerminalTitle": "Omarchestra — Reviewer — waiting",
+        "piStatus": "Reviewer · waiting"
+      }
+    ],
+    "assignment": {
+      "id": "assignment-builder-1",
+      "role": "builder",
+      "agentRunId": "agent-run-builder-1",
+      "state": "needs_reconciliation",
+      "lastAckStatus": "duplicate",
+      "prompt": "Harmless prototype assignment: confirm the visible bridge seam by replying with the fixed prototype acknowledgement phrase.",
+      "createdAt": "2026-09-02T15:12:46.787Z",
+      "updatedAt": "2026-09-02T15:12:46.985Z"
+    },
+    "journal": {
+      "requested": "default",
+      "effective": "delete",
+      "sqliteVersion": "3.53.4"
+    }
+  },
+  "resumeSequences": [
+    12,
+    13,
+    14,
+    15
+  ],
+  "liveSequences": [
+    13,
+    14,
+    15
+  ]
+}
+--- STATE step-11-complete-reconnected-state (durable cursor 15) ---
+{
+  "cursor": 15,
+  "teamGoal": {
+    "id": "team-goal-vertical-slice-1",
+    "goalText": "Vertical-slice prototype: prove durable role-labelled visible-agent seams (throwaway).",
+    "createdAt": "2026-09-02T15:12:46.787Z",
+    "eventCursor": 15
+  },
+  "roles": [
+    {
+      "role": "coordinator",
+      "agentRunId": "agent-run-coordinator-1",
+      "terminalSessionRef": "terminal-coordinator-1",
+      "shellRunId": "shell-run-coordinator-1",
+      "piSessionId": "pi-session-coordinator-1",
+      "extensionInstanceId": "bridge-ext-coordinator-1",
+      "hostPid": 41001,
+      "hostMode": "tui",
+      "controlMode": "managed",
+      "agentState": "waiting",
+      "assignmentState": null,
+      "nativeTerminalTitle": "Omarchestra — Coordinator — waiting",
+      "piStatus": "Coordinator · waiting"
+    },
+    {
+      "role": "builder",
+      "agentRunId": "agent-run-builder-1",
+      "terminalSessionRef": "terminal-builder-1",
+      "shellRunId": "shell-run-builder-1",
+      "piSessionId": "pi-session-builder-1",
+      "extensionInstanceId": "bridge-ext-builder-1",
+      "hostPid": 41002,
+      "hostMode": "tui",
+      "controlMode": "manual_takeover",
+      "agentState": "working",
+      "assignmentState": "needs_reconciliation",
+      "nativeTerminalTitle": "Omarchestra — Builder — manual_takeover",
+      "piStatus": "Builder · manual_takeover"
+    },
+    {
+      "role": "reviewer",
+      "agentRunId": "agent-run-reviewer-1",
+      "terminalSessionRef": "terminal-reviewer-1",
+      "shellRunId": "shell-run-reviewer-1",
+      "piSessionId": "pi-session-reviewer-1",
+      "extensionInstanceId": "bridge-ext-reviewer-1",
+      "hostPid": 41003,
+      "hostMode": "tui",
+      "controlMode": "managed",
+      "agentState": "waiting",
+      "assignmentState": null,
+      "nativeTerminalTitle": "Omarchestra — Reviewer — waiting",
+      "piStatus": "Reviewer · waiting"
+    }
+  ],
+  "assignment": {
+    "id": "assignment-builder-1",
+    "role": "builder",
+    "agentRunId": "agent-run-builder-1",
+    "state": "needs_reconciliation",
+    "lastAckStatus": "duplicate",
+    "prompt": "Harmless prototype assignment: confirm the visible bridge seam by replying with the fixed prototype acknowledgement phrase.",
+    "createdAt": "2026-09-02T15:12:46.787Z",
+    "updatedAt": "2026-09-02T15:12:46.985Z"
+  },
+  "journal": {
+    "requested": "default",
+    "effective": "delete",
+    "sqliteVersion": "3.53.4"
+  }
+}
+STEP 12 final durable state and complete ordered event list (replayed from cursor 0):
+--- STATE final (durable cursor 15) ---
+{
+  "cursor": 15,
+  "teamGoal": {
+    "id": "team-goal-vertical-slice-1",
+    "goalText": "Vertical-slice prototype: prove durable role-labelled visible-agent seams (throwaway).",
+    "createdAt": "2026-09-02T15:12:46.787Z",
+    "eventCursor": 15
+  },
+  "roles": [
+    {
+      "role": "coordinator",
+      "agentRunId": "agent-run-coordinator-1",
+      "terminalSessionRef": "terminal-coordinator-1",
+      "shellRunId": "shell-run-coordinator-1",
+      "piSessionId": "pi-session-coordinator-1",
+      "extensionInstanceId": "bridge-ext-coordinator-1",
+      "hostPid": 41001,
+      "hostMode": "tui",
+      "controlMode": "managed",
+      "agentState": "waiting",
+      "assignmentState": null,
+      "nativeTerminalTitle": "Omarchestra — Coordinator — waiting",
+      "piStatus": "Coordinator · waiting"
+    },
+    {
+      "role": "builder",
+      "agentRunId": "agent-run-builder-1",
+      "terminalSessionRef": "terminal-builder-1",
+      "shellRunId": "shell-run-builder-1",
+      "piSessionId": "pi-session-builder-1",
+      "extensionInstanceId": "bridge-ext-builder-1",
+      "hostPid": 41002,
+      "hostMode": "tui",
+      "controlMode": "manual_takeover",
+      "agentState": "working",
+      "assignmentState": "needs_reconciliation",
+      "nativeTerminalTitle": "Omarchestra — Builder — manual_takeover",
+      "piStatus": "Builder · manual_takeover"
+    },
+    {
+      "role": "reviewer",
+      "agentRunId": "agent-run-reviewer-1",
+      "terminalSessionRef": "terminal-reviewer-1",
+      "shellRunId": "shell-run-reviewer-1",
+      "piSessionId": "pi-session-reviewer-1",
+      "extensionInstanceId": "bridge-ext-reviewer-1",
+      "hostPid": 41003,
+      "hostMode": "tui",
+      "controlMode": "managed",
+      "agentState": "waiting",
+      "assignmentState": null,
+      "nativeTerminalTitle": "Omarchestra — Reviewer — waiting",
+      "piStatus": "Reviewer · waiting"
+    }
+  ],
+  "assignment": {
+    "id": "assignment-builder-1",
+    "role": "builder",
+    "agentRunId": "agent-run-builder-1",
+    "state": "needs_reconciliation",
+    "lastAckStatus": "duplicate",
+    "prompt": "Harmless prototype assignment: confirm the visible bridge seam by replying with the fixed prototype acknowledgement phrase.",
+    "createdAt": "2026-09-02T15:12:46.787Z",
+    "updatedAt": "2026-09-02T15:12:46.985Z"
+  },
+  "journal": {
+    "requested": "default",
+    "effective": "delete",
+    "sqliteVersion": "3.53.4"
+  }
+}
+--- EVENT LIST (durable, ordered) ---
+[
+  {
+    "sequence": 1,
+    "eventId": "evt-22bed1ec2f41be54302d92ba",
+    "eventType": "goal_bootstrapped",
+    "role": null,
+    "payload": {
+      "teamGoalId": "team-goal-vertical-slice-1",
+      "roles": [
+        "coordinator",
+        "builder",
+        "reviewer"
+      ]
+    },
+    "createdAt": "2026-09-02T15:12:46.796Z"
+  },
+  {
+    "sequence": 2,
+    "eventId": "evt-6fd948676662f46d413fba2c",
+    "eventType": "bridge_connected",
+    "role": "coordinator",
+    "payload": {
+      "role": "coordinator",
+      "agentRunId": "agent-run-coordinator-1",
+      "shellRunId": "shell-run-coordinator-1",
+      "reconnected": false
+    },
+    "createdAt": "2026-09-02T15:12:46.827Z"
+  },
+  {
+    "sequence": 3,
+    "eventId": "evt-28d1065f0222a4873bc1557c",
+    "eventType": "bridge_connected",
+    "role": "builder",
+    "payload": {
+      "role": "builder",
+      "agentRunId": "agent-run-builder-1",
+      "shellRunId": "shell-run-builder-1",
+      "reconnected": false
+    },
+    "createdAt": "2026-09-02T15:12:46.834Z"
+  },
+  {
+    "sequence": 4,
+    "eventId": "evt-fbf40377b4715c04c4f8dd64",
+    "eventType": "assignment_accepted",
+    "role": "builder",
+    "payload": {
+      "assignmentId": "assignment-builder-1",
+      "role": "builder",
+      "ack": "accepted"
+    },
+    "createdAt": "2026-09-02T15:12:46.845Z"
+  },
+  {
+    "sequence": 5,
+    "eventId": "evt-d7b87992df71ce72511ef34a",
+    "eventType": "bridge_connected",
+    "role": "reviewer",
+    "payload": {
+      "role": "reviewer",
+      "agentRunId": "agent-run-reviewer-1",
+      "shellRunId": "shell-run-reviewer-1",
+      "reconnected": false
+    },
+    "createdAt": "2026-09-02T15:12:46.847Z"
+  },
+  {
+    "sequence": 6,
+    "eventId": "evt-37451bff540f0668a3aecfdb",
+    "eventType": "bridge_connected",
+    "role": "coordinator",
+    "payload": {
+      "role": "coordinator",
+      "agentRunId": "agent-run-coordinator-1",
+      "shellRunId": "shell-run-coordinator-1",
+      "reconnected": true
+    },
+    "createdAt": "2026-09-02T15:12:46.859Z"
+  },
+  {
+    "sequence": 7,
+    "eventId": "evt-b91da1a7aa2264bbf17bb5ac",
+    "eventType": "bridge_connected",
+    "role": "coordinator",
+    "payload": {
+      "role": "coordinator",
+      "agentRunId": "agent-run-coordinator-1",
+      "shellRunId": "shell-run-coordinator-1",
+      "reconnected": true
+    },
+    "createdAt": "2026-09-02T15:12:46.870Z"
+  },
+  {
+    "sequence": 8,
+    "eventId": "evt-d662a22206ff75dc870ae1e3",
+    "eventType": "bridge_connected",
+    "role": "builder",
+    "payload": {
+      "role": "builder",
+      "agentRunId": "agent-run-builder-1",
+      "shellRunId": "shell-run-builder-1",
+      "reconnected": true
+    },
+    "createdAt": "2026-09-02T15:12:46.977Z"
+  },
+  {
+    "sequence": 9,
+    "eventId": "evt-aa4f38642f288af20534abcf",
+    "eventType": "assignment_duplicate_acknowledged",
+    "role": "builder",
+    "payload": {
+      "assignmentId": "assignment-builder-1",
+      "role": "builder",
+      "ack": "duplicate"
+    },
+    "createdAt": "2026-09-02T15:12:46.980Z"
+  },
+  {
+    "sequence": 10,
+    "eventId": "evt-3c0eda8fab2a3caafe398230",
+    "eventType": "human_input_submitted",
+    "role": "builder",
+    "payload": {
+      "role": "builder",
+      "inputSource": "interactive",
+      "charCount": 33
+    },
+    "createdAt": "2026-09-02T15:12:46.985Z"
+  },
+  {
+    "sequence": 11,
+    "eventId": "evt-e731dfaec89eb7761b531868",
+    "eventType": "manual_takeover",
+    "role": "builder",
+    "payload": {
+      "role": "builder",
+      "from": "managed",
+      "to": "manual_takeover",
+      "assignmentId": "assignment-builder-1",
+      "assignmentState": "needs_reconciliation"
+    },
+    "createdAt": "2026-09-02T15:12:46.986Z"
+  },
+  {
+    "sequence": 12,
+    "eventId": "evt-dcbfdf6a435eb47bac472f92",
+    "eventType": "runner_restarted",
+    "role": null,
+    "payload": {
+      "runnerPid": 1986288
+    },
+    "createdAt": "2026-09-02T15:12:47.647Z"
+  },
+  {
+    "sequence": 13,
+    "eventId": "evt-6799c608e2582ceb7ca69c21",
+    "eventType": "bridge_connected",
+    "role": "coordinator",
+    "payload": {
+      "role": "coordinator",
+      "agentRunId": "agent-run-coordinator-1",
+      "shellRunId": "shell-run-coordinator-1",
+      "reconnected": true
+    },
+    "createdAt": "2026-09-02T15:12:47.677Z"
+  },
+  {
+    "sequence": 14,
+    "eventId": "evt-19cc4573bd23b77413cede09",
+    "eventType": "bridge_connected",
+    "role": "builder",
+    "payload": {
+      "role": "builder",
+      "agentRunId": "agent-run-builder-1",
+      "shellRunId": "shell-run-builder-1",
+      "reconnected": true
+    },
+    "createdAt": "2026-09-02T15:12:47.682Z"
+  },
+  {
+    "sequence": 15,
+    "eventId": "evt-bac759c27b924643d3367e98",
+    "eventType": "bridge_connected",
+    "role": "reviewer",
+    "payload": {
+      "role": "reviewer",
+      "agentRunId": "agent-run-reviewer-1",
+      "shellRunId": "shell-run-reviewer-1",
+      "reconnected": true
+    },
+    "createdAt": "2026-09-02T15:12:47.686Z"
+  }
+]
+SCENARIO journal=default: PASS (both runner launches recorded; temporary state wiped)
+
+======================================================================
+SCENARIO journal=wal (requested and effective modes reported; no mode is ranked)
+======================================================================
+GATE   fresh caller-owned state directory: /tmp/omarchestra-vertical-slice-EOUhYH
+STEP 1 schema/bootstrap — runner readiness report (requested vs effective journal mode):
+{
+  "event": "runner_ready",
+  "pid": 1986300,
+  "stateDir": "/tmp/omarchestra-vertical-slice-EOUhYH",
+  "socket": "/tmp/omarchestra-vertical-slice-EOUhYH/runner.sock",
+  "journalRequested": "wal",
+  "journalEffective": "wal",
+  "sqliteVersion": "3.53.4",
+  "schemaVersion": 1,
+  "mount": {
+    "fstype": "tmpfs",
+    "magic": 16914836,
+    "source": "tmpfs",
+    "local": true,
+    "detection": "best-effort: statfs magic plus /proc/self/mountinfo fstype; known network/FUSE families rejected, locality not proven"
+  }
+}
+STEP 1 filesystem and permission checks passed (database outside Git, owner-only files and socket).
+{
+  "schemaVersion": 1,
+  "uid": 1000,
+  "directoryMode": "0700",
+  "databaseMode": "0600",
+  "socketMode": "0600",
+  "mount": {
+    "fstype": "tmpfs",
+    "magic": 16914836,
+    "source": "tmpfs",
+    "local": true,
+    "detection": "best-effort: statfs magic plus /proc/self/mountinfo fstype; known network/FUSE families rejected, locality not proven"
+  }
+}
+--- STATE step-1-bootstrap (durable cursor 1) ---
+{
+  "cursor": 1,
+  "teamGoal": {
+    "id": "team-goal-vertical-slice-1",
+    "goalText": "Vertical-slice prototype: prove durable role-labelled visible-agent seams (throwaway).",
+    "createdAt": "2026-09-02T15:12:48.247Z",
+    "eventCursor": 1
+  },
+  "roles": [
+    {
+      "role": "coordinator",
+      "agentRunId": "agent-run-coordinator-1",
+      "terminalSessionRef": "terminal-coordinator-1",
+      "shellRunId": "shell-run-coordinator-1",
+      "piSessionId": "pi-session-coordinator-1",
+      "extensionInstanceId": "bridge-ext-coordinator-1",
+      "hostPid": 41001,
+      "hostMode": "tui",
+      "controlMode": "managed",
+      "agentState": "waiting",
+      "assignmentState": null,
+      "nativeTerminalTitle": "Omarchestra — Coordinator — waiting",
+      "piStatus": "Coordinator · waiting"
+    },
+    {
+      "role": "builder",
+      "agentRunId": "agent-run-builder-1",
+      "terminalSessionRef": "terminal-builder-1",
+      "shellRunId": "shell-run-builder-1",
+      "piSessionId": "pi-session-builder-1",
+      "extensionInstanceId": "bridge-ext-builder-1",
+      "hostPid": 41002,
+      "hostMode": "tui",
+      "controlMode": "managed",
+      "agentState": "waiting",
+      "assignmentState": "pending",
+      "nativeTerminalTitle": "Omarchestra — Builder — waiting",
+      "piStatus": "Builder · waiting"
+    },
+    {
+      "role": "reviewer",
+      "agentRunId": "agent-run-reviewer-1",
+      "terminalSessionRef": "terminal-reviewer-1",
+      "shellRunId": "shell-run-reviewer-1",
+      "piSessionId": "pi-session-reviewer-1",
+      "extensionInstanceId": "bridge-ext-reviewer-1",
+      "hostPid": 41003,
+      "hostMode": "tui",
+      "controlMode": "managed",
+      "agentState": "waiting",
+      "assignmentState": null,
+      "nativeTerminalTitle": "Omarchestra — Reviewer — waiting",
+      "piStatus": "Reviewer · waiting"
+    }
+  ],
+  "assignment": {
+    "id": "assignment-builder-1",
+    "role": "builder",
+    "agentRunId": "agent-run-builder-1",
+    "state": "pending",
+    "lastAckStatus": null,
+    "prompt": "Harmless prototype assignment: confirm the visible bridge seam by replying with the fixed prototype acknowledgement phrase.",
+    "createdAt": "2026-09-02T15:12:48.247Z",
+    "updatedAt": "2026-09-02T15:12:48.247Z"
+  },
+  "journal": {
+    "requested": "wal",
+    "effective": "wal",
+    "sqliteVersion": "3.53.4"
+  }
+}
+STEP 2 all three fake visible-host bridges completed the real handshake over the owner-only Unix socket:
+  coordinator: agentRunId=agent-run-coordinator-1 hostPid=41001 shellRunId=shell-run-coordinator-1
+--- STATE handshake-coordinator (durable cursor 2) ---
+{
+  "cursor": 2,
+  "teamGoal": {
+    "id": "team-goal-vertical-slice-1",
+    "goalText": "Vertical-slice prototype: prove durable role-labelled visible-agent seams (throwaway).",
+    "createdAt": "2026-09-02T15:12:48.247Z",
+    "eventCursor": 2
+  },
+  "roles": [
+    {
+      "role": "coordinator",
+      "agentRunId": "agent-run-coordinator-1",
+      "terminalSessionRef": "terminal-coordinator-1",
+      "shellRunId": "shell-run-coordinator-1",
+      "piSessionId": "pi-session-coordinator-1",
+      "extensionInstanceId": "bridge-ext-coordinator-1",
+      "hostPid": 41001,
+      "hostMode": "tui",
+      "controlMode": "managed",
+      "agentState": "waiting",
+      "assignmentState": null,
+      "nativeTerminalTitle": "Omarchestra — Coordinator — waiting",
+      "piStatus": "Coordinator · waiting"
+    },
+    {
+      "role": "builder",
+      "agentRunId": "agent-run-builder-1",
+      "terminalSessionRef": "terminal-builder-1",
+      "shellRunId": "shell-run-builder-1",
+      "piSessionId": "pi-session-builder-1",
+      "extensionInstanceId": "bridge-ext-builder-1",
+      "hostPid": 41002,
+      "hostMode": "tui",
+      "controlMode": "managed",
+      "agentState": "waiting",
+      "assignmentState": "pending",
+      "nativeTerminalTitle": "Omarchestra — Builder — waiting",
+      "piStatus": "Builder · waiting"
+    },
+    {
+      "role": "reviewer",
+      "agentRunId": "agent-run-reviewer-1",
+      "terminalSessionRef": "terminal-reviewer-1",
+      "shellRunId": "shell-run-reviewer-1",
+      "piSessionId": "pi-session-reviewer-1",
+      "extensionInstanceId": "bridge-ext-reviewer-1",
+      "hostPid": 41003,
+      "hostMode": "tui",
+      "controlMode": "managed",
+      "agentState": "waiting",
+      "assignmentState": null,
+      "nativeTerminalTitle": "Omarchestra — Reviewer — waiting",
+      "piStatus": "Reviewer · waiting"
+    }
+  ],
+  "assignment": {
+    "id": "assignment-builder-1",
+    "role": "builder",
+    "agentRunId": "agent-run-builder-1",
+    "state": "pending",
+    "lastAckStatus": null,
+    "prompt": "Harmless prototype assignment: confirm the visible bridge seam by replying with the fixed prototype acknowledgement phrase.",
+    "createdAt": "2026-09-02T15:12:48.247Z",
+    "updatedAt": "2026-09-02T15:12:48.247Z"
+  },
+  "journal": {
+    "requested": "wal",
+    "effective": "wal",
+    "sqliteVersion": "3.53.4"
+  }
+}
+  builder: agentRunId=agent-run-builder-1 hostPid=41002 shellRunId=shell-run-builder-1
+--- STATE handshake-builder (durable cursor 3) ---
+{
+  "cursor": 3,
+  "teamGoal": {
+    "id": "team-goal-vertical-slice-1",
+    "goalText": "Vertical-slice prototype: prove durable role-labelled visible-agent seams (throwaway).",
+    "createdAt": "2026-09-02T15:12:48.247Z",
+    "eventCursor": 3
+  },
+  "roles": [
+    {
+      "role": "coordinator",
+      "agentRunId": "agent-run-coordinator-1",
+      "terminalSessionRef": "terminal-coordinator-1",
+      "shellRunId": "shell-run-coordinator-1",
+      "piSessionId": "pi-session-coordinator-1",
+      "extensionInstanceId": "bridge-ext-coordinator-1",
+      "hostPid": 41001,
+      "hostMode": "tui",
+      "controlMode": "managed",
+      "agentState": "waiting",
+      "assignmentState": null,
+      "nativeTerminalTitle": "Omarchestra — Coordinator — waiting",
+      "piStatus": "Coordinator · waiting"
+    },
+    {
+      "role": "builder",
+      "agentRunId": "agent-run-builder-1",
+      "terminalSessionRef": "terminal-builder-1",
+      "shellRunId": "shell-run-builder-1",
+      "piSessionId": "pi-session-builder-1",
+      "extensionInstanceId": "bridge-ext-builder-1",
+      "hostPid": 41002,
+      "hostMode": "tui",
+      "controlMode": "managed",
+      "agentState": "waiting",
+      "assignmentState": "pending",
+      "nativeTerminalTitle": "Omarchestra — Builder — waiting",
+      "piStatus": "Builder · waiting"
+    },
+    {
+      "role": "reviewer",
+      "agentRunId": "agent-run-reviewer-1",
+      "terminalSessionRef": "terminal-reviewer-1",
+      "shellRunId": "shell-run-reviewer-1",
+      "piSessionId": "pi-session-reviewer-1",
+      "extensionInstanceId": "bridge-ext-reviewer-1",
+      "hostPid": 41003,
+      "hostMode": "tui",
+      "controlMode": "managed",
+      "agentState": "waiting",
+      "assignmentState": null,
+      "nativeTerminalTitle": "Omarchestra — Reviewer — waiting",
+      "piStatus": "Reviewer · waiting"
+    }
+  ],
+  "assignment": {
+    "id": "assignment-builder-1",
+    "role": "builder",
+    "agentRunId": "agent-run-builder-1",
+    "state": "pending",
+    "lastAckStatus": null,
+    "prompt": "Harmless prototype assignment: confirm the visible bridge seam by replying with the fixed prototype acknowledgement phrase.",
+    "createdAt": "2026-09-02T15:12:48.247Z",
+    "updatedAt": "2026-09-02T15:12:48.247Z"
+  },
+  "journal": {
+    "requested": "wal",
+    "effective": "wal",
+    "sqliteVersion": "3.53.4"
+  }
+}
+  reviewer: agentRunId=agent-run-reviewer-1 hostPid=41003 shellRunId=shell-run-reviewer-1
+--- STATE handshake-reviewer (durable cursor 5) ---
+{
+  "cursor": 5,
+  "teamGoal": {
+    "id": "team-goal-vertical-slice-1",
+    "goalText": "Vertical-slice prototype: prove durable role-labelled visible-agent seams (throwaway).",
+    "createdAt": "2026-09-02T15:12:48.247Z",
+    "eventCursor": 5
+  },
+  "roles": [
+    {
+      "role": "coordinator",
+      "agentRunId": "agent-run-coordinator-1",
+      "terminalSessionRef": "terminal-coordinator-1",
+      "shellRunId": "shell-run-coordinator-1",
+      "piSessionId": "pi-session-coordinator-1",
+      "extensionInstanceId": "bridge-ext-coordinator-1",
+      "hostPid": 41001,
+      "hostMode": "tui",
+      "controlMode": "managed",
+      "agentState": "waiting",
+      "assignmentState": null,
+      "nativeTerminalTitle": "Omarchestra — Coordinator — waiting",
+      "piStatus": "Coordinator · waiting"
+    },
+    {
+      "role": "builder",
+      "agentRunId": "agent-run-builder-1",
+      "terminalSessionRef": "terminal-builder-1",
+      "shellRunId": "shell-run-builder-1",
+      "piSessionId": "pi-session-builder-1",
+      "extensionInstanceId": "bridge-ext-builder-1",
+      "hostPid": 41002,
+      "hostMode": "tui",
+      "controlMode": "managed",
+      "agentState": "working",
+      "assignmentState": "active",
+      "nativeTerminalTitle": "Omarchestra — Builder — managed",
+      "piStatus": "Builder · managed"
+    },
+    {
+      "role": "reviewer",
+      "agentRunId": "agent-run-reviewer-1",
+      "terminalSessionRef": "terminal-reviewer-1",
+      "shellRunId": "shell-run-reviewer-1",
+      "piSessionId": "pi-session-reviewer-1",
+      "extensionInstanceId": "bridge-ext-reviewer-1",
+      "hostPid": 41003,
+      "hostMode": "tui",
+      "controlMode": "managed",
+      "agentState": "waiting",
+      "assignmentState": null,
+      "nativeTerminalTitle": "Omarchestra — Reviewer — waiting",
+      "piStatus": "Reviewer · waiting"
+    }
+  ],
+  "assignment": {
+    "id": "assignment-builder-1",
+    "role": "builder",
+    "agentRunId": "agent-run-builder-1",
+    "state": "active",
+    "lastAckStatus": "accepted",
+    "prompt": "Harmless prototype assignment: confirm the visible bridge seam by replying with the fixed prototype acknowledgement phrase.",
+    "createdAt": "2026-09-02T15:12:48.247Z",
+    "updatedAt": "2026-09-02T15:12:48.290Z"
+  },
+  "journal": {
+    "requested": "wal",
+    "effective": "wal",
+    "sqliteVersion": "3.53.4"
+  }
+}
+--- STATE before-wrong-role-busy-ack (durable cursor 5) ---
+{
+  "cursor": 5,
+  "teamGoal": {
+    "id": "team-goal-vertical-slice-1",
+    "goalText": "Vertical-slice prototype: prove durable role-labelled visible-agent seams (throwaway).",
+    "createdAt": "2026-09-02T15:12:48.247Z",
+    "eventCursor": 5
+  },
+  "roles": [
+    {
+      "role": "coordinator",
+      "agentRunId": "agent-run-coordinator-1",
+      "terminalSessionRef": "terminal-coordinator-1",
+      "shellRunId": "shell-run-coordinator-1",
+      "piSessionId": "pi-session-coordinator-1",
+      "extensionInstanceId": "bridge-ext-coordinator-1",
+      "hostPid": 41001,
+      "hostMode": "tui",
+      "controlMode": "managed",
+      "agentState": "waiting",
+      "assignmentState": null,
+      "nativeTerminalTitle": "Omarchestra — Coordinator — waiting",
+      "piStatus": "Coordinator · waiting"
+    },
+    {
+      "role": "builder",
+      "agentRunId": "agent-run-builder-1",
+      "terminalSessionRef": "terminal-builder-1",
+      "shellRunId": "shell-run-builder-1",
+      "piSessionId": "pi-session-builder-1",
+      "extensionInstanceId": "bridge-ext-builder-1",
+      "hostPid": 41002,
+      "hostMode": "tui",
+      "controlMode": "managed",
+      "agentState": "working",
+      "assignmentState": "active",
+      "nativeTerminalTitle": "Omarchestra — Builder — managed",
+      "piStatus": "Builder · managed"
+    },
+    {
+      "role": "reviewer",
+      "agentRunId": "agent-run-reviewer-1",
+      "terminalSessionRef": "terminal-reviewer-1",
+      "shellRunId": "shell-run-reviewer-1",
+      "piSessionId": "pi-session-reviewer-1",
+      "extensionInstanceId": "bridge-ext-reviewer-1",
+      "hostPid": 41003,
+      "hostMode": "tui",
+      "controlMode": "managed",
+      "agentState": "waiting",
+      "assignmentState": null,
+      "nativeTerminalTitle": "Omarchestra — Reviewer — waiting",
+      "piStatus": "Reviewer · waiting"
+    }
+  ],
+  "assignment": {
+    "id": "assignment-builder-1",
+    "role": "builder",
+    "agentRunId": "agent-run-builder-1",
+    "state": "active",
+    "lastAckStatus": "accepted",
+    "prompt": "Harmless prototype assignment: confirm the visible bridge seam by replying with the fixed prototype acknowledgement phrase.",
+    "createdAt": "2026-09-02T15:12:48.247Z",
+    "updatedAt": "2026-09-02T15:12:48.290Z"
+  },
+  "journal": {
+    "requested": "wal",
+    "effective": "wal",
+    "sqliteVersion": "3.53.4"
+  }
+}
+--- STATE after-wrong-role-busy-ack (durable cursor 5) ---
+{
+  "cursor": 5,
+  "teamGoal": {
+    "id": "team-goal-vertical-slice-1",
+    "goalText": "Vertical-slice prototype: prove durable role-labelled visible-agent seams (throwaway).",
+    "createdAt": "2026-09-02T15:12:48.247Z",
+    "eventCursor": 5
+  },
+  "roles": [
+    {
+      "role": "coordinator",
+      "agentRunId": "agent-run-coordinator-1",
+      "terminalSessionRef": "terminal-coordinator-1",
+      "shellRunId": "shell-run-coordinator-1",
+      "piSessionId": "pi-session-coordinator-1",
+      "extensionInstanceId": "bridge-ext-coordinator-1",
+      "hostPid": 41001,
+      "hostMode": "tui",
+      "controlMode": "managed",
+      "agentState": "waiting",
+      "assignmentState": null,
+      "nativeTerminalTitle": "Omarchestra — Coordinator — waiting",
+      "piStatus": "Coordinator · waiting"
+    },
+    {
+      "role": "builder",
+      "agentRunId": "agent-run-builder-1",
+      "terminalSessionRef": "terminal-builder-1",
+      "shellRunId": "shell-run-builder-1",
+      "piSessionId": "pi-session-builder-1",
+      "extensionInstanceId": "bridge-ext-builder-1",
+      "hostPid": 41002,
+      "hostMode": "tui",
+      "controlMode": "managed",
+      "agentState": "working",
+      "assignmentState": "active",
+      "nativeTerminalTitle": "Omarchestra — Builder — managed",
+      "piStatus": "Builder · managed"
+    },
+    {
+      "role": "reviewer",
+      "agentRunId": "agent-run-reviewer-1",
+      "terminalSessionRef": "terminal-reviewer-1",
+      "shellRunId": "shell-run-reviewer-1",
+      "piSessionId": "pi-session-reviewer-1",
+      "extensionInstanceId": "bridge-ext-reviewer-1",
+      "hostPid": 41003,
+      "hostMode": "tui",
+      "controlMode": "managed",
+      "agentState": "waiting",
+      "assignmentState": null,
+      "nativeTerminalTitle": "Omarchestra — Reviewer — waiting",
+      "piStatus": "Reviewer · waiting"
+    }
+  ],
+  "assignment": {
+    "id": "assignment-builder-1",
+    "role": "builder",
+    "agentRunId": "agent-run-builder-1",
+    "state": "active",
+    "lastAckStatus": "accepted",
+    "prompt": "Harmless prototype assignment: confirm the visible bridge seam by replying with the fixed prototype acknowledgement phrase.",
+    "createdAt": "2026-09-02T15:12:48.247Z",
+    "updatedAt": "2026-09-02T15:12:48.290Z"
+  },
+  "journal": {
+    "requested": "wal",
+    "effective": "wal",
+    "sqliteVersion": "3.53.4"
+  }
+}
+--- STATE before-unknown-invalid-ack (durable cursor 6) ---
+{
+  "cursor": 6,
+  "teamGoal": {
+    "id": "team-goal-vertical-slice-1",
+    "goalText": "Vertical-slice prototype: prove durable role-labelled visible-agent seams (throwaway).",
+    "createdAt": "2026-09-02T15:12:48.247Z",
+    "eventCursor": 6
+  },
+  "roles": [
+    {
+      "role": "coordinator",
+      "agentRunId": "agent-run-coordinator-1",
+      "terminalSessionRef": "terminal-coordinator-1",
+      "shellRunId": "shell-run-coordinator-1",
+      "piSessionId": "pi-session-coordinator-1",
+      "extensionInstanceId": "bridge-ext-coordinator-1",
+      "hostPid": 41001,
+      "hostMode": "tui",
+      "controlMode": "managed",
+      "agentState": "waiting",
+      "assignmentState": null,
+      "nativeTerminalTitle": "Omarchestra — Coordinator — waiting",
+      "piStatus": "Coordinator · waiting"
+    },
+    {
+      "role": "builder",
+      "agentRunId": "agent-run-builder-1",
+      "terminalSessionRef": "terminal-builder-1",
+      "shellRunId": "shell-run-builder-1",
+      "piSessionId": "pi-session-builder-1",
+      "extensionInstanceId": "bridge-ext-builder-1",
+      "hostPid": 41002,
+      "hostMode": "tui",
+      "controlMode": "managed",
+      "agentState": "working",
+      "assignmentState": "active",
+      "nativeTerminalTitle": "Omarchestra — Builder — managed",
+      "piStatus": "Builder · managed"
+    },
+    {
+      "role": "reviewer",
+      "agentRunId": "agent-run-reviewer-1",
+      "terminalSessionRef": "terminal-reviewer-1",
+      "shellRunId": "shell-run-reviewer-1",
+      "piSessionId": "pi-session-reviewer-1",
+      "extensionInstanceId": "bridge-ext-reviewer-1",
+      "hostPid": 41003,
+      "hostMode": "tui",
+      "controlMode": "managed",
+      "agentState": "waiting",
+      "assignmentState": null,
+      "nativeTerminalTitle": "Omarchestra — Reviewer — waiting",
+      "piStatus": "Reviewer · waiting"
+    }
+  ],
+  "assignment": {
+    "id": "assignment-builder-1",
+    "role": "builder",
+    "agentRunId": "agent-run-builder-1",
+    "state": "active",
+    "lastAckStatus": "accepted",
+    "prompt": "Harmless prototype assignment: confirm the visible bridge seam by replying with the fixed prototype acknowledgement phrase.",
+    "createdAt": "2026-09-02T15:12:48.247Z",
+    "updatedAt": "2026-09-02T15:12:48.290Z"
+  },
+  "journal": {
+    "requested": "wal",
+    "effective": "wal",
+    "sqliteVersion": "3.53.4"
+  }
+}
+--- STATE after-unknown-invalid-ack (durable cursor 6) ---
+{
+  "cursor": 6,
+  "teamGoal": {
+    "id": "team-goal-vertical-slice-1",
+    "goalText": "Vertical-slice prototype: prove durable role-labelled visible-agent seams (throwaway).",
+    "createdAt": "2026-09-02T15:12:48.247Z",
+    "eventCursor": 6
+  },
+  "roles": [
+    {
+      "role": "coordinator",
+      "agentRunId": "agent-run-coordinator-1",
+      "terminalSessionRef": "terminal-coordinator-1",
+      "shellRunId": "shell-run-coordinator-1",
+      "piSessionId": "pi-session-coordinator-1",
+      "extensionInstanceId": "bridge-ext-coordinator-1",
+      "hostPid": 41001,
+      "hostMode": "tui",
+      "controlMode": "managed",
+      "agentState": "waiting",
+      "assignmentState": null,
+      "nativeTerminalTitle": "Omarchestra — Coordinator — waiting",
+      "piStatus": "Coordinator · waiting"
+    },
+    {
+      "role": "builder",
+      "agentRunId": "agent-run-builder-1",
+      "terminalSessionRef": "terminal-builder-1",
+      "shellRunId": "shell-run-builder-1",
+      "piSessionId": "pi-session-builder-1",
+      "extensionInstanceId": "bridge-ext-builder-1",
+      "hostPid": 41002,
+      "hostMode": "tui",
+      "controlMode": "managed",
+      "agentState": "working",
+      "assignmentState": "active",
+      "nativeTerminalTitle": "Omarchestra — Builder — managed",
+      "piStatus": "Builder · managed"
+    },
+    {
+      "role": "reviewer",
+      "agentRunId": "agent-run-reviewer-1",
+      "terminalSessionRef": "terminal-reviewer-1",
+      "shellRunId": "shell-run-reviewer-1",
+      "piSessionId": "pi-session-reviewer-1",
+      "extensionInstanceId": "bridge-ext-reviewer-1",
+      "hostPid": 41003,
+      "hostMode": "tui",
+      "controlMode": "managed",
+      "agentState": "waiting",
+      "assignmentState": null,
+      "nativeTerminalTitle": "Omarchestra — Reviewer — waiting",
+      "piStatus": "Reviewer · waiting"
+    }
+  ],
+  "assignment": {
+    "id": "assignment-builder-1",
+    "role": "builder",
+    "agentRunId": "agent-run-builder-1",
+    "state": "active",
+    "lastAckStatus": "accepted",
+    "prompt": "Harmless prototype assignment: confirm the visible bridge seam by replying with the fixed prototype acknowledgement phrase.",
+    "createdAt": "2026-09-02T15:12:48.247Z",
+    "updatedAt": "2026-09-02T15:12:48.290Z"
+  },
+  "journal": {
+    "requested": "wal",
+    "effective": "wal",
+    "sqliteVersion": "3.53.4"
+  }
+}
+STEP 2 assignment acknowledgement authorization rejects wrong-role/unknown busy and invalid statuses without durable change.
+STEP 3 initial presentation verified: Pi-status/title metadata and QML role projections are waiting and mutually distinct.
+--- STATE step-3-initial-label-contract (durable cursor 3) ---
+{
+  "cursor": 3,
+  "teamGoal": {
+    "id": "team-goal-vertical-slice-1",
+    "goalText": "Vertical-slice prototype: prove durable role-labelled visible-agent seams (throwaway).",
+    "createdAt": "2026-09-02T15:12:48.247Z",
+    "eventCursor": 3
+  },
+  "roles": [
+    {
+      "role": "coordinator",
+      "agentRunId": "agent-run-coordinator-1",
+      "terminalSessionRef": "terminal-coordinator-1",
+      "shellRunId": "shell-run-coordinator-1",
+      "piSessionId": "pi-session-coordinator-1",
+      "extensionInstanceId": "bridge-ext-coordinator-1",
+      "hostPid": 41001,
+      "hostMode": "tui",
+      "controlMode": "managed",
+      "agentState": "waiting",
+      "assignmentState": null,
+      "nativeTerminalTitle": "Omarchestra — Coordinator — waiting",
+      "piStatus": "Coordinator · waiting"
+    },
+    {
+      "role": "builder",
+      "agentRunId": "agent-run-builder-1",
+      "terminalSessionRef": "terminal-builder-1",
+      "shellRunId": "shell-run-builder-1",
+      "piSessionId": "pi-session-builder-1",
+      "extensionInstanceId": "bridge-ext-builder-1",
+      "hostPid": 41002,
+      "hostMode": "tui",
+      "controlMode": "managed",
+      "agentState": "waiting",
+      "assignmentState": "pending",
+      "nativeTerminalTitle": "Omarchestra — Builder — waiting",
+      "piStatus": "Builder · waiting"
+    },
+    {
+      "role": "reviewer",
+      "agentRunId": "agent-run-reviewer-1",
+      "terminalSessionRef": "terminal-reviewer-1",
+      "shellRunId": "shell-run-reviewer-1",
+      "piSessionId": "pi-session-reviewer-1",
+      "extensionInstanceId": "bridge-ext-reviewer-1",
+      "hostPid": 41003,
+      "hostMode": "tui",
+      "controlMode": "managed",
+      "agentState": "waiting",
+      "assignmentState": null,
+      "nativeTerminalTitle": "Omarchestra — Reviewer — waiting",
+      "piStatus": "Reviewer · waiting"
+    }
+  ],
+  "assignment": {
+    "id": "assignment-builder-1",
+    "role": "builder",
+    "agentRunId": "agent-run-builder-1",
+    "state": "pending",
+    "lastAckStatus": null,
+    "prompt": "Harmless prototype assignment: confirm the visible bridge seam by replying with the fixed prototype acknowledgement phrase.",
+    "createdAt": "2026-09-02T15:12:48.247Z",
+    "updatedAt": "2026-09-02T15:12:48.247Z"
+  },
+  "journal": {
+    "requested": "wal",
+    "effective": "wal",
+    "sqliteVersion": "3.53.4"
+  }
+}
+STEP 4 first managed assignment accepted through the visible-bridge boundary:
+{
+  "ack": {
+    "assignmentId": "assignment-builder-1",
+    "ack": "accepted"
+  },
+  "fakeVisibleTurns": 1,
+  "presentationUpdate": {
+    "role": "builder",
+    "agentRunId": "agent-run-builder-1",
+    "eventCursor": 4,
+    "nativeTerminalTitle": "Omarchestra — Builder — managed",
+    "piStatus": "Builder · managed"
+  }
+}
+--- STATE step-4-assignment-accepted (durable cursor 7) ---
+{
+  "cursor": 7,
+  "teamGoal": {
+    "id": "team-goal-vertical-slice-1",
+    "goalText": "Vertical-slice prototype: prove durable role-labelled visible-agent seams (throwaway).",
+    "createdAt": "2026-09-02T15:12:48.247Z",
+    "eventCursor": 7
+  },
+  "roles": [
+    {
+      "role": "coordinator",
+      "agentRunId": "agent-run-coordinator-1",
+      "terminalSessionRef": "terminal-coordinator-1",
+      "shellRunId": "shell-run-coordinator-1",
+      "piSessionId": "pi-session-coordinator-1",
+      "extensionInstanceId": "bridge-ext-coordinator-1",
+      "hostPid": 41001,
+      "hostMode": "tui",
+      "controlMode": "managed",
+      "agentState": "waiting",
+      "assignmentState": null,
+      "nativeTerminalTitle": "Omarchestra — Coordinator — waiting",
+      "piStatus": "Coordinator · waiting"
+    },
+    {
+      "role": "builder",
+      "agentRunId": "agent-run-builder-1",
+      "terminalSessionRef": "terminal-builder-1",
+      "shellRunId": "shell-run-builder-1",
+      "piSessionId": "pi-session-builder-1",
+      "extensionInstanceId": "bridge-ext-builder-1",
+      "hostPid": 41002,
+      "hostMode": "tui",
+      "controlMode": "managed",
+      "agentState": "working",
+      "assignmentState": "active",
+      "nativeTerminalTitle": "Omarchestra — Builder — managed",
+      "piStatus": "Builder · managed"
+    },
+    {
+      "role": "reviewer",
+      "agentRunId": "agent-run-reviewer-1",
+      "terminalSessionRef": "terminal-reviewer-1",
+      "shellRunId": "shell-run-reviewer-1",
+      "piSessionId": "pi-session-reviewer-1",
+      "extensionInstanceId": "bridge-ext-reviewer-1",
+      "hostPid": 41003,
+      "hostMode": "tui",
+      "controlMode": "managed",
+      "agentState": "waiting",
+      "assignmentState": null,
+      "nativeTerminalTitle": "Omarchestra — Reviewer — waiting",
+      "piStatus": "Reviewer · waiting"
+    }
+  ],
+  "assignment": {
+    "id": "assignment-builder-1",
+    "role": "builder",
+    "agentRunId": "agent-run-builder-1",
+    "state": "active",
+    "lastAckStatus": "accepted",
+    "prompt": "Harmless prototype assignment: confirm the visible bridge seam by replying with the fixed prototype acknowledgement phrase.",
+    "createdAt": "2026-09-02T15:12:48.247Z",
+    "updatedAt": "2026-09-02T15:12:48.290Z"
+  },
+  "journal": {
+    "requested": "wal",
+    "effective": "wal",
+    "sqliteVersion": "3.53.4"
+  }
+}
+STEP 5 Builder reconnect under management caused replay; the duplicate was suppressed:
+{
+  "ack": {
+    "assignmentId": "assignment-builder-1",
+    "ack": "duplicate"
+  },
+  "fakeVisibleTurns": 1,
+  "snapshot": {
+    "cursor": 8,
+    "teamGoal": {
+      "id": "team-goal-vertical-slice-1",
+      "goalText": "Vertical-slice prototype: prove durable role-labelled visible-agent seams (throwaway).",
+      "createdAt": "2026-09-02T15:12:48.247Z",
+      "eventCursor": 8
+    },
+    "roles": [
+      {
+        "role": "coordinator",
+        "agentRunId": "agent-run-coordinator-1",
+        "terminalSessionRef": "terminal-coordinator-1",
+        "shellRunId": "shell-run-coordinator-1",
+        "piSessionId": "pi-session-coordinator-1",
+        "extensionInstanceId": "bridge-ext-coordinator-1",
+        "hostPid": 41001,
+        "hostMode": "tui",
+        "controlMode": "managed",
+        "agentState": "waiting",
+        "assignmentState": null,
+        "nativeTerminalTitle": "Omarchestra — Coordinator — waiting",
+        "piStatus": "Coordinator · waiting"
+      },
+      {
+        "role": "builder",
+        "agentRunId": "agent-run-builder-1",
+        "terminalSessionRef": "terminal-builder-1",
+        "shellRunId": "shell-run-builder-1",
+        "piSessionId": "pi-session-builder-1",
+        "extensionInstanceId": "bridge-ext-builder-1",
+        "hostPid": 41002,
+        "hostMode": "tui",
+        "controlMode": "managed",
+        "agentState": "working",
+        "assignmentState": "active",
+        "nativeTerminalTitle": "Omarchestra — Builder — managed",
+        "piStatus": "Builder · managed"
+      },
+      {
+        "role": "reviewer",
+        "agentRunId": "agent-run-reviewer-1",
+        "terminalSessionRef": "terminal-reviewer-1",
+        "shellRunId": "shell-run-reviewer-1",
+        "piSessionId": "pi-session-reviewer-1",
+        "extensionInstanceId": "bridge-ext-reviewer-1",
+        "hostPid": 41003,
+        "hostMode": "tui",
+        "controlMode": "managed",
+        "agentState": "waiting",
+        "assignmentState": null,
+        "nativeTerminalTitle": "Omarchestra — Reviewer — waiting",
+        "piStatus": "Reviewer · waiting"
+      }
+    ],
+    "assignment": {
+      "id": "assignment-builder-1",
+      "role": "builder",
+      "agentRunId": "agent-run-builder-1",
+      "state": "active",
+      "lastAckStatus": "accepted",
+      "prompt": "Harmless prototype assignment: confirm the visible bridge seam by replying with the fixed prototype acknowledgement phrase.",
+      "createdAt": "2026-09-02T15:12:48.247Z",
+      "updatedAt": "2026-09-02T15:12:48.290Z"
+    },
+    "journal": {
+      "requested": "wal",
+      "effective": "wal",
+      "sqliteVersion": "3.53.4"
+    }
+  }
+}
+--- STATE step-5-duplicate-suppressed (durable cursor 9) ---
+{
+  "cursor": 9,
+  "teamGoal": {
+    "id": "team-goal-vertical-slice-1",
+    "goalText": "Vertical-slice prototype: prove durable role-labelled visible-agent seams (throwaway).",
+    "createdAt": "2026-09-02T15:12:48.247Z",
+    "eventCursor": 9
+  },
+  "roles": [
+    {
+      "role": "coordinator",
+      "agentRunId": "agent-run-coordinator-1",
+      "terminalSessionRef": "terminal-coordinator-1",
+      "shellRunId": "shell-run-coordinator-1",
+      "piSessionId": "pi-session-coordinator-1",
+      "extensionInstanceId": "bridge-ext-coordinator-1",
+      "hostPid": 41001,
+      "hostMode": "tui",
+      "controlMode": "managed",
+      "agentState": "waiting",
+      "assignmentState": null,
+      "nativeTerminalTitle": "Omarchestra — Coordinator — waiting",
+      "piStatus": "Coordinator · waiting"
+    },
+    {
+      "role": "builder",
+      "agentRunId": "agent-run-builder-1",
+      "terminalSessionRef": "terminal-builder-1",
+      "shellRunId": "shell-run-builder-1",
+      "piSessionId": "pi-session-builder-1",
+      "extensionInstanceId": "bridge-ext-builder-1",
+      "hostPid": 41002,
+      "hostMode": "tui",
+      "controlMode": "managed",
+      "agentState": "working",
+      "assignmentState": "active",
+      "nativeTerminalTitle": "Omarchestra — Builder — managed",
+      "piStatus": "Builder · managed"
+    },
+    {
+      "role": "reviewer",
+      "agentRunId": "agent-run-reviewer-1",
+      "terminalSessionRef": "terminal-reviewer-1",
+      "shellRunId": "shell-run-reviewer-1",
+      "piSessionId": "pi-session-reviewer-1",
+      "extensionInstanceId": "bridge-ext-reviewer-1",
+      "hostPid": 41003,
+      "hostMode": "tui",
+      "controlMode": "managed",
+      "agentState": "waiting",
+      "assignmentState": null,
+      "nativeTerminalTitle": "Omarchestra — Reviewer — waiting",
+      "piStatus": "Reviewer · waiting"
+    }
+  ],
+  "assignment": {
+    "id": "assignment-builder-1",
+    "role": "builder",
+    "agentRunId": "agent-run-builder-1",
+    "state": "active",
+    "lastAckStatus": "duplicate",
+    "prompt": "Harmless prototype assignment: confirm the visible bridge seam by replying with the fixed prototype acknowledgement phrase.",
+    "createdAt": "2026-09-02T15:12:48.247Z",
+    "updatedAt": "2026-09-02T15:12:48.423Z"
+  },
+  "journal": {
+    "requested": "wal",
+    "effective": "wal",
+    "sqliteVersion": "3.53.4"
+  }
+}
+--- STATE step-6-builder-takeover (durable cursor 11) ---
+{
+  "cursor": 11,
+  "teamGoal": {
+    "id": "team-goal-vertical-slice-1",
+    "goalText": "Vertical-slice prototype: prove durable role-labelled visible-agent seams (throwaway).",
+    "createdAt": "2026-09-02T15:12:48.247Z",
+    "eventCursor": 11
+  },
+  "roles": [
+    {
+      "role": "coordinator",
+      "agentRunId": "agent-run-coordinator-1",
+      "terminalSessionRef": "terminal-coordinator-1",
+      "shellRunId": "shell-run-coordinator-1",
+      "piSessionId": "pi-session-coordinator-1",
+      "extensionInstanceId": "bridge-ext-coordinator-1",
+      "hostPid": 41001,
+      "hostMode": "tui",
+      "controlMode": "managed",
+      "agentState": "waiting",
+      "assignmentState": null,
+      "nativeTerminalTitle": "Omarchestra — Coordinator — waiting",
+      "piStatus": "Coordinator · waiting"
+    },
+    {
+      "role": "builder",
+      "agentRunId": "agent-run-builder-1",
+      "terminalSessionRef": "terminal-builder-1",
+      "shellRunId": "shell-run-builder-1",
+      "piSessionId": "pi-session-builder-1",
+      "extensionInstanceId": "bridge-ext-builder-1",
+      "hostPid": 41002,
+      "hostMode": "tui",
+      "controlMode": "manual_takeover",
+      "agentState": "working",
+      "assignmentState": "needs_reconciliation",
+      "nativeTerminalTitle": "Omarchestra — Builder — manual_takeover",
+      "piStatus": "Builder · manual_takeover"
+    },
+    {
+      "role": "reviewer",
+      "agentRunId": "agent-run-reviewer-1",
+      "terminalSessionRef": "terminal-reviewer-1",
+      "shellRunId": "shell-run-reviewer-1",
+      "piSessionId": "pi-session-reviewer-1",
+      "extensionInstanceId": "bridge-ext-reviewer-1",
+      "hostPid": 41003,
+      "hostMode": "tui",
+      "controlMode": "managed",
+      "agentState": "waiting",
+      "assignmentState": null,
+      "nativeTerminalTitle": "Omarchestra — Reviewer — waiting",
+      "piStatus": "Reviewer · waiting"
+    }
+  ],
+  "assignment": {
+    "id": "assignment-builder-1",
+    "role": "builder",
+    "agentRunId": "agent-run-builder-1",
+    "state": "needs_reconciliation",
+    "lastAckStatus": "duplicate",
+    "prompt": "Harmless prototype assignment: confirm the visible bridge seam by replying with the fixed prototype acknowledgement phrase.",
+    "createdAt": "2026-09-02T15:12:48.247Z",
+    "updatedAt": "2026-09-02T15:12:48.429Z"
+  },
+  "journal": {
+    "requested": "wal",
+    "effective": "wal",
+    "sqliteVersion": "3.53.4"
+  }
+}
+STEP 6 Builder-only manual takeover (both Builder surfaces update; Coordinator and Reviewer byte-identical):
+{
+  "builderPresentationUpdate": {
+    "role": "builder",
+    "agentRunId": "agent-run-builder-1",
+    "eventCursor": 11,
+    "nativeTerminalTitle": "Omarchestra — Builder — manual_takeover",
+    "piStatus": "Builder · manual_takeover"
+  }
+}
+--- STATE step-6-complete-state (durable cursor 11) ---
+{
+  "cursor": 11,
+  "teamGoal": {
+    "id": "team-goal-vertical-slice-1",
+    "goalText": "Vertical-slice prototype: prove durable role-labelled visible-agent seams (throwaway).",
+    "createdAt": "2026-09-02T15:12:48.247Z",
+    "eventCursor": 11
+  },
+  "roles": [
+    {
+      "role": "coordinator",
+      "agentRunId": "agent-run-coordinator-1",
+      "terminalSessionRef": "terminal-coordinator-1",
+      "shellRunId": "shell-run-coordinator-1",
+      "piSessionId": "pi-session-coordinator-1",
+      "extensionInstanceId": "bridge-ext-coordinator-1",
+      "hostPid": 41001,
+      "hostMode": "tui",
+      "controlMode": "managed",
+      "agentState": "waiting",
+      "assignmentState": null,
+      "nativeTerminalTitle": "Omarchestra — Coordinator — waiting",
+      "piStatus": "Coordinator · waiting"
+    },
+    {
+      "role": "builder",
+      "agentRunId": "agent-run-builder-1",
+      "terminalSessionRef": "terminal-builder-1",
+      "shellRunId": "shell-run-builder-1",
+      "piSessionId": "pi-session-builder-1",
+      "extensionInstanceId": "bridge-ext-builder-1",
+      "hostPid": 41002,
+      "hostMode": "tui",
+      "controlMode": "manual_takeover",
+      "agentState": "working",
+      "assignmentState": "needs_reconciliation",
+      "nativeTerminalTitle": "Omarchestra — Builder — manual_takeover",
+      "piStatus": "Builder · manual_takeover"
+    },
+    {
+      "role": "reviewer",
+      "agentRunId": "agent-run-reviewer-1",
+      "terminalSessionRef": "terminal-reviewer-1",
+      "shellRunId": "shell-run-reviewer-1",
+      "piSessionId": "pi-session-reviewer-1",
+      "extensionInstanceId": "bridge-ext-reviewer-1",
+      "hostPid": 41003,
+      "hostMode": "tui",
+      "controlMode": "managed",
+      "agentState": "waiting",
+      "assignmentState": null,
+      "nativeTerminalTitle": "Omarchestra — Reviewer — waiting",
+      "piStatus": "Reviewer · waiting"
+    }
+  ],
+  "assignment": {
+    "id": "assignment-builder-1",
+    "role": "builder",
+    "agentRunId": "agent-run-builder-1",
+    "state": "needs_reconciliation",
+    "lastAckStatus": "duplicate",
+    "prompt": "Harmless prototype assignment: confirm the visible bridge seam by replying with the fixed prototype acknowledgement phrase.",
+    "createdAt": "2026-09-02T15:12:48.247Z",
+    "updatedAt": "2026-09-02T15:12:48.429Z"
+  },
+  "journal": {
+    "requested": "wal",
+    "effective": "wal",
+    "sqliteVersion": "3.53.4"
+  }
+}
+STEP 7 thin projection client captured durable cursor 11 and disconnected.
+{
+  "savedCursor": 11,
+  "snapshot": {
+    "cursor": 11,
+    "teamGoal": {
+      "id": "team-goal-vertical-slice-1",
+      "goalText": "Vertical-slice prototype: prove durable role-labelled visible-agent seams (throwaway).",
+      "createdAt": "2026-09-02T15:12:48.247Z",
+      "eventCursor": 11
+    },
+    "roles": [
+      {
+        "role": "coordinator",
+        "agentRunId": "agent-run-coordinator-1",
+        "terminalSessionRef": "terminal-coordinator-1",
+        "shellRunId": "shell-run-coordinator-1",
+        "piSessionId": "pi-session-coordinator-1",
+        "extensionInstanceId": "bridge-ext-coordinator-1",
+        "hostPid": 41001,
+        "hostMode": "tui",
+        "controlMode": "managed",
+        "agentState": "waiting",
+        "assignmentState": null,
+        "nativeTerminalTitle": "Omarchestra — Coordinator — waiting",
+        "piStatus": "Coordinator · waiting"
+      },
+      {
+        "role": "builder",
+        "agentRunId": "agent-run-builder-1",
+        "terminalSessionRef": "terminal-builder-1",
+        "shellRunId": "shell-run-builder-1",
+        "piSessionId": "pi-session-builder-1",
+        "extensionInstanceId": "bridge-ext-builder-1",
+        "hostPid": 41002,
+        "hostMode": "tui",
+        "controlMode": "manual_takeover",
+        "agentState": "working",
+        "assignmentState": "needs_reconciliation",
+        "nativeTerminalTitle": "Omarchestra — Builder — manual_takeover",
+        "piStatus": "Builder · manual_takeover"
+      },
+      {
+        "role": "reviewer",
+        "agentRunId": "agent-run-reviewer-1",
+        "terminalSessionRef": "terminal-reviewer-1",
+        "shellRunId": "shell-run-reviewer-1",
+        "piSessionId": "pi-session-reviewer-1",
+        "extensionInstanceId": "bridge-ext-reviewer-1",
+        "hostPid": 41003,
+        "hostMode": "tui",
+        "controlMode": "managed",
+        "agentState": "waiting",
+        "assignmentState": null,
+        "nativeTerminalTitle": "Omarchestra — Reviewer — waiting",
+        "piStatus": "Reviewer · waiting"
+      }
+    ],
+    "assignment": {
+      "id": "assignment-builder-1",
+      "role": "builder",
+      "agentRunId": "agent-run-builder-1",
+      "state": "needs_reconciliation",
+      "lastAckStatus": "duplicate",
+      "prompt": "Harmless prototype assignment: confirm the visible bridge seam by replying with the fixed prototype acknowledgement phrase.",
+      "createdAt": "2026-09-02T15:12:48.247Z",
+      "updatedAt": "2026-09-02T15:12:48.429Z"
+    },
+    "journal": {
+      "requested": "wal",
+      "effective": "wal",
+      "sqliteVersion": "3.53.4"
+    }
+  }
+}
+STEP 8 runner stopped cleanly; durable state remains in /tmp/omarchestra-vertical-slice-EOUhYH
+--- STATE step-8-last-committed-state (durable cursor 11) ---
+{
+  "cursor": 11,
+  "teamGoal": {
+    "id": "team-goal-vertical-slice-1",
+    "goalText": "Vertical-slice prototype: prove durable role-labelled visible-agent seams (throwaway).",
+    "createdAt": "2026-09-02T15:12:48.247Z",
+    "eventCursor": 11
+  },
+  "roles": [
+    {
+      "role": "coordinator",
+      "agentRunId": "agent-run-coordinator-1",
+      "terminalSessionRef": "terminal-coordinator-1",
+      "shellRunId": "shell-run-coordinator-1",
+      "piSessionId": "pi-session-coordinator-1",
+      "extensionInstanceId": "bridge-ext-coordinator-1",
+      "hostPid": 41001,
+      "hostMode": "tui",
+      "controlMode": "managed",
+      "agentState": "waiting",
+      "assignmentState": null,
+      "nativeTerminalTitle": "Omarchestra — Coordinator — waiting",
+      "piStatus": "Coordinator · waiting"
+    },
+    {
+      "role": "builder",
+      "agentRunId": "agent-run-builder-1",
+      "terminalSessionRef": "terminal-builder-1",
+      "shellRunId": "shell-run-builder-1",
+      "piSessionId": "pi-session-builder-1",
+      "extensionInstanceId": "bridge-ext-builder-1",
+      "hostPid": 41002,
+      "hostMode": "tui",
+      "controlMode": "manual_takeover",
+      "agentState": "working",
+      "assignmentState": "needs_reconciliation",
+      "nativeTerminalTitle": "Omarchestra — Builder — manual_takeover",
+      "piStatus": "Builder · manual_takeover"
+    },
+    {
+      "role": "reviewer",
+      "agentRunId": "agent-run-reviewer-1",
+      "terminalSessionRef": "terminal-reviewer-1",
+      "shellRunId": "shell-run-reviewer-1",
+      "piSessionId": "pi-session-reviewer-1",
+      "extensionInstanceId": "bridge-ext-reviewer-1",
+      "hostPid": 41003,
+      "hostMode": "tui",
+      "controlMode": "managed",
+      "agentState": "waiting",
+      "assignmentState": null,
+      "nativeTerminalTitle": "Omarchestra — Reviewer — waiting",
+      "piStatus": "Reviewer · waiting"
+    }
+  ],
+  "assignment": {
+    "id": "assignment-builder-1",
+    "role": "builder",
+    "agentRunId": "agent-run-builder-1",
+    "state": "needs_reconciliation",
+    "lastAckStatus": "duplicate",
+    "prompt": "Harmless prototype assignment: confirm the visible bridge seam by replying with the fixed prototype acknowledgement phrase.",
+    "createdAt": "2026-09-02T15:12:48.247Z",
+    "updatedAt": "2026-09-02T15:12:48.429Z"
+  },
+  "journal": {
+    "requested": "wal",
+    "effective": "wal",
+    "sqliteVersion": "3.53.4"
+  }
+}
+{
+  "databasePath": "/tmp/omarchestra-vertical-slice-EOUhYH/runner.sqlite",
+  "databaseExists": true,
+  "stateDirectoryMode": "0700",
+  "databaseMode": "0600"
+}
+STEP 9 runner recreated over the same scratch database:
+{
+  "event": "runner_ready",
+  "pid": 1986318,
+  "stateDir": "/tmp/omarchestra-vertical-slice-EOUhYH",
+  "socket": "/tmp/omarchestra-vertical-slice-EOUhYH/runner.sock",
+  "journalRequested": "wal",
+  "journalEffective": "wal",
+  "sqliteVersion": "3.53.4",
+  "schemaVersion": 1,
+  "mount": {
+    "fstype": "tmpfs",
+    "magic": 16914836,
+    "source": "tmpfs",
+    "local": true,
+    "detection": "best-effort: statfs magic plus /proc/self/mountinfo fstype; known network/FUSE families rejected, locality not proven"
+  }
+}
+--- STATE step-9-recovered-before-bridge-reconnect (durable cursor 12) ---
+{
+  "cursor": 12,
+  "teamGoal": {
+    "id": "team-goal-vertical-slice-1",
+    "goalText": "Vertical-slice prototype: prove durable role-labelled visible-agent seams (throwaway).",
+    "createdAt": "2026-09-02T15:12:48.247Z",
+    "eventCursor": 12
+  },
+  "roles": [
+    {
+      "role": "coordinator",
+      "agentRunId": "agent-run-coordinator-1",
+      "terminalSessionRef": "terminal-coordinator-1",
+      "shellRunId": "shell-run-coordinator-1",
+      "piSessionId": "pi-session-coordinator-1",
+      "extensionInstanceId": "bridge-ext-coordinator-1",
+      "hostPid": 41001,
+      "hostMode": "tui",
+      "controlMode": "managed",
+      "agentState": "waiting",
+      "assignmentState": null,
+      "nativeTerminalTitle": "Omarchestra — Coordinator — waiting",
+      "piStatus": "Coordinator · waiting"
+    },
+    {
+      "role": "builder",
+      "agentRunId": "agent-run-builder-1",
+      "terminalSessionRef": "terminal-builder-1",
+      "shellRunId": "shell-run-builder-1",
+      "piSessionId": "pi-session-builder-1",
+      "extensionInstanceId": "bridge-ext-builder-1",
+      "hostPid": 41002,
+      "hostMode": "tui",
+      "controlMode": "manual_takeover",
+      "agentState": "working",
+      "assignmentState": "needs_reconciliation",
+      "nativeTerminalTitle": "Omarchestra — Builder — manual_takeover",
+      "piStatus": "Builder · manual_takeover"
+    },
+    {
+      "role": "reviewer",
+      "agentRunId": "agent-run-reviewer-1",
+      "terminalSessionRef": "terminal-reviewer-1",
+      "shellRunId": "shell-run-reviewer-1",
+      "piSessionId": "pi-session-reviewer-1",
+      "extensionInstanceId": "bridge-ext-reviewer-1",
+      "hostPid": 41003,
+      "hostMode": "tui",
+      "controlMode": "managed",
+      "agentState": "waiting",
+      "assignmentState": null,
+      "nativeTerminalTitle": "Omarchestra — Reviewer — waiting",
+      "piStatus": "Reviewer · waiting"
+    }
+  ],
+  "assignment": {
+    "id": "assignment-builder-1",
+    "role": "builder",
+    "agentRunId": "agent-run-builder-1",
+    "state": "needs_reconciliation",
+    "lastAckStatus": "duplicate",
+    "prompt": "Harmless prototype assignment: confirm the visible bridge seam by replying with the fixed prototype acknowledgement phrase.",
+    "createdAt": "2026-09-02T15:12:48.247Z",
+    "updatedAt": "2026-09-02T15:12:48.429Z"
+  },
+  "journal": {
+    "requested": "wal",
+    "effective": "wal",
+    "sqliteVersion": "3.53.4"
+  }
+}
+STEP 10 projection resumed after saved cursor 11 before bridge reconnects:
+{
+  "resumeAfter": 11,
+  "resumedEvents": [
+    {
+      "sequence": 12,
+      "eventId": "evt-e8f5eca8f3ba9789ebcc637d",
+      "eventType": "runner_restarted",
+      "role": null,
+      "payload": {
+        "runnerPid": 1986318
+      },
+      "createdAt": "2026-09-02T15:12:49.110Z"
+    }
+  ],
+  "snapshot": {
+    "cursor": 12,
+    "teamGoal": {
+      "id": "team-goal-vertical-slice-1",
+      "goalText": "Vertical-slice prototype: prove durable role-labelled visible-agent seams (throwaway).",
+      "createdAt": "2026-09-02T15:12:48.247Z",
+      "eventCursor": 12
+    },
+    "roles": [
+      {
+        "role": "coordinator",
+        "agentRunId": "agent-run-coordinator-1",
+        "terminalSessionRef": "terminal-coordinator-1",
+        "shellRunId": "shell-run-coordinator-1",
+        "piSessionId": "pi-session-coordinator-1",
+        "extensionInstanceId": "bridge-ext-coordinator-1",
+        "hostPid": 41001,
+        "hostMode": "tui",
+        "controlMode": "managed",
+        "agentState": "waiting",
+        "assignmentState": null,
+        "nativeTerminalTitle": "Omarchestra — Coordinator — waiting",
+        "piStatus": "Coordinator · waiting"
+      },
+      {
+        "role": "builder",
+        "agentRunId": "agent-run-builder-1",
+        "terminalSessionRef": "terminal-builder-1",
+        "shellRunId": "shell-run-builder-1",
+        "piSessionId": "pi-session-builder-1",
+        "extensionInstanceId": "bridge-ext-builder-1",
+        "hostPid": 41002,
+        "hostMode": "tui",
+        "controlMode": "manual_takeover",
+        "agentState": "working",
+        "assignmentState": "needs_reconciliation",
+        "nativeTerminalTitle": "Omarchestra — Builder — manual_takeover",
+        "piStatus": "Builder · manual_takeover"
+      },
+      {
+        "role": "reviewer",
+        "agentRunId": "agent-run-reviewer-1",
+        "terminalSessionRef": "terminal-reviewer-1",
+        "shellRunId": "shell-run-reviewer-1",
+        "piSessionId": "pi-session-reviewer-1",
+        "extensionInstanceId": "bridge-ext-reviewer-1",
+        "hostPid": 41003,
+        "hostMode": "tui",
+        "controlMode": "managed",
+        "agentState": "waiting",
+        "assignmentState": null,
+        "nativeTerminalTitle": "Omarchestra — Reviewer — waiting",
+        "piStatus": "Reviewer · waiting"
+      }
+    ],
+    "assignment": {
+      "id": "assignment-builder-1",
+      "role": "builder",
+      "agentRunId": "agent-run-builder-1",
+      "state": "needs_reconciliation",
+      "lastAckStatus": "duplicate",
+      "prompt": "Harmless prototype assignment: confirm the visible bridge seam by replying with the fixed prototype acknowledgement phrase.",
+      "createdAt": "2026-09-02T15:12:48.247Z",
+      "updatedAt": "2026-09-02T15:12:48.429Z"
+    },
+    "journal": {
+      "requested": "wal",
+      "effective": "wal",
+      "sqliteVersion": "3.53.4"
+    }
+  }
+}
+STEP 11 same identity tuples reconnected; bindings and labels survived; reconnect events streamed live:
+{
+  "builder": {
+    "role": "builder",
+    "agentRunId": "agent-run-builder-1",
+    "terminalSessionRef": "terminal-builder-1",
+    "shellRunId": "shell-run-builder-1",
+    "piSessionId": "pi-session-builder-1",
+    "extensionInstanceId": "bridge-ext-builder-1",
+    "hostPid": 41002,
+    "hostMode": "tui",
+    "controlMode": "manual_takeover",
+    "agentState": "working",
+    "assignmentState": "needs_reconciliation",
+    "nativeTerminalTitle": "Omarchestra — Builder — manual_takeover",
+    "piStatus": "Builder · manual_takeover"
+  },
+  "snapshot": {
+    "cursor": 14,
+    "teamGoal": {
+      "id": "team-goal-vertical-slice-1",
+      "goalText": "Vertical-slice prototype: prove durable role-labelled visible-agent seams (throwaway).",
+      "createdAt": "2026-09-02T15:12:48.247Z",
+      "eventCursor": 14
+    },
+    "roles": [
+      {
+        "role": "coordinator",
+        "agentRunId": "agent-run-coordinator-1",
+        "terminalSessionRef": "terminal-coordinator-1",
+        "shellRunId": "shell-run-coordinator-1",
+        "piSessionId": "pi-session-coordinator-1",
+        "extensionInstanceId": "bridge-ext-coordinator-1",
+        "hostPid": 41001,
+        "hostMode": "tui",
+        "controlMode": "managed",
+        "agentState": "waiting",
+        "assignmentState": null,
+        "nativeTerminalTitle": "Omarchestra — Coordinator — waiting",
+        "piStatus": "Coordinator · waiting"
+      },
+      {
+        "role": "builder",
+        "agentRunId": "agent-run-builder-1",
+        "terminalSessionRef": "terminal-builder-1",
+        "shellRunId": "shell-run-builder-1",
+        "piSessionId": "pi-session-builder-1",
+        "extensionInstanceId": "bridge-ext-builder-1",
+        "hostPid": 41002,
+        "hostMode": "tui",
+        "controlMode": "manual_takeover",
+        "agentState": "working",
+        "assignmentState": "needs_reconciliation",
+        "nativeTerminalTitle": "Omarchestra — Builder — manual_takeover",
+        "piStatus": "Builder · manual_takeover"
+      },
+      {
+        "role": "reviewer",
+        "agentRunId": "agent-run-reviewer-1",
+        "terminalSessionRef": "terminal-reviewer-1",
+        "shellRunId": "shell-run-reviewer-1",
+        "piSessionId": "pi-session-reviewer-1",
+        "extensionInstanceId": "bridge-ext-reviewer-1",
+        "hostPid": 41003,
+        "hostMode": "tui",
+        "controlMode": "managed",
+        "agentState": "waiting",
+        "assignmentState": null,
+        "nativeTerminalTitle": "Omarchestra — Reviewer — waiting",
+        "piStatus": "Reviewer · waiting"
+      }
+    ],
+    "assignment": {
+      "id": "assignment-builder-1",
+      "role": "builder",
+      "agentRunId": "agent-run-builder-1",
+      "state": "needs_reconciliation",
+      "lastAckStatus": "duplicate",
+      "prompt": "Harmless prototype assignment: confirm the visible bridge seam by replying with the fixed prototype acknowledgement phrase.",
+      "createdAt": "2026-09-02T15:12:48.247Z",
+      "updatedAt": "2026-09-02T15:12:48.429Z"
+    },
+    "journal": {
+      "requested": "wal",
+      "effective": "wal",
+      "sqliteVersion": "3.53.4"
+    }
+  },
+  "resumeSequences": [
+    12,
+    13,
+    14,
+    15
+  ],
+  "liveSequences": [
+    13,
+    14,
+    15
+  ]
+}
+--- STATE step-11-complete-reconnected-state (durable cursor 15) ---
+{
+  "cursor": 15,
+  "teamGoal": {
+    "id": "team-goal-vertical-slice-1",
+    "goalText": "Vertical-slice prototype: prove durable role-labelled visible-agent seams (throwaway).",
+    "createdAt": "2026-09-02T15:12:48.247Z",
+    "eventCursor": 15
+  },
+  "roles": [
+    {
+      "role": "coordinator",
+      "agentRunId": "agent-run-coordinator-1",
+      "terminalSessionRef": "terminal-coordinator-1",
+      "shellRunId": "shell-run-coordinator-1",
+      "piSessionId": "pi-session-coordinator-1",
+      "extensionInstanceId": "bridge-ext-coordinator-1",
+      "hostPid": 41001,
+      "hostMode": "tui",
+      "controlMode": "managed",
+      "agentState": "waiting",
+      "assignmentState": null,
+      "nativeTerminalTitle": "Omarchestra — Coordinator — waiting",
+      "piStatus": "Coordinator · waiting"
+    },
+    {
+      "role": "builder",
+      "agentRunId": "agent-run-builder-1",
+      "terminalSessionRef": "terminal-builder-1",
+      "shellRunId": "shell-run-builder-1",
+      "piSessionId": "pi-session-builder-1",
+      "extensionInstanceId": "bridge-ext-builder-1",
+      "hostPid": 41002,
+      "hostMode": "tui",
+      "controlMode": "manual_takeover",
+      "agentState": "working",
+      "assignmentState": "needs_reconciliation",
+      "nativeTerminalTitle": "Omarchestra — Builder — manual_takeover",
+      "piStatus": "Builder · manual_takeover"
+    },
+    {
+      "role": "reviewer",
+      "agentRunId": "agent-run-reviewer-1",
+      "terminalSessionRef": "terminal-reviewer-1",
+      "shellRunId": "shell-run-reviewer-1",
+      "piSessionId": "pi-session-reviewer-1",
+      "extensionInstanceId": "bridge-ext-reviewer-1",
+      "hostPid": 41003,
+      "hostMode": "tui",
+      "controlMode": "managed",
+      "agentState": "waiting",
+      "assignmentState": null,
+      "nativeTerminalTitle": "Omarchestra — Reviewer — waiting",
+      "piStatus": "Reviewer · waiting"
+    }
+  ],
+  "assignment": {
+    "id": "assignment-builder-1",
+    "role": "builder",
+    "agentRunId": "agent-run-builder-1",
+    "state": "needs_reconciliation",
+    "lastAckStatus": "duplicate",
+    "prompt": "Harmless prototype assignment: confirm the visible bridge seam by replying with the fixed prototype acknowledgement phrase.",
+    "createdAt": "2026-09-02T15:12:48.247Z",
+    "updatedAt": "2026-09-02T15:12:48.429Z"
+  },
+  "journal": {
+    "requested": "wal",
+    "effective": "wal",
+    "sqliteVersion": "3.53.4"
+  }
+}
+STEP 12 final durable state and complete ordered event list (replayed from cursor 0):
+--- STATE final (durable cursor 15) ---
+{
+  "cursor": 15,
+  "teamGoal": {
+    "id": "team-goal-vertical-slice-1",
+    "goalText": "Vertical-slice prototype: prove durable role-labelled visible-agent seams (throwaway).",
+    "createdAt": "2026-09-02T15:12:48.247Z",
+    "eventCursor": 15
+  },
+  "roles": [
+    {
+      "role": "coordinator",
+      "agentRunId": "agent-run-coordinator-1",
+      "terminalSessionRef": "terminal-coordinator-1",
+      "shellRunId": "shell-run-coordinator-1",
+      "piSessionId": "pi-session-coordinator-1",
+      "extensionInstanceId": "bridge-ext-coordinator-1",
+      "hostPid": 41001,
+      "hostMode": "tui",
+      "controlMode": "managed",
+      "agentState": "waiting",
+      "assignmentState": null,
+      "nativeTerminalTitle": "Omarchestra — Coordinator — waiting",
+      "piStatus": "Coordinator · waiting"
+    },
+    {
+      "role": "builder",
+      "agentRunId": "agent-run-builder-1",
+      "terminalSessionRef": "terminal-builder-1",
+      "shellRunId": "shell-run-builder-1",
+      "piSessionId": "pi-session-builder-1",
+      "extensionInstanceId": "bridge-ext-builder-1",
+      "hostPid": 41002,
+      "hostMode": "tui",
+      "controlMode": "manual_takeover",
+      "agentState": "working",
+      "assignmentState": "needs_reconciliation",
+      "nativeTerminalTitle": "Omarchestra — Builder — manual_takeover",
+      "piStatus": "Builder · manual_takeover"
+    },
+    {
+      "role": "reviewer",
+      "agentRunId": "agent-run-reviewer-1",
+      "terminalSessionRef": "terminal-reviewer-1",
+      "shellRunId": "shell-run-reviewer-1",
+      "piSessionId": "pi-session-reviewer-1",
+      "extensionInstanceId": "bridge-ext-reviewer-1",
+      "hostPid": 41003,
+      "hostMode": "tui",
+      "controlMode": "managed",
+      "agentState": "waiting",
+      "assignmentState": null,
+      "nativeTerminalTitle": "Omarchestra — Reviewer — waiting",
+      "piStatus": "Reviewer · waiting"
+    }
+  ],
+  "assignment": {
+    "id": "assignment-builder-1",
+    "role": "builder",
+    "agentRunId": "agent-run-builder-1",
+    "state": "needs_reconciliation",
+    "lastAckStatus": "duplicate",
+    "prompt": "Harmless prototype assignment: confirm the visible bridge seam by replying with the fixed prototype acknowledgement phrase.",
+    "createdAt": "2026-09-02T15:12:48.247Z",
+    "updatedAt": "2026-09-02T15:12:48.429Z"
+  },
+  "journal": {
+    "requested": "wal",
+    "effective": "wal",
+    "sqliteVersion": "3.53.4"
+  }
+}
+--- EVENT LIST (durable, ordered) ---
+[
+  {
+    "sequence": 1,
+    "eventId": "evt-39a4af0bb054bb3ebafb05e1",
+    "eventType": "goal_bootstrapped",
+    "role": null,
+    "payload": {
+      "teamGoalId": "team-goal-vertical-slice-1",
+      "roles": [
+        "coordinator",
+        "builder",
+        "reviewer"
+      ]
+    },
+    "createdAt": "2026-09-02T15:12:48.255Z"
+  },
+  {
+    "sequence": 2,
+    "eventId": "evt-68c3a369a0a410951bd59869",
+    "eventType": "bridge_connected",
+    "role": "coordinator",
+    "payload": {
+      "role": "coordinator",
+      "agentRunId": "agent-run-coordinator-1",
+      "shellRunId": "shell-run-coordinator-1",
+      "reconnected": false
+    },
+    "createdAt": "2026-09-02T15:12:48.282Z"
+  },
+  {
+    "sequence": 3,
+    "eventId": "evt-c323a0ef898199f7d7949eff",
+    "eventType": "bridge_connected",
+    "role": "builder",
+    "payload": {
+      "role": "builder",
+      "agentRunId": "agent-run-builder-1",
+      "shellRunId": "shell-run-builder-1",
+      "reconnected": false
+    },
+    "createdAt": "2026-09-02T15:12:48.286Z"
+  },
+  {
+    "sequence": 4,
+    "eventId": "evt-04369e405a6a29f90875245f",
+    "eventType": "assignment_accepted",
+    "role": "builder",
+    "payload": {
+      "assignmentId": "assignment-builder-1",
+      "role": "builder",
+      "ack": "accepted"
+    },
+    "createdAt": "2026-09-02T15:12:48.291Z"
+  },
+  {
+    "sequence": 5,
+    "eventId": "evt-f1f74fcba1e4e5e33327209f",
+    "eventType": "bridge_connected",
+    "role": "reviewer",
+    "payload": {
+      "role": "reviewer",
+      "agentRunId": "agent-run-reviewer-1",
+      "shellRunId": "shell-run-reviewer-1",
+      "reconnected": false
+    },
+    "createdAt": "2026-09-02T15:12:48.293Z"
+  },
+  {
+    "sequence": 6,
+    "eventId": "evt-fc5d62adfe422e28fc1163b1",
+    "eventType": "bridge_connected",
+    "role": "coordinator",
+    "payload": {
+      "role": "coordinator",
+      "agentRunId": "agent-run-coordinator-1",
+      "shellRunId": "shell-run-coordinator-1",
+      "reconnected": true
+    },
+    "createdAt": "2026-09-02T15:12:48.303Z"
+  },
+  {
+    "sequence": 7,
+    "eventId": "evt-0a0da6241a69d0f841b5d63b",
+    "eventType": "bridge_connected",
+    "role": "coordinator",
+    "payload": {
+      "role": "coordinator",
+      "agentRunId": "agent-run-coordinator-1",
+      "shellRunId": "shell-run-coordinator-1",
+      "reconnected": true
+    },
+    "createdAt": "2026-09-02T15:12:48.314Z"
+  },
+  {
+    "sequence": 8,
+    "eventId": "evt-6ed366de36da3a7d0f030bf8",
+    "eventType": "bridge_connected",
+    "role": "builder",
+    "payload": {
+      "role": "builder",
+      "agentRunId": "agent-run-builder-1",
+      "shellRunId": "shell-run-builder-1",
+      "reconnected": true
+    },
+    "createdAt": "2026-09-02T15:12:48.419Z"
+  },
+  {
+    "sequence": 9,
+    "eventId": "evt-f917c83ffaca63362e7ae950",
+    "eventType": "assignment_duplicate_acknowledged",
+    "role": "builder",
+    "payload": {
+      "assignmentId": "assignment-builder-1",
+      "role": "builder",
+      "ack": "duplicate"
+    },
+    "createdAt": "2026-09-02T15:12:48.423Z"
+  },
+  {
+    "sequence": 10,
+    "eventId": "evt-4c393c5c06791db883d259d7",
+    "eventType": "human_input_submitted",
+    "role": "builder",
+    "payload": {
+      "role": "builder",
+      "inputSource": "interactive",
+      "charCount": 33
+    },
+    "createdAt": "2026-09-02T15:12:48.428Z"
+  },
+  {
+    "sequence": 11,
+    "eventId": "evt-2b49ce1e3382e4504cc4b804",
+    "eventType": "manual_takeover",
+    "role": "builder",
+    "payload": {
+      "role": "builder",
+      "from": "managed",
+      "to": "manual_takeover",
+      "assignmentId": "assignment-builder-1",
+      "assignmentState": "needs_reconciliation"
+    },
+    "createdAt": "2026-09-02T15:12:48.429Z"
+  },
+  {
+    "sequence": 12,
+    "eventId": "evt-e8f5eca8f3ba9789ebcc637d",
+    "eventType": "runner_restarted",
+    "role": null,
+    "payload": {
+      "runnerPid": 1986318
+    },
+    "createdAt": "2026-09-02T15:12:49.110Z"
+  },
+  {
+    "sequence": 13,
+    "eventId": "evt-e704de45cd48e81cf18e86ba",
+    "eventType": "bridge_connected",
+    "role": "coordinator",
+    "payload": {
+      "role": "coordinator",
+      "agentRunId": "agent-run-coordinator-1",
+      "shellRunId": "shell-run-coordinator-1",
+      "reconnected": true
+    },
+    "createdAt": "2026-09-02T15:12:49.144Z"
+  },
+  {
+    "sequence": 14,
+    "eventId": "evt-e22569e13f298e7373d38ddb",
+    "eventType": "bridge_connected",
+    "role": "builder",
+    "payload": {
+      "role": "builder",
+      "agentRunId": "agent-run-builder-1",
+      "shellRunId": "shell-run-builder-1",
+      "reconnected": true
+    },
+    "createdAt": "2026-09-02T15:12:49.150Z"
+  },
+  {
+    "sequence": 15,
+    "eventId": "evt-c2a253e2687245ad991a6099",
+    "eventType": "bridge_connected",
+    "role": "reviewer",
+    "payload": {
+      "role": "reviewer",
+      "agentRunId": "agent-run-reviewer-1",
+      "shellRunId": "shell-run-reviewer-1",
+      "reconnected": true
+    },
+    "createdAt": "2026-09-02T15:12:49.154Z"
+  }
+]
+SCENARIO journal=wal: PASS (both runner launches recorded; temporary state wiped)
+
+======================================================================
+VERDICT
+======================================================================
+Automated gate result: PASS — verdict "supported with constraints".
+
+Supported by this fake-only evidence:
+- TypeScript/Node foreground runner with SQLite schema versioning, explicit
+  immediate transactions, and owner-only scratch state outside the repository;
+- strict bounded versioned NDJSON over an owner-only Unix socket with identity
+  handshake, snapshot, ordered durable events, acknowledgement/deduplication,
+  and reconnect; an SSH-stdio seam exists as an injected-stream interface only;
+- three fixed roles with Pi-status labels, dynamic title metadata, and QML
+  projections derived from durable state after the owning transaction commits;
+- one managed Builder assignment with replay suppression (no second turn);
+- Builder-only manual takeover switching assignment state to needs_reconciliation
+  while Coordinator and Reviewer projections remain byte-identical;
+- runner stop/recreate over the same scratch database with the same bridge
+  identities reconnecting and the thin projection resuming from its cursor;
+- a QML-facing thin client that receives snapshots/events only and cannot
+  mutate storage; no hidden agent process is created or required.
+
+Remaining constraints (explicitly unresolved here):
+- fake presentation adapters do not prove live Pi or Agent Console rendering;
+- the SSH-stdio transport is an interface with fake streams only;
+- journal mode stays undecided: default and WAL were both measured, none ranked;
+- same-user Unix-socket permissions are the only prototype trust boundary;
+- recovery is proven only for runner restart with surviving bridge identities;
+- migrations beyond version 1, retention, cancellation, reconciliation, and the
+  full workflow are out of scope for this slice;
+- local-filesystem detection is best-effort (known network/FUSE mounts are
+  rejected; locality is not proven).
+
+Every runner invocation in the process ledger:
+[
+  {
+    "label": "runner-default-first",
+    "pid": 1986232,
+    "argv": [
+      "/home/woodshape/.local/share/mise/installs/node/26.8.1/bin/node",
+      "/home/woodshape/claude/omarchestra/prototypes/first-vertical-slice/src/cli.ts",
+      "--state-dir",
+      "/tmp/omarchestra-vertical-slice-idWnLI",
+      "--journal",
+      "default",
+      "--bootstrap-json",
+      "{\"teamGoalId\":\"team-goal-vertical-slice-1\",\"goalText\":\"Vertical-slice prototype: prove durable role-labelled visible-agent seams (throwaway).\",\"roles\":[{\"role\":\"coordinator\",\"agentRunId\":\"agent-run-coordinator-1\",\"terminalSessionRef\":\"terminal-coordinator-1\",\"piSessionId\":\"pi-session-coordinator-1\",\"extensionInstanceId\":\"bridge-ext-coordinator-1\",\"hostPid\":41001,\"shellRunId\":\"shell-run-coordinator-1\"},{\"role\":\"builder\",\"agentRunId\":\"agent-run-builder-1\",\"terminalSessionRef\":\"terminal-builder-1\",\"piSessionId\":\"pi-session-builder-1\",\"extensionInstanceId\":\"bridge-ext-builder-1\",\"hostPid\":41002,\"shellRunId\":\"shell-run-builder-1\"},{\"role\":\"reviewer\",\"agentRunId\":\"agent-run-reviewer-1\",\"terminalSessionRef\":\"terminal-reviewer-1\",\"piSessionId\":\"pi-session-reviewer-1\",\"extensionInstanceId\":\"bridge-ext-reviewer-1\",\"hostPid\":41003,\"shellRunId\":\"shell-run-reviewer-1\"}],\"assignment\":{\"id\":\"assignment-builder-1\",\"role\":\"builder\",\"agentRunId\":\"agent-run-builder-1\",\"prompt\":\"Harmless prototype assignment: confirm the visible bridge seam by replying with the fixed prototype acknowledgement phrase.\"}}"
+    ]
+  },
+  {
+    "label": "runner-default-first",
+    "pid": 1986258,
+    "argv": [
+      "/home/woodshape/.local/share/mise/installs/node/26.8.1/bin/node",
+      "/home/woodshape/claude/omarchestra/prototypes/first-vertical-slice/src/cli.ts",
+      "--state-dir",
+      "/tmp/omarchestra-vertical-slice-bERuCq",
+      "--journal",
+      "default",
+      "--bootstrap-json",
+      "{\"teamGoalId\":\"team-goal-vertical-slice-1\",\"goalText\":\"Vertical-slice prototype: prove durable role-labelled visible-agent seams (throwaway).\",\"roles\":[{\"role\":\"coordinator\",\"agentRunId\":\"agent-run-coordinator-1\",\"terminalSessionRef\":\"terminal-coordinator-1\",\"piSessionId\":\"pi-session-coordinator-1\",\"extensionInstanceId\":\"bridge-ext-coordinator-1\",\"hostPid\":41001,\"shellRunId\":\"shell-run-coordinator-1\"},{\"role\":\"builder\",\"agentRunId\":\"agent-run-builder-1\",\"terminalSessionRef\":\"terminal-builder-1\",\"piSessionId\":\"pi-session-builder-1\",\"extensionInstanceId\":\"bridge-ext-builder-1\",\"hostPid\":41002,\"shellRunId\":\"shell-run-builder-1\"},{\"role\":\"reviewer\",\"agentRunId\":\"agent-run-reviewer-1\",\"terminalSessionRef\":\"terminal-reviewer-1\",\"piSessionId\":\"pi-session-reviewer-1\",\"extensionInstanceId\":\"bridge-ext-reviewer-1\",\"hostPid\":41003,\"shellRunId\":\"shell-run-reviewer-1\"}],\"assignment\":{\"id\":\"assignment-builder-1\",\"role\":\"builder\",\"agentRunId\":\"agent-run-builder-1\",\"prompt\":\"Harmless prototype assignment: confirm the visible bridge seam by replying with the fixed prototype acknowledgement phrase.\"}}"
+    ]
+  },
+  {
+    "label": "runner-default-restart",
+    "pid": 1986288,
+    "argv": [
+      "/home/woodshape/.local/share/mise/installs/node/26.8.1/bin/node",
+      "/home/woodshape/claude/omarchestra/prototypes/first-vertical-slice/src/cli.ts",
+      "--state-dir",
+      "/tmp/omarchestra-vertical-slice-bERuCq",
+      "--journal",
+      "default",
+      "--bootstrap-json",
+      "{\"teamGoalId\":\"team-goal-vertical-slice-1\",\"goalText\":\"Vertical-slice prototype: prove durable role-labelled visible-agent seams (throwaway).\",\"roles\":[{\"role\":\"coordinator\",\"agentRunId\":\"agent-run-coordinator-1\",\"terminalSessionRef\":\"terminal-coordinator-1\",\"piSessionId\":\"pi-session-coordinator-1\",\"extensionInstanceId\":\"bridge-ext-coordinator-1\",\"hostPid\":41001,\"shellRunId\":\"shell-run-coordinator-1\"},{\"role\":\"builder\",\"agentRunId\":\"agent-run-builder-1\",\"terminalSessionRef\":\"terminal-builder-1\",\"piSessionId\":\"pi-session-builder-1\",\"extensionInstanceId\":\"bridge-ext-builder-1\",\"hostPid\":41002,\"shellRunId\":\"shell-run-builder-1\"},{\"role\":\"reviewer\",\"agentRunId\":\"agent-run-reviewer-1\",\"terminalSessionRef\":\"terminal-reviewer-1\",\"piSessionId\":\"pi-session-reviewer-1\",\"extensionInstanceId\":\"bridge-ext-reviewer-1\",\"hostPid\":41003,\"shellRunId\":\"shell-run-reviewer-1\"}],\"assignment\":{\"id\":\"assignment-builder-1\",\"role\":\"builder\",\"agentRunId\":\"agent-run-builder-1\",\"prompt\":\"Harmless prototype assignment: confirm the visible bridge seam by replying with the fixed prototype acknowledgement phrase.\"}}"
+    ]
+  },
+  {
+    "label": "runner-wal-first",
+    "pid": 1986300,
+    "argv": [
+      "/home/woodshape/.local/share/mise/installs/node/26.8.1/bin/node",
+      "/home/woodshape/claude/omarchestra/prototypes/first-vertical-slice/src/cli.ts",
+      "--state-dir",
+      "/tmp/omarchestra-vertical-slice-EOUhYH",
+      "--journal",
+      "wal",
+      "--bootstrap-json",
+      "{\"teamGoalId\":\"team-goal-vertical-slice-1\",\"goalText\":\"Vertical-slice prototype: prove durable role-labelled visible-agent seams (throwaway).\",\"roles\":[{\"role\":\"coordinator\",\"agentRunId\":\"agent-run-coordinator-1\",\"terminalSessionRef\":\"terminal-coordinator-1\",\"piSessionId\":\"pi-session-coordinator-1\",\"extensionInstanceId\":\"bridge-ext-coordinator-1\",\"hostPid\":41001,\"shellRunId\":\"shell-run-coordinator-1\"},{\"role\":\"builder\",\"agentRunId\":\"agent-run-builder-1\",\"terminalSessionRef\":\"terminal-builder-1\",\"piSessionId\":\"pi-session-builder-1\",\"extensionInstanceId\":\"bridge-ext-builder-1\",\"hostPid\":41002,\"shellRunId\":\"shell-run-builder-1\"},{\"role\":\"reviewer\",\"agentRunId\":\"agent-run-reviewer-1\",\"terminalSessionRef\":\"terminal-reviewer-1\",\"piSessionId\":\"pi-session-reviewer-1\",\"extensionInstanceId\":\"bridge-ext-reviewer-1\",\"hostPid\":41003,\"shellRunId\":\"shell-run-reviewer-1\"}],\"assignment\":{\"id\":\"assignment-builder-1\",\"role\":\"builder\",\"agentRunId\":\"agent-run-builder-1\",\"prompt\":\"Harmless prototype assignment: confirm the visible bridge seam by replying with the fixed prototype acknowledgement phrase.\"}}"
+    ]
+  },
+  {
+    "label": "runner-wal-restart",
+    "pid": 1986318,
+    "argv": [
+      "/home/woodshape/.local/share/mise/installs/node/26.8.1/bin/node",
+      "/home/woodshape/claude/omarchestra/prototypes/first-vertical-slice/src/cli.ts",
+      "--state-dir",
+      "/tmp/omarchestra-vertical-slice-EOUhYH",
+      "--journal",
+      "wal",
+      "--bootstrap-json",
+      "{\"teamGoalId\":\"team-goal-vertical-slice-1\",\"goalText\":\"Vertical-slice prototype: prove durable role-labelled visible-agent seams (throwaway).\",\"roles\":[{\"role\":\"coordinator\",\"agentRunId\":\"agent-run-coordinator-1\",\"terminalSessionRef\":\"terminal-coordinator-1\",\"piSessionId\":\"pi-session-coordinator-1\",\"extensionInstanceId\":\"bridge-ext-coordinator-1\",\"hostPid\":41001,\"shellRunId\":\"shell-run-coordinator-1\"},{\"role\":\"builder\",\"agentRunId\":\"agent-run-builder-1\",\"terminalSessionRef\":\"terminal-builder-1\",\"piSessionId\":\"pi-session-builder-1\",\"extensionInstanceId\":\"bridge-ext-builder-1\",\"hostPid\":41002,\"shellRunId\":\"shell-run-builder-1\"},{\"role\":\"reviewer\",\"agentRunId\":\"agent-run-reviewer-1\",\"terminalSessionRef\":\"terminal-reviewer-1\",\"piSessionId\":\"pi-session-reviewer-1\",\"extensionInstanceId\":\"bridge-ext-reviewer-1\",\"hostPid\":41003,\"shellRunId\":\"shell-run-reviewer-1\"}],\"assignment\":{\"id\":\"assignment-builder-1\",\"role\":\"builder\",\"agentRunId\":\"agent-run-builder-1\",\"prompt\":\"Harmless prototype assignment: confirm the visible bridge seam by replying with the fixed prototype acknowledgement phrase.\"}}"
+    ]
+  }
+]
+
+ACCEPTANCE GATE COMPLETE

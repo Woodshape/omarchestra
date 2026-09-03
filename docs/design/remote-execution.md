@@ -16,7 +16,7 @@ The local Omarchy machine continues to provide the Agent Console and native term
 
 1. One execution Node per Team Goal.
 2. Coordinator, Builder, and Reviewer are colocated on that Node.
-3. The local Node runs Omarchy, the QML plugin, and the desktop control client.
+3. The local Node runs Omarchy, the persistently installed Omarchestra Companion Plugin, and the desktop control client. Team Goals create only ephemeral Projection Sessions.
 4. A remote Node may run a different GNU/Linux distribution; Omarchy, Hyprland, and a graphical desktop are not required remotely.
 5. Initial remote targets are GNU/Linux x86_64 or aarch64 machines compatible with the shipped Boomux and Omarchestra binaries.
 6. SSH authentication and host trust are configured by the user before a Team Goal starts.
@@ -29,13 +29,14 @@ The local Omarchy machine continues to provide the Agent Console and native term
 13. Reconnection restores the current durable Team Goal projection and reattaches to exact surviving terminal sessions.
 14. Event gaps, stale projections, unavailable Nodes, and uncertain in-flight work are represented explicitly rather than inferred away.
 15. No cross-Node team, distributed checkout, automatic remote provisioning UI, or automatic repository synchronization is included.
-16. Every visible Pi status must persistently expose its Omarchestra role and managed/waiting/takeover state, and the local Agent Console must redundantly expose the team-wide projection. Decorationless terminal-title metadata remains available to Hyprland/window-switcher integrations but is not persistent chrome.
+16. Every visible managed Pi status must persistently expose its Omarchestra role and managed/waiting/takeover state, and the local Agent Console must redundantly expose the team-wide projection. Decorationless terminal-title metadata remains available to Hyprland/window-switcher integrations but is not persistent chrome.
+17. MVP ordinary-terminal Pi observation is local to the Omarchy Node. An Observed Pi Session cannot be adopted into a remote Team Goal because all Agent Runs for that goal must execute on its selected remote Node.
 
 ## Architectural consequence
 
 ```text
 Local Omarchy Node
-├── Omarchestra QML plugin
+├── installed Omarchestra Companion Plugin
 ├── desktop coordinator/client
 ├── Boomux coordinating Node
 └── native terminal windows

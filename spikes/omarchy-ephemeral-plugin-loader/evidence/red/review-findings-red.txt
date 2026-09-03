@@ -1,0 +1,402 @@
+✔ summon queues the open payload; the loaded item receives it in order (17.585502ms)
+✔ call after summon: queued while loading (FIFO after open), immediate once loaded (3.40544ms)
+✔ call return values are truncated at 4096 bytes (2.317223ms)
+✔ call is rejected before any summon has started (1.559277ms)
+✔ summon fully revalidates source metadata, manifest content, and entry point before creating a loader (7.02146ms)
+✔ method rules: lifecycle-reserved, underscore, syntax, missing, and throwing methods fail closed (1.84317ms)
+✔ payload and combined open/call queue bounds fail without changing the queue (2.693559ms)
+✖ multiple summons share the same 32-entry FIFO bound (6.647383ms)
+✔ hide unloads the object but retains registration; duplicate hide is an idempotent no-op (2.175336ms)
+✔ unknown or wrong identity cannot hide or affect the registration (3.11475ms)
+✔ unregister performs exact teardown of only the addressed registration (2.598804ms)
+✔ unregister retains source and ID claims until exact teardown completes (0.800784ms)
+✔ unregister clears queued payloads and calls: they never reach an item (0.803723ms)
+✖ duplicate unregister: pending response, tombstone response, then unknown (0.945195ms)
+✔ load failure is observable; failed hide is a no-op; unregister stays possible (0.935525ms)
+✔ hide while loading drops queued work; late resolution delivers nothing (0.709665ms)
+✖ hide invalidates a late loader-error callback and permits a fresh summon (1.345081ms)
+✖ source revalidation failure retains source and ID claims until unregister (0.882364ms)
+✔ resummon after hide creates a fresh loader and delivers the new payload (0.882909ms)
+✔ the full temporary lifecycle never touches configuration or installed state (16.597814ms)
+✔ capability-only sessions are completely inert (1.500925ms)
+✔ rejected registrations never call config writers or leave partial state (1.312762ms)
+✖ a later rescan collision invalidates only the colliding temporary registration (6.957508ms)
+✔ temporary records never leak into the installed registry view (1.622606ms)
+✔ the candidate patch and its verifier exist (2.080769ms)
+✔ the verifier enforces a touched-file allowlist in its own text (1.191423ms)
+✖ the candidate source retains the reviewed validation, identity, queue, and teardown gates (3.859174ms)
+✖ the verifier cleanup checks exact directory identity before recursive removal (2.177098ms)
+✔ the verifier runs green end to end against the exact baseline (2551.723241ms)
+✔ forced failure removes exactly the registered scratch directories (10.898405ms)
+✔ unrelated resources survive exact cleanup (0.755699ms)
+✖ symlinked scratch paths are refused, stay pending, and are retryable (2.862767ms)
+✖ registered scratch cleanup refuses changed type and new symlink ancestors (1.269307ms)
+✔ the real-fs cleanup registry removes only its exact directory (bounded, foreground) (2.508871ms)
+✔ scratch cleanup composes with host failure paths without touching hosts (3.288965ms)
+ℹ tests 35
+ℹ suites 0
+ℹ pass 26
+ℹ fail 9
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 2728.852132
+
+✖ failing tests:
+
+test at test/s3-lifecycle.test.mjs:141:1
+✖ multiple summons share the same 32-entry FIFO bound (6.647383ms)
+  AssertionError [ERR_ASSERTION]: expected error envelope, got {"version":1,"operation":"summon","ok":true,"result":{"state":"loading","queued":33}}
+  
+  true !== false
+  
+      at expectError (file:///home/woodshape/claude/omarchestra/spikes/omarchy-ephemeral-plugin-loader/test/helpers.mjs:86:10)
+      at TestContext.<anonymous> (file:///home/woodshape/claude/omarchestra/spikes/omarchy-ephemeral-plugin-loader/test/s3-lifecycle.test.mjs:147:3)
+      at async Test.run (node:internal/test_runner/test:1409:7)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:974:7) {
+    generatedMessage: false,
+    code: 'ERR_ASSERTION',
+    actual: true,
+    expected: false,
+    operator: 'strictEqual',
+    diff: 'simple'
+  }
+
+test at test/s3-lifecycle.test.mjs:245:1
+✖ duplicate unregister: pending response, tombstone response, then unknown (0.945195ms)
+  AssertionError [ERR_ASSERTION]: expected error envelope, got {"version":1,"operation":"summon","ok":true,"result":{"state":"unregistered"}}
+  
+  true !== false
+  
+      at expectError (file:///home/woodshape/claude/omarchestra/spikes/omarchy-ephemeral-plugin-loader/test/helpers.mjs:86:10)
+      at TestContext.<anonymous> (file:///home/woodshape/claude/omarchestra/spikes/omarchy-ephemeral-plugin-loader/test/s3-lifecycle.test.mjs:255:3)
+      at async Test.run (node:internal/test_runner/test:1409:7)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:974:7) {
+    generatedMessage: false,
+    code: 'ERR_ASSERTION',
+    actual: true,
+    expected: false,
+    operator: 'strictEqual',
+    diff: 'simple'
+  }
+
+test at test/s3-lifecycle.test.mjs:295:1
+✖ hide invalidates a late loader-error callback and permits a fresh summon (1.345081ms)
+  AssertionError [ERR_ASSERTION]: Expected values to be strictly equal:
+  + actual - expected
+  
+  + 'failed'
+  - 'registered_hidden'
+  
+      at TestContext.<anonymous> (file:///home/woodshape/claude/omarchestra/spikes/omarchy-ephemeral-plugin-loader/test/s3-lifecycle.test.mjs:301:10)
+      at async Test.run (node:internal/test_runner/test:1409:7)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:974:7) {
+    generatedMessage: true,
+    code: 'ERR_ASSERTION',
+    actual: 'failed',
+    expected: 'registered_hidden',
+    operator: 'strictEqual',
+    diff: 'simple'
+  }
+
+test at test/s3-lifecycle.test.mjs:305:1
+✖ source revalidation failure retains source and ID claims until unregister (0.882364ms)
+  AssertionError [ERR_ASSERTION]: expected error envelope, got {"version":1,"operation":"register","ok":true,"result":{"state":"validating","operationId":"op.fake-shell-nonce-alpha.3"}}
+  
+  true !== false
+  
+      at expectError (file:///home/woodshape/claude/omarchestra/spikes/omarchy-ephemeral-plugin-loader/test/helpers.mjs:86:10)
+      at TestContext.<anonymous> (file:///home/woodshape/claude/omarchestra/spikes/omarchy-ephemeral-plugin-loader/test/s3-lifecycle.test.mjs:311:3)
+      at async Test.run (node:internal/test_runner/test:1409:7)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:974:7) {
+    generatedMessage: false,
+    code: 'ERR_ASSERTION',
+    actual: true,
+    expected: false,
+    operator: 'strictEqual',
+    diff: 'simple'
+  }
+
+test at test/s5-persistence-isolation.test.mjs:74:1
+✖ a later rescan collision invalidates only the colliding temporary registration (6.957508ms)
+  AssertionError [ERR_ASSERTION]: expected error envelope, got {"version":1,"operation":"register","ok":true,"result":{"state":"validating","operationId":"op.fake-shell-nonce-alpha.5"}}
+  
+  true !== false
+  
+      at expectError (file:///home/woodshape/claude/omarchestra/spikes/omarchy-ephemeral-plugin-loader/test/helpers.mjs:86:10)
+      at TestContext.<anonymous> (file:///home/woodshape/claude/omarchestra/spikes/omarchy-ephemeral-plugin-loader/test/s5-persistence-isolation.test.mjs:118:3)
+      at async Test.run (node:internal/test_runner/test:1409:7)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:974:7) {
+    generatedMessage: false,
+    code: 'ERR_ASSERTION',
+    actual: true,
+    expected: false,
+    operator: 'strictEqual',
+    diff: 'simple'
+  }
+
+test at test/s6-patch-verification.test.mjs:53:1
+✖ the candidate source retains the reviewed validation, identity, queue, and teardown gates (3.859174ms)
+  AssertionError [ERR_ASSERTION]: pre-load validation must compare current manifest content with the registered snapshot
+      at TestContext.<anonymous> (file:///home/woodshape/claude/omarchestra/spikes/omarchy-ephemeral-plugin-loader/test/s6-patch-verification.test.mjs:65:10)
+      at Test.runInAsyncScope (node:async_hooks:226:14)
+      at Test.run (node:internal/test_runner/test:1402:25)
+      at Test.processPendingSubtests (node:internal/test_runner/test:974:18)
+      at Test.postRun (node:internal/test_runner/test:1542:19)
+      at Test.run (node:internal/test_runner/test:1467:12)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:974:7) {
+    generatedMessage: false,
+    code: 'ERR_ASSERTION',
+    actual: 'diff --git a/shell/README.md b/shell/README.md\nindex e72d02ceba17e880219349b9fa885c5ea0a2cda2..ea464e91cb06585390222b70c3f4edc587b42e49 100644\n--- a/shell/README.md\n+++ b/shell/README.md\n@@ -21,6 +21,7 @@ shell/\n   services/\n     PluginRegistry.qml   discovers, validates plugins, looks up enabled state in shell.json\n     BarWidgetRegistry.qml unified registry for bar widgets (1p + 3p)\n+    TemporaryPanelHost.qml process-memory-only panel registration target\n   plugins/\n     bar/                 first-party plugins (see plugins/README.md)\n     image-picker/\n@@ -184,6 +185,7 @@ running a separate Quickshell instance.\n | `reloadConfig`                           | `ok`    | reload `~/.config/omarchy/shell.json`                 |\n | `setPluginEnabled <id> <enabled>`        | `ok` / `unknown` | flip the persisted enabled bit (see note)    |\n | `listPlugins`                            | JSON    | every discovered plugin, sorted by name               |\n+| `temporary-panel request <json>`         | JSON    | bounded, asynchronous process-local panel lifecycle  |\n \n Direct invocation:\n \n@@ -203,8 +205,26 @@ omarchy-shell shell ping\n omarchy-shell shell toggle omarchy.menu \'{"menu":"root"}\'\n omarchy-shell shell listPlugins\n omarchy-shell shell rescanPlugins\n+omarchy-shell temporary-panel request \'{"version":1,"operation":"capabilities"}\'\n ```\n \n+### Temporary panels\n+\n+The optional `temporary-panel` target exposes one versioned JSON request\n+method for trusted, user-owned repository panels. Registration is asynchronous:\n+`register` returns an operation identity and `status` returns a separate opaque\n+registration identity after bounded path and manifest checks. `summon`, `call`,\n+`hide`, `unregister`, and `inspect` require that registration identity.\n+\n+Temporary registrations are process-memory-only. They are not inserted into\n+`installedPlugins`, do not change plugin enablement, and do not write\n+`shell.json` or `~/.config/omarchy/plugins`. Only manifests with exactly\n+`kinds: ["panel"]` are accepted. The panel source runs as unsandboxed code\n+inside the shell process. The host rejects noncanonical or symlinked paths and\n+rechecks them immediately before loading, but cannot eliminate a concurrent\n+same-user path replacement race with a URL-based QML Loader. Registrations are\n+cleared on shell restart.\n+\n **Note on `setPluginEnabled`:** the `enabled` argument is a string. Only the\n literal `"true"` enables the plugin; every other value (including `"True"`,\n `"1"`, `"yes"`, or omitted) disables it. This keeps the IPC surface\ndiff --git a/shell/services/TemporaryPanelHost.qml b/shell/services/TemporaryPanelHost.qml\nnew file mode 100644\nindex 0000000000000000000000000000000000000000..f9a987f7de29031d32d14176b1c7ae413412b9bc\n--- /dev/null\n+++ b/shell/services/TemporaryPanelHost.qml\n@@ -0,0 +1,995 @@\n+import QtQuick\n+import QtQml.Models\n+import Quickshell\n+import Quickshell.Io\n+import qs.Commons\n+\n+// Candidate-only host for omarchy.temporary-panel/v1. This module keeps\n+// temporary registrations out of PluginRegistry and shell.json. It is\n+// intentionally a trusted same-user source interface, not a sandbox.\n+QtObject {\n+  id: root\n+\n+  property var shell: null\n+  property var pluginRegistry: null\n+  property var barWidgetRegistry: null\n+  property string omarchyPath: ""\n+\n+  property var registrations: ({})\n+  property var operations: ({})\n+  property var pendingByRequest: ({})\n+  property var sourceClaims: ({})\n+  property var pluginIdClaims: ({})\n+  property var validationQueue: []\n+  property var activeValidation: null\n+  property int identityCounter: 0\n+  property int operationSequence: 0\n+  property int validationSerial: 0\n+  property int processWorkSerial: 0\n+\n+  readonly property var limits: ({\n+    requestBytes: 32768,\n+    pathBytes: 4096,\n+    manifestBytes: 65536,\n+    entryPointBytes: 1048576,\n+    payloadBytes: 16384,\n+    methodBytes: 64,\n+    registrations: 16,\n+    queuedCallsPerRegistration: 32,\n+    queuedBytesPerRegistration: 65536,\n+    identityBytes: 256,\n+    diagnosticsBytes: 1024,\n+    callValueBytes: 4096,\n+    maxDepth: 16,\n+    entryPointStringBytes: 1024,\n+    manifestIdBytes: 128,\n+    manifestNameBytes: 256,\n+    manifestVersionBytes: 64,\n+    operationRecords: 64,\n+    tombstones: 64,\n+    tombstoneMs: 300000\n+  })\n+\n+  // All input paths are positional arguments. The script never interpolates\n+  // caller data into shell source. It emits only bounded metadata or base64\n+  // manifest content after stat and non-following path checks.\n+  readonly property string sourceCheckScript:\n+    "set -eu\\n"\n+    + "path=$1\\n"\n+    + "mode=$2\\n"\n+    + "entry=${3:-}\\n"\n+    + "uid=$(/usr/bin/id -u)\\n"\n+    + "check_components() {\\n"\n+    + "  local path_value=\\"$1\\"\\n"\n+    + "  local current=\\"\\"\\n"\n+    + "  local rest=\\"${path_value#/}\\"\\n"\n+    + "  while [[ -n \\"$rest\\" ]]; do\\n"\n+    + "    local part=\\"${rest%%/*}\\"\\n"\n+    + "    if [[ \\"$rest\\" == */* ]]; then rest=\\"${rest#*/}\\"; else rest=\\"\\"; fi\\n"\n+    + "    [[ -z \\"$part\\" ]] && continue\\n"\n+    + "    current=\\"$current/$part\\"\\n"\n+    + "    [[ ! -L \\"$current\\" ]] || exit 12\\n"\n+    + "  done\\n"\n+    + "}\\n"\n+    + "check_regular_owned() {\\n"\n+    + "  local file=\\"$1\\"\\n"\n+    + "  local max_size=\\"$2\\"\\n"\n+    + "  [[ ! -L \\"$file\\" ]] || exit 12\\n"\n+    + "  [[ -f \\"$file\\" ]] || exit 20\\n"\n+    + "  [[ \\"$(stat -c \'%u\' -- \\"$file\\")\\" == \\"$uid\\" ]] || exit 21\\n"\n+    + "  local mode_value=\\"$(stat -c \'%a\' -- \\"$file\\")\\"\\n"\n+    + "  local perm_tail=\\"${mode_value: -2}\\"\\n"\n+    + "  case \\"$perm_tail\\" in [2367]*|*[2367]) exit 22 ;; esac\\n"\n+    + "  (( $(stat -c \'%s\' -- \\"$file\\") <= max_size )) || exit 23\\n"\n+    + "}\\n"\n+    + "check_components \\"$path\\"\\n"\n+    + "canonical=\\"$(/usr/bin/realpath -e -- \\"$path\\")\\"\\n"\n+    + "[[ \\"$canonical\\" == \\"$path\\" ]] || exit 11\\n"\n+    + "[[ -d \\"$path\\" && ! -L \\"$path\\" ]] || exit 13\\n"\n+    + "[[ \\"$(stat -c \'%u\' -- \\"$path\\")\\" == \\"$uid\\" ]] || exit 14\\n"\n+    + "dir_mode=\\"$(stat -c \'%a\' -- \\"$path\\")\\"\\n"\n+    + "dir_perm_tail=\\"${dir_mode: -2}\\"\\n"\n+    + "case \\"$dir_perm_tail\\" in [2367]*|*[2367]) exit 15 ;; esac\\n"\n+    + "manifest=\\"$path/manifest.json\\"\\n"\n+    + "check_regular_owned \\"$manifest\\" 65536\\n"\n+    + "if [[ \\"$mode\\" == manifest ]]; then /usr/bin/base64 --wrap=0 -- \\"$manifest\\"; exit 0; fi\\n"\n+    + "[[ \\"$mode\\" == entry ]] || exit 24\\n"\n+    + "[[ -n \\"$entry\\" && \\"$entry\\" != /* && \\"$entry\\" != *..* ]] || exit 30\\n"\n+    + "entry_path=\\"$path/$entry\\"\\n"\n+    + "check_components \\"$entry_path\\"\\n"\n+    + "entry_real=\\"$(/usr/bin/realpath -e -- \\"$entry_path\\")\\"\\n"\n+    + "[[ \\"$entry_real\\" == \\"$entry_path\\" ]] || exit 31\\n"\n+    + "case \\"$entry_real\\" in \\"$path\\"/*) ;; *) exit 32 ;; esac\\n"\n+    + "check_regular_owned \\"$entry_path\\" 1048576\\n"\n+    + "printf \'ok\\\\n\'\\n"\n+\n+  property Process validationProcess: Process {\n+    stdout: StdioCollector {\n+      id: validationStdout\n+      waitForEnd: true\n+    }\n+    stderr: StdioCollector {\n+      id: validationStderr\n+      waitForEnd: true\n+    }\n+    onExited: function(exitCode) { root.validationFinished(root.processWorkSerial, exitCode) }\n+  }\n+\n+  property Timer validationTimeout: Timer {\n+    interval: 5000\n+    repeat: false\n+    onTriggered: root.validationTimedOut()\n+  }\n+\n+  property Timer tombstoneTimer: Timer {\n+    interval: 60000\n+    repeat: true\n+    running: true\n+    onTriggered: root.pruneTombstones()\n+  }\n+\n+  property Connections pluginRegistryConnections: Connections {\n+    target: root.pluginRegistry\n+    function onPluginsChanged() { root.recheckCollisions() }\n+  }\n+\n+  property IpcHandler temporaryPanelIpc: IpcHandler {\n+    target: "temporary-panel"\n+    function request(requestJson: string): string { return root.request(requestJson) }\n+  }\n+\n+  function utf8Bytes(value) {\n+    var encoded = ""\n+    try { encoded = encodeURIComponent(String(value)) } catch (e) { return 2147483647 }\n+    var bytes = 0\n+    for (var i = 0; i < encoded.length; i++) {\n+      if (encoded.charAt(i) === "%") { bytes++; i += 2 }\n+      else bytes++\n+    }\n+    return bytes\n+  }\n+\n+  function truncate(value, maxBytes) {\n+    var text = String(value || "")\n+    while (text.length > 0 && utf8Bytes(text) > maxBytes) text = text.slice(0, -1)\n+    return text\n+  }\n+\n+  function hasKey(object, key) {\n+    return object !== null && object !== undefined\n+      && Object.prototype.hasOwnProperty.call(object, key)\n+  }\n+\n+  function isRetryable(code) {\n+    return code === "registry_busy" || code === "capacity_exceeded"\n+      || code === "duplicate_pending" || code === "queue_full"\n+      || code === "teardown_pending"\n+  }\n+\n+  function success(operation, result) {\n+    return JSON.stringify({ version: 1, operation: operation, ok: true, result: result })\n+  }\n+\n+  function failure(operation, code, message) {\n+    var safeCode = code || "invalid_field"\n+    return JSON.stringify({\n+      version: 1,\n+      operation: operation,\n+      ok: false,\n+      error: {\n+        code: safeCode,\n+        message: truncate(message || safeCode, limits.diagnosticsBytes),\n+        retryable: isRetryable(safeCode)\n+      }\n+    })\n+  }\n+\n+  function nextIdentity(prefix) {\n+    identityCounter++\n+    var nonce = String(Quickshell.instanceId || "")\n+    if (!nonce) return ""\n+    var identity = prefix + "." + nonce + "." + identityCounter\n+    return utf8Bytes(identity) <= limits.identityBytes ? identity : ""\n+  }\n+\n+  function resolveRegistration(rawId) {\n+    if (typeof rawId !== "string" || rawId.length === 0\n+        || utf8Bytes(rawId) > limits.identityBytes || rawId.indexOf("reg.") !== 0) {\n+      return { error: "invalid_identity" }\n+    }\n+    var rest = rawId.slice(4)\n+    var dot = rest.lastIndexOf(".")\n+    if (dot <= 0 || rest.slice(0, dot) !== String(Quickshell.instanceId || ""))\n+      return { error: "stale_registration" }\n+    var record = registrations[rawId]\n+    if (!record) return { error: "unknown_registr'... 33700 more characters,
+    expected: /work\.kind === "load".*manifestBase64/s,
+    operator: 'match',
+    diff: 'simple'
+  }
+
+test at test/s6-patch-verification.test.mjs:71:1
+✖ the verifier cleanup checks exact directory identity before recursive removal (2.177098ms)
+  AssertionError [ERR_ASSERTION]: The input did not match the regular expression /scratch_identity=/. Input:
+  
+  '#!/usr/bin/env bash\n' +
+    '# SPIKE — candidate-only verifier. It never edits installed or user files.\n' +
+    '# The patch is applied only to a hash-verified copy of /usr/share/omarchy.\n' +
+    '\n' +
+    'set -euo pipefail\n' +
+    '\n' +
+    'ROOT=$(cd "$(dirname "${BASH_SOURCE[0]}")/../../.." && pwd)\n' +
+    'SPIKE_ROOT="$ROOT/spikes/omarchy-ephemeral-plugin-loader"\n' +
+    'PROVENANCE="$SPIKE_ROOT/evidence/source-provenance.json"\n' +
+    'PATCH_PATH="$SPIKE_ROOT/upstream/omarchy-4.0.2-1-temporary-panel-v1.patch"\n' +
+    'TMP_ROOT="${TMPDIR:-/tmp}"\n' +
+    'scratch=""\n' +
+    'unrelated=""\n' +
+    '\n' +
+    'case "$TMP_ROOT" in\n' +
+    '  /tmp|/tmp/*) ;;\n' +
+    `  *) printf 'refusing non-/tmp scratch root: %s\\n' "$TMP_ROOT" >&2; exit 1 ;;\n` +
+    'esac\n' +
+    '\n' +
+    'cleanup() {\n' +
+    '  local exit_code=$?\n' +
+    '  local clean=1\n' +
+    '  trap - HUP INT TERM\n' +
+    '  set +e\n' +
+    '\n' +
+    '  if [[ -n "$unrelated" ]]; then\n' +
+    '    if [[ ! -f "$unrelated/sentinel" ]]; then\n' +
+    '      clean=0\n' +
+    "      printf 'unrelated-resource-not-preserved\\n' >&2\n" +
+    '    fi\n' +
+    '  fi\n' +
+    '\n' +
+    '  if [[ -n "$scratch" ]]; then\n' +
+    '    case "$scratch" in\n' +
+    '      "$TMP_ROOT"/omarchy-ephemeral-verifier-*)\n' +
+    '        rm -rf -- "$scratch"\n' +
+    '        ;;\n' +
+    '      *)\n' +
+    '        clean=0\n' +
+    `        printf 'refusing-to-remove-unexpected-scratch: %s\\n' "$scratch" >&2\n` +
+    '        ;;\n' +
+    '    esac\n' +
+    '  fi\n' +
+    '\n' +
+    '  if [[ -n "$unrelated" ]]; then\n' +
+    '    case "$unrelated" in\n' +
+    '      "$TMP_ROOT"/omarchy-ephemeral-unrelated-*) rm -rf -- "$unrelated" ;;\n' +
+    '      *) clean=0 ;;\n' +
+    '    esac\n' +
+    '  fi\n' +
+    '\n' +
+    '  if (( clean )); then\n' +
+    "    printf 'cleanup-ok\\n'\n" +
+    '  else\n' +
+    "    printf 'cleanup-failed\\n'\n" +
+    '    exit_code=1\n' +
+    '  fi\n' +
+    '\n' +
+    '  if [[ -n "$scratch" && -e "$scratch" ]] || [[ -n "$unrelated" && -e "$unrelated" ]]; then\n' +
+    "    printf 'residue-present\\n'\n" +
+    '    exit_code=1\n' +
+    '  else\n' +
+    "    printf 'residue-clean\\n'\n" +
+    '  fi\n' +
+    '  exit "$exit_code"\n' +
+    '}\n' +
+    '\n' +
+    'on_signal() {\n' +
+    '  exit 130\n' +
+    '}\n' +
+    '\n' +
+    'trap cleanup EXIT\n' +
+    'trap on_signal HUP INT TERM\n' +
+    '\n' +
+    'die() {\n' +
+    `  printf 'FAIL: %s\\n' "$*" >&2\n` +
+    '  exit 1\n' +
+    '}\n' +
+    '\n' +
+    '[[ -f "$PROVENANCE" ]] || die "missing source provenance: $PROVENANCE"\n' +
+    '[[ -f "$PATCH_PATH" ]] || die "missing candidate patch: $PATCH_PATH"\n' +
+    '\n' +
+    '# Emit path/hash pairs from the recorded manifest. Package metadata, cached\n' +
+    '# archives, installed shell files, and QML API metadata are all verified before\n' +
+    '# any scratch copy is made.\n' +
+    'provenance_rows() {\n' +
+    "  node --input-type=module -e '\n" +
+    '    import fs from "node:fs"\n' +
+    '    const provenance = JSON.parse(fs.readFileSync(process.argv[1], "utf8"))\n' +
+    '    const rows = []\n' +
+    '    const add = (entry) => {\n' +
+    '      if (entry && typeof entry.path === "string" && typeof entry.sha256 === "string") {\n' +
+    '        rows.push([entry.path, entry.sha256])\n' +
+    '      }\n' +
+    '    }\n' +
+    '    for (const packageInfo of Object.values(provenance.installedPackages || {})) {\n' +
+    '      add({ path: packageInfo.metadataPath, sha256: packageInfo.metadataSha256 })\n' +
+    '      add(packageInfo.cacheArchive)\n' +
+    '      add(packageInfo.cacheSignature)\n' +
+    '    }\n' +
+    '    add(provenance.versionDiscrepancy)\n' +
+    '    for (const entry of provenance.installedSources || []) add(entry)\n' +
+    '    for (const entry of provenance.qmlApiEvidence || []) add(entry)\n' +
+    '    for (const [pathValue, hashValue] of rows) process.stdout.write(`${pathValue}\\t${hashValue}\\n`)\n' +
+    `  ' "$PROVENANCE"\n` +
+    '}\n' +
+    '\n' +
+    'verify_hash() {\n' +
+    '  local file="$1"\n' +
+    '  local expected="$2"\n' +
+    '  [[ -f "$file" ]] || die "missing hash input: $file"\n' +
+    '  local actual ignored\n' +
+    '  read -r actual ignored < <(sha256sum -- "$file")\n' +
+    '  [[ "$actual" == "$expected" ]] || die "hash mismatch: $file"\n' +
+    '}\n' +
+    '\n' +
+    "while IFS=$'\\t' read -r recorded_path recorded_hash; do\n" +
+    '  [[ -n "$recorded_path" && -n "$recorded_hash" ]] || continue\n' +
+    '  verify_hash "$recorded_path" "$recorded_hash"\n' +
+    'done < <(provenance_rows)\n' +
+    "printf 'baseline-verified\\n'\n" +
+    '\n' +
+    'scratch=$(mktemp -d "$TMP_ROOT/omarchy-ephemeral-verifier-XXXXXX")\n' +
+    'unrelated=$(mktemp -d "$TMP_ROOT/omarchy-ephemeral-unrelated-XXXXXX")\n' +
+    `printf 'unrelated-sentinel\\n' > "$unrelated/sentinel"\n` +
+    '\n' +
+    '# Copy the complete installed Omarchy tree needed by the patch and QML imports.\n' +
+    'cp -a -- /usr/share/omarchy/. "$scratch/"\n' +
+    '\n' +
+    '# Confirm the copy still matches every recorded installed Omarchy path.\n' +
+    "while IFS=$'\\t' read -r recorded_path recorded_hash; do\n" +
+    '  [[ -n "$recorded_path" && -n "$recorded_hash" ]] || continue\n' +
+    '  case "$recorded_path" in\n' +
+    '    /usr/share/omarchy/*)\n' +
+    '      copied_path="$scratch/${recorded_path#/usr/share/omarchy/}"\n' +
+    '      verify_hash "$copied_path" "$recorded_hash"\n' +
+    '      ;;\n' +
+    '  esac\n' +
+    'done < <(provenance_rows)\n' +
+    "printf 'copy-ok\\n'\n" +
+    '\n' +
+    '# The patch must be valid before it is applied. The candidate patch itself is\n' +
+    '# the only source of changes in this scratch tree.\n' +
+    '(cd "$scratch" && git apply --check "$PATCH_PATH")\n' +
+    "printf 'dry-run-ok\\n'\n" +
+    '\n' +
+    '(cd "$scratch" && git apply --numstat "$PATCH_PATH") > "$scratch/.candidate-numstat"\n' +
+    "while IFS=$'\\t' read -r added removed touched; do\n" +
+    '  [[ -n "$touched" ]] || continue\n' +
+    '  case "$touched" in\n' +
+    '    shell/README.md|shell/shell.qml|shell/services/TemporaryPanelHost.qml) ;;\n' +
+    '    *) die "candidate patch touches forbidden path: $touched" ;;\n' +
+    '  esac\n' +
+    'done < "$scratch/.candidate-numstat"\n' +
+    "printf 'allowlist-ok\\n'\n" +
+    '\n' +
+    '(cd "$scratch" && git apply "$PATCH_PATH")\n' +
+    "printf 'apply-ok\\n'\n" +
+    '\n' +
+    'QMLLINT=/usr/lib/qt6/bin/qmllint\n' +
+    '[[ -x "$QMLLINT" ]] || die "Qt 6 qmllint is required at $QMLLINT"\n' +
+    `"$QMLLINT" --version | grep -q '^qmllint 6\\.' || die "Qt 6 qmllint version check failed"\n` +
+    'for qml_file in shell/services/TemporaryPanelHost.qml shell/shell.qml; do\n' +
+    '  if ! timeout --kill-after=1s 20s "$QMLLINT" -I "$scratch/shell" \\\n' +
+    '      "$scratch/$qml_file" >"$scratch/.qmllint-out" 2>"$scratch/.qmllint-err"; then\n' +
+    '    cat "$scratch/.qmllint-out" "$scratch/.qmllint-err" >&2\n' +
+    '    die "candidate $qml_file failed Qt 6 qmllint"\n' +
+    '  fi\n' +
+    'done\n' +
+    "printf 'qmllint-ok (qt6; TemporaryPanelHost.qml and shell.qml)\\n'\n" +
+    '\n' +
+    "# Exercise the verifier's forced-failure cleanup path inside the owned scratch\n" +
+    '# root. The unrelated sibling remains until the EXIT trap checks it.\n' +
+    'forced="$scratch/forced-cleanup"\n' +
+    'mkdir -p "$forced"\n' +
+    '(\n' +
+    '  set -e\n' +
+    `  trap 'rm -rf -- "$forced"' EXIT HUP INT TERM\n` +
+    '  false\n' +
+    ') || true\n' +
+    '[[ ! -e "$forced" ]] || die "forced cleanup left scratch residue"\n' +
+    "printf 'forced-cleanup-ok\\n'\n" +
+    '\n' +
+    '# Applying the candidate must not alter any installed input used for the\n' +
+    '# baseline. Recheck all recorded hashes after the scratch operation.\n' +
+    "while IFS=$'\\t' read -r recorded_path recorded_hash; do\n" +
+    '  [[ -n "$recorded_path" && -n "$recorded_hash" ]] || continue\n' +
+    '  verify_hash "$recorded_path" "$recorded_hash"\n' +
+    'done < <(provenance_rows)\n' +
+    "printf 'installed-unchanged\\n'\n" +
+    '\n' +
+    'exit 0\n'
+  
+      at TestContext.<anonymous> (file:///home/woodshape/claude/omarchestra/spikes/omarchy-ephemeral-plugin-loader/test/s6-patch-verification.test.mjs:73:10)
+      at Test.runInAsyncScope (node:async_hooks:226:14)
+      at Test.run (node:internal/test_runner/test:1402:25)
+      at Test.processPendingSubtests (node:internal/test_runner/test:974:18)
+      at Test.postRun (node:internal/test_runner/test:1542:19)
+      at Test.run (node:internal/test_runner/test:1467:12)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:974:7) {
+    generatedMessage: true,
+    code: 'ERR_ASSERTION',
+    actual: '#!/usr/bin/env bash\n# SPIKE — candidate-only verifier. It never edits installed or user files.\n# The patch is applied only to a hash-verified copy of /usr/share/omarchy.\n\nset -euo pipefail\n\nROOT=$(cd "$(dirname "${BASH_SOURCE[0]}")/../../.." && pwd)\nSPIKE_ROOT="$ROOT/spikes/omarchy-ephemeral-plugin-loader"\nPROVENANCE="$SPIKE_ROOT/evidence/source-provenance.json"\nPATCH_PATH="$SPIKE_ROOT/upstream/omarchy-4.0.2-1-temporary-panel-v1.patch"\nTMP_ROOT="${TMPDIR:-/tmp}"\nscratch=""\nunrelated=""\n\ncase "$TMP_ROOT" in\n  /tmp|/tmp/*) ;;\n  *) printf \'refusing non-/tmp scratch root: %s\\n\' "$TMP_ROOT" >&2; exit 1 ;;\nesac\n\ncleanup() {\n  local exit_code=$?\n  local clean=1\n  trap - HUP INT TERM\n  set +e\n\n  if [[ -n "$unrelated" ]]; then\n    if [[ ! -f "$unrelated/sentinel" ]]; then\n      clean=0\n      printf \'unrelated-resource-not-preserved\\n\' >&2\n    fi\n  fi\n\n  if [[ -n "$scratch" ]]; then\n    case "$scratch" in\n      "$TMP_ROOT"/omarchy-ephemeral-verifier-*)\n        rm -rf -- "$scratch"\n        ;;\n      *)\n        clean=0\n        printf \'refusing-to-remove-unexpected-scratch: %s\\n\' "$scratch" >&2\n        ;;\n    esac\n  fi\n\n  if [[ -n "$unrelated" ]]; then\n    case "$unrelated" in\n      "$TMP_ROOT"/omarchy-ephemeral-unrelated-*) rm -rf -- "$unrelated" ;;\n      *) clean=0 ;;\n    esac\n  fi\n\n  if (( clean )); then\n    printf \'cleanup-ok\\n\'\n  else\n    printf \'cleanup-failed\\n\'\n    exit_code=1\n  fi\n\n  if [[ -n "$scratch" && -e "$scratch" ]] || [[ -n "$unrelated" && -e "$unrelated" ]]; then\n    printf \'residue-present\\n\'\n    exit_code=1\n  else\n    printf \'residue-clean\\n\'\n  fi\n  exit "$exit_code"\n}\n\non_signal() {\n  exit 130\n}\n\ntrap cleanup EXIT\ntrap on_signal HUP INT TERM\n\ndie() {\n  printf \'FAIL: %s\\n\' "$*" >&2\n  exit 1\n}\n\n[[ -f "$PROVENANCE" ]] || die "missing source provenance: $PROVENANCE"\n[[ -f "$PATCH_PATH" ]] || die "missing candidate patch: $PATCH_PATH"\n\n# Emit path/hash pairs from the recorded manifest. Package metadata, cached\n# archives, installed shell files, and QML API metadata are all verified before\n# any scratch copy is made.\nprovenance_rows() {\n  node --input-type=module -e \'\n    import fs from "node:fs"\n    const provenance = JSON.parse(fs.readFileSync(process.argv[1], "utf8"))\n    const rows = []\n    const add = (entry) => {\n      if (entry && typeof entry.path === "string" && typeof entry.sha256 === "string") {\n        rows.push([entry.path, entry.sha256])\n      }\n    }\n    for (const packageInfo of Object.values(provenance.installedPackages || {})) {\n      add({ path: packageInfo.metadataPath, sha256: packageInfo.metadataSha256 })\n      add(packageInfo.cacheArchive)\n      add(packageInfo.cacheSignature)\n    }\n    add(provenance.versionDiscrepancy)\n    for (const entry of provenance.installedSources || []) add(entry)\n    for (const entry of provenance.qmlApiEvidence || []) add(entry)\n    for (const [pathValue, hashValue] of rows) process.stdout.write(`${pathValue}\\t${hashValue}\\n`)\n  \' "$PROVENANCE"\n}\n\nverify_hash() {\n  local file="$1"\n  local expected="$2"\n  [[ -f "$file" ]] || die "missing hash input: $file"\n  local actual ignored\n  read -r actual ignored < <(sha256sum -- "$file")\n  [[ "$actual" == "$expected" ]] || die "hash mismatch: $file"\n}\n\nwhile IFS=$\'\\t\' read -r recorded_path recorded_hash; do\n  [[ -n "$recorded_path" && -n "$recorded_hash" ]] || continue\n  verify_hash "$recorded_path" "$recorded_hash"\ndone < <(provenance_rows)\nprintf \'baseline-verified\\n\'\n\nscratch=$(mktemp -d "$TMP_ROOT/omarchy-ephemeral-verifier-XXXXXX")\nunrelated=$(mktemp -d "$TMP_ROOT/omarchy-ephemeral-unrelated-XXXXXX")\nprintf \'unrelated-sentinel\\n\' > "$unrelated/sentinel"\n\n# Copy the complete installed Omarchy tree needed by the patch and QML imports.\ncp -a -- /usr/share/omarchy/. "$scratch/"\n\n# Confirm the copy still matches every recorded installed Omarchy path.\nwhile IFS=$\'\\t\' read -r recorded_path recorded_hash; do\n  [[ -n "$recorded_path" && -n "$recorded_hash" ]] || continue\n  case "$recorded_path" in\n    /usr/share/omarchy/*)\n      copied_path="$scratch/${recorded_path#/usr/share/omarchy/}"\n      verify_hash "$copied_path" "$recorded_hash"\n      ;;\n  esac\ndone < <(provenance_rows)\nprintf \'copy-ok\\n\'\n\n# The patch must be valid before it is applied. The candidate patch itself is\n# the only source of changes in this scratch tree.\n(cd "$scratch" && git apply --check "$PATCH_PATH")\nprintf \'dry-run-ok\\n\'\n\n(cd "$scratch" && git apply --numstat "$PATCH_PATH") > "$scratch/.candidate-numstat"\nwhile IFS=$\'\\t\' read -r added removed touched; do\n  [[ -n "$touched" ]] || continue\n  case "$touched" in\n    shell/README.md|shell/shell.qml|shell/services/TemporaryPanelHost.qml) ;;\n    *) die "candidate patch touches forbidden path: $touched" ;;\n  esac\ndone < "$scratch/.candidate-numstat"\nprintf \'allowlist-ok\\n\'\n\n(cd "$scratch" && git apply "$PATCH_PATH")\nprintf \'apply-ok\\n\'\n\nQMLLINT=/usr/lib/qt6/bin/qmllint\n[[ -x "$QMLLINT" ]] || die "Qt 6 qmllint is required at $QMLLINT"\n"$QMLLINT" --version | grep -q \'^qmllint 6\\.\' || die "Qt 6 qmllint version check failed"\nfor qml_file in shell/services/TemporaryPanelHost.qml shell/shell.qml; do\n  if ! timeout --kill-after=1s 20s "$QMLLINT" -I "$scratch/shell" \\\n      "$scratch/$qml_file" >"$scratch/.qmllint-out" 2>"$scratch/.qmllint-err"; then\n    cat "$scratch/.qmllint-out" "$scratch/.qmllint-err" >&2\n    die "candidate $qml_file failed Qt 6 qmllint"\n  fi\ndone\nprintf \'qmllint-ok (qt6; TemporaryPanelHost.qml and shell.qml)\\n\'\n\n# Exercise the verifier\'s forced-failure cleanup path inside the owned scratch\n# root. The unrelated sibling remains until the EXIT trap checks it.\nforced="$scratch/forced-cleanup"\nmkdir -p "$forced"\n(\n  set -e\n  trap \'rm -rf -- "$forced"\' EXIT HUP INT TERM\n  false\n) || true\n[[ ! -e "$forced" ]] || die "forced cleanup left scratch residue"\nprintf \'forced-cleanup-ok\\n\'\n\n# Applying the candidate must not alter any installed input used for the\n# baseline. Recheck all recorded hashes after the scratch operation.\nwhile IFS=$\'\\t\' read -r recorded_path recorded_hash; do\n  [[ -n "$recorded_path" && -n "$recorded_hash" ]] || continue\n  verify_hash "$recorded_path" "$recorded_hash"\ndone < <(provenance_rows)\nprintf \'installed-unchanged\\n\'\n\nexit 0\n',
+    expected: /scratch_identity=/,
+    operator: 'match',
+    diff: 'simple'
+  }
+
+test at test/s7-failure-cleanup.test.mjs:65:1
+✖ symlinked scratch paths are refused, stay pending, and are retryable (2.862767ms)
+  AssertionError [ERR_ASSERTION]: Expected values to be strictly equal:
+  
+  true !== false
+  
+      at TestContext.<anonymous> (file:///home/woodshape/claude/omarchestra/spikes/omarchy-ephemeral-plugin-loader/test/s7-failure-cleanup.test.mjs:87:10)
+      at async Test.run (node:internal/test_runner/test:1409:7)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:974:7) {
+    generatedMessage: true,
+    code: 'ERR_ASSERTION',
+    actual: true,
+    expected: false,
+    operator: 'strictEqual',
+    diff: 'simple'
+  }
+
+test at test/s7-failure-cleanup.test.mjs:95:1
+✖ registered scratch cleanup refuses changed type and new symlink ancestors (1.269307ms)
+  AssertionError [ERR_ASSERTION]: Expected values to be strictly equal:
+  
+  true !== false
+  
+      at TestContext.<anonymous> (file:///home/woodshape/claude/omarchestra/spikes/omarchy-ephemeral-plugin-loader/test/s7-failure-cleanup.test.mjs:106:10)
+      at async Test.run (node:internal/test_runner/test:1409:7)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:974:7) {
+    generatedMessage: true,
+    code: 'ERR_ASSERTION',
+    actual: true,
+    expected: false,
+    operator: 'strictEqual',
+    diff: 'simple'
+  }
+
+# exit: 1

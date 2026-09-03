@@ -1,0 +1,90 @@
+✔ lib/index.mjs links and exports the frozen public surface (19.209317ms)
+✔ capabilities reports the exact versioned contract (15.259585ms)
+✔ capabilities is non-mutating: no config writes, no fs writes, no loaders (1.474913ms)
+✔ capabilities does not consume registration capacity (6.257123ms)
+✔ valid fake panel registers once: validating -> registered_hidden (17.830985ms)
+✔ re-registration of the same canonical source fails without aliasing (3.14513ms)
+✔ relative, noncanonical, NUL, newline, oversized, missing, and wrong-type paths fail closed (2.517456ms)
+✔ symlink components are rejected at source, manifest, and entry point (2.447763ms)
+✔ non-owned and group/world-writable sources fail closed (1.626248ms)
+✔ manifest bounds: too large, invalid JSON, non-object, over-deep, over-long id (5.430117ms)
+✔ non-panel scopes are rejected: service, bar, bar-widget, overlay, menu, mixed (3.175068ms)
+✔ entry-point escapes fail closed: absolute, traversal, oversized, missing file (4.905842ms)
+✔ id collisions: omarchy prefix, installed first-party and third-party, temporary id (4.216535ms)
+✔ installed source-directory collision is rejected (3.267161ms)
+✔ registration while the installed scan is unresolved is retryably busy (1.652808ms)
+✔ byte-identical duplicate request while validating is retryably duplicate_pending (1.06226ms)
+✔ capacity: seventeenth concurrent registration is retryably exceeded (8.941469ms)
+✔ rejections leave no partial state: zero loaders, later register works (2.194639ms)
+✔ asynchronous validation failure surfaces as an inspectable rejected state (1.03296ms)
+✔ envelope discipline: bad JSON, non-object, bad/missing version, unknown operation (0.818768ms)
+✔ request size bound is enforced (0.722769ms)
+✔ summon queues the open payload; the loaded item receives it in order (23.746919ms)
+✔ call after summon: queued while loading (FIFO after open), immediate once loaded (5.16575ms)
+✔ call return values are truncated at 4096 bytes (2.780487ms)
+✔ call is rejected before any summon has started (4.932217ms)
+✔ summon fully revalidates source metadata, manifest content, and entry point before creating a loader (12.857067ms)
+✔ method rules: lifecycle-reserved, underscore, syntax, missing, and throwing methods fail closed (5.18789ms)
+✔ payload and combined open/call queue bounds fail without changing the queue (5.675698ms)
+✔ multiple summons share the same 32-entry FIFO bound (9.521319ms)
+✔ hide unloads the object but retains registration; duplicate hide is an idempotent no-op (3.631291ms)
+✔ unknown or wrong identity cannot hide or affect the registration (3.887989ms)
+✔ unregister performs exact teardown of only the addressed registration (7.870095ms)
+✔ unregister retains source and ID claims until exact teardown completes (1.409362ms)
+✔ unregister clears queued payloads and calls: they never reach an item (1.311934ms)
+✔ duplicate unregister: pending response, tombstone response, then unknown (1.044788ms)
+✔ load failure is observable; failed hide is a no-op; unregister stays possible (1.354282ms)
+✔ hide while loading drops queued work; late resolution delivers nothing (1.597866ms)
+✔ hide invalidates a late loader-error callback and permits a fresh summon (3.397323ms)
+✔ source revalidation failure retains source and ID claims until unregister (1.495106ms)
+✔ resummon after hide creates a fresh loader and delivers the new payload (1.995257ms)
+✔ malformed identities fail closed without state change (37.754555ms)
+✔ unknown identities fail closed for every lifecycle operation (6.649293ms)
+✔ one registration identity cannot affect a sibling (3.940321ms)
+✔ operation identities never grant lifecycle authority (1.947786ms)
+✔ status of unknown operation identities fails closed (1.06587ms)
+✔ shell restart: a fresh host never recognizes pre-restart identities (3.097501ms)
+✔ pre-restart identities cannot be smuggled through status (4.696327ms)
+✔ the full temporary lifecycle never touches configuration or installed state (22.36502ms)
+✔ capability-only sessions are completely inert (1.78688ms)
+✔ rejected registrations never call config writers or leave partial state (2.340098ms)
+✔ a later rescan collision invalidates only the colliding temporary registration (5.45722ms)
+✔ temporary records never leak into the installed registry view (2.011591ms)
+✔ the candidate patch and its verifier exist (6.214906ms)
+✔ the verifier enforces a touched-file allowlist in its own text (1.96805ms)
+✔ the candidate source retains the reviewed validation, identity, queue, and teardown gates (6.184269ms)
+✔ the verifier cleanup checks exact directory identity before recursive removal (0.872149ms)
+✔ the verifier runs green end to end against the exact baseline (3243.396485ms)
+✔ forced failure removes exactly the registered scratch directories (14.016405ms)
+✔ unrelated resources survive exact cleanup (2.032334ms)
+✔ symlinked scratch paths are refused, stay pending, and are retryable (1.64484ms)
+✔ registered scratch cleanup refuses changed type and new symlink ancestors (1.059616ms)
+✔ the real-fs cleanup registry removes only its exact directory (bounded, foreground) (3.16427ms)
+✔ scratch cleanup composes with host failure paths without touching hosts (4.647794ms)
+✔ the fake-only recipe spike-omarchy-ephemeral-plugin-loader exists (8.846798ms)
+✔ the spike recipe is free of live-system launch primitives (1.755544ms)
+✔ the spike creates no human/live gate recipe (3.585103ms)
+✔ default spike modules contain no live-system tokens (17.638336ms)
+✔ lib/ and fixtures/ contain no process-spawn primitives; only scripts/ may spawn bounded tools (5.037819ms)
+✔ no spike module references the human-only prototype gate (5.145529ms)
+ℹ tests 69
+ℹ suites 0
+ℹ pass 69
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 3576.894893
+
+# candidate patch scratch verifier
+baseline-verified
+copy-ok
+dry-run-ok
+allowlist-ok
+apply-ok
+qmllint-ok (qt6; TemporaryPanelHost.qml and shell.qml)
+forced-cleanup-ok
+installed-unchanged
+cleanup-ok
+residue-clean
+# patch-verifier-exit: 0

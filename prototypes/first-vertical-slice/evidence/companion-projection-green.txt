@@ -1,0 +1,39 @@
+# Companion Projection Session seam — GREEN evidence (task 2.c)
+# Captured: 2026-09-02T13:55:22Z
+# Command: node --test console/test/companion-projection-session.test.ts (fake-only)
+# Implementation: companion/projection-session.ts + companion/fake-companion-shell.ts,
+# in-place extensions to console/projection-core.ts and console/live-projection-adapter.ts,
+# and the adapted console/plugin manifest + AgentConsole QML.
+
+✔ open performs omarchestra.companion/v1 capability discovery before any runner connection (48.645296ms)
+✔ capability discovery fails closed on a foreign protocol version without creating a session (1.637525ms)
+✔ capability discovery fails closed when required session capabilities are missing (0.738983ms)
+✔ open fails closed when the Companion Plugin is not installed and never contacts the runner (0.62463ms)
+✔ the panel is summoned only after the first authoritative snapshot and shows its committed cards (3.987075ms)
+✔ a malformed pre-snapshot exchange never opens the panel and never fabricates cards (2.473422ms)
+✔ contiguous ordered updates advance the reused projection core and resnapshot on the resume connection (6.039872ms)
+✔ cursor gaps become an explicit gap on the panel without advancing the cursor or hiding the plugin (4.094901ms)
+✔ duplicate sequences and duplicate event identities are rejected through the reused core (3.272334ms)
+✔ opening while a session is already active fails closed and preserves the active session (2.694607ms)
+✔ a plugin reload makes the running session stale: shell operations fail closed, the session stops, and a fresh open reconstructs identical cards (3.999585ms)
+✔ late frames from a hidden session are ignored and cannot mutate the presentation (2.71035ms)
+✔ a present-agent intent is forwarded exactly once and resolved only by the runner acknowledgement (4.056767ms)
+✔ intents for agents that are not present, or while the projection is not ready, are rejected locally without a runner frame (1.911855ms)
+✔ duplicate and already-resolved intent identities are deduplicated without a second runner frame (2.003023ms)
+✔ an intent rejected by the runner is surfaced without changing the projection (1.557622ms)
+✔ hide hides the panel, clears ephemeral state, and leaves installation state byte-identical (2.208524ms)
+✔ clear resets all ephemeral state without hiding, and the next open starts from a fresh authoritative snapshot (2.29501ms)
+✔ reconnect after connection loss recovers only through a fresh authoritative snapshot (3.663848ms)
+✔ the session controller delegates to the existing projection core rather than a second state machine (0.452327ms)
+✔ the companion session modules reuse the console projection seam and never import installation or storage code (1.297841ms)
+✔ the adapted plugin manifest advertises the companion protocol for capability discovery (0.294831ms)
+✔ the adapted Agent Console QML gains session clear and presentation-intent surfaces without protocol authority (1.374118ms)
+✔ adapted QML continues to render opaque committed piStatus values without label derivation (0.740826ms)
+ℹ tests 24
+ℹ suites 0
+ℹ pass 24
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 321.670796

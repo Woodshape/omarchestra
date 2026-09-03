@@ -1,0 +1,1089 @@
+diff --git a/shell/README.md b/shell/README.md
+index e72d02ceba17e880219349b9fa885c5ea0a2cda2..48270615831b8320e02f0c4565b79558bdbf8771 100644
+--- a/shell/README.md
++++ b/shell/README.md
+@@ -21,6 +21,7 @@ shell/
+   services/
+     PluginRegistry.qml   discovers, validates plugins, looks up enabled state in shell.json
+     BarWidgetRegistry.qml unified registry for bar widgets (1p + 3p)
++    TemporaryPanelHost.qml process-memory-only panel registration target
+   plugins/
+     bar/                 first-party plugins (see plugins/README.md)
+     image-picker/
+@@ -184,6 +185,7 @@ running a separate Quickshell instance.
+ | `reloadConfig`                           | `ok`    | reload `~/.config/omarchy/shell.json`                 |
+ | `setPluginEnabled <id> <enabled>`        | `ok` / `unknown` | flip the persisted enabled bit (see note)    |
+ | `listPlugins`                            | JSON    | every discovered plugin, sorted by name               |
++| `temporary-panel request <json>`         | JSON    | bounded, asynchronous process-local panel lifecycle  |
+ 
+ Direct invocation:
+ 
+@@ -203,8 +205,26 @@ omarchy-shell shell ping
+ omarchy-shell shell toggle omarchy.menu '{"menu":"root"}'
+ omarchy-shell shell listPlugins
+ omarchy-shell shell rescanPlugins
++omarchy-shell temporary-panel request '{"version":1,"operation":"capabilities"}'
+ ```
+ 
++### Temporary panels
++
++The optional `temporary-panel` target exposes one versioned JSON request
++method for trusted, user-owned repository panels. Registration is asynchronous:
++`register` returns an operation identity and `status` returns a separate opaque
++registration identity after bounded path and manifest checks. `summon`, `call`,
++`hide`, `unregister`, and `inspect` require that registration identity.
++
++Temporary registrations are process-memory-only. They are not inserted into
++`installedPlugins`, do not change plugin enablement, and do not write
++`shell.json` or `~/.config/omarchy/plugins`. Only manifests with exactly
++`kinds: ["panel"]` are accepted. The panel source runs as unsandboxed code
++inside the shell process. The host rejects noncanonical or symlinked paths and
++rechecks paths and exact manifest bytes immediately before loading. It cannot
++eliminate concurrent same-user replacement races with a URL-based QML Loader.
++Registrations are cleared on shell restart.
++
+ **Note on `setPluginEnabled`:** the `enabled` argument is a string. Only the
+ literal `"true"` enables the plugin; every other value (including `"True"`,
+ `"1"`, `"yes"`, or omitted) disables it. This keeps the IPC surface
+diff --git a/shell/services/TemporaryPanelHost.qml b/shell/services/TemporaryPanelHost.qml
+new file mode 100644
+index 0000000000000000000000000000000000000000..a19dd4060462e5e7db9a8a56caefdf6dda5d447a
+--- /dev/null
++++ b/shell/services/TemporaryPanelHost.qml
+@@ -0,0 +1,1011 @@
++import QtQuick
++import QtQml.Models
++import Quickshell
++import Quickshell.Io
++import qs.Commons
++
++// Candidate-only host for omarchy.temporary-panel/v1. This module keeps
++// temporary registrations out of PluginRegistry and shell.json. It is
++// intentionally a trusted same-user source interface, not a sandbox.
++QtObject {
++  id: root
++
++  property var shell: null
++  property var pluginRegistry: null
++  property var barWidgetRegistry: null
++  property string omarchyPath: ""
++  readonly property string instanceNonce: String(Quickshell.instanceId || "shell")
++    + "-" + String(Quickshell.processId || 0) + "-" + Date.now().toString(36)
++    + "-" + Math.random().toString(36).slice(2)
++
++  property var registrations: ({})
++  property var operations: ({})
++  property var pendingByRequest: ({})
++  property var sourceClaims: ({})
++  property var pluginIdClaims: ({})
++  property var validationQueue: []
++  property var activeValidation: null
++  property int identityCounter: 0
++  property int operationSequence: 0
++  property int validationSerial: 0
++  property int processWorkSerial: 0
++
++  readonly property var limits: ({
++    requestBytes: 32768,
++    pathBytes: 4096,
++    manifestBytes: 65536,
++    entryPointBytes: 1048576,
++    payloadBytes: 16384,
++    methodBytes: 64,
++    registrations: 16,
++    queuedCallsPerRegistration: 32,
++    queuedBytesPerRegistration: 65536,
++    identityBytes: 256,
++    diagnosticsBytes: 1024,
++    callValueBytes: 4096,
++    maxDepth: 16,
++    entryPointStringBytes: 1024,
++    manifestIdBytes: 128,
++    manifestNameBytes: 256,
++    manifestVersionBytes: 64,
++    operationRecords: 64,
++    tombstones: 64,
++    tombstoneMs: 300000
++  })
++
++  // All input paths are positional arguments. The script never interpolates
++  // caller data into shell source. It emits only bounded metadata or base64
++  // manifest content after stat and non-following path checks.
++  readonly property string sourceCheckScript:
++    "set -eu\n"
++    + "path=$1\n"
++    + "mode=$2\n"
++    + "entry=${3:-}\n"
++    + "uid=$(/usr/bin/id -u)\n"
++    + "check_components() {\n"
++    + "  local path_value=\"$1\"\n"
++    + "  local current=\"\"\n"
++    + "  local rest=\"${path_value#/}\"\n"
++    + "  while [[ -n \"$rest\" ]]; do\n"
++    + "    local part=\"${rest%%/*}\"\n"
++    + "    if [[ \"$rest\" == */* ]]; then rest=\"${rest#*/}\"; else rest=\"\"; fi\n"
++    + "    [[ -z \"$part\" ]] && continue\n"
++    + "    current=\"$current/$part\"\n"
++    + "    [[ ! -L \"$current\" ]] || exit 12\n"
++    + "  done\n"
++    + "}\n"
++    + "check_regular_owned() {\n"
++    + "  local file=\"$1\"\n"
++    + "  local max_size=\"$2\"\n"
++    + "  [[ ! -L \"$file\" ]] || exit 12\n"
++    + "  [[ -f \"$file\" ]] || exit 20\n"
++    + "  [[ \"$(stat -c '%u' -- \"$file\")\" == \"$uid\" ]] || exit 21\n"
++    + "  local mode_value=\"$(stat -c '%a' -- \"$file\")\"\n"
++    + "  local perm_tail=\"${mode_value: -2}\"\n"
++    + "  case \"$perm_tail\" in [2367]*|*[2367]) exit 22 ;; esac\n"
++    + "  (( $(stat -c '%s' -- \"$file\") <= max_size )) || exit 23\n"
++    + "}\n"
++    + "check_components \"$path\"\n"
++    + "canonical=\"$(/usr/bin/realpath -e -- \"$path\")\"\n"
++    + "[[ \"$canonical\" == \"$path\" ]] || exit 11\n"
++    + "[[ -d \"$path\" && ! -L \"$path\" ]] || exit 13\n"
++    + "[[ \"$(stat -c '%u' -- \"$path\")\" == \"$uid\" ]] || exit 14\n"
++    + "dir_mode=\"$(stat -c '%a' -- \"$path\")\"\n"
++    + "dir_perm_tail=\"${dir_mode: -2}\"\n"
++    + "case \"$dir_perm_tail\" in [2367]*|*[2367]) exit 15 ;; esac\n"
++    + "manifest=\"$path/manifest.json\"\n"
++    + "check_regular_owned \"$manifest\" 65536\n"
++    + "if [[ \"$mode\" == manifest ]]; then /usr/bin/base64 --wrap=0 -- \"$manifest\"; exit 0; fi\n"
++    + "[[ \"$mode\" == entry || \"$mode\" == load ]] || exit 24\n"
++    + "[[ -n \"$entry\" && \"$entry\" != /* && \"$entry\" != *..* ]] || exit 30\n"
++    + "entry_path=\"$path/$entry\"\n"
++    + "check_components \"$entry_path\"\n"
++    + "entry_real=\"$(/usr/bin/realpath -e -- \"$entry_path\")\"\n"
++    + "[[ \"$entry_real\" == \"$entry_path\" ]] || exit 31\n"
++    + "case \"$entry_real\" in \"$path\"/*) ;; *) exit 32 ;; esac\n"
++    + "check_regular_owned \"$entry_path\" 1048576\n"
++    + "if [[ \"$mode\" == load ]]; then /usr/bin/base64 --wrap=0 -- \"$manifest\"; else printf 'ok\\n'; fi\n"
++
++  property Process validationProcess: Process {
++    stdout: StdioCollector {
++      id: validationStdout
++      waitForEnd: true
++    }
++    stderr: StdioCollector {
++      id: validationStderr
++      waitForEnd: true
++    }
++    onExited: function(exitCode) { root.validationFinished(root.processWorkSerial, exitCode) }
++  }
++
++  property Timer validationTimeout: Timer {
++    interval: 5000
++    repeat: false
++    onTriggered: root.validationTimedOut()
++  }
++
++  property Timer tombstoneTimer: Timer {
++    interval: 60000
++    repeat: true
++    running: true
++    onTriggered: root.pruneTombstones()
++  }
++
++  property Connections pluginRegistryConnections: Connections {
++    target: root.pluginRegistry
++    function onPluginsChanged() { root.recheckCollisions() }
++  }
++
++  property IpcHandler temporaryPanelIpc: IpcHandler {
++    target: "temporary-panel"
++    function request(requestJson: string): string { return root.request(requestJson) }
++  }
++
++  function utf8Bytes(value) {
++    var encoded = ""
++    try { encoded = encodeURIComponent(String(value)) } catch (e) { return 2147483647 }
++    var bytes = 0
++    for (var i = 0; i < encoded.length; i++) {
++      if (encoded.charAt(i) === "%") { bytes++; i += 2 }
++      else bytes++
++    }
++    return bytes
++  }
++
++  function truncate(value, maxBytes) {
++    var text = String(value || "")
++    while (text.length > 0 && utf8Bytes(text) > maxBytes) text = text.slice(0, -1)
++    return text
++  }
++
++  function hasKey(object, key) {
++    return object !== null && object !== undefined
++      && Object.prototype.hasOwnProperty.call(object, key)
++  }
++
++  function isRetryable(code) {
++    return code === "registry_busy" || code === "capacity_exceeded"
++      || code === "duplicate_pending" || code === "queue_full"
++      || code === "teardown_pending"
++  }
++
++  function success(operation, result) {
++    return JSON.stringify({ version: 1, operation: operation, ok: true, result: result })
++  }
++
++  function failure(operation, code, message) {
++    var safeCode = code || "invalid_field"
++    return JSON.stringify({
++      version: 1,
++      operation: operation,
++      ok: false,
++      error: {
++        code: safeCode,
++        message: truncate(message || safeCode, limits.diagnosticsBytes),
++        retryable: isRetryable(safeCode)
++      }
++    })
++  }
++
++  function nextIdentity(prefix) {
++    identityCounter++
++    var identity = prefix + "." + instanceNonce + "." + identityCounter
++    return utf8Bytes(identity) <= limits.identityBytes ? identity : ""
++  }
++
++  function resolveRegistration(rawId) {
++    if (typeof rawId !== "string" || rawId.length === 0
++        || utf8Bytes(rawId) > limits.identityBytes || rawId.indexOf("reg.") !== 0) {
++      return { error: "invalid_identity" }
++    }
++    var rest = rawId.slice(4)
++    var dot = rest.lastIndexOf(".")
++    if (dot <= 0 || rest.slice(0, dot) !== instanceNonce)
++      return { error: "stale_registration" }
++    var record = registrations[rawId]
++    if (!record) return { error: "unknown_registration" }
++    if (record.state === "unregistered") {
++      if (Date.now() > record.tombstoneExpiresAt) {
++        delete registrations[rawId]
++        return { error: "unknown_registration" }
++      }
++      return { tombstone: true, record: record }
++    }
++    return { record: record }
++  }
++
++  function valueDepth(value, depth) {
++    if (value === null || typeof value !== "object") return depth
++    if (depth > limits.maxDepth + 2) return depth
++    var max = depth + 1
++    if (Array.isArray(value)) {
++      for (var i = 0; i < value.length; i++) max = Math.max(max, valueDepth(value[i], depth + 1))
++    } else {
++      for (var key in value) max = Math.max(max, valueDepth(value[key], depth + 1))
++    }
++    return max
++  }
++
++  function serializePayload(value) {
++    var payload = value === undefined ? null : value
++    if (valueDepth(payload, 0) > limits.maxDepth) return ""
++    var text = ""
++    try { text = JSON.stringify(payload) } catch (e) { return "" }
++    if (text === undefined || utf8Bytes(text) > limits.payloadBytes) return ""
++    return text
++  }
++
++  function validMethod(method) {
++    return typeof method === "string"
++      && utf8Bytes(method) <= limits.methodBytes
++      && /^[A-Za-z][A-Za-z0-9_]{0,63}$/.test(method)
++      && method.charAt(0) !== "_"
++      && method !== "open" && method !== "close" && method !== "destroy"
++  }
++
++  function sourceSyntaxError(rawPath) {
++    if (typeof rawPath !== "string") return "path_invalid"
++    if (rawPath.indexOf("\0") !== -1 || rawPath.indexOf("\n") !== -1) return "path_invalid"
++    if (utf8Bytes(rawPath) > limits.pathBytes || rawPath.charAt(0) !== "/") return "path_invalid"
++    return ""
++  }
++
++  function countRegistrationSlots() {
++    var count = validationQueue.length + (activeValidation ? 1 : 0)
++    for (var id in registrations) {
++      var record = registrations[id]
++      if (record && record.state !== "unregistered") count++
++    }
++    return count
++  }
++
++  function beginOperation(path, requestJson) {
++    var operationId = nextIdentity("op")
++    if (!operationId) return null
++    operationSequence++
++    operations[operationId] = {
++      operationId: operationId,
++      path: path,
++      requestJson: requestJson,
++      state: "validating",
++      sequence: operationSequence,
++      error: null,
++      registrationId: "",
++      pluginId: "",
++      manifest: null,
++      manifestBase64: ""
++    }
++    pendingByRequest[requestJson] = operationId
++    validationQueue.push({ kind: "register", phase: "manifest", operationId: operationId, path: path })
++    root.startNextValidation()
++    root.pruneOperations()
++    return operationId
++  }
++
++  function pruneOperations() {
++    var ids = []
++    for (var id in operations) {
++      if (operations[id] && operations[id].state !== "validating") ids.push(id)
++    }
++    while (Object.keys(operations).length > limits.operationRecords && ids.length > 0) {
++      var oldest = ids.shift()
++      delete operations[oldest]
++    }
++  }
++
++  function rejectOperation(operationId, code, message) {
++    var operation = operations[operationId]
++    if (!operation || operation.state !== "validating") return
++    delete pendingByRequest[operation.requestJson]
++    operation.state = "rejected"
++    operation.error = { code: code, message: truncate(message || code, limits.diagnosticsBytes) }
++    root.pruneOperations()
++  }
++
++  function enqueueValidation(work) {
++    validationQueue.push(work)
++    root.startNextValidation()
++  }
++
++  function startNextValidation() {
++    if (activeValidation || validationProcess.running || validationQueue.length === 0) return
++    root.startProcessFor(validationQueue.shift())
++  }
++
++  function validationFailureFor(work, exitCode) {
++    if (work.kind !== "register")
++      return { code: "source_changed", message: "source revalidation failed before load" }
++    if (exitCode === 12) return { code: "symlink_component", message: "source contains a symbolic link" }
++    if (exitCode === 14 || exitCode === 21)
++      return { code: "path_not_owned", message: "source must be owned by the shell user" }
++    if (exitCode === 15 || exitCode === 22)
++      return { code: "source_unsafe", message: "source permissions are unsafe" }
++    if (exitCode === 23 && work.phase === "manifest")
++      return { code: "manifest_too_large", message: "manifest exceeds its size bound" }
++    if (work.phase === "entry" || exitCode === 30 || exitCode === 31 || exitCode === 32)
++      return { code: "entry_point_invalid", message: "entry point validation failed" }
++    return { code: "path_invalid", message: "source path validation failed" }
++  }
++
++  function validationFinished(serial, exitCode) {
++    var work = activeValidation
++    if (!work || work.serial !== serial || processWorkSerial !== serial) return
++    activeValidation = null
++    validationTimeout.stop()
++    if (work.timedOut || exitCode !== 0) {
++      var problem = work.timedOut
++        ? { code: "source_unsafe", message: "source validation timed out" }
++        : validationFailureFor(work, exitCode)
++      if (work.kind === "register") rejectOperation(work.operationId, problem.code, problem.message)
++      else failLoading(work.registrationId, work.generation, problem.code, problem.message)
++      root.startNextValidation()
++      return
++    }
++
++    if (work.kind === "register" && work.phase === "manifest") {
++      var encoded = String(validationStdout.text || "").trim()
++      var raw = ""
++      try { raw = Qt.atob(encoded) } catch (e) { raw = "" }
++      if (!raw) {
++        rejectOperation(work.operationId, "manifest_invalid", "manifest content could not be decoded")
++        root.startNextValidation()
++        return
++      }
++      if (!root.acceptManifest(work.operationId, raw)) {
++        root.startNextValidation()
++        return
++      }
++      var operation = operations[work.operationId]
++      operation.manifestBase64 = encoded
++      startProcessFor({
++        kind: "register",
++        phase: "entry",
++        operationId: work.operationId,
++        path: operation.path,
++        entry: operation.manifest.entryPoints.panel
++      })
++      return
++    }
++
++    if (work.kind === "load") {
++      var record = registrations[work.registrationId]
++      var currentManifestBase64 = String(validationStdout.text || "").trim()
++      if (!record || record.generation !== work.generation
++          || !currentManifestBase64 || currentManifestBase64 !== record.manifestBase64) {
++        failLoading(work.registrationId, work.generation, "source_changed",
++          "manifest content changed before load")
++        root.startNextValidation()
++        return
++      }
++    }
++
++    if (work.kind === "register") root.commitRegistration(work.operationId)
++    else root.activateLoading(work.registrationId, work.generation)
++    root.startNextValidation()
++  }
++
++  function startProcessFor(work) {
++    validationSerial++
++    work.serial = validationSerial
++    work.timedOut = false
++    activeValidation = work
++    processWorkSerial = work.serial
++    validationProcess.command = [
++      "/usr/bin/bash", "-c", sourceCheckScript, "temporary-panel",
++      work.path, work.phase, work.entry || ""
++    ]
++    validationTimeout.restart()
++    validationProcess.running = true
++  }
++
++  function validationTimedOut() {
++    var work = activeValidation
++    if (!work || work.serial !== processWorkSerial) return
++    work.timedOut = true
++    validationProcess.running = false
++  }
++
++  function acceptManifest(operationId, raw) {
++    var operation = operations[operationId]
++    if (!operation || operation.state !== "validating") return false
++    if (utf8Bytes(raw) > limits.manifestBytes) {
++      rejectOperation(operationId, "manifest_too_large", "manifest exceeds its size bound")
++      return false
++    }
++    var parsed
++    try { parsed = JSON.parse(raw) } catch (e) {
++      rejectOperation(operationId, "manifest_invalid", "manifest is not valid JSON")
++      return false
++    }
++    if (!pluginRegistry || typeof pluginRegistry.validateManifest !== "function"
++        || typeof pluginRegistry.isSafeEntryPoint !== "function") {
++      rejectOperation(operationId, "manifest_invalid", "installed manifest validator is unavailable")
++      return false
++    }
++    if (!Util.isPlainObject(parsed) || valueDepth(parsed, 0) > limits.maxDepth) {
++      rejectOperation(operationId, "manifest_invalid", "manifest object or depth is invalid")
++      return false
++    }
++    if (typeof parsed.id !== "string" || utf8Bytes(parsed.id) === 0
++        || utf8Bytes(parsed.id) > limits.manifestIdBytes
++        || parsed.id === "__proto__" || parsed.id === "constructor" || parsed.id === "prototype") {
++      rejectOperation(operationId, "manifest_invalid", "manifest id is invalid or out of bounds")
++      return false
++    }
++    if (typeof parsed.name !== "string" || utf8Bytes(parsed.name) === 0
++        || utf8Bytes(parsed.name) > limits.manifestNameBytes
++        || typeof parsed.version !== "string" || utf8Bytes(parsed.version) === 0
++        || utf8Bytes(parsed.version) > limits.manifestVersionBytes) {
++      rejectOperation(operationId, "manifest_invalid", "manifest metadata is invalid or out of bounds")
++      return false
++    }
++    if (!Array.isArray(parsed.kinds) || parsed.kinds.length !== 1 || parsed.kinds[0] !== "panel") {
++      rejectOperation(operationId, "panel_scope_required", "only exactly kinds [panel] is accepted")
++      return false
++    }
++    if (!Util.isPlainObject(parsed.entryPoints)) {
++      rejectOperation(operationId, "panel_scope_required", "exactly one panel entry point is required")
++      return false
++    }
++    var entryKeys = Object.keys(parsed.entryPoints)
++    if (entryKeys.length !== 1 || entryKeys[0] !== "panel") {
++      rejectOperation(operationId, "panel_scope_required", "exactly one panel entry point is required")
++      return false
++    }
++    var entry = parsed.entryPoints.panel
++    if (typeof entry !== "string" || utf8Bytes(entry) > limits.entryPointStringBytes
++        || !pluginRegistry.isSafeEntryPoint(entry)) {
++      rejectOperation(operationId, "entry_point_invalid", "panel entry point is unsafe")
++      return false
++    }
++
++    var copy
++    try { copy = Util.cloneJson(parsed) } catch (e2) {
++      rejectOperation(operationId, "manifest_invalid", "manifest could not be cloned")
++      return false
++    }
++    copy.__sourceDir = operation.path
++    copy.__isFirstParty = false
++    var validated = pluginRegistry.validateManifest(copy, operation.path + "/manifest.json")
++    if (!validated) {
++      rejectOperation(operationId, "manifest_invalid", "installed manifest validation failed")
++      return false
++    }
++    operation.manifest = validated
++    return true
++  }
++
++  function installedCollision(pluginId, sourcePath) {
++    var installed = pluginRegistry && pluginRegistry.installedPlugins ? pluginRegistry.installedPlugins : ({})
++    if (hasKey(installed, pluginId)) {
++      return { code: "plugin_id_collision", message: "plugin id is already installed" }
++    }
++    for (var id in installed) {
++      var manifest = installed[id]
++      var installedSource = manifest && typeof manifest.__sourceDir === "string"
++        ? manifest.__sourceDir.replace(/\/$/, "") : ""
++      if (installedSource && installedSource === sourcePath) {
++        return { code: "source_collision", message: "canonical source equals an installed plugin source" }
++      }
++    }
++    return null
++  }
++
++  function commitRegistration(operationId) {
++    var operation = operations[operationId]
++    if (!operation || operation.state !== "validating" || !operation.manifest) return
++    if (pluginRegistry && pluginRegistry.scanning) {
++      rejectOperation(operationId, "registry_busy", "installed registry scan is unresolved")
++      return
++    }
++    var manifest = operation.manifest
++    var pluginId = String(manifest.id)
++    if (pluginId.indexOf("omarchy.") === 0) {
++      rejectOperation(operationId, "plugin_id_collision", "the omarchy namespace is reserved")
++      return
++    }
++    var collision = installedCollision(pluginId, operation.path)
++    if (collision) {
++      rejectOperation(operationId, collision.code, collision.message)
++      return
++    }
++    if (hasKey(sourceClaims, operation.path)) {
++      rejectOperation(operationId, "source_collision", "source is already temporarily registered")
++      return
++    }
++    if (hasKey(pluginIdClaims, pluginId)) {
++      rejectOperation(operationId, "plugin_id_collision", "plugin id is already temporarily registered")
++      return
++    }
++    if (!pluginRegistry || typeof pluginRegistry.entryPointUrl !== "function") {
++      rejectOperation(operationId, "entry_point_invalid", "installed entry-point resolver is unavailable")
++      return
++    }
++    var sourceUrl = pluginRegistry.entryPointUrl(manifest, "panel")
++    if (!sourceUrl) {
++      rejectOperation(operationId, "entry_point_invalid", "panel entry point could not be resolved")
++      return
++    }
++
++    var registrationId = nextIdentity("reg")
++    if (!registrationId) {
++      rejectOperation(operationId, "capacity_exceeded", "registration identity could not be allocated")
++      return
++    }
++    var record = {
++      registrationId: registrationId,
++      pluginId: pluginId,
++      canonicalPath: operation.path,
++      manifest: manifest,
++      manifestBase64: operation.manifestBase64,
++      sourceUrl: sourceUrl,
++      state: "registered_hidden",
++      opened: false,
++      generation: 0,
++      queue: [],
++      item: null,
++      loader: null,
++      lastError: "",
++      tombstoneExpiresAt: 0,
++      sequence: operationSequence += 1
++    }
++    registrations[registrationId] = record
++    sourceClaims[operation.path] = registrationId
++    pluginIdClaims[pluginId] = registrationId
++    operation.state = "registered_hidden"
++    operation.registrationId = registrationId
++    operation.pluginId = pluginId
++    delete pendingByRequest[operation.requestJson]
++    root.pruneOperations()
++  }
++
++  function recordFor(id) {
++    var resolved = resolveRegistration(id)
++    if (resolved.error) return resolved
++    return resolved
++  }
++
++  function injectItem(item, manifest) {
++    if (!item) return
++    if ("omarchyPath" in item) item.omarchyPath = root.omarchyPath
++    if ("shell" in item) item.shell = root.shell
++    if ("manifest" in item) item.manifest = manifest
++    if ("barWidgetRegistry" in item) item.barWidgetRegistry = root.barWidgetRegistry
++    if ("pluginRegistry" in item) item.pluginRegistry = root.pluginRegistry
++    // A temporary panel is routed by the host. Disable the base Panel IPC
++    // target when the component exposes these optional properties.
++    if ("manageIpc" in item) item.manageIpc = false
++    if ("ipcTarget" in item) item.ipcTarget = ""
++  }
++
++  function handleLoaded(registrationId, generation, loader, item) {
++    var record = registrations[registrationId]
++    if (!record || record.loader !== loader || record.generation !== generation
++        || record.state !== "loading" || !record.opened) return
++    if (!item) {
++      failLoading(registrationId, generation, "plugin_load_failed", "Loader resolved without an item")
++      return
++    }
++    record.item = item
++    injectItem(item, record.manifest)
++    drainQueue(record)
++    if (record.state === "loading" && record.opened) record.state = "summoned"
++  }
++
++  function handleItemChanged(registrationId, generation, loader, item) {
++    var record = registrations[registrationId]
++    if (!record || record.loader !== loader || record.generation !== generation) return
++    if (item && (record.state === "loading" || record.state === "summoned")) record.item = item
++    else if (!item) record.item = null
++  }
++
++  function handleLoadError(registrationId, generation, loader, detail) {
++    var record = registrations[registrationId]
++    if (!record || record.loader !== loader || record.generation !== generation) return
++    failLoading(registrationId, generation, "plugin_load_failed", detail || "temporary panel failed to load")
++  }
++
++  function failLoading(registrationId, generation, code, message) {
++    var record = registrations[registrationId]
++    if (!record || record.generation !== generation
++        || (record.state !== "loading" && record.state !== "summoned")) return
++    record.lastError = truncate(message || code, limits.diagnosticsBytes)
++    record.state = "failed"
++    record.opened = false
++    record.queue = []
++    record.generation++
++    var loader = record.loader
++    if (loader) {
++      loader.callbackGeneration = record.generation
++      loader.active = false
++      loader.source = ""
++      loader.destroy()
++    }
++    record.item = null
++  }
++
++  function drainQueue(record) {
++    var queue = record.queue
++    record.queue = []
++    for (var i = 0; i < queue.length; i++) {
++      if (!record.item) return
++      var entry = queue[i]
++      try {
++        if (entry.kind === "open") {
++          if (typeof record.item.open !== "function") throw new Error("open method is missing")
++          record.item.open(entry.payloadJson)
++        } else {
++          if (typeof record.item[entry.method] !== "function") throw new Error("method is missing")
++          record.item[entry.method](entry.payloadJson)
++        }
++      } catch (e) {
++        record.lastError = truncate("plugin delivery failed: " + (e && e.message ? e.message : "threw"), limits.diagnosticsBytes)
++      }
++    }
++  }
++
++  function queuedBytes(record) {
++    var total = 0
++    for (var i = 0; i < record.queue.length; i++) total += record.queue[i].bytes
++    return total
++  }
++
++  function enqueue(record, entry) {
++    if (record.queue.length >= limits.queuedCallsPerRegistration) return false
++    if (queuedBytes(record) + entry.bytes > limits.queuedBytesPerRegistration) return false
++    record.queue.push(entry)
++    return true
++  }
++
++  function activateLoading(registrationId, generation) {
++    var record = registrations[registrationId]
++    if (!record || record.state !== "loading" || record.generation !== generation || !record.opened
++        || record.loader) return
++    var loader = temporaryPanelLoaderComponent.createObject(root, {
++      registrationId: registrationId,
++      callbackGeneration: generation
++    })
++    if (!loader) {
++      failLoading(registrationId, generation, "plugin_load_failed", "Loader could not be created")
++      return
++    }
++    record.loader = loader
++    loader.source = record.sourceUrl
++    loader.active = true
++  }
++
++  function closeItem(record) {
++    if (!record.item || typeof record.item.close !== "function") return
++    try { record.item.close() } catch (e) {
++      record.lastError = truncate("close() threw during teardown", limits.diagnosticsBytes)
++    }
++  }
++
++  function releaseClaims(record) {
++    if (record && sourceClaims[record.canonicalPath] === record.registrationId)
++      delete sourceClaims[record.canonicalPath]
++    if (record && pluginIdClaims[record.pluginId] === record.registrationId)
++      delete pluginIdClaims[record.pluginId]
++  }
++
++  function beginCollisionFailure(record) {
++    if (!record || record.state === "unregistered" || record.state === "unregistering") return
++    record.state = "failed_collision"
++    record.lastError = "installed registry change collided with this temporary registration"
++    record.opened = false
++    record.queue = []
++    record.generation++
++    closeItem(record)
++    var loader = record.loader
++    if (loader) {
++      loader.callbackGeneration = record.generation
++      loader.active = false
++      loader.source = ""
++      loader.destroy()
++    }
++    record.item = null
++  }
++
++  function recheckCollisions() {
++    var installed = pluginRegistry && pluginRegistry.installedPlugins ? pluginRegistry.installedPlugins : ({})
++    for (var id in registrations) {
++      var record = registrations[id]
++      if (!record || record.state === "unregistered" || record.state === "unregistering"
++          || record.state === "failed_collision") continue
++      var idCollision = hasKey(installed, record.pluginId)
++      var sourceCollision = false
++      for (var installedId in installed) {
++        var manifest = installed[installedId]
++        var source = manifest && typeof manifest.__sourceDir === "string"
++          ? manifest.__sourceDir.replace(/\/$/, "") : ""
++        if (source && source === record.canonicalPath) { sourceCollision = true; break }
++      }
++      if (idCollision || sourceCollision) root.beginCollisionFailure(record)
++    }
++  }
++
++  function beginUnregister(record) {
++    if (!record || record.state === "unregistered" || record.state === "unregistering") return
++    record.state = "unregistering"
++    record.opened = false
++    record.queue = []
++    record.generation++
++    closeItem(record)
++    var loader = record.loader
++    if (loader) {
++      loader.callbackGeneration = record.generation
++      loader.active = false
++      loader.source = ""
++      loader.destroy()
++    } else {
++      finalizeUnregister(record)
++    }
++  }
++
++  function finalizeUnregister(record) {
++    if (!record || record.state !== "unregistering" || record.loader || record.item) return
++    releaseClaims(record)
++    record.state = "unregistered"
++    record.opened = false
++    record.queue = []
++    record.tombstoneExpiresAt = Date.now() + limits.tombstoneMs
++    pruneTombstones()
++  }
++
++  function handleLoaderDestroyed(registrationId, generation, loader) {
++    var record = registrations[registrationId]
++    if (!record || record.loader !== loader || record.generation !== generation) return
++    record.item = null
++    record.loader = null
++    if (record.state === "unregistering") finalizeUnregister(record)
++    else if (record.state === "hiding") {
++      record.state = "registered_hidden"
++      record.opened = false
++    }
++  }
++
++  function dispatchCapabilities() {
++    return success("capabilities", {
++      interface: "omarchy.temporary-panel/v1",
++      supported: true,
++      scope: ["panel"],
++      registration: "asynchronous",
++      persistence: "process-memory-only",
++      restart: "registrations-cleared",
++      limits: limits
++    })
++  }
++
++  function dispatchRegister(body, requestJson) {
++    var rawPath = body.path
++    var pathError = sourceSyntaxError(rawPath)
++    if (pathError) return failure("register", pathError, "path must be absolute, bounded, and free of NUL/newline")
++    if (pluginRegistry && pluginRegistry.scanning)
++      return failure("register", "registry_busy", "installed registry scan is unresolved")
++    if (hasKey(pendingByRequest, requestJson))
++      return failure("register", "duplicate_pending", "an identical registration is already validating")
++    if (countRegistrationSlots() >= limits.registrations)
++      return failure("register", "capacity_exceeded", "registration capacity is full")
++    var operationId = beginOperation(rawPath, requestJson)
++    if (!operationId) return failure("register", "capacity_exceeded", "operation identity could not be allocated")
++    return success("register", { state: "validating", operationId: operationId })
++  }
++
++  function dispatchStatus(body) {
++    var operationId = body.operationId
++    if (typeof operationId !== "string" || operationId.length === 0
++        || utf8Bytes(operationId) > limits.identityBytes || operationId.indexOf("op.") !== 0)
++      return failure("status", "invalid_identity", "operationId is malformed")
++    var operation = operations[operationId]
++    if (!operation) return failure("status", "unknown_operation_id", "operation is absent or expired")
++    if (operation.state === "validating") return success("status", { state: "validating" })
++    if (operation.state === "rejected") return success("status", {
++      state: "rejected",
++      error: { code: operation.error.code, message: operation.error.message }
++    })
++    return success("status", {
++      state: "registered_hidden",
++      registrationId: operation.registrationId,
++      pluginId: operation.pluginId
++    })
++  }
++
++  function dispatchSummon(body) {
++    var resolved = recordFor(body.registrationId)
++    if (resolved.error) return failure("summon", resolved.error, resolved.error)
++    if (resolved.tombstone) return failure("summon", "unknown_registration", "registration is unregistered")
++    var record = resolved.record
++    if (record.state === "unregistering" || record.state === "hiding")
++      return failure("summon", "teardown_pending", "registration teardown is pending")
++    if (record.state === "failed" || record.state === "failed_collision")
++      return failure("summon", "plugin_load_failed", record.lastError || "registration failed")
++    var payloadJson = serializePayload(body.payload)
++    if (!payloadJson) return failure("summon", "invalid_payload", "payload is invalid or exceeds its bounds")
++    var entry = { kind: "open", payloadJson: payloadJson, bytes: utf8Bytes(payloadJson) }
++    if (!enqueue(record, entry)) return failure("summon", "queue_full", "registration queue bound reached")
++    if (record.state === "registered_hidden") {
++      record.opened = true
++      record.state = "loading"
++      record.generation++
++      enqueueValidation({
++        kind: "load",
++        phase: "load",
++        registrationId: record.registrationId,
++        generation: record.generation,
++        path: record.canonicalPath,
++        entry: record.manifest.entryPoints.panel
++      })
++    }
++    if (record.item) drainQueue(record)
++    return success("summon", { state: record.state, queued: record.queue.length })
++  }
++
++  function dispatchCall(body) {
++    var resolved = recordFor(body.registrationId)
++    if (resolved.error) return failure("call", resolved.error, resolved.error)
++    if (resolved.tombstone) return failure("call", "unknown_registration", "registration is unregistered")
++    var record = resolved.record
++    if (record.state === "unregistering" || record.state === "hiding")
++      return failure("call", "teardown_pending", "registration teardown is pending")
++    if (record.state !== "loading" && record.state !== "summoned")
++      return failure("call", "not_summoned", "call requires an active summon")
++    if (!validMethod(body.method)) return failure("call", "invalid_method", "method violates the call rules")
++    var payloadJson = serializePayload(body.payload)
++    if (!payloadJson) return failure("call", "invalid_payload", "payload is invalid or exceeds its bounds")
++    if (record.state === "loading") {
++      var entry = { kind: "call", method: body.method, payloadJson: payloadJson, bytes: utf8Bytes(payloadJson) }
++      if (!enqueue(record, entry)) return failure("call", "queue_full", "registration queue bound reached")
++      return success("call", { state: "queued", queued: record.queue.length })
++    }
++    if (!record.item || typeof record.item[body.method] !== "function")
++      return failure("call", "unknown_method", "loaded item does not expose the requested method")
++    try {
++      var value = record.item[body.method](payloadJson)
++      var text = value === undefined || value === null ? "ok" : String(value)
++      return success("call", { state: "delivered", value: truncate(text, limits.callValueBytes) })
++    } catch (e) {
++      record.lastError = truncate("plugin call failed", limits.diagnosticsBytes)
++      return failure("call", "plugin_call_failed", "the plugin method threw")
++    }
++  }
++
++  function dispatchHide(body) {
++    var resolved = recordFor(body.registrationId)
++    if (resolved.error) return failure("hide", resolved.error, resolved.error)
++    if (resolved.tombstone) return success("hide", { changed: false, state: "unregistered" })
++    var record = resolved.record
++    if (record.state === "registered_hidden" || record.state === "failed"
++        || record.state === "failed_collision" || record.state === "hiding")
++      return success("hide", { changed: false, state: record.state })
++    if (record.state === "unregistering")
++      return success("hide", { changed: false, state: "unregistering" })
++    record.opened = false
++    record.queue = []
++    record.generation++
++    closeItem(record)
++    var loader = record.loader
++    if (loader) {
++      record.state = "hiding"
++      loader.callbackGeneration = record.generation
++      loader.active = false
++      loader.source = ""
++      loader.destroy()
++    } else {
++      record.item = null
++      record.state = "registered_hidden"
++    }
++    return success("hide", { changed: true, state: record.state })
++  }
++
++  function dispatchUnregister(body) {
++    var resolved = recordFor(body.registrationId)
++    if (resolved.error) return failure("unregister", resolved.error, resolved.error)
++    if (resolved.tombstone) return success("unregister", { changed: false, state: "unregistered" })
++    var record = resolved.record
++    if (record.state === "unregistering")
++      return success("unregister", { changed: false, state: "unregistering" })
++    beginUnregister(record)
++    return success("unregister", { changed: true, state: "unregistering" })
++  }
++
++  function dispatchInspect(body) {
++    var resolved = recordFor(body.registrationId)
++    if (resolved.error) return failure("inspect", resolved.error, resolved.error)
++    if (resolved.tombstone) return success("inspect", { state: "unregistered" })
++    var record = resolved.record
++    var result = {
++      state: record.state,
++      pluginId: record.pluginId,
++      queued: record.queue.length
++    }
++    if (record.lastError) result.lastError = record.lastError
++    return success("inspect", result)
++  }
++
++  function request(requestJson) {
++    if (typeof requestJson !== "string") return failure("request", "bad_json", "request must be a JSON string")
++    if (utf8Bytes(requestJson) > limits.requestBytes)
++      return failure("request", "request_too_large", "request exceeds its byte bound")
++    var body
++    try { body = JSON.parse(requestJson) } catch (e) {
++      return failure("request", "bad_json", "request is not valid JSON")
++    }
++    if (!Util.isPlainObject(body)) return failure("request", "bad_json", "request must be one JSON object")
++    var operation = typeof body.operation === "string" ? truncate(body.operation, 128) : "request"
++    if (body.version !== 1) return failure(operation, "unsupported_version", "version must be exactly 1")
++    switch (operation) {
++    case "capabilities": return dispatchCapabilities()
++    case "register": return dispatchRegister(body, requestJson)
++    case "status": return dispatchStatus(body)
++    case "summon": return dispatchSummon(body)
++    case "call": return dispatchCall(body)
++    case "hide": return dispatchHide(body)
++    case "unregister": return dispatchUnregister(body)
++    case "inspect": return dispatchInspect(body)
++    default: return failure(operation, "unknown_operation", "operation is not part of v1")
++    }
++  }
++
++  function unloadAll() {
++    validationQueue = []
++    if (activeValidation) {
++      var work = activeValidation
++      activeValidation = null
++      validationSerial++
++      processWorkSerial = validationSerial
++      validationTimeout.stop()
++      validationProcess.running = false
++      if (work.kind === "register") {
++        rejectOperation(work.operationId, "source_unsafe", "shell reload cancelled validation")
++      } else {
++        failLoading(work.registrationId, work.generation, "source_unsafe", "shell reload cancelled validation")
++      }
++    }
++    for (var operationId in operations) {
++      if (operations[operationId] && operations[operationId].state === "validating")
++        rejectOperation(operationId, "source_unsafe", "shell reload cancelled validation")
++    }
++    var ids = []
++    for (var id in registrations) {
++      if (registrations[id] && registrations[id].state !== "unregistered"
++          && registrations[id].state !== "unregistering") ids.push(id)
++    }
++    for (var i = 0; i < ids.length; i++) beginUnregister(registrations[ids[i]])
++  }
++
++  function pruneTombstones() {
++    var now = Date.now()
++    var tombstones = []
++    for (var id in registrations) {
++      var record = registrations[id]
++      if (record && record.state === "unregistered") {
++        if (now > record.tombstoneExpiresAt) delete registrations[id]
++        else tombstones.push(record)
++      }
++    }
++    tombstones.sort(function(left, right) { return left.tombstoneExpiresAt - right.tombstoneExpiresAt })
++    while (tombstones.length > limits.tombstones) {
++      delete registrations[tombstones.shift().registrationId]
++    }
++  }
++
++  property Component temporaryPanelLoaderComponent: Component {
++    Loader {
++      id: panelLoader
++      property string registrationId: ""
++      property int callbackGeneration: 0
++      source: ""
++      active: false
++      asynchronous: true
++
++      onLoaded: root.handleLoaded(registrationId, callbackGeneration, panelLoader, item)
++      onItemChanged: root.handleItemChanged(registrationId, callbackGeneration, panelLoader, item)
++      onStatusChanged: {
++        if (status === Loader.Error)
++          root.handleLoadError(registrationId, callbackGeneration, panelLoader, "Loader.Error")
++      }
++      Component.onDestruction: root.handleLoaderDestroyed(
++        registrationId, callbackGeneration, panelLoader)
++    }
++  }
++}
+diff --git a/shell/shell.qml b/shell/shell.qml
+index 71a9834f79f68fe1e9e1773d6539204943bc65ad..8a0bfbed7e2789e0695406d6d9c9e1827d3367b2 100644
+--- a/shell/shell.qml
++++ b/shell/shell.qml
+@@ -18,6 +18,12 @@ ShellRoot {
+   property PluginRegistry pluginRegistry: PluginRegistry { }
+   property BarWidgetRegistry barWidgetRegistry: BarWidgetRegistry { }
+   property AppLibrary appLibrary: AppLibrary { }
++  property TemporaryPanelHost temporaryPanelHost: TemporaryPanelHost {
++    shell: shell
++    pluginRegistry: shell.pluginRegistry
++    barWidgetRegistry: shell.barWidgetRegistry
++    omarchyPath: shell.omarchyPath
++  }
+ 
+   property string home: Quickshell.env("HOME")
+ 
+@@ -743,6 +749,7 @@ ShellRoot {
+     }
+     shell.pluginReloading = true
+     shell.unloadPanels()
++    shell.temporaryPanelHost.unloadAll()
+     shell.unloadPluginServices()
+     shell.unloadPluginWidgets()
+     Qt.callLater(shell.finishPluginReload)

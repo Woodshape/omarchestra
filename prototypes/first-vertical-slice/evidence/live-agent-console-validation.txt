@@ -1,0 +1,202 @@
+# Live Agent Console non-live validation
+
+All commands ran from `/home/woodshape/claude/omarchestra`. The human gate was not invoked. Each validation command was bounded to 55 seconds by the validation wrapper.
+
+## Gates and source audits
+
+```text
+$ just prototype-live-agent-console-check
+exit status: 0
+result: 37 tests passed, 0 failed; launcher static check PASS (fake-only)
+
+$ just prototype-vertical-slice
+exit status: 0
+result: ACCEPTANCE GATE COMPLETE
+
+$ just prototype-vertical-slice-manual-check
+exit status: 0
+result: 6 tests passed, 0 failed; manual role-label wizard static check PASS
+
+$ node --test prototypes/first-vertical-slice/console/test/source-audit.test.mjs
+exit status: 0
+result: 5 tests passed, 0 failed
+
+$ node --test prototypes/first-vertical-slice/console/test/qml-boundary.test.mjs
+exit status: 0
+result: 6 tests passed, 0 failed
+```
+
+## Module, QML, and shell checks
+
+```text
+$ node --experimental-strip-types -e await Promise.all([import('./prototypes/first-vertical-slice/console/projection-core.ts'), import('./prototypes/first-vertical-slice/console/live-projection-adapter.ts'), import('./prototypes/first-vertical-slice/manual/live-gate-resources.ts')])
+exit status: 0
+
+$ qmllint -I /usr/share/omarchy/shell prototypes/first-vertical-slice/console/plugin/AgentConsole.qml prototypes/first-vertical-slice/console/plugin/AgentConsoleCards.qml
+exit status: 0
+
+$ bash -n prototypes/first-vertical-slice/manual/run-live-agent-console-gate.sh
+exit status: 0
+
+$ bash -n prototypes/first-vertical-slice/manual/run-role-label-gate.sh
+exit status: 0
+
+$ shellcheck prototypes/first-vertical-slice/manual/run-live-agent-console-gate.sh
+result: skipped, shellcheck is not installed
+
+$ shellcheck prototypes/first-vertical-slice/manual/run-role-label-gate.sh
+result: skipped, shellcheck is not installed
+```
+
+## Secret and whitespace checks
+
+```text
+$ grep -RInI --exclude-dir=.git -E '(AKIA[0-9A-Z]{16}|-----BEGIN (RSA|OPENSSH|EC|DSA) PRIVATE KEY-----|github_pat_[A-Za-z0-9_]{20,}|gh[pousr]_[A-Za-z0-9]{20,}|xox[baprs]-[A-Za-z0-9-]{20,}|sk-[A-Za-z0-9]{20,})' .
+exit status: 1
+result: PASS, no standard credential pattern found
+
+$ git diff --check
+exit status: 0
+result: PASS
+
+$ git diff --no-index --check /dev/null <each path from git ls-files --others --exclude-standard>
+result: PASS, no untracked whitespace diagnostics
+```
+
+## Residue checks
+
+```text
+$ find /tmp -maxdepth 1 -type d \( -name 'omarchestra-gate-resources-*' -o -name 'omarchestra-role-label-gate.*' -o -name 'omarchestra-vertical-slice-*' \) -print
+result: PASS, no prototype gate directories remain
+
+$ find /tmp -maxdepth 1 -type s -name 'omarchestra-*' -print
+result: PASS, no prototype sockets remain
+
+$ find prototypes/first-vertical-slice -type f \( -name '*.sock' -o -name '*.sqlite*' -o -name '*.pid' \) -print
+result: PASS, no repository runtime files remain
+
+$ pgrep -x node / pgrep -x bash, then inspect /proc/<pid>/cmdline for exact prototype runner or gate argv
+result: PASS, no prototype runner or gate process argv remains
+```
+
+The first broad `pgrep -af` probe matched the active Fusion Harness Pi process because the task text contained gate script names. The first broad `/tmp` socket probe also traversed unrelated systemd-private directories and produced permission diagnostics. Both were replaced with the exact-argv process probe and direct prototype-path residue checks above. No prototype process, socket, scratch directory, or repository runtime file was found.
+
+## Final result
+
+All non-live validation passed. The human-only `just prototype-live-agent-console-gate` recipe was not run. No live GUI, Pi, provider, remote, Boomux, systemd, SSH, Quickshell, or Omarchy UI action was invoked by this validation run.
+
+## Post-review re-run (task 5.a)
+
+Findings F1 (QML open() bypass of the authoritative-snapshot boundary),
+F2 (stale run-report status line), and F3 (incomplete wipe instructions) from
+the architecture review were fixed, then the full non-live suite was re-run.
+F1 fix: open() now applies first and returns false without opening on any
+invalid or missing payload, so the panel can never display QML-authored
+placeholder state. F2/F3 are documentation corrections in the run report and
+README. No prior agent's change was reverted.
+
+```text
+$ just prototype-vertical-slice
+exit status: 0
+
+$ just prototype-vertical-slice-manual-check
+exit status: 0
+
+$ just prototype-live-agent-console-check
+exit status: 0
+result: 37 tests passed, 0 failed; launcher static check PASS (fake-only)
+
+$ node --experimental-strip-types -e "await Promise.all([import('console/projection-core.ts'), import('console/live-projection-adapter.ts'), import('manual/live-gate-resources.ts')])"
+exit status: 0
+
+$ qmllint -I /usr/share/omarchy/shell prototypes/first-vertical-slice/console/plugin/AgentConsole.qml prototypes/first-vertical-slice/console/plugin/AgentConsoleCards.qml
+exit status: 0
+
+$ bash -n prototypes/first-vertical-slice/manual/run-live-agent-console-gate.sh
+$ bash -n prototypes/first-vertical-slice/manual/run-role-label-gate.sh
+exit status: 0 (both)
+```
+
+## Final residue and private-evidence checks
+
+```text
+$ git diff --check
+exit status: 0 (clean)
+
+$ grep -RInI --exclude-dir=.git -E '<credential patterns>' .
+exit status: 1 (no standard credential pattern found)
+
+$ git ls-files --cached --others --exclude-standard | grep -iE '\.local/state|manual-gates|/state/omarchestra'
+result: PASS, 0 matches - no private live evidence path is tracked or present in the repository
+
+$ find prototypes/first-vertical-slice -type f ( -name '*.sock' -o -name '*.sqlite*' -o -name '*.pid' )
+result: PASS, 0 repository runtime files
+
+$ find /tmp -maxdepth 1 -name 'omarchestra-gate-resources-*' -o -name 'omarchestra-role-label-gate.*' -o -name 'omarchestra-vertical-slice-*'
+result: PASS, 0 residue directories
+
+$ find /tmp -maxdepth 1 -type s -name 'omarchestra-*'
+result: PASS, 0 residue sockets
+
+$ exact-argv /proc probe for first-vertical-slice/src/cli.ts runner launches and
+  manual/run-live-agent-console-gate.sh / run-role-label-gate.sh executions
+result: PASS, no prototype runner or gate process remains (two probe-text
+self-matches and the active Fusion Harness session quoting this task's text
+were excluded as documented false positives)
+```
+
+## Final result (post-fix)
+
+F1 (Agent Console `open()` authoritative-boundary), F2 (stale run-report
+status), and F3 (wipe instructions) are resolved. All non-live validation
+passed again after the fixes. The human-only
+`just prototype-live-agent-console-gate` recipe was not run. No live GUI, Pi,
+provider, remote, Boomux, systemd, SSH, Quickshell, or Omarchy UI action was
+invoked. Nothing was committed or pushed.
+
+## Cleanup-review re-run
+
+A later review found three cleanup-seam defects. Each fix was driven by a
+failing public-seam test before implementation:
+
+- a containing process identity could pass substring authorization;
+- a symlinked ancestor could redirect directory or socket cleanup;
+- refused resources were discarded while `clean` incorrectly became true.
+
+The registry now verifies byte-for-byte opaque process identity equality at
+registration and cleanup, captures directory/socket device and inode identity,
+rejects symlink components at registration and cleanup, retains refused
+resources for exact retry, and reports clean only when no registration remains.
+
+```text
+$ node --experimental-strip-types --test prototypes/first-vertical-slice/manual/test/live-gate-resources.test.ts
+exit status: 0
+result: 15 tests passed, 0 failed
+
+$ node --experimental-strip-types --test prototypes/first-vertical-slice/console/test/source-audit.test.mjs prototypes/first-vertical-slice/manual/test/live-agent-console-launcher.test.mjs prototypes/first-vertical-slice/manual/test/live-gate-resources.test.ts
+exit status: 0
+result: 27 tests passed, 0 failed
+
+$ just prototype-live-agent-console-check
+exit status: 0
+result: 45 tests passed, 0 failed; launcher static check PASS (fake-only)
+
+$ just prototype-vertical-slice-manual-check
+exit status: 0
+result: 6 tests passed, 0 failed; manual role-label wizard static check PASS
+
+$ just prototype-vertical-slice
+exit status: 0
+result: ACCEPTANCE GATE COMPLETE
+
+$ git diff --check; git diff --no-index --check /dev/null <each untracked path>
+result: PASS, no tracked or untracked whitespace diagnostics
+
+$ standard credential-pattern scan
+result: PASS
+
+$ exact-argv, scratch-directory, socket, and repository-runtime residue checks
+result: PASS, no matching resource remains
+```
+
+No human-only recipe or live resource was invoked.

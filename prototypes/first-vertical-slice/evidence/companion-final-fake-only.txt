@@ -1,0 +1,73 @@
+# Omarchestra Companion final fake-only acceptance
+# Captured: 2026-09-02T15:17:17Z
+# Scope: task 5.a integration rerun after the read-only architecture review.
+# Every executed validation command was bounded to 60 seconds.
+# Neither human live recipe was run. No live shell, user configuration, GUI,
+# Pi, provider, Boomux, SSH, Hyprland, systemd, or private live-evidence path
+# was contacted or created.
+
+## New Companion acceptance gate
+
+$ timeout 60s just prototype-companion-check
+EXIT_STATUS=0
+TESTS=58 PASS=58 FAIL=0
+STANDALONE_ACCEPTANCE=PASS
+  INSTALL persistent plugin executions=1 enabled=1
+  SESSIONS team-goal-a=1 team-goal-b=2 reconstructed=3
+  RELOAD plugin-generation=1->2 stale-rejected=true
+  CONTINUITY cards-identical=true agents-identities-connections-assignments-turns-unchanged=true
+  CLEANUP runtime-mutations=0
+  INSTALLATION_FINGERPRINT=a0a91004c9fdcd0e2f6ad48b4232f65b982f1284c53e0f8c4fc100be99fd146b
+  VERDICT=PASS one persistent installation, ephemeral sessions,
+    authoritative reload recovery, byte-identical cleanup
+COMPANION_SETUP_CHECK=PASS (fake-only)
+COMPANION_SETUP_LAUNCHER=PASS (fake-only)
+
+## Existing fake-only regression gates
+
+$ timeout 60s just prototype-vertical-slice
+EXIT_STATUS=0
+SCENARIO_DEFAULT=PASS (both runner launches recorded; temporary state wiped)
+SCENARIO_WAL=PASS (both runner launches recorded; temporary state wiped)
+ACCEPTANCE_GATE=COMPLETE
+
+$ timeout 60s just prototype-vertical-slice-manual-check
+EXIT_STATUS=0
+TESTS=6 PASS=6 FAIL=0
+ROLE_LABEL_WIZARD_CHECK=PASS
+
+$ timeout 60s just prototype-live-agent-console-check
+EXIT_STATUS=0
+TESTS=58 PASS=58 FAIL=0
+QML_BOUNDARY_AND_SOURCE_AUDIT=PASS
+COMPANION_SETUP_CHECK=PASS (fake-only)
+COMPANION_SETUP_LAUNCHER=PASS (fake-only)
+
+$ timeout 60s just spike-omarchy-ephemeral-plugin-loader
+EXIT_STATUS=0
+TESTS=69 PASS=69 FAIL=0
+CANDIDATE_PATCH_SCRATCH_VERIFIER=PASS
+  baseline-verified copy-ok dry-run-ok allowlist-ok apply-ok
+  qmllint-ok forced-cleanup-ok installed-unchanged cleanup-ok residue-clean
+
+## Focused final integration checks
+
+$ timeout 60s node --test <source-audit, retired-launcher, setup-procedure tests>
+EXIT_STATUS=0
+TESTS=23 PASS=23 FAIL=0
+ACTIVE_RECIPE_BOUNDARY=PASS
+RETIRED_LOADER_DISPOSITION=PASS
+HUMAN_SETUP_CONTRACT=PASS
+
+$ timeout 60s bash \
+    prototypes/first-vertical-slice/manual/run-companion-setup-validation.sh \
+    --check
+EXIT_STATUS=0
+COMPANION_SETUP_CHECK=PASS (fake-only)
+COMPANION_SETUP_LAUNCHER=PASS (fake-only)
+
+$ timeout 60s node --experimental-strip-types <release/source sync check>
+EXIT_STATUS=0
+PACKAGED_PLUGIN_SOURCE_SYNC=PASS
+
+FINAL_FAKE_ONLY_RESULT=PASS

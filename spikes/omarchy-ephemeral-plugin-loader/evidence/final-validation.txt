@@ -1,0 +1,225 @@
+Omarchy ephemeral panel loader spike: final validation
+Recorded: 2026-09-02T10:03:31Z
+Repository: /home/woodshape/claude/omarchestra
+Branch: prototype/live-agent-console-gate
+HEAD: ce8f4e381c84596cab3da79900d74852141c0637
+Initial status: clean
+
+SCOPE AND SAFETY
+- Automated evidence is fake-only or uses hash-verified scratch copies.
+- No shell IPC, GUI, Quickshell/Omarchy UI, Pi, provider, terminal, Hyprland action,
+  Boomux, SSH, systemd, remote, human gate, install, user-config write, installed-source
+  write, background process, commit, or push was performed.
+- The patch remains an uninstalled review artifact.
+
+INDEPENDENT-REVIEW RESOLUTION
+F1 Loader creation moved behind successful immediate pre-load validation. Summon queues
+   work and starts validation; activateLoading alone creates and sources the Loader.
+F2 The fixed validation Process checks a per-run serial. Loader loaded, item, error, and
+   destruction callbacks all carry and compare registration identity plus generation.
+F3 Source and plugin-ID claims remain held through unregistering and release only after
+   exact Loader/item teardown reaches finalizeUnregister.
+F4 The 32-entry bound now counts the combined open/call FIFO in fake and candidate code.
+F5 Registration creates no Loader or Loader delegate; the Loader Component is instantiated
+   only after summon revalidation.
+F6 Fake summon reruns complete path, ownership, permission, symlink, manifest, collision,
+   and entry-point validation and compares the registered manifest before Loader creation.
+F7 Candidate helper exit statuses retain path_invalid, path_not_owned, symlink_component,
+   source_unsafe, manifest_too_large, and entry_point_invalid families.
+F8 The verifier now requires /usr/lib/qt6/bin/qmllint 6.x. Both modified QML files pass.
+   The former status 255 came from the unrelated Qt 5 qmllint 1.0 at /usr/bin/qmllint.
+F9 User shell.json was compared before and after the complete command graph and is byte-identical.
+   The earlier evidence/residue.txt ENOENT is retained as failed historical evidence and is
+   superseded only by this successful comparison.
+F10 README and red/green ledger were refreshed to the final recipe and corrected candidate.
+
+SECOND-REVIEW RESOLUTION
+R1 The fake summon path now applies the 32-entry limit to every open/call entry;
+   repeated summons cannot bypass the combined FIFO bound.
+R2 Hide advances the fake registration generation before destroying its Loader, so late
+   load-success and load-error callbacks cannot change hidden state or block resummon.
+R3 Refused scratch paths never acquire deletion authority. Registered cleanup revalidates
+   device/inode, directory type, and every symlink component; the verifier applies the same
+   checks before every recursive scratch removal.
+R4 Candidate summon-time validation now returns the current manifest bytes and compares
+   their base64 snapshot exactly with registration before assigning Loader.source.
+R5 Source-revalidation and later-collision failures retain fake source and plugin-ID claims
+   until exact unregister completes, matching the candidate and contract.
+R6 Summon against an unregister tombstone now fails with unknown_registration in fake and
+   candidate code; only duplicate unregister receives the idempotent tombstone success.
+R7 Candidate identities now use a fresh host-generated nonce combining the Quickshell
+   instance name, process ID, creation time, and random suffix; restart identity no longer
+   depends on the stable Quickshell instance name alone.
+- Candidate load mode rechecks the entry-point path/file before emitting and comparing the
+  exact manifest-byte snapshot. This is stricter than the fake for whitespace-only edits.
+- Authentic failing evidence: evidence/red/review-findings-red.txt and the focused nonce red
+  run captured privately during correction.
+
+RED TO GREEN
+- Original intended red: node --test test/ => exit 1; 61 tests, 4 pass, 57 intended fail.
+- Original model/cleanup green lane: 52/52 pass.
+- Independent review added three focused regression tests: full pre-load revalidation,
+  teardown claim retention, and candidate source lifecycle guards.
+- Second review added five more focused tests across lifecycle, patch, and cleanup seams.
+- Final fake-only recipe: 69 tests, 69 pass, 0 fail.
+- Final patch seam: 5/5 pass, including scratch apply, source/identity guards, exact cleanup audit, and strict Qt 6 lint.
+- Full command output: evidence/final-automated.txt.
+- Original red captures remain unchanged under evidence/red/.
+
+SOURCE IDENTITY
+- Omarchy package: 4.0.2-1
+- Quickshell package: 0.3.1-1
+- /usr/share/omarchy/version: 4.0.0.alpha (recorded discrepancy; package version is authority)
+- Verified after all validation: all 22 entries in evidence/source-provenance.json.
+- Omarchy archive SHA-256:
+  cb24bb99a4b890fed643b4c92ab729daf353b6c632c29634d8cac09827ce5863
+- Quickshell archive SHA-256:
+  5988659fdc1b0addf138a3cd8e3540fc1078bfc60c995c6f4cd0fb9054484ec7
+- PluginRegistry.qml SHA-256:
+  63371e4224f948e5444531282ad9f7c74ca2e578470b549f4c6b898c3a15c50f
+- shell.qml SHA-256:
+  9f1db77dcc3c111ceccc860ac472d19b35d385958a63d270ea51e413ab86f1f0
+- Exact upstream Git commit: not locally provable. No network lookup was used.
+
+DESIGN DECISION
+- Selected: one deep `temporary-panel` target with
+  request(versionedJson) -> versionedJson and operations capabilities, register, status,
+  summon, call, hide, unregister, inspect. Registration is asynchronous and returns an
+  operation identity before a distinct opaque lifecycle identity.
+- Rejected: adding six or more shallow lifecycle methods to the existing `shell` target.
+  That shape obscures asynchronous registration, duplicates parsing/version/error bounds,
+  and risks mixing normal plugin IDs with temporary lifecycle authority.
+
+CANDIDATE PATCH STATUS
+- Artifact: upstream/omarchy-4.0.2-1-temporary-panel-v1.patch
+- Baseline: exact installed Omarchy 4.0.2-1 hashes.
+- Touched-file allowlist:
+  shell/services/TemporaryPanelHost.qml
+  shell/shell.qml
+  shell/README.md
+- Scratch markers: baseline-verified, copy-ok, dry-run-ok, allowlist-ok, apply-ok,
+  qmllint-ok (qt6; TemporaryPanelHost.qml and shell.qml), forced-cleanup-ok,
+  installed-unchanged, cleanup-ok, residue-clean.
+- Interface identifier: omarchy.temporary-panel/v1.
+- Candidate status does not prove QML runtime behavior, live shell integration, upstream
+  acceptance, or Agent Console visual agreement.
+
+EXACT VALIDATION COMMANDS AND EXITS
+1. timeout --kill-after=1s 55s just spike-omarchy-ephemeral-plugin-loader
+   exit 0; 69 tests, 69 pass; embedded verifier exit 0.
+2. timeout --kill-after=1s 55s just prototype-live-agent-console-check
+   exit 0; 45 tests, 45 pass; fake-only launcher static check PASS.
+3. timeout --kill-after=1s 55s just prototype-vertical-slice-manual-check
+   exit 0; 6 tests, 6 pass; manual role-label static check PASS.
+4. timeout --kill-after=1s 55s just prototype-vertical-slice
+   exit 0; ACCEPTANCE GATE COMPLETE; tracked fake-only evidence refreshed by its recipe.
+5. timeout --kill-after=1s 55s bash spikes/omarchy-ephemeral-plugin-loader/scripts/verify-candidate-patch.sh
+   exit 0; exact baseline scratch apply and Qt 6 qmllint pass for both modified QML files.
+6. while IFS= read -r -d '' file; do node --check "$file"; done < <(find spikes/omarchy-ephemeral-plugin-loader -type f -name '*.mjs' -print0)
+   bash -n spikes/omarchy-ephemeral-plugin-loader/scripts/verify-candidate-patch.sh
+   node --input-type=module -e "await import('./spikes/omarchy-ephemeral-plugin-loader/lib/index.mjs')"
+   combined exit 0.
+7. node --test spikes/omarchy-ephemeral-plugin-loader/test/s8-source-audit.test.mjs
+   exit 0; 6 tests, 6 pass.
+8. grep -RInE --binary-files=without-match '(-----BEGIN [A-Z ]*PRIVATE KEY-----|AKIA[0-9A-Z]{16}|gh[pousr]_[A-Za-z0-9]{30,}|sk-[A-Za-z0-9]{20,})' spikes/omarchy-ephemeral-plugin-loader
+   exit 1, interpreted as clean/no match by the bounded wrapper; wrapper exit 0.
+9. git diff --check
+   exit 0.
+10. Node trailing-whitespace walk over the spike tree, checking all normal text lines and
+    only added lines in the byte-exact candidate patch
+    exit 0; 38 text files checked.
+11. Node SHA-256 verifier over evidence/source-provenance.json
+    exit 0; provenance-hashes-verified=22.
+12. sha256sum /home/woodshape/.config/omarchy/shell.json before and after commands 1-11
+    before=d0c6e205e3a452d50bcd1bf9c38241af8b4d25aaf925582622b8fa7f890f5ab3
+    after =d0c6e205e3a452d50bcd1bf9c38241af8b4d25aaf925582622b8fa7f890f5ab3
+    comparison exit 0; byte-identical=yes.
+13. find /tmp -maxdepth 1 for each owned prefix plus process-table check restricted to
+    node, qmllint, and quickshell commands
+    exit 0; all counts zero.
+
+One preliminary residue process grep matched its own bash command text and exited 1. It
+created no residue. The corrected executable-name-restricted process check in command 13
+exited 0. A later over-broad `/tmp/omarchestra-final-*` check exited 1 because it found two
+pre-existing `omarchestra-final-gate*.txt` files dated before this spike. They were preserved
+as unrelated resources; the candidate/baseline-specific owned-prefix checks exited 0.
+
+RESIDUE
+/tmp/omarchy-ephemeral-verifier-*=0
+/tmp/omarchy-ephemeral-unrelated-*=0
+/tmp/omarchestra-spike-*=0
+/tmp/qmllint-probe-*=0
+/tmp/omarchestra-final-candidate-*=0
+/tmp/omarchestra-final-baseline-*=0
+/tmp/omarchestra-vertical-slice-*=0
+spike-owned node/qmllint/quickshell processes=0
+unrelated pre-existing /tmp/omarchestra-final-gate*.txt files=2 preserved
+installed provenance hashes unchanged=yes
+user shell.json byte-identical=yes
+
+FINAL WORKING TREE
+ M justfile
+ M prototypes/first-vertical-slice/docs/live-agent-console-launch-blocker.md
+ M prototypes/first-vertical-slice/evidence/fake-only-acceptance.txt
+ M spikes/README.md
+?? spikes/omarchy-ephemeral-plugin-loader/
+
+The tracked prototype evidence change is the expected output of the existing
+prototype-vertical-slice recipe. No prior change was reset, cleaned, stashed, staged, or erased.
+
+VERDICT
+- installed-unsupported: installed Omarchy still has no temporary-panel capability.
+- candidate-only: fake behavior, exact-identity scratch application, strict Qt 6 lint,
+  isolation, manifest-snapshot source guards, and cleanup are locally proven for the
+  candidate against Omarchy 4.0.2-1.
+- upstream-unproven: no exact upstream commit or upstream review/acceptance is proven.
+- human-pending: no live validation occurred; the Agent Console gate remains blocked.
+
+COLLABORATION PROVENANCE BY SLOT/TASK
+Reports are under /tmp/fusion-harness-5b1GkV/collaborate/reports.
+- sol / 1.a: read-only installed baseline, capability matrix inputs, package provenance,
+  and upstream-provenance limit; report 1.a-sol.md.
+- luna / 1.b: read-only QML feasibility, asynchronous validation, identity, teardown,
+  and TOCTOU analysis; report 1.b-luna.md.
+- flash / 1.c: read-only repository conventions, file ownership, collision risks, and
+  validation graph; report 1.c-flash.md.
+- sol / 2.a: contract, capability matrix, source-provenance manifest, and README
+  foundation; report 2.a-sol.md.
+- flash / 2.b: injected fixtures, public seam tests, and authentic 61-test intended-red
+  capture; report 2.b-flash.md.
+- flash / 3.a: fake-only host/model, scratch registry, runner, and 52-test lane evidence;
+  report 3.a-flash.md.
+- luna / 3.b: initial candidate QML patch, scratch verifier, and patch lane evidence;
+  report 3.b-luna.md.
+- sol / 4.a: integrated contract/README, red-green ledger, and later-human plan;
+  report 4.a-sol.md.
+- flash / 4.b: fake-only just recipe, spike index, blocked-gate pointer, and integrated
+  automated evidence; report 4.b-flash.md.
+- luna / 4.c: independent read-only acceptance audit identifying F1-F10; report
+  4.c-luna.md.
+- sol / 5.a: F1-F10 corrections, three review regression tests, regenerated candidate,
+  strict Qt 6 lint, final documentation, and complete validation; report 5.a-sol.md.
+- agent-AS1BY2: read-only second-pass verification of the six follow-up findings, combined
+  load-mode path, exact cleanup, candidate/fake parity, and fresh host nonce; no edits.
+
+ARCHITECT CLOSURE REVALIDATION
+Recorded: 2026-09-02T10:39:34Z
+- timeout --kill-after=1s 55s just spike-omarchy-ephemeral-plugin-loader: exit 0,
+  69/69 pass, patch verifier exit 0, both modified QML files linted by Qt 6.
+- timeout --kill-after=1s 55s just prototype-live-agent-console-check: exit 0, 45/45.
+- timeout --kill-after=1s 55s just prototype-vertical-slice-manual-check: exit 0, 6/6.
+- timeout --kill-after=1s 55s just prototype-vertical-slice: exit 0,
+  ACCEPTANCE GATE COMPLETE.
+- Candidate load-mode source audit confirms entry-point checks precede exact manifest-byte
+  output/comparison and Loader activation. Candidate identities use a fresh host nonce.
+- Final verifier rechecked all 22 provenance hashes: exit 0.
+- Node syntax, bash syntax, module linking, added-line/text whitespace, git diff --check,
+  and secret-signature checks: clean.
+- Owned scratch prefixes: zero. User shell.json remained byte-identical at
+  d0c6e205e3a452d50bcd1bf9c38241af8b4d25aaf925582622b8fa7f890f5ab3.
+
+NEXT STEP
+Submit the candidate and contract for Omarchy/package-owner review. Only after an accepted
+build containing omarchy.temporary-panel/v1 is installed may an operator begin
+later-human-validation.md. Capability preflight must succeed before creating any live resource.
+No commit or push was performed.

@@ -1,0 +1,25 @@
+# Companion human setup recipe fake-only check
+# PROTOTYPE — NOT PRODUCTION.
+# Captured without a live TTY, shell IPC, Omarchy configuration, Pi,
+# Ghostty, Hyprland, runner, provider, or private evidence directory.
+
+COMMAND=node --experimental-strip-types --test \
+  prototypes/first-vertical-slice/manual/test/companion-setup-validation.test.mjs \
+  prototypes/first-vertical-slice/manual/test/live-agent-console-launcher.test.mjs
+
+RESULT=18 tests, 18 passed, 0 failed
+CHECK=bash prototypes/first-vertical-slice/manual/run-companion-setup-validation.sh --check
+CHECK_RESULT=PASS (fake-only)
+
+CONFIRMED:
+- live mode requires a TTY on stdin and stdout;
+- the exact typed authorization is bound to the displayed immutable plan;
+- plan display precedes authorization and installation execution;
+- the live adapter uses Omarchy rescan/enable/summon/call/hide operations;
+- evidence is owner-only and private under XDG state;
+- runtime cleanup checks exact PID birth/cmdline, window class/address/PID,
+  socket device/inode, and runtime directory device/inode;
+- runtime cleanup never removes the persistent Companion Plugin;
+- the retired launcher and ephemeral-loader spike have no active recipe use.
+
+LIVE_VALIDATION=NOT RUN

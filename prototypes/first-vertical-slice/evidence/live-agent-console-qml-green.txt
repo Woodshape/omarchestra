@@ -1,0 +1,17 @@
+$ node --test console/test/qml-boundary.test.mjs
+✔ the plugin manifest exposes a schema-versioned panel entry point (2.390676ms)
+✔ plain injected projection data exposes three opaque committed piStatus labels (1.768314ms)
+✔ QML presents ready, reconnecting, and explicit gap states from injected projection status (0.385111ms)
+✔ all QML stays presentation-only and has no forbidden runtime dependencies (1.812808ms)
+✔ QML contains no role/state label maps or client-side label derivation (1.521032ms)
+✔ QML syntax and lint pass through qmllint without launching a UI (9.423573ms)
+ℹ tests 6
+ℹ suites 0
+ℹ pass 6
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 88.710458
+$ qmllint -I /usr/share/omarchy/shell console/plugin/AgentConsole.qml console/plugin/AgentConsoleCards.qml
+GREEN CONFIRMED: QML boundary tests and static QML lint passed without launching Quickshell or another UI.

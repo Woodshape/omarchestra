@@ -3,8 +3,12 @@
 ## Context pointers
 
 - **MVP product behavior or architecture:** read [`docs/design/mvp.md`](docs/design/mvp.md) completely before proposing or implementing changes. Its locked decisions are authoritative.
+- **Domain concepts or terminology:** read [`CONTEXT.md`](CONTEXT.md) before naming or changing Agent Run, Observed Pi Session, Adoption, Companion Plugin, Projection Session, or another core concept.
+- **Pi terminal behavior, ordinary-terminal discovery, Adoption, footer status, or takeover:** read [`docs/design/pi-terminal-behavior.md`](docs/design/pi-terminal-behavior.md) completely before changing the behavior.
+- **Locked integration or lifecycle trade-offs:** read the relevant record in [`docs/adr/`](docs/adr/) before revisiting the decision.
 - **Boomux, Herdr, Fusion Harness, Omarchy, PTY, or terminal-runtime claims:** read the relevant sections of [`docs/research/foundation-assessment.md`](docs/research/foundation-assessment.md) before relying on them.
 - **Remote execution, SSH, Node identity, remote Projects, or disconnection semantics:** read [`docs/design/remote-execution.md`](docs/design/remote-execution.md) completely before proposing or implementing changes.
+- **Observer/Adoption implementation milestone:** read [`docs/plans/observer-adoption-implementation.md`](docs/plans/observer-adoption-implementation.md) before implementing ordinary-session discovery, registry expiry, privacy filtering, Adoption acknowledgement, or Unassigned Agents presentation.
 - **Implementation-readiness or planning blockers:** read [`docs/reviews/2026-08-30-implementation-readiness/`](docs/reviews/2026-08-30-implementation-readiness/) when revisiting why a technical contract exists.
 - **Feasibility work:** read [`spikes/README.md`](spikes/README.md) before starting a spike.
 

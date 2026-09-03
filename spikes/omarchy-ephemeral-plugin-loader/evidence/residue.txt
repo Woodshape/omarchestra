@@ -1,0 +1,43 @@
+# Final residue and isolation checks (task 4.b)
+# date: 2026-09-02T09:06:14Z
+
+## Installed and user configuration byte comparison
+node:fs:621
+    return binding.readFileUtf8(path, stringToFlags(options.flag));
+                   ^
+
+Error: ENOENT: no such file or directory, open 'evidence/source-provenance.json'
+    at Object.readFileSync (node:fs:621:20)
+    at file:///home/woodshape/claude/omarchestra/[eval1]:4:34
+    at ModuleJob.run (node:internal/modules/esm/module_job:569:25)
+    at async node:internal/modules/esm/loader:226:26
+    at async ModuleLoader.executeModuleJob (node:internal/modules/esm/loader:223:20)
+    at async asyncRunEntryPointWithESMLoader (node:internal/modules/run_main:101:5) {
+  errno: -2,
+  code: 'ENOENT',
+  syscall: 'open',
+  path: 'evidence/source-provenance.json'
+}
+
+Node.js v26.8.1
+
+## Scratch and process residue (expect zero leftovers)
+  /tmp/omarchy-ephemeral-verifier-*: 0
+  /tmp/omarchy-ephemeral-unrelated-*: 0
+  /tmp/omarchestra-spike-*: 0
+  /tmp/qmllint-probe-*: 0
+  spike-owned leftover processes: 0
+
+## Whitespace and diff checks
+  git diff --check (tracked): clean
+  untracked trailing whitespace: clean (candidate patch exempt: its context lines must stay byte-identical to the installed baseline for the patch to apply)
+
+## Final git state
+ M justfile
+ M prototypes/first-vertical-slice/docs/live-agent-console-launch-blocker.md
+ M prototypes/first-vertical-slice/evidence/fake-only-acceptance.txt
+ M spikes/README.md
+?? spikes/omarchy-ephemeral-plugin-loader/
+
+## Secret scan (spike tree only)
+  clean

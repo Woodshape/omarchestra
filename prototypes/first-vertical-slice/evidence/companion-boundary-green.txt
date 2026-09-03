@@ -1,0 +1,34 @@
+# Companion boundary audits — GREEN evidence (task 3.c)
+# Captured: 2026-09-02T14:47:03Z
+# Command: node --test console/test/source-audit.test.mjs console/test/qml-boundary.test.mjs (fake-only)
+# Extensions: fusion/human-recipe boundaries, --check-only launcher reachability,
+# live-adapter reachability, routine import-graph exclusion of installation mutation code,
+# companion module token audit, panel-only manifest + extended QML forbidden-authority scan.
+# Existing runner spawn-boundary and exact-cleanup assertions are preserved unchanged.
+
+✔ the plugin manifest exposes a schema-versioned panel entry point (9.817389ms)
+✔ plain injected projection data exposes three opaque committed piStatus labels (4.173316ms)
+✔ QML presents ready, reconnecting, and explicit gap states from injected projection status (0.794498ms)
+✔ all QML stays presentation-only and has no forbidden runtime dependencies (3.980957ms)
+✔ QML contains no role/state label maps or client-side label derivation (5.298608ms)
+✔ QML syntax and lint pass through qmllint without launching a UI (16.852138ms)
+✔ the Companion manifest stays a panel-only surface advertising the companion protocol (0.863859ms)
+✔ the adapted Companion QML gains no filesystem, cursor, reconnect, shell-command, terminal, or orchestration authority (3.626672ms)
+✔ every automated prototype recipe is free of live-system launch primitives (4.967023ms)
+✔ the fake-only live Agent Console check invokes only the replacement launcher in --check mode (0.732187ms)
+✔ the human-only recipes exist and are never referenced from automated code (16.184735ms)
+✔ default live-console modules contain no live-system or process-supervision tokens (4.084088ms)
+✔ the existing acceptance gate keeps its exact spawn boundary (1.769168ms)
+✔ the fusion harness recipe orchestrates agents but can never reach Companion live setup (2.47684ms)
+✔ automated recipes reach the replacement human launcher only through --check (1.463017ms)
+✔ the live Companion adapter is reachable only from the human script and its own seam test (5.373341ms)
+✔ routine projection modules cannot import installation or configuration mutation code (118.956141ms)
+✔ companion prototype modules contain no live-system, process, or storage tokens (12.160939ms)
+ℹ tests 18
+ℹ suites 0
+ℹ pass 18
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 304.152381

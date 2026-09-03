@@ -1,0 +1,34 @@
+$ node --experimental-strip-types --test prototypes/first-vertical-slice/companion/test/installation.test.ts
+✔ the contract pins one persistent plugin, protocol, release, and exact host compatibility (65.655647ms)
+✔ inspection is read-only and returns an immutable plan snapshot with a stable digest (7.373231ms)
+✔ authorization is bound to the exact immutable plan and operation (24.558676ms)
+✔ every install, update, rollback, and uninstall operation rejects forged authorization without writes (26.703025ms)
+✔ compatibility is pinned exactly and unknown host versions fail before mutation (4.695679ms)
+✔ a plan is stale when shell or host state changes after inspection (3.840931ms)
+✔ symlinked ancestors, plugin roots, manifests, and assets are rejected without following them (6.712431ms)
+✔ foreign ownership and unsafe modes on every installation component fail closed (10.357649ms)
+✔ malformed shell.json is rejected before plugin assets or enablement can change (0.959336ms)
+✔ conflicting or duplicate shell enablement is rejected without rewriting unrelated configuration (4.107266ms)
+✔ a pre-existing plugin target without a verified receipt is foreign and cannot be adopted (2.876746ms)
+✔ clean install writes the exact release, receipt, and supported enablement while preserving unrelated resources (6.980185ms)
+✔ update replaces only the verified owned release and records the previous release for rollback (10.166553ms)
+✔ missing, extra, or changed owned assets make update and uninstall fail before mutation (27.891985ms)
+✔ missing, tampered, or inconsistent receipts never authorize destructive operations (41.481853ms)
+✔ forced install and update failures recover the exact prior state (20.010664ms)
+✔ incomplete recovery is reported and never overwrites state drift introduced during recovery (21.221184ms)
+✔ rollback is explicit, receipt-backed, and restores the exact prior release (14.991603ms)
+✔ rollback refuses a drifted current installation rather than overwriting it (11.59801ms)
+✔ exact uninstall restores the recorded shell preimage and removes only owned plugin state (7.459003ms)
+✔ uninstall refuses symlink, ownership, mode, and shell drift without deleting anything (37.209295ms)
+✔ all unauthorized and stale destructive operations preserve unrelated resources byte-for-byte (6.315638ms)
+ℹ tests 22
+ℹ suites 0
+ℹ pass 22
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 605.187516
+
+INSTALLATION_EXIT_STATUS=0
+GREEN_CONFIRMED: Companion installation plans, authorization, compatibility, exact mutation, recovery, rollback, uninstall, receipt, and fake Omarchy adapter tests passed.

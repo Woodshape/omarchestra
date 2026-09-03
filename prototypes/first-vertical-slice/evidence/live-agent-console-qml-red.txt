@@ -1,0 +1,113 @@
+$ node --test console/test/qml-boundary.test.mjs
+Expected result: red before console/plugin QML implementation.
+✖ the plugin manifest exposes a schema-versioned panel entry point (5.018932ms)
+✖ plain injected projection data exposes three opaque committed piStatus labels (0.297911ms)
+✖ QML presents ready, reconnecting, and explicit gap states from injected projection status (0.180752ms)
+✔ all QML stays presentation-only and has no forbidden runtime dependencies (1.732418ms)
+✖ QML contains no role/state label maps or client-side label derivation (0.583698ms)
+✖ QML syntax and lint pass through qmllint without launching a UI (0.236602ms)
+ℹ tests 6
+ℹ suites 0
+ℹ pass 1
+ℹ fail 5
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 95.294864
+
+✖ failing tests:
+
+test at console/test/qml-boundary.test.mjs:83:1
+✖ the plugin manifest exposes a schema-versioned panel entry point (5.018932ms)
+  AssertionError [ERR_ASSERTION]: expected QML plugin manifest: /home/woodshape/claude/omarchestra/prototypes/first-vertical-slice/console/plugin/manifest.json
+      at manifest (file:///home/woodshape/claude/omarchestra/prototypes/first-vertical-slice/console/test/qml-boundary.test.mjs:46:10)
+      at TestContext.<anonymous> (file:///home/woodshape/claude/omarchestra/prototypes/first-vertical-slice/console/test/qml-boundary.test.mjs:84:17)
+      at Test.runInAsyncScope (node:async_hooks:226:14)
+      at Test.run (node:internal/test_runner/test:1402:25)
+      at Test.start (node:internal/test_runner/test:1262:17)
+      at startSubtestAfterBootstrap (node:internal/test_runner/harness:387:17) {
+    generatedMessage: false,
+    code: 'ERR_ASSERTION',
+    actual: false,
+    expected: true,
+    operator: '==',
+    diff: 'simple'
+  }
+
+test at console/test/qml-boundary.test.mjs:98:1
+✖ plain injected projection data exposes three opaque committed piStatus labels (0.297911ms)
+  AssertionError [ERR_ASSERTION]: expected QML boundary file: /home/woodshape/claude/omarchestra/prototypes/first-vertical-slice/console/plugin/AgentConsole.qml
+      at source (file:///home/woodshape/claude/omarchestra/prototypes/first-vertical-slice/console/test/qml-boundary.test.mjs:41:10)
+      at TestContext.<anonymous> (file:///home/woodshape/claude/omarchestra/prototypes/first-vertical-slice/console/test/qml-boundary.test.mjs:99:42)
+      at Test.runInAsyncScope (node:async_hooks:226:14)
+      at Test.run (node:internal/test_runner/test:1402:25)
+      at Test.processPendingSubtests (node:internal/test_runner/test:974:18)
+      at Test.postRun (node:internal/test_runner/test:1542:19)
+      at Test.run (node:internal/test_runner/test:1467:12)
+      at async startSubtestAfterBootstrap (node:internal/test_runner/harness:387:3) {
+    generatedMessage: false,
+    code: 'ERR_ASSERTION',
+    actual: false,
+    expected: true,
+    operator: '==',
+    diff: 'simple'
+  }
+
+test at console/test/qml-boundary.test.mjs:134:1
+✖ QML presents ready, reconnecting, and explicit gap states from injected projection status (0.180752ms)
+  AssertionError [ERR_ASSERTION]: expected QML boundary file: /home/woodshape/claude/omarchestra/prototypes/first-vertical-slice/console/plugin/AgentConsole.qml
+      at source (file:///home/woodshape/claude/omarchestra/prototypes/first-vertical-slice/console/test/qml-boundary.test.mjs:41:10)
+      at TestContext.<anonymous> (file:///home/woodshape/claude/omarchestra/prototypes/first-vertical-slice/console/test/qml-boundary.test.mjs:135:34)
+      at Test.runInAsyncScope (node:async_hooks:226:14)
+      at Test.run (node:internal/test_runner/test:1402:25)
+      at Test.processPendingSubtests (node:internal/test_runner/test:974:18)
+      at Test.postRun (node:internal/test_runner/test:1542:19)
+      at Test.run (node:internal/test_runner/test:1467:12)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:974:7) {
+    generatedMessage: false,
+    code: 'ERR_ASSERTION',
+    actual: false,
+    expected: true,
+    operator: '==',
+    diff: 'simple'
+  }
+
+test at console/test/qml-boundary.test.mjs:162:1
+✖ QML contains no role/state label maps or client-side label derivation (0.583698ms)
+  AssertionError [ERR_ASSERTION]: forbidden QML state-label derivation: /\b(?:roleDisplayNames|stateDisplayNames|roleLabels|stateLabels|displayNameMap|labelMap|statusMap)\b/i
+      at TestContext.<anonymous> (file:///home/woodshape/claude/omarchestra/prototypes/first-vertical-slice/console/test/qml-boundary.test.mjs:173:12)
+      at Test.runInAsyncScope (node:async_hooks:226:14)
+      at Test.run (node:internal/test_runner/test:1402:25)
+      at Test.processPendingSubtests (node:internal/test_runner/test:974:18)
+      at Test.postRun (node:internal/test_runner/test:1542:19)
+      at Test.run (node:internal/test_runner/test:1467:12)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:974:7) {
+    generatedMessage: false,
+    code: 'ERR_ASSERTION',
+    actual: '\n\n\n\n\n\n\n\n\n\n\n\n\n\nimport QtQuick\nimport QtQuick.Controls\nimport QtQuick.Layouts\n\nRectangle {\n    id: root\n\n    \n    \n    \n    property string teamGoalId: ""\n    property string projectionSnapshotJson: ""\n    property string projectionEventsJson: ""\n    property var snapshot: {\n        try {\n            return JSON.parse(projectionSnapshotJson)\n        } catch (e) {\n            return {}\n        }\n    }\n    property var projectionEvents: {\n        try {\n            var parsed = JSON.parse(projectionEventsJson)\n            return Array.isArray(parsed) ? parsed : []\n        } catch (e) {\n            return []\n        }\n    }\n    readonly property var latestProjectionEvent: projectionEvents.length > 0\n        ? projectionEvents[projectionEvents.length - 1] : null\n\n    readonly property var roleDisplayNames: ({\n        coordinator: "",\n        builder: "",\n        reviewer: ""\n    })\n\n    width: 480\n    height: 320\n    color: ""\n\n    ColumnLayout {\n        anchors.fill: parent\n        anchors.margins: 12\n        spacing: 8\n\n        Label {\n            text: "" + root.teamGoalId\n                  + "" + (root.snapshot.cursor !== undefined ? root.snapshot.cursor : "")\n            color: ""\n            font.bold: true\n        }\n\n        Repeater {\n            model: root.snapshot.roles ? root.snapshot.roles.length : 0\n\n            delegate: Rectangle {\n                required property int index\n                property var roleEntry: root.snapshot.roles[index]\n\n                Layout.fillWidth: true\n                implicitHeight: 64\n                radius: 6\n                color: ""\n\n                ColumnLayout {\n                    anchors.fill: parent\n                    anchors.margins: 8\n                    spacing: 2\n\n                    Label {\n                        text: roleEntry ? roleEntry.piStatus : ""\n                        color: ""\n                        font.bold: true\n                        font.family: ""\n                    }\n                    Label {\n                        text: roleEntry ? ("" + roleEntry.controlMode\n                              + "" + (roleEntry.assignmentState || "")\n                              + "" + roleEntry.nativeTerminalTitle) : ""\n                        color: ""\n                        elide: Text.ElideRight\n                        font.family: ""\n                    }\n                }\n            }\n        }\n\n        Label {\n            Layout.fillWidth: true\n            wrapMode: Text.Wrap\n            color: ""\n            font.family: ""\n            text: "" + root.projectionEvents.length\n                  + (root.latestProjectionEvent\n                     ? "" + root.latestProjectionEvent.sequence\n                       + "" + root.latestProjectionEvent.eventType\n                     : "")\n        }\n\n        Label {\n            Layout.fillWidth: true\n            wrapMode: Text.Wrap\n            color: ""\n            font.italic: true\n            text: ""\n                  + ""\n        }\n    }\n}',
+    expected: /\b(?:roleDisplayNames|stateDisplayNames|roleLabels|stateLabels|displayNameMap|labelMap|statusMap)\b/i,
+    operator: 'doesNotMatch',
+    diff: 'simple'
+  }
+
+test at console/test/qml-boundary.test.mjs:177:1
+✖ QML syntax and lint pass through qmllint without launching a UI (0.236602ms)
+  AssertionError [ERR_ASSERTION]: expected QML boundary file: /home/woodshape/claude/omarchestra/prototypes/first-vertical-slice/console/plugin/AgentConsole.qml
+      at source (file:///home/woodshape/claude/omarchestra/prototypes/first-vertical-slice/console/test/qml-boundary.test.mjs:41:10)
+      at TestContext.<anonymous> (file:///home/woodshape/claude/omarchestra/prototypes/first-vertical-slice/console/test/qml-boundary.test.mjs:179:29)
+      at Test.runInAsyncScope (node:async_hooks:226:14)
+      at Test.run (node:internal/test_runner/test:1402:25)
+      at Test.processPendingSubtests (node:internal/test_runner/test:974:18)
+      at Test.postRun (node:internal/test_runner/test:1542:19)
+      at Test.run (node:internal/test_runner/test:1467:12)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:974:7) {
+    generatedMessage: false,
+    code: 'ERR_ASSERTION',
+    actual: false,
+    expected: true,
+    operator: '==',
+    diff: 'simple'
+  }
+
+exit status: 1
+RED CONFIRMED: missing QML/plugin boundary is the intended failure.
