@@ -124,8 +124,38 @@ spike-omarchy-ephemeral-plugin-loader:
 prototype-vertical-slice-role-label-gate:
     bash '{{justfile_directory()}}/prototypes/first-vertical-slice/manual/run-role-label-gate.sh'
 
-# Three-slot Fusion stack. Pi and every child agent use this directory as their CWD.
-fusion *ARGS:
+# Raw three-slot Fusion shell without an initial collaboration command.
+fusion-shell *ARGS:
     pi -e "{{fusion_harness}}/extensions/fusion-harness/fusion-harness.ts" \
         --fh-config "{{fusion_harness}}/.pi/fusion-harness/model-stack-fusion.yaml" \
         {{ARGS}}
+
+# Start or resume the observer/Adoption implementation branch, then launch the
+# three-slot Fusion collaboration against its committed execution plan.
+fusion:
+    #!/usr/bin/env bash
+    set -euo pipefail
+    root='{{justfile_directory()}}'
+    harness='{{fusion_harness}}'
+    target='prototype/observer-adoption-gate'
+    cd "$root"
+    [[ -z "$(git status --porcelain)" ]] || {
+        printf 'just fusion requires a clean worktree\n' >&2
+        exit 2
+    }
+    current=$(git branch --show-current)
+    if [[ "$current" == main ]]; then
+        if git show-ref --verify --quiet "refs/heads/$target"; then
+            git switch "$target"
+        elif git show-ref --verify --quiet "refs/remotes/origin/$target"; then
+            git switch --track "origin/$target"
+        else
+            git switch -c "$target"
+        fi
+    elif [[ "$current" != "$target" ]]; then
+        printf 'just fusion requires main or %s; current branch is %s\n' "$target" "$current" >&2
+        exit 2
+    fi
+    exec pi -e "$harness/extensions/fusion-harness/fusion-harness.ts" \
+        --fh-config "$harness/.pi/fusion-harness/model-stack-fusion.yaml" \
+        "/fh-collaborate Read docs/plans/observer-adoption-implementation.md completely and execute it phase by phase. Preserve every locked authority and privacy boundary, work test-first, stop before any human-only live action, and do not commit or push."

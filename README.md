@@ -22,15 +22,18 @@ Ordinary-terminal Pi observation and Adoption remain separate open technical wor
 - [Foundation assessment](docs/research/foundation-assessment.md) — Boomux, Herdr, Fusion Harness, and Omarchy research
 - [Fusion readiness review](docs/reviews/2026-08-30-implementation-readiness/) — independent implementation-blocker review
 - [Companion Plugin v1 prototype contract](prototypes/first-vertical-slice/docs/companion-plugin-v1.md) — persistent installation, ephemeral Projection Sessions, ports, and fail-closed lifecycle
-- [Companion setup and validation](prototypes/first-vertical-slice/docs/live-agent-console-gate.md) — fake-only gate plus the separate human-authorized procedure
+- [Companion setup and validation](prototypes/first-vertical-slice/docs/live-agent-console-gate.md) — fake-only gate plus the passed human-authorized procedure
+- [Observer and Adoption implementation plan](docs/plans/observer-adoption-implementation.md) — next bounded Fusion milestone
 
 ## Fusion workspace
 
-Fusion Harness remains an external development tool. Launch it with this repository as the working directory:
+Fusion Harness remains an external development tool. `just fusion` requires a clean checkout, creates or resumes `prototype/observer-adoption-gate` from `main`, and starts `/fh-collaborate` with the committed observer/Adoption plan:
 
 ```bash
 just fusion
 ```
+
+Use `just fusion-shell` when an unprompted general Fusion session is needed.
 
 The accepted prototype defaults are TypeScript/Node 22+, SQLite with explicit transactions (journal mode intentionally unlocked), versioned NDJSON over Unix sockets and SSH stdio, a systemd user service, and thin presentation-only QML. These remain reversible prototype defaults rather than final production commitments.
 

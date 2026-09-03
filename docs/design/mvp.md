@@ -1,7 +1,7 @@
 # Omarchestra — MVP Design
 
-Status: **MVP product scope locked; Companion Plugin vertical slice fake-proven; production technical contracts pending**
-Last updated: 2026-09-02
+Status: **MVP product scope locked; Companion Plugin vertical slice live-proven; production technical contracts pending**
+Last updated: 2026-09-03
 Related research: [`foundation-assessment.md`](../research/foundation-assessment.md)
 
 This document is the authoritative record of the MVP scope. It supersedes earlier architectural recommendations where they conflict with decisions recorded here.
@@ -586,7 +586,7 @@ These are specification/spike outputs rather than product-feature choices, but e
 
 ### Closed prototype technical milestone
 
-- **Companion Plugin packaging and Projection Sessions:** the bounded prototype now covers explicit plan-bound setup/update/rollback/uninstall, owned-asset and configuration validation, exact compatibility negotiation, incomplete recovery, persistent installation across Team Goals, stale-generation rejection, authoritative reconstruction, acknowledged intents, and byte-identical runtime cleanup. Production packaging, broader compatibility, and live rendering evidence remain separate from this closed prototype milestone.
+- **Companion Plugin packaging and Projection Sessions:** the bounded prototype now covers explicit plan-bound setup/update/rollback/uninstall, owned-asset and configuration validation, exact compatibility negotiation, incomplete recovery, persistent installation across Team Goals, stale-generation rejection, authoritative reconstruction, acknowledged intents, and byte-identical runtime cleanup. The separate human gate proved live rendering on the pinned host; production packaging and broader compatibility remain separate from this closed prototype milestone.
 
 ## Decision log
 
@@ -614,4 +614,5 @@ These are specification/spike outputs rather than product-feature choices, but e
 - 2026-09-01: Local human presentation evidence rejected persistent Ghostty title bars: Omarchy's decorationless windows hide title metadata, forced client decorations looked non-native, and narrow tiled titles truncated. The locked visual contract is now Pi status per terminal plus redundant Agent Console cards; dynamic terminal titles remain window-manager metadata only.
 - 2026-09-02: The Agent Console installation model was corrected to follow Boomux: explicit setup installs and enables one persistent Omarchestra Companion Plugin; Team Goals own only ephemeral Projection Sessions. Per-run QML registration and an upstream Omarchy loader change were rejected as unnecessary lifecycle coupling.
 - 2026-09-02: An opt-in global Pi observer may list ordinary-terminal Pi sessions as Observed and Unassigned, but observation grants no management authority. Exact same-process acknowledgement, user confirmation, reconciliation, and a durable commit are required for Adoption into a Team Goal.
-- 2026-09-02: The bounded Companion Plugin vertical slice completed fake-only: exact authorized installation lifecycle, one persistent installation across Team Goals, ephemeral session generations, reload reconstruction, acknowledged intents, presentation-only QML, and byte-identical runtime cleanup are green. The human setup/visual gate exists but was not run; observer and Adoption remain unimplemented.
+- 2026-09-02: The bounded Companion Plugin vertical slice completed fake-only: exact authorized installation lifecycle, one persistent installation across Team Goals, ephemeral session generations, reload reconstruction, acknowledged intents, presentation-only QML, and byte-identical runtime cleanup are green.
+- 2026-09-03: The human Companion gate passed on the pinned live host: three real interactive Pi processes and Agent Console cards agreed across waiting, managed work, takeover, persistence, reload, and clear/hide; installation fingerprints matched and all ephemeral resources reconciled absent. Observer and Adoption remain unimplemented.

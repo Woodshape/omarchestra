@@ -8,6 +8,7 @@
 - **Locked integration or lifecycle trade-offs:** read the relevant record in [`docs/adr/`](docs/adr/) before revisiting the decision.
 - **Boomux, Herdr, Fusion Harness, Omarchy, PTY, or terminal-runtime claims:** read the relevant sections of [`docs/research/foundation-assessment.md`](docs/research/foundation-assessment.md) before relying on them.
 - **Remote execution, SSH, Node identity, remote Projects, or disconnection semantics:** read [`docs/design/remote-execution.md`](docs/design/remote-execution.md) completely before proposing or implementing changes.
+- **Observer/Adoption implementation milestone:** read [`docs/plans/observer-adoption-implementation.md`](docs/plans/observer-adoption-implementation.md) before implementing ordinary-session discovery, registry expiry, privacy filtering, Adoption acknowledgement, or Unassigned Agents presentation.
 - **Implementation-readiness or planning blockers:** read [`docs/reviews/2026-08-30-implementation-readiness/`](docs/reviews/2026-08-30-implementation-readiness/) when revisiting why a technical contract exists.
 - **Feasibility work:** read [`spikes/README.md`](spikes/README.md) before starting a spike.
 
