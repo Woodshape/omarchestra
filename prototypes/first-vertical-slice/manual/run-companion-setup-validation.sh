@@ -152,6 +152,21 @@ register_pid() {
     "$(printf '%s' "{\"kind\":\"pid\",\"label\":\"$label\",\"pid\":$pid,\"identity\":$(printf '%s' "$identity" | node -e 'let s="";process.stdin.on("data",d=>s+=d).on("end",()=>process.stdout.write(JSON.stringify(s)))')}" )"
 }
 
+register_pi_pid_after_exec() {
+  local pid="$1" role="$2" identity cmdline
+  for _ in $(seq 1 150); do
+    identity=$(process_identity "$pid" 2>/dev/null || true)
+    cmdline="${identity#*$'\t'}"
+    if [[ "$identity" == *$'\t'* && "$cmdline" == "pi --no-extensions "* ]]; then
+      register_pid "$pid" "Pi $role"
+      return
+    fi
+    sleep 0.1
+  done
+  printf 'Pi %s did not reach its visible host exec identity\n' "$role" >&2
+  return 1
+}
+
 terminate_exact_pid() {
   local pid="$1" expected="$2" label="$3" current
   [[ -n "$pid" ]] || return 0
@@ -450,7 +465,7 @@ chmod 600 "$RUNTIME_DIR/start-pi"
 
 for role in "${ROLES[@]}"; do
   pi_pid=$(<"$RUNTIME_DIR/$role.pid")
-  register_pid "$pi_pid" "Pi $role"
+  register_pi_pid_after_exec "$pi_pid" "$role"
 done
 
 for role in "${ROLES[@]}"; do
@@ -470,7 +485,7 @@ for role in "${ROLES[@]}"; do
 done
 
 wait_for_projection() {
-  local coordinator="$1" builder="$2" reviewer="$3" role expected
+  local coordinator="Coordinator · $1" builder="Builder · $2" reviewer="Reviewer · $3" role expected
   for _ in $(seq 1 450); do
     if [[ -s "$EVIDENCE_DIR/projection.json" ]] && jq -e \
       --arg coordinator "$coordinator" --arg builder "$builder" --arg reviewer "$reviewer" '

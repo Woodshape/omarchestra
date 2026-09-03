@@ -224,6 +224,20 @@ test('projection control accepts multiple sequential commands without one-writer
   assert.throws(() => queue.accept('unknown\n'), /unknown|control/i)
 })
 
+test('the live verifier compares complete committed role presentation values', () => {
+  const script = stripComments(read(SCRIPT))
+  const start = script.indexOf('wait_for_projection() {')
+  const end = script.indexOf('\nsend_projection_control() {', start)
+  assert.ok(start >= 0 && end > start)
+  const verifier = script.slice(start, end)
+  assert.match(verifier, /coordinator="Coordinator · \$1"/)
+  assert.match(verifier, /builder="Builder · \$2"/)
+  assert.match(verifier, /reviewer="Reviewer · \$3"/)
+  assert.match(verifier, /\.piStatus == \$coordinator/)
+  assert.match(verifier, /\.piStatus == \$builder/)
+  assert.match(verifier, /\.piStatus == \$reviewer/)
+})
+
 test('runtime identity files contain real newlines and cleanup binds every expected identity', () => {
   const script = stripComments(read(SCRIPT))
   assert.match(script, /write_private_line "\$RUNTIME_DIR\/\$role\.session-id" "\$session_id"/)
@@ -247,6 +261,19 @@ test('runtime identity files contain real newlines and cleanup binds every expec
   assert.match(script, /remove_exact_directory\(\) \{\s*local directory="\$1" expected="\$2" current/)
   assert.match(script, /if ! current=\$\(process_identity "\$pid"/)
   assert.match(script, /\[\[ ! -e "\/proc\/\$pid" \]\] && return 0/)
+})
+
+test('Pi PID registration waits for the visible host exec identity', () => {
+  const script = stripComments(read(SCRIPT))
+  const helperStart = script.indexOf('register_pi_pid_after_exec() {')
+  const helperEnd = script.indexOf('\nterminate_exact_pid() {', helperStart)
+  assert.ok(helperStart >= 0 && helperEnd > helperStart)
+  const helper = script.slice(helperStart, helperEnd)
+  assert.match(helper, /process_identity "\$pid"/)
+  assert.match(helper, /pi --no-extensions/)
+  assert.match(helper, /register_pid "\$pid" "Pi \$role"/)
+  assert.match(script, /register_pi_pid_after_exec "\$pi_pid" "\$role"/)
+  assert.doesNotMatch(script, /register_pid "\$pi_pid" "Pi \$role"/)
 })
 
 test('PID registration binds both arguments before aligned cleanup bookkeeping', () => {
