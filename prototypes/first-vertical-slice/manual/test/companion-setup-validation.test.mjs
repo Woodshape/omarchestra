@@ -228,6 +228,22 @@ test('runtime identity files contain real newlines and cleanup binds every expec
   const script = stripComments(read(SCRIPT))
   assert.match(script, /write_private_line "\$RUNTIME_DIR\/\$role\.session-id" "\$session_id"/)
   assert.doesNotMatch(script, /"\$session_id\\n"/)
+  const writerStart = script.indexOf('write_private_line() {')
+  const writerEnd = script.indexOf('\nappend_private() {', writerStart)
+  assert.ok(writerStart >= 0 && writerEnd > writerStart)
+  const scratch = fs.mkdtempSync(path.join(os.tmpdir(), 'omarchestra-private-line-'))
+  try {
+    const output = path.join(scratch, 'session-id')
+    const writerResult = spawnSync('bash', ['-c', `
+      set -euo pipefail
+      ${script.slice(writerStart, writerEnd)}
+      write_private_line "$1" '2fdbd226-b15d-4696-bf9e-706b993daefb'
+    `, 'test-private-line', output], { encoding: 'utf8' })
+    assert.equal(writerResult.status, 0, `${writerResult.stdout}\n${writerResult.stderr}`)
+    assert.equal(fs.readFileSync(output, 'utf8'), '2fdbd226-b15d-4696-bf9e-706b993daefb\n')
+  } finally {
+    fs.rmSync(scratch, { recursive: true, force: true })
+  }
   assert.match(script, /remove_exact_directory\(\) \{\s*local directory="\$1" expected="\$2" current/)
   assert.match(script, /if ! current=\$\(process_identity "\$pid"/)
   assert.match(script, /\[\[ ! -e "\/proc\/\$pid" \]\] && return 0/)
