@@ -397,7 +397,7 @@ The removable first vertical slice now establishes, with fake-only automated evi
 8. Runtime hide, clear, and cleanup perform no installation operation and leave installed assets, receipt, and `shell.json` bytes identical.
 9. Automated recipes, Fusion reachability, module imports, and QML authority are source-audited as fake-only. The human setup procedure is reachable in automation only through `--check` and static analysis.
 
-The contract and evidence are under [`prototypes/first-vertical-slice/`](../../prototypes/first-vertical-slice/). This closes the bounded Companion packaging/Projection Session milestone only. The live procedure has not been run, and this evidence does not promote the prototype to production.
+The contract and automated evidence are under [`prototypes/first-vertical-slice/`](../../prototypes/first-vertical-slice/). The separately authorized human procedure passed on 2026-09-03, confirming three live Pi footers and Agent Console cards across waiting, managed work, takeover, persistence, reload, and clear/hide while the persistent installation fingerprint stayed unchanged. Private evidence remains outside Git. This closes the bounded Companion packaging/Projection Session milestone only and does not promote the prototype to production.
 
 ### Bar indicator
 
@@ -529,7 +529,7 @@ The MVP is demonstrable when:
 
 ## Implementation readiness
 
-Status: **MVP product scope and the local/remote feasibility classifications are locked; the Companion vertical slice is complete fake-only, while remaining production technical contracts are not ready for an end-to-end implementation run.**
+Status: **MVP product scope and the local/remote feasibility classifications are locked; the Companion vertical slice has fake-only coverage and a human live PASS, while remaining production technical contracts are not ready for an end-to-end implementation run.**
 
 Before delegating broad implementation to Fusion Harness, the project still needs:
 
@@ -538,7 +538,7 @@ Before delegating broad implementation to Fusion Harness, the project still need
 3. define production runner/bridge/observer snapshot, event, intent, SSH trust, deployment, and persistence contracts;
 4. convert validated prototype slices into milestone-sized production implementation slices with executable acceptance gates.
 
-The separate Companion human procedure remains optional pending live evidence. Its unexecuted status is not an invitation to revive the rejected temporary-loader path.
+The separate Companion human procedure passed on 2026-09-03. That result does not revive or create any need for the rejected temporary-loader path.
 
 Fusion Harness is a source of orchestration behavior and a tool for reviewing/building the new product. The new product should not be implemented directly inside the `fusion-harness` repository unless an explicit monorepo decision is made.
 
@@ -556,7 +556,7 @@ Preserved evidence:
 
 ## Product decision status
 
-All MVP product-scope decisions and feasibility classifications are locked. The bounded Companion Plugin packaging and Projection Session prototype milestone is complete fake-only. Remaining work is confined to the production technical contracts below and the separate observer/Adoption slice.
+All MVP product-scope decisions and feasibility classifications are locked. The bounded Companion Plugin packaging and Projection Session prototype milestone is complete with fake-only failure coverage and a human live PASS. Remaining work is confined to the production technical contracts below and the separate observer/Adoption slice.
 
 ## Accepted vertical-slice prototype defaults
 

@@ -60,10 +60,10 @@ Supported by the captured evidence:
 
 Constraints that keep this from being "supported" outright:
 
-- real same-process Pi status and dynamic terminal metadata are human-proven,
-  and the persistent Agent Console source plus Projection Session lifecycle are
-  fake-proven, but live redundant Agent Console rendering has not been run;
-  forced visible Ghostty title bars were rejected as non-native and
+- real same-process Pi status, dynamic terminal metadata, and redundant live
+  Agent Console rendering are human-proven; the persistent plugin and
+  Projection Session lifecycles are additionally fake-proven across broader
+  failure cases; forced visible Ghostty title bars were rejected as non-native and
   truncation-prone (`docs/manual-role-label-gate.md`);
 - the SSH-stdio transport is an injected-stream interface; no SSH is exercised;
 - journal mode stays deliberately undecided: the gate measures `default` and
@@ -141,21 +141,21 @@ window-manager metadata only; see
 
 ## Live Agent Console status
 
-The Agent Console projection seam is implemented and fake-proven. Its original
-per-run repository-local loader is unsupported and now rejected; live visual
-agreement remains a later human gate through an explicitly installed persistent
-Companion Plugin. Classification:
+The Agent Console projection seam is implemented, fake-proven, and live-proven.
+Its original per-run repository-local loader is unsupported and now rejected;
+live visual agreement uses the explicitly installed persistent Companion Plugin.
+Classification:
 
 - **Companion proof (automated):** `just prototype-companion-check` runs the
   installation, Projection Session, integrated acceptance, and human-procedure
   `--check` seams plus the standalone acceptance entry point. The test portion
-  is 58/58 green; the standalone verdict proves one install, three distinct
+  is 77/77 green; the standalone verdict proves one install, three distinct
   session generations across two Team Goals and reload, unchanged agents and
   cards, and zero runtime installation mutations. Evidence is under
   `evidence/companion-*-green.txt` and
   `evidence/companion-red-green-ledger.md`.
 - **Agent Console boundary proof (automated):**
-  `just prototype-live-agent-console-check` runs 58 fake-only adapter, QML,
+  `just prototype-live-agent-console-check` runs the fake-only adapter, QML,
   recipe, cleanup, and source-audit tests, the replacement launcher's
   `--check`, module links, syntax checks, and QML lint. Evidence:
   `evidence/companion-boundary-green.txt` and the final validation capture.
@@ -167,17 +167,17 @@ Companion Plugin. Classification:
   creation. Its justfile recipe is removed from active use; it remains safe
   historical code, not the product path
   ([`docs/live-agent-console-launch-blocker.md`](docs/live-agent-console-launch-blocker.md)).
-- **Replacement available:** fake-only setup/update/uninstall proof for the
-  versioned Companion Plugin is green. Live Pi + Agent Console agreement uses
-  the explicitly human-authorized `prototype-companion-setup-validation` gate
-  and remains unclaimed until a human runs it
+- **Replacement live-proven:** fake-only setup/update/uninstall proof for the
+  versioned Companion Plugin is green. The explicitly human-authorized
+  `prototype-companion-setup-validation` gate passed on 2026-09-03 with three
+  real interactive Pi hosts and matching Agent Console cards
   ([`docs/live-agent-console-gate.md`](docs/live-agent-console-gate.md)).
 
-The prototype QML source under `console/plugin/` is schema-checked and linted
-and is installed only into the in-memory fake during automated acceptance. It
-has not been installed or loaded on a live desktop. Explicit human-authorized
-product setup—not a Team Goal—owns any live installation and exact Omarchy
-configuration change.
+The prototype QML source under `console/plugin/` is schema-checked and linted.
+Automation installs it only into the in-memory fake; the separate authorized
+human procedure installed and loaded release 0.2.0 on the live desktop.
+Explicit human-authorized product setup—not a Team Goal—owns that installation
+and exact Omarchy configuration change.
 
 ## Guided manual walkthrough (optional, no live systems)
 
@@ -278,8 +278,8 @@ Evidence-backed items that should become production contracts:
 Unresolved questions (deliberately not decided here):
 
 - production journal mode (both modes measured; none ranked);
-- live Companion Plugin installation/rendering and its agreement/latency
-  relative to the human-proven Pi status surface;
+- production Companion packaging, compatibility beyond the validated host,
+  and latency/performance requirements beyond the human gate;
 - observer identity/expiry and exact same-process Adoption protocol;
 - socket trust beyond same-user Unix permissions, and the authenticated
   SSH-stdio protocol;
@@ -292,8 +292,9 @@ Unresolved questions (deliberately not decided here):
 
 The durable runner, managed bridge, projection, and terminal-presentation seams
 remain aligned. The persistent Companion Plugin installation and ephemeral
-Projection Session slice is complete fake-only. The repository-local per-run
-QML launcher stays fail-closed as rejected historical evidence and is absent
+Projection Session slice is complete with fake-only failure coverage and a
+separate human live PASS. The repository-local per-run QML launcher stays
+fail-closed as rejected historical evidence and is absent
 from active recipes. Ordinary-terminal observation/Adoption and `reconciling`
 remain explicit scope limits rather than silently simulated behavior.
 

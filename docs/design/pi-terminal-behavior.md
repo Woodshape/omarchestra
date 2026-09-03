@@ -64,7 +64,7 @@ Human input is always possible in the visible Pi terminal.
 
 ## Restart and exit
 
-A Companion Plugin reload affects only its Projection Session and never interrupts Pi. The bounded fake-only Companion slice now proves that the old plugin generation is rejected, a new Projection Session identity is allocated, identical cards are reconstructed from a fresh authoritative snapshot, and fake agent identities, connections, assignments, and delivered turns remain unchanged. Live Pi/Agent Console agreement has not been run and is not implied by that evidence.
+A Companion Plugin reload affects only its Projection Session and never interrupts Pi. The bounded fake-only Companion slice proves that the old plugin generation is rejected, a new Projection Session identity is allocated, identical cards are reconstructed from a fresh authoritative snapshot, and fake agent identities, connections, assignments, and delivered turns remain unchanged. The separate human gate on 2026-09-03 also confirmed identical live cards after supported rescan without interrupting the three visible Pi identities.
 
 A registry/runner restart reconstructs observed and managed presentation from fresh same-process registrations and authoritative snapshots; it does not infer identity from stale terminal metadata.
 
@@ -74,6 +74,6 @@ When an ordinary Pi exits or its observer disconnects beyond the bounded expiry 
 
 Observer and Companion Plugin installation, compatibility verification, update, rollback, and uninstall are explicit product-management operations. Starting or cleaning a Team Goal never installs, updates, disables, or removes either component and never writes Omarchy or Pi global configuration.
 
-The Companion prototype now fake-proves this split through injected ports: one authorized installation remains enabled across two Team Goals, while open, reconnect, clear, hide, and cleanup leave plugin assets, receipt, and `shell.json` bytes unchanged. `just prototype-companion-check` reproduces that unattended evidence. `just prototype-companion-setup-validation` is a separate TTY- and exact-authorization-gated live procedure and has not been executed.
+The Companion prototype fake-proves this split through injected ports: one authorized installation remains enabled across two Team Goals, while open, reconnect, clear, hide, and cleanup leave plugin assets, receipt, and `shell.json` bytes unchanged. `just prototype-companion-check` reproduces that unattended evidence. The separate TTY- and exact-authorization-gated `just prototype-companion-setup-validation` procedure passed on 2026-09-03; its before/after installation fingerprints matched and its runtime resources reconciled absent while the plugin remained enabled.
 
 Ordinary-terminal observation and Adoption were not implemented by the Companion milestone. Their observer protocol, packaging, identity, expiry, acknowledgement, and reconciliation contracts remain open exactly as described above.

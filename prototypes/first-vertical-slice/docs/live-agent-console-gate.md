@@ -1,6 +1,6 @@
 # Live Agent Console gate — first vertical-slice prototype
 
-Status: **RETIRED PATH — replacement Companion setup procedure is implemented; live validation remains human-only.**
+Status: **RETIRED PATH — replacement Companion setup procedure passed its human-only live validation on 2026-09-03.**
 
 This is the manual-gate plan for the removable first vertical-slice prototype. The retained `manual/run-live-agent-console-gate.sh` still fails closed because it implements the rejected per-run QML-loading path. Its justfile recipe is no longer active. Do not treat that historical error as a product blocker or weaken its preflight. Use `just prototype-companion-setup-validation` for the explicitly installed Companion Plugin procedure.
 
@@ -12,11 +12,11 @@ The automated gate remains fake-only and never invokes any visible agent host, t
 | --- | --- | --- |
 | `just prototype-vertical-slice` | fake-only automated | proven (durable runner, protocol, takeover, restart, reconnect) |
 | `just prototype-vertical-slice-manual-check` | fake-only automated | proven for the role-label adapter |
-| `just prototype-live-agent-console-check` | fake-only automated | green — 58 adapter, QML, historical launcher, setup-contract, cleanup, and source-audit tests plus static checks |
-| `just prototype-companion-check` | fake-only automated | green — 58 installation, Projection Session, acceptance, and setup-contract tests plus standalone acceptance and launcher `--check` |
+| `just prototype-live-agent-console-check` | fake-only automated | green — adapter, QML, historical launcher, setup-contract, cleanup, source-audit, syntax, and QML-lint checks |
+| `just prototype-companion-check` | fake-only automated | green — 77 installation, Projection Session, acceptance, setup-contract, live-launcher regression tests plus standalone acceptance and launcher `--check` |
 | `just prototype-vertical-slice-role-label-gate` | prior human evidence | completed — three decorationless visible Pi hosts, persistent Pi status labels, waiting → managed → manual_takeover, sibling isolation, one-minute persistence |
-| Persistent Companion Plugin setup/update/uninstall | fake-only then human-authorized | fake-only proven; live setup path available |
-| Agent Console cards against live Pi | human-only | pending the replacement gate |
+| Persistent Companion Plugin setup/update/uninstall | fake-only then human-authorized | live installation/update and installed capability discovery passed; uninstall remains fake-proven |
+| Agent Console cards against live Pi | human-only | passed 2026-09-03 |
 
 ## Locked replacement architecture
 
@@ -42,7 +42,7 @@ The replacement procedure is implemented. Its automated entry conditions are gre
 - success, failure, interruption, and assertion cleanup use exact registered runtime identities and never uninstall the Companion Plugin;
 - Fusion and every automated recipe are statically prevented from reaching live mode; the script is executable in automation only with `--check`.
 
-These are fake and static results. They do not establish that a live shell loaded or rendered the plugin.
+These unattended results remain fake and static. The separate human result below establishes that the installed live shell loaded and rendered the plugin.
 
 ## Human-only replacement gate
 
@@ -57,4 +57,4 @@ These are fake and static results. They do not establish that a live shell loade
 
 Private live evidence belongs under `${XDG_STATE_HOME:-~/.local/state}/omarchestra/manual-gates/` with owner-only permissions and never enters Git.
 
-Until the replacement gate passes, live Pi/Agent Console visual agreement remains unproven.
+The replacement gate passed on 2026-09-03. It confirmed waiting → managed → manual_takeover, sibling isolation, one-minute persistence, supported rescan with identical reconstructed cards, clear/hide, matching installation fingerprints, and absence of all ephemeral runtime resources after reconciliation. The persistent Companion Plugin remained installed and enabled. Detailed evidence remains owner-only under `${XDG_STATE_HOME:-~/.local/state}/omarchestra/manual-gates/companion-20260903T120052-2322215/` and is intentionally not committed.

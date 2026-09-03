@@ -6,9 +6,9 @@ Omarchestra coordinates teams of real interactive coding agents, each shown in i
 
 ## Status
 
-**MVP product scope locked; the Companion Plugin vertical slice is fake-proven and production technical contracts remain pending.**
+**MVP product scope locked; the Companion Plugin vertical slice is live-proven and production technical contracts remain pending.**
 
-The visible Pi bridge, local Boomux runtime adapter, and one-Node remote execution are supported with documented constraints after automated and human validation. The removable first vertical slice now fake-proves one explicitly authorized, versioned Companion Plugin installation across multiple Team Goals, ephemeral Projection Sessions, reload reconstruction, and byte-identical runtime cleanup. The live Companion setup-and-validation procedure exists but has not been run, so live Agent Console rendering is not claimed.
+The visible Pi bridge, local Boomux runtime adapter, and one-Node remote execution are supported with documented constraints after automated and human validation. The removable first vertical slice proves one explicitly authorized, versioned Companion Plugin installation, three real interactive Pi hosts, ephemeral Projection Sessions, committed role/state agreement, Builder-only managed work and takeover, one-minute persistence, reload reconstruction, and runtime clear/hide without changing the persistent installation. The unattended proof remains fake-only; the separate human gate passed on 2026-09-03 with private owner-only evidence.
 
 Ordinary-terminal Pi observation and Adoption remain separate open technical work. This milestone did not implement or validate either behavior.
 

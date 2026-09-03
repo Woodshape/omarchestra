@@ -1,6 +1,6 @@
 # Companion Plugin vertical-slice red-to-green ledger
 
-Status: **complete fake-only; live setup and visual validation not run**
+Status: **automated ledger complete and fake-only; separate human live validation passed 2026-09-03**
 
 This ledger records the test-first progression for one persistent, versioned
 `omarchestra.agent-console` installation and ephemeral
@@ -20,7 +20,7 @@ or create private live evidence.
 | Projection Session implementation | `companion-projection-green.txt` | Discovery, snapshot, ordered updates, intents, reload, reconnect, hide/clear, reused core, and QML pass | 24 pass, 0 fail |
 | Integrated implementation | `companion-acceptance-green.txt` | One install across two Team Goals, fresh session identities, reload reconstruction, unchanged agents, byte-identical cleanup | 5 pass, 0 fail plus standalone `VERDICT PASS` |
 | Extended automated boundaries | `companion-boundary-green.txt` | Fusion/recipe/module/QML boundaries remain fake-only | 18 pass, 0 fail |
-| Human-procedure contract | `companion-human-recipe-check.txt` | TTY, exact authorization, private evidence, exact cleanup, and `--check` isolation pass without live mode | fake/static checks pass; live not run |
+| Human-procedure contract | `companion-human-recipe-check.txt` | TTY, exact authorization, private evidence, exact cleanup, and `--check` isolation pass without live mode | fake/static checks pass; separate live procedure later passed |
 
 The red captures are retained unchanged. Green captures were produced only
 after their implementation dependencies existed.
@@ -33,16 +33,12 @@ Command:
 just prototype-companion-check
 ```
 
-The gate runs:
+The gate runs the Companion installation, Projection Session, integrated
+acceptance, QML/release, replacement setup-procedure, and live-launcher
+regression suites, followed by the standalone `companion/acceptance.ts`
+scenario and the human launcher's fake-only `--check` path.
 
-1. 22 Companion installation tests;
-2. 24 Projection Session tests;
-3. 5 integrated acceptance tests;
-4. 7 replacement setup-procedure contract tests;
-5. the standalone `companion/acceptance.ts` scenario;
-6. the human launcher's fake-only `--check` path.
-
-Current result: **58/58 tests pass**, the standalone scenario prints
+Current result: **77/77 tests pass**, the standalone scenario prints
 `VERDICT PASS`, and the launcher check prints `PASS (fake-only)`.
 
 The standalone scenario records:
@@ -58,6 +54,18 @@ The standalone scenario records:
 - zero runtime installation mutations;
 - byte-identical plugin tree, owner-only receipt, and `shell.json` after
   clear/hide/cleanup.
+
+## Separate human live result
+
+On 2026-09-03, `just prototype-companion-setup-validation` passed with three
+real interactive Pi hosts and the installed Companion Plugin. The operator
+confirmed exact Pi-footer/Agent-Console agreement for waiting, Builder-only
+managed work, manual takeover, sibling isolation, one-minute persistence, and
+supported reload reconstruction. Structured evidence confirmed clear/hide and
+matching before/after installation fingerprints. All ephemeral processes,
+windows, sockets, and the runtime directory reconciled absent; the plugin
+remained installed and enabled. Owner-only evidence is retained outside Git at
+`${XDG_STATE_HOME:-~/.local/state}/omarchestra/manual-gates/companion-20260903T120052-2322215/`.
 
 ## Installation findings
 
