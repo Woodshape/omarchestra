@@ -114,6 +114,12 @@ write_private() {
   chmod 600 "$file"
 }
 
+write_private_line() {
+  local file="$1" value="$2"
+  printf '%s\n' "$value" > "$file"
+  chmod 600 "$file"
+}
+
 append_private() {
   local file="$1" value="$2"
   printf '%s\n' "$value" >> "$file"
@@ -150,7 +156,11 @@ terminate_exact_pid() {
   local pid="$1" expected="$2" label="$3" current
   [[ -n "$pid" ]] || return 0
   if [[ ! -e "/proc/$pid" ]]; then return 0; fi
-  current=$(process_identity "$pid" 2>/dev/null || true)
+  if ! current=$(process_identity "$pid" 2>/dev/null); then
+    [[ ! -e "/proc/$pid" ]] && return 0
+    printf 'refusing to terminate %s PID %s: exact process identity is unreadable\n' "$label" "$pid" >&2
+    return 1
+  fi
   if [[ "$current" != "$expected" ]]; then
     printf 'refusing to terminate %s PID %s: exact process identity drifted\n' "$label" "$pid" >&2
     return 1
@@ -158,7 +168,15 @@ terminate_exact_pid() {
   kill -TERM "$pid" 2>/dev/null || true
   for _ in $(seq 1 100); do
     [[ ! -e "/proc/$pid" ]] && return 0
-    current=$(process_identity "$pid" 2>/dev/null || true)
+    if [[ -r "/proc/$pid/stat" && "$(awk '{print $3}' "/proc/$pid/stat" 2>/dev/null)" == Z ]]; then
+      wait "$pid" 2>/dev/null || true
+      return 0
+    fi
+    if ! current=$(process_identity "$pid" 2>/dev/null); then
+      [[ ! -e "/proc/$pid" ]] && return 0
+      printf 'refusing escalation for %s PID %s: exact process identity is unreadable\n' "$label" "$pid" >&2
+      return 1
+    fi
     [[ "$current" != "$expected" ]] && {
       printf 'refusing escalation for %s PID %s after identity drift\n' "$label" "$pid" >&2
       return 1
@@ -219,7 +237,7 @@ remove_exact_socket() {
 }
 
 remove_exact_directory() {
-  local directory="$1" expected current
+  local directory="$1" expected="$2" current
   [[ -n "$directory" ]] || return 0
   reject_symlink_components "$directory" || return 1
   [[ -d "$directory" && ! -L "$directory" ]] || {
@@ -273,13 +291,7 @@ cleanup() {
   # path is preserved for manual reconciliation instead of recursively
   # deleting an unrelated directory. This is the only recursive removal.
   if [[ -n "$RUNTIME_DIR" ]]; then
-    runtime_identity=$(stat -c '%d:%i' -- "$RUNTIME_DIR" 2>/dev/null || true)
-    if [[ -n "${RUNTIME_IDENTITY:-}" && "$runtime_identity" != "$RUNTIME_IDENTITY" ]]; then
-      printf 'preserving runtime directory after identity drift: %s\n' "$RUNTIME_DIR" >&2
-      CLEANUP_SAFE=0
-    else
-      remove_exact_directory "$RUNTIME_DIR" "${RUNTIME_IDENTITY:-}" || CLEANUP_SAFE=0
-    fi
+    remove_exact_directory "$RUNTIME_DIR" "${RUNTIME_IDENTITY:-}" || CLEANUP_SAFE=0
   fi
 
   if (( CLEANUP_SAFE == 0 )); then
@@ -309,7 +321,7 @@ reject_symlink_components "$RUNTIME_PARENT" || exit 2
 node "${NODE_FLAGS[@]}" "$LIVE_ADAPTER" --live --evidence-dir "$EVIDENCE_DIR"
 PLUGIN_READY=1
 write_private "$EVIDENCE_DIR/runtime-boundary.txt" \
-  "Runtime cleanup owns only exact runner/Pi/Ghostty/projection/socket/directory identities.\nPersistent plugin: untouched by runtime cleanup.\n"
+  $'Runtime cleanup owns only exact runner/Pi/Ghostty/projection/socket/directory identities.\nPersistent plugin: untouched by runtime cleanup.\n'
 
 RUNTIME_DIR=$(mktemp -d "$RUNTIME_PARENT/omarchestra-companion-gate.XXXXXX")
 reject_symlink_components "$RUNTIME_DIR" || exit 2
@@ -352,7 +364,7 @@ for role in "${ROLES[@]}"; do
   mkdir -- "$RUNTIME_DIR/sessions/$role"
   chmod 700 "$RUNTIME_DIR/sessions/$role"
   session_id=$(node -e "process.stdout.write(require('node:crypto').randomUUID())")
-  write_private "$RUNTIME_DIR/$role.session-id" "$session_id\n"
+  write_private_line "$RUNTIME_DIR/$role.session-id" "$session_id"
   class="com.omarchestra.CompanionGate.$role"
   ghostty \
     --class="$class" \
@@ -564,7 +576,7 @@ record_checkpoint reloaded
 confirm 'Did the supported rescan recover identical cards without interrupting the three agent identities?' || exit 1
 
 INSTALLATION_BEFORE=$(node "${NODE_FLAGS[@]}" "$LIVE_ADAPTER" --fingerprint)
-write_private "$EVIDENCE_DIR/installation-fingerprint-before-runtime.txt" "$INSTALLATION_BEFORE\n"
+write_private_line "$EVIDENCE_DIR/installation-fingerprint-before-runtime.txt" "$INSTALLATION_BEFORE"
 send_projection_control clear
 for _ in $(seq 1 100); do [[ -f "$EVIDENCE_DIR/projection-cleared" ]] && break; sleep 0.1; done
 [[ -f "$EVIDENCE_DIR/projection-cleared" ]] || { printf 'Projection Session clear did not complete\n' >&2; exit 1; }
@@ -572,7 +584,7 @@ send_projection_control hide
 for _ in $(seq 1 100); do [[ -f "$EVIDENCE_DIR/projection-hidden" ]] && break; sleep 0.1; done
 [[ -f "$EVIDENCE_DIR/projection-hidden" ]] || { printf 'Projection Session hide did not complete\n' >&2; exit 1; }
 INSTALLATION_AFTER=$(node "${NODE_FLAGS[@]}" "$LIVE_ADAPTER" --fingerprint)
-write_private "$EVIDENCE_DIR/installation-fingerprint-after-runtime.txt" "$INSTALLATION_AFTER\n"
+write_private_line "$EVIDENCE_DIR/installation-fingerprint-after-runtime.txt" "$INSTALLATION_AFTER"
 [[ "$INSTALLATION_BEFORE" == "$INSTALLATION_AFTER" ]] || {
   printf 'runtime cleanup changed the persistent plugin, receipt, or shell configuration\n' >&2
   exit 1
@@ -580,8 +592,8 @@ write_private "$EVIDENCE_DIR/installation-fingerprint-after-runtime.txt" "$INSTA
 
 send_projection_control quit || true
 GATE_COMPLETED=1
-write_private "$EVIDENCE_DIR/verdict.md" \
-  "PASS — persistent Companion installation survived Projection Session clear/hide and exact runtime cleanup.\n"
+write_private_line "$EVIDENCE_DIR/verdict.md" \
+  "PASS — persistent Companion installation survived Projection Session clear/hide and exact runtime cleanup."
 append_private "$EVIDENCE_DIR/verdict.md" "Live visual agreement was confirmed by the operator; evidence contains structured labels only."
 printf '\nPASS. Private owner-only evidence: %s\n' "$EVIDENCE_DIR"
 printf 'The persistent Companion Plugin was not removed by runtime cleanup.\n'

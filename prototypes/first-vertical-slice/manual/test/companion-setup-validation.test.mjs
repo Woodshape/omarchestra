@@ -224,6 +224,15 @@ test('projection control accepts multiple sequential commands without one-writer
   assert.throws(() => queue.accept('unknown\n'), /unknown|control/i)
 })
 
+test('runtime identity files contain real newlines and cleanup binds every expected identity', () => {
+  const script = stripComments(read(SCRIPT))
+  assert.match(script, /write_private_line "\$RUNTIME_DIR\/\$role\.session-id" "\$session_id"/)
+  assert.doesNotMatch(script, /"\$session_id\\n"/)
+  assert.match(script, /remove_exact_directory\(\) \{\s*local directory="\$1" expected="\$2" current/)
+  assert.match(script, /if ! current=\$\(process_identity "\$pid"/)
+  assert.match(script, /\[\[ ! -e "\/proc\/\$pid" \]\] && return 0/)
+})
+
 test('PID registration binds both arguments before aligned cleanup bookkeeping', () => {
   const script = stripComments(read(SCRIPT))
   const registerStart = script.indexOf('register_pid() {')
