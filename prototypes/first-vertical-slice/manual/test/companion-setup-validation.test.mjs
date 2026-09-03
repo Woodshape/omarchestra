@@ -224,6 +224,57 @@ test('projection control accepts multiple sequential commands without one-writer
   assert.throws(() => queue.accept('unknown\n'), /unknown|control/i)
 })
 
+test('PID registration binds both arguments before aligned cleanup bookkeeping', () => {
+  const script = stripComments(read(SCRIPT))
+  const registerStart = script.indexOf('register_pid() {')
+  const registerEnd = script.indexOf('\nterminate_exact_pid() {', registerStart)
+  const cleanupStart = script.indexOf('cleanup() {')
+  const cleanupEnd = script.indexOf('\ntrap cleanup ', cleanupStart)
+  assert.ok(registerStart >= 0 && registerEnd > registerStart)
+  assert.ok(cleanupStart >= 0 && cleanupEnd > cleanupStart)
+  const registration = script.slice(registerStart, registerEnd)
+  const cleanup = script.slice(cleanupStart, cleanupEnd)
+
+  assert.match(registration, /\[\[ "\$#" -eq 2 \]\]/)
+  assert.match(registration, /local pid="\$1" label="\$2" identity/)
+  const result = spawnSync('bash', ['-c', `
+    set -euo pipefail
+    PIDS=(); PID_LABELS=(); PID_IDENTITIES=(); EVIDENCE_DIR=/fake
+    process_identity() { printf '123\\tfake-command'; }
+    append_private() { :; }
+    ${registration}
+    register_pid 42 'Ghostty coordinator'
+    [[ \${#PIDS[@]} -eq 1 ]]
+    [[ \${PIDS[0]} == 42 ]]
+    [[ \${PID_LABELS[0]} == 'Ghostty coordinator' ]]
+    [[ \${PID_IDENTITIES[0]} == $'123\\tfake-command' ]]
+  `], { encoding: 'utf8' })
+  assert.equal(result.status, 0, `${result.stdout}\n${result.stderr}`)
+  const cleanupResult = spawnSync('bash', ['-c', `
+    set -u
+    PIDS=(42); PID_LABELS=(); PID_IDENTITIES=()
+    WINDOW_CLASSES=(); WINDOW_ADDRESSES=(); WINDOW_PIDS=()
+    CLEANED=0; CLEANUP_SAFE=1; GATE_COMPLETED=1; PLUGIN_READY=0
+    EVIDENCE_DIR=/missing; RUNNER_SOCKET=''; RUNNER_SOCKET_IDENTITY=''
+    CONTROL_SOCKET=''; CONTROL_SOCKET_IDENTITY=''; RUNTIME_DIR=''; RUNTIME_IDENTITY=''
+    close_exact_window() { :; }
+    terminate_exact_pid() { return 99; }
+    remove_exact_socket() { :; }
+    remove_exact_directory() { :; }
+    append_private() { :; }
+    ${cleanup}
+    cleanup
+    [[ $? -eq 1 ]]
+  `], { encoding: 'utf8' })
+  assert.equal(cleanupResult.status, 0, `${cleanupResult.stdout}\n${cleanupResult.stderr}`)
+  assert.match(cleanupResult.stderr, /PID bookkeeping mismatch/)
+  assert.doesNotMatch(cleanupResult.stderr, /unbound variable/)
+  assert.match(cleanup, /\$\{#PIDS\[@\]\} == \$\{#PID_LABELS\[@\]\}/)
+  assert.match(cleanup, /\$\{#PIDS\[@\]\} == \$\{#PID_IDENTITIES\[@\]\}/)
+  assert.ok(cleanup.indexOf('${#PIDS[@]} == ${#PID_LABELS[@]}')
+    < cleanup.indexOf('terminate_exact_pid "${PIDS[$index]}"'))
+})
+
 test('private evidence and exact resource identities are enforced by the live procedure', () => {
   const script = stripComments(read(SCRIPT))
   const adapter = stripComments(read(ADAPTER))

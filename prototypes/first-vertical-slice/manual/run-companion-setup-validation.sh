@@ -130,7 +130,11 @@ process_identity() {
 }
 
 register_pid() {
-  local pid="$1" label identity
+  [[ "$#" -eq 2 ]] || {
+    printf 'register_pid requires an exact PID and label\n' >&2
+    return 1
+  }
+  local pid="$1" label="$2" identity
   identity=$(process_identity "$pid") || {
     printf 'could not record exact identity for %s PID %s\n' "$label" "$pid" >&2
     return 1
@@ -254,9 +258,14 @@ cleanup() {
   for index in "${!WINDOW_CLASSES[@]}"; do
     close_exact_window "${WINDOW_CLASSES[$index]}" "${WINDOW_ADDRESSES[$index]}" "${WINDOW_PIDS[$index]}" || CLEANUP_SAFE=0
   done
-  for (( index=${#PIDS[@]}-1; index>=0; index-- )); do
-    terminate_exact_pid "${PIDS[$index]}" "${PID_IDENTITIES[$index]}" "${PID_LABELS[$index]}" || CLEANUP_SAFE=0
-  done
+  if (( ${#PIDS[@]} == ${#PID_LABELS[@]} && ${#PIDS[@]} == ${#PID_IDENTITIES[@]} )); then
+    for (( index=${#PIDS[@]}-1; index>=0; index-- )); do
+      terminate_exact_pid "${PIDS[$index]}" "${PID_IDENTITIES[$index]}" "${PID_LABELS[$index]}" || CLEANUP_SAFE=0
+    done
+  else
+    printf 'refusing indexed process cleanup after PID bookkeeping mismatch\n' >&2
+    CLEANUP_SAFE=0
+  fi
   remove_exact_socket "$RUNNER_SOCKET" "$RUNNER_SOCKET_IDENTITY" || CLEANUP_SAFE=0
   remove_exact_socket "$CONTROL_SOCKET" "$CONTROL_SOCKET_IDENTITY" || CLEANUP_SAFE=0
 
