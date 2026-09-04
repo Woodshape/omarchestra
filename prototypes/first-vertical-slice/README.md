@@ -1,7 +1,7 @@
 # Omarchestra first vertical-slice prototype
 
 **PROTOTYPE — NOT PRODUCTION.** Removable as one directory
-(`rm -rf prototypes/first-vertical-slice/` plus the seven `justfile` recipes
+(`rm -rf prototypes/first-vertical-slice/` plus the nine `justfile` recipes
 listed under "Wipe instructions").
 This directory is throwaway evidence for two bounded questions; nothing here is
 production architecture and no file in it is promoted into the product. The
@@ -90,15 +90,23 @@ Constraints that keep this from being "supported" outright:
 The observer/Adoption seams are fake-only green. The acceptance gate proves
 ordinary-host fail-open behavior, one observed registration, privacy filtering,
 the full invalid Adoption matrix, exact same-process acknowledgement, one
-atomic commit, managed presentation, reconstruction, and exact cleanup. It does
-not prove live Pi behavior or production readiness.
+atomic commit, managed presentation, reconstruction, and exact cleanup. The
+separate bridge gate also proves bounded framing, Unix-socket/gateway wiring,
+Companion 0.3.0 observer publication, launcher TTY checks, and static
+reachability. None of this proves live Pi behavior or production readiness.
+
+The observer-capable Companion catalog entry is 0.3.0 with additive
+`session.observer`. The existing managed Projection Session default remains
+0.2.0. `applyObservedAgents` is sessionless and does not independently open the
+Agent Console, so the observer path cannot summon the panel, fabricate managed
+cards, or create a managed Projection Session for visual evidence.
 
 R1 is an accepted bounded risk for this contract. Pi 0.84.4 has no complete
 content-free start/end lifecycle for slash-command and `user_bash` execution,
 so the adapter uses `ctx.isIdle()` plus its existing guards as best-effort
 reconciliation without inspecting content. The limitation is recorded for
-later hardening; the proposed human procedure remains unrun and must report
-this boundary honestly:
+later hardening. The human observer procedure remains unrun and makes no live
+Adoption claim:
 [`docs/observer-adoption-live-validation.md`](docs/observer-adoption-live-validation.md).
 
 ## Setup
@@ -111,6 +119,11 @@ this boundary honestly:
   SQLite sidecar is written into the repository; the command intentionally
   refreshes the tracked fake-only evidence file. Exact runner and scratch-state
   cleanup runs in `finally` on both successful and failed scenarios.
+- `just prototype-live-observer-check` is the dedicated fake-only observer
+  bridge gate. It creates no live socket, reads no user or installed Companion
+  state, and produces no private evidence. The separate
+  `just prototype-live-observer-bridge` recipe is human-only and requires the
+  documented TTY and owner authorization.
 
 ## One-command acceptance gate
 
@@ -172,7 +185,7 @@ Classification:
 - **Companion proof (automated):** `just prototype-companion-check` runs the
   installation, Projection Session, integrated acceptance, and human-procedure
   `--check` seams plus the standalone acceptance entry point. The test portion
-  is 77/77 green; the standalone verdict proves one install, three distinct
+  is 78/78 green; the standalone verdict proves one install, three distinct
   session generations across two Team Goals and reload, unchanged agents and
   cards, and zero runtime installation mutations. Evidence is under
   `evidence/companion-*-green.txt` and
@@ -182,6 +195,11 @@ Classification:
   recipe, cleanup, and source-audit tests, the replacement launcher's
   `--check`, module links, syntax checks, and QML lint. Evidence:
   `evidence/companion-boundary-green.txt` and the final validation capture.
+- **Observer bridge proof (automated):**
+  `just prototype-live-observer-check` runs the in-memory transport/gateway/
+  projection integration, launcher static tests, import/recipe/privacy audit,
+  module checks, and no-resource launcher check. Automation performed no live
+  run, did not inspect an installed Companion, and makes no live Adoption claim.
 - **Prior terminal-side human proof:** real Pi status labels, transitions,
   isolation, and persistence
   ([`docs/manual-role-label-gate.md`](docs/manual-role-label-gate.md)).
@@ -199,8 +217,12 @@ Classification:
 The prototype QML source under `console/plugin/` is schema-checked and linted.
 Automation installs it only into the in-memory fake; the separate authorized
 human procedure installed and loaded release 0.2.0 on the live desktop.
-Explicit human-authorized product setup—not a Team Goal—owns that installation
-and exact Omarchy configuration change.
+The observer bridge targets the distinct catalog release 0.3.0 and has not been
+run live. Automation did not inspect, install, or mutate the developer's
+separately verified installation. Its `applyObservedAgents` update does not
+independently open the panel, so no observer-only visual claim is made. Explicit
+human-authorized product setup—not a Team Goal—owns any installation and exact
+Omarchy configuration change.
 
 ## Guided manual walkthrough (optional, no live systems)
 
@@ -210,25 +232,27 @@ and exact Omarchy configuration change.
    installation and ephemeral Projection Session acceptance path.
 3. `QMLLINT_BIN=/usr/lib/qt6/bin/qmllint just prototype-observer-adoption-check`
    — run the fake-only observer/Adoption, Companion projection, and QML gate.
-4. `evidence/observer-adoption-red-green-ledger.md` — inspect the observer
+4. `just prototype-live-observer-check` — run the fake-only observer bridge,
+   launcher, and reachability gate.
+5. `evidence/observer-adoption-red-green-ledger.md` — inspect the observer
    phases, acceptance output, and explicit R1 risk disposition.
-5. `evidence/companion-red-green-ledger.md` — inspect the intended red and
+6. `evidence/companion-red-green-ledger.md` — inspect the intended red and
    final green Companion evidence in execution order.
-6. `evidence/fake-only-acceptance.txt` — inspect the durable-runner gate output.
-7. `service/omarchestra-runner@.service.template` — the intended foreground
+7. `evidence/fake-only-acceptance.txt` — inspect the durable-runner gate output.
+8. `service/omarchestra-runner@.service.template` — the intended foreground
    systemd user-unit boundary (never installed, never started).
-8. `qml/AgentProjectionFixture.qml` — the thin-client projection shape.
-9. `console/plugin/AgentConsole.qml` — the presentation-only Agent Console
+9. `qml/AgentProjectionFixture.qml` — the thin-client projection shape.
+10. `console/plugin/AgentConsole.qml` — the presentation-only Agent Console
    card component (injected values only; never installed or loaded live).
-10. `docs/manual-role-label-gate.md` — completed human evidence, the rejected
+11. `docs/manual-role-label-gate.md` — completed human evidence, the rejected
    visible-title assumption, and the revised decorationless presentation contract.
-11. `docs/live-agent-console-gate.md` — the replacement Companion Plugin gate
+12. `docs/live-agent-console-gate.md` — the replacement Companion Plugin gate
    and the retired launcher's fail-closed disposition.
-12. `docs/live-agent-console-launch-blocker.md` — installed-API evidence for
+13. `docs/live-agent-console-launch-blocker.md` — installed-API evidence for
     the rejected repo-local loading path and the selected resolution.
-13. `docs/observer-adoption-live-validation.md` — the proposed human-only
+14. `docs/observer-adoption-live-validation.md` — the proposed human-only
     observer procedure (not run).
-14. `docs/live-agent-console-run-report.md` — the seam-by-seam run report and
+15. `docs/live-agent-console-run-report.md` — the seam-by-seam run report and
     evidence ledger for this fusion run.
 
 ## Module boundaries
@@ -264,15 +288,20 @@ and exact Omarchy configuration change.
 | `observer/adoption.ts` | Proposal, authorization, acknowledgement, reconciliation, and atomic fake commit |
 | `observer/extension-adapter.ts` | Injected same-process Pi lifecycle/status adapter with fail-open behavior |
 | `observer/companion-projection.ts` | Bounded Unassigned Agents projection and intent handoff |
+| `observer/live-frame-channel.ts` | Bounded NDJSON over an injected duplex stream |
+| `observer/live-gateway-core.ts` | Disposable observation-only registry gateway |
+| `observer/live-companion-projection.ts` | Narrow Companion 0.3.0 observer publisher |
 | `observer/fakes.ts` and `observer/fake-pi-host.ts` | Fake clock, transport, persistence, runner, and visible Pi host ports |
 | `observer/acceptance.ts` | Standalone fake-only observer/Adoption acceptance composition |
-| `observer/test/` | Protocol, privacy, registry, Adoption, adapter, projection, source, and acceptance tests |
+| `observer/test/` | Protocol, privacy, registry, Adoption, adapter, projection, bridge, source, and acceptance tests |
 | `service/` | Non-installed systemd user-unit template |
 | `manual/live-gate-resources.ts` | Fake resource registry: exact process identity, filesystem device/inode plus symlink safety, and retryable incomplete cleanup for PIDs, windows, sockets, directories |
 | `manual/live-companion-omarchy.ts` | Human-only live installation and CompanionShellPort adapter; fake-only check and Projection Session controller |
 | `manual/run-companion-setup-validation.sh` | Human-only persistent Companion setup, live projection validation, private evidence, and exact runtime cleanup |
 | `manual/run-live-agent-console-gate.sh` | Retained rejected launcher; fail-closed historical preflight plus fake-only `--check` |
-| `manual/` | Human-authorized disposable Pi/Ghostty adapter, wizard, and fake-only checks |
+| `manual/live-observer-transport.ts`, `manual/live-observer-extension.ts`, `manual/live-observer-gateway.ts` | Human-only observer Unix transport, lazy Pi connector, and foreground observation gateway |
+| `manual/run-live-observer-bridge.sh` | Human-only observer procedure with TTY authorization, private evidence, fingerprint comparison, and exact cleanup |
+| `manual/` | Human-authorized disposable Pi/Ghostty adapter, observer bridge, wizard, and fake-only checks |
 
 ## Non-goals
 
@@ -350,6 +379,8 @@ rm -rf prototypes/first-vertical-slice/
 #   prototype-live-agent-console-check
 #   prototype-companion-check
 #   prototype-observer-adoption-check
+#   prototype-live-observer-check
+#   prototype-live-observer-bridge
 #   prototype-companion-setup-validation
 ```
 

@@ -30,6 +30,11 @@ import {
 export const OBSERVER_STATUS_KEY = 'omarchestra-observer-status'
 
 const DEFAULT_HEARTBEAT_INTERVAL_MS = 5_000
+const DEFAULT_RECONNECT_INITIAL_DELAY_MS = 250
+const DEFAULT_RECONNECT_MAX_DELAY_MS = 5_000
+const DEFAULT_MAX_RECONNECT_ATTEMPTS = 8
+const MAX_RECONNECT_ATTEMPTS = 32
+const MAX_RECONNECT_DELAY_MS = 60_000
 const MAX_HOST_PID = 2 ** 31 - 1
 const ID_PATTERN = /^[A-Za-z0-9][A-Za-z0-9._:-]{0,127}$/
 const CAPABILITY_MIN_CHARACTERS = 32
@@ -83,6 +88,14 @@ export interface HeartbeatHandle {
 export type HeartbeatScheduler = (callback: () => void, intervalMs: number) => HeartbeatHandle
 export type HeartbeatCanceller = (handle: HeartbeatHandle) => void
 
+/** A reconnect timer is deliberately injected so fake tests never wait. */
+export interface ReconnectHandle {
+  unref?(): void
+}
+
+export type ReconnectScheduler = (callback: () => void, delayMs: number) => ReconnectHandle
+export type ReconnectCanceller = (handle: ReconnectHandle) => void
+
 export interface ManagedBridgePort {
   enable?(committed: Record<string, unknown>): MaybePromise<void>
   disable?(): MaybePromise<void>
@@ -99,6 +112,11 @@ export interface ObserverExtensionOptions {
   managedBridge?: ManagedBridgePort
   scheduleHeartbeat?: HeartbeatScheduler
   cancelHeartbeat?: HeartbeatCanceller
+  scheduleReconnect?: ReconnectScheduler
+  cancelReconnect?: ReconnectCanceller
+  maxReconnectAttempts?: number
+  reconnectInitialDelayMs?: number
+  reconnectMaxDelayMs?: number
   randomIdFactory?: (purpose: string) => string
 }
 
@@ -106,7 +124,22 @@ interface RegisteredState {
   readonly body: ReturnType<typeof validateObserverRegistered>
 }
 
+interface SessionState {
+  readonly generation: number
+  readonly context: PiExtensionContext
+  readonly processIncarnationId: string
+  readonly piSessionId: string
+  readonly extensionInstanceId: string
+  readonly hostPid: number
+  sourceSequence: number
+  reconnectHandle: ReconnectHandle | null
+  reconnectAttempts: number
+  permanentIncompatibility: boolean
+  shuttingDown: boolean
+}
+
 interface AdapterState {
+  readonly session: SessionState
   readonly context: PiExtensionContext
   readonly connection: ObserverConnection
   readonly processIncarnationId: string
@@ -139,9 +172,25 @@ export function createObserverExtension(options: ObserverExtensionOptions = {}) 
   let registrationAttempt = 0
   let messageCounter = 0
   let extensionCounter = 0
-  let starting = false
   let state: AdapterState | null = null
+  let activeSession: SessionState | null = null
+  let sessionGeneration = 0
+  let connectingGeneration: number | null = null
+  let connectSession: ((session: SessionState) => Promise<void>) | null = null
   let lastExtensionInstanceId: string | null = null
+
+  const maxReconnectAttempts = normalizeReconnectLimit(
+    options.maxReconnectAttempts,
+    DEFAULT_MAX_RECONNECT_ATTEMPTS,
+  )
+  const reconnectInitialDelayMs = normalizeReconnectDelay(
+    options.reconnectInitialDelayMs,
+    DEFAULT_RECONNECT_INITIAL_DELAY_MS,
+  )
+  const reconnectMaxDelayMs = Math.max(
+    reconnectInitialDelayMs,
+    normalizeReconnectDelay(options.reconnectMaxDelayMs, DEFAULT_RECONNECT_MAX_DELAY_MS),
+  )
 
   const makeId = (purpose: string): string => {
     const supplied = options.randomIdFactory?.(purpose)
@@ -191,12 +240,26 @@ export function createObserverExtension(options: ObserverExtensionOptions = {}) 
     return `${purpose}-${messageCounter.toString(16).padStart(32, '0')}`
   }
 
-  const nextSourceSequence = (current: AdapterState): number => {
-    if (!Number.isSafeInteger(current.sourceSequence) || current.sourceSequence >= Number.MAX_SAFE_INTEGER) {
+  const nextSessionSourceSequence = (session: SessionState): number => {
+    if (!Number.isSafeInteger(session.sourceSequence) || session.sourceSequence >= Number.MAX_SAFE_INTEGER) {
       throw new Error('observer source sequence exhausted')
     }
-    current.sourceSequence += 1
-    return current.sourceSequence
+    session.sourceSequence += 1
+    return session.sourceSequence
+  }
+
+  const nextSourceSequence = (current: AdapterState): number => {
+    const sequence = nextSessionSourceSequence(current.session)
+    current.sourceSequence = sequence
+    return sequence
+  }
+
+  const nextRegistrationAttempt = (): number => {
+    if (registrationAttempt >= Number.MAX_SAFE_INTEGER) {
+      throw new Error('observer registration attempt sequence exhausted')
+    }
+    registrationAttempt += 1
+    return registrationAttempt
   }
 
   const clearStatus = (current: AdapterState): void => {
@@ -244,7 +307,60 @@ export function createObserverExtension(options: ObserverExtensionOptions = {}) 
     }
   }
 
-  const closeConnection = async (current: AdapterState): Promise<void> => {
+  const cancelReconnect = (session: SessionState): void => {
+    const handle = session.reconnectHandle
+    session.reconnectHandle = null
+    if (handle === null) return
+    try {
+      (options.cancelReconnect ?? defaultCancelReconnect)(handle)
+    } catch {
+      // Retry cancellation is best effort and remains idempotent.
+    }
+  }
+
+  const isSessionCurrent = (session: SessionState): boolean => (
+    activeSession === session && !session.shuttingDown
+  )
+
+  const scheduleReconnect = (session: SessionState): void => {
+    if (!isSessionCurrent(session)
+        || state !== null
+        || session.permanentIncompatibility
+        || session.reconnectHandle !== null
+        || session.reconnectAttempts >= maxReconnectAttempts) {
+      return
+    }
+
+    session.reconnectAttempts += 1
+    const exponent = Math.min(session.reconnectAttempts - 1, 30)
+    const delayMs = Math.min(
+      reconnectMaxDelayMs,
+      reconnectInitialDelayMs * (2 ** exponent),
+    )
+    let callbackFired = false
+    let scheduledHandle: ReconnectHandle | null = null
+    const retry = (): void => {
+      callbackFired = true
+      if (scheduledHandle !== null && session.reconnectHandle !== scheduledHandle) return
+      session.reconnectHandle = null
+      if (!isSessionCurrent(session) || state !== null || connectSession === null) return
+      void connectSession(session).catch(() => {
+        if (isSessionCurrent(session) && state === null) scheduleReconnect(session)
+      })
+    }
+
+    let handle: ReconnectHandle
+    try {
+      handle = (options.scheduleReconnect ?? defaultScheduleReconnect)(retry, delayMs)
+    } catch {
+      return
+    }
+    scheduledHandle = handle
+    if (!callbackFired) session.reconnectHandle = handle
+    handle.unref?.()
+  }
+
+  const retireConnection = async (current: AdapterState, closeTransport: boolean): Promise<void> => {
     const connection = current.connection
     current.closed = true
     current.shuttingDown = true
@@ -253,6 +369,7 @@ export function createObserverExtension(options: ObserverExtensionOptions = {}) 
     clearStatus(current)
     await disableManagedBridge(current)
     if (state === current) state = null
+    if (!closeTransport) return
     try {
       await connection.close?.()
     } catch {
@@ -260,19 +377,23 @@ export function createObserverExtension(options: ObserverExtensionOptions = {}) 
     }
   }
 
-  const failOpen = async (current: AdapterState | null, close = true): Promise<void> => {
+  const closeConnection = async (current: AdapterState): Promise<void> => {
+    await retireConnection(current, true)
+  }
+
+  const failOpen = async (
+    current: AdapterState | null,
+    close = true,
+    retry = true,
+  ): Promise<void> => {
     if (current === null || current.closed) return
-    if (close) {
-      await closeConnection(current)
-      return
-    }
-    current.closed = true
-    current.shuttingDown = true
-    stopHeartbeat(current)
-    detachHandlers(current)
-    clearStatus(current)
-    await disableManagedBridge(current)
-    if (state === current) state = null
+    const session = current.session
+    const canRetry = retry
+      && !current.managed
+      && current.committed === null
+      && isSessionCurrent(session)
+    await retireConnection(current, close)
+    if (canRetry) scheduleReconnect(session)
   }
 
   const sendFrame = async (
@@ -498,7 +619,7 @@ export function createObserverExtension(options: ObserverExtensionOptions = {}) 
       const registered = validateObserverRegistered(body)
       if (current.registered !== null) return
       if (registered.acceptedRegistrationAttempt !== current.registrationAttempt
-          || registered.acceptedSourceSequence !== 1
+          || registered.acceptedSourceSequence !== current.sourceSequence
           || registered.heartbeatIntervalMs !== DEFAULT_HEARTBEAT_INTERVAL_MS
           || registered.leaseDurationMs !== 15_000
           || registered.connectionId === undefined
@@ -506,6 +627,7 @@ export function createObserverExtension(options: ObserverExtensionOptions = {}) 
         throw new Error('observer registration does not match the current extension attempt')
       }
       current.registered = { body: registered }
+      current.session.reconnectAttempts = 0
       current.context.ui?.setStatus?.(OBSERVER_STATUS_KEY, OBSERVER_PI_STATUS_LOCAL)
       current.statusOwned = true
       const interval = Number(registered.heartbeatIntervalMs)
@@ -526,7 +648,11 @@ export function createObserverExtension(options: ObserverExtensionOptions = {}) 
       return
     }
     if (frame.type === 'observer.rejected') {
-      await failOpen(current, true)
+      const rejectionCode = (body as { code?: unknown }).code
+      const permanent = rejectionCode === 'incompatible_extension'
+        || rejectionCode === 'unsupported_protocol'
+      if (permanent) current.session.permanentIncompatibility = true
+      await failOpen(current, true, !permanent)
       return
     }
     if (frame.type === 'adoption.request_ack') {
@@ -539,48 +665,57 @@ export function createObserverExtension(options: ObserverExtensionOptions = {}) 
     }
   }
 
-  const startSession = async (context: PiExtensionContext): Promise<void> => {
-    if (starting || state !== null) return
-    if (context.mode !== 'tui' || context.hasUI !== true) return
-    starting = true
-    try {
-      if (typeof options.connect !== 'function') return
-      const piSessionId = context.sessionManager?.getSessionId?.()
-      if (!isId(piSessionId)) return
-      const processId = makeProcessIncarnationId()
-      const extensionId = makeExtensionInstanceId()
-      if (processId === piSessionId || processId === extensionId || piSessionId === extensionId) return
-      const hostPid = makeHostPid()
-      registrationAttempt += 1
-      if (!Number.isSafeInteger(registrationAttempt) || registrationAttempt < 1) return
+  connectSession = async (session: SessionState): Promise<void> => {
+    if (!isSessionCurrent(session) || state !== null || connectingGeneration === session.generation) return
+    const connect = options.connect
+    if (typeof connect !== 'function') return
+    connectingGeneration = session.generation
 
-      let connection: ObserverConnection
-      let current: AdapterState | null = null
-      const receive: ObserverFrameHandler = (frame) => {
-        if (current === null) return
-        void handleFrame(current, frame).catch(() => {
-          void failOpen(current, true)
-        })
-      }
-      try {
-        connection = await options.connect(receive)
-      } catch {
+    let attempt = 0
+    let registrationSourceSequence = 0
+    let connection: ObserverConnection | null = null
+    let current: AdapterState | null = null
+    const pendingFrames: unknown[] = []
+    const receive: ObserverFrameHandler = (frame) => {
+      if (current === null) {
+        // A synchronous fake or transport callback may arrive while connect()
+        // is still resolving. Keep only a small bounded handoff queue.
+        if (pendingFrames.length < 4) pendingFrames.push(frame)
         return
       }
-      if (!isConnection(connection, options.connect.length === 0)) return
+      void handleFrame(current, frame).catch(() => {
+        void failOpen(current, true)
+      })
+    }
+
+    try {
+      attempt = nextRegistrationAttempt()
+      // A connection attempt consumes the next source sequence even when the
+      // transport fails before a frame is sent. The next connection therefore
+      // cannot replay the previous registration ordering.
+      registrationSourceSequence = nextSessionSourceSequence(session)
+      connection = await connect(receive)
+      if (!isSessionCurrent(session)) {
+        await closeUnboundConnection(connection)
+        return
+      }
+      if (!isConnection(connection, connect.length === 0)) {
+        throw new Error('observer connector returned an invalid connection')
+      }
 
       const active: AdapterState = {
-        context,
+        session,
+        context: session.context,
         connection,
-        processIncarnationId: processId,
-        piSessionId,
-        extensionInstanceId: extensionId,
-        hostPid,
-        registrationAttempt,
+        processIncarnationId: session.processIncarnationId,
+        piSessionId: session.piSessionId,
+        extensionInstanceId: session.extensionInstanceId,
+        hostPid: session.hostPid,
+        registrationAttempt: attempt,
         handlerCleanup: [],
         sendTail: Promise.resolve(),
         registered: null,
-        sourceSequence: 0,
+        sourceSequence: registrationSourceSequence,
         heartbeat: null,
         shuttingDown: false,
         closed: false,
@@ -596,7 +731,7 @@ export function createObserverExtension(options: ObserverExtensionOptions = {}) 
       state = active
       // The injected connect(handler) seam normally binds the callback. A
       // zero-argument connector may instead return an unbound connection.
-      if (options.connect.length === 0) {
+      if (connect.length === 0) {
         if (typeof connection.bind === 'function') {
           const cleanup = await connection.bind(receive)
           if (typeof cleanup === 'function') active.handlerCleanup.push(cleanup)
@@ -604,8 +739,7 @@ export function createObserverExtension(options: ObserverExtensionOptions = {}) 
           const cleanup = await connection.onFrame(receive)
           if (typeof cleanup === 'function') active.handlerCleanup.push(cleanup)
         } else {
-          await failOpen(active, true)
-          return
+          throw new Error('observer connection has no frame binding seam')
         }
       }
       if (typeof connection.onClose === 'function') {
@@ -620,50 +754,95 @@ export function createObserverExtension(options: ObserverExtensionOptions = {}) 
         })
         if (typeof cleanup === 'function') active.handlerCleanup.push(cleanup)
       }
-      active.sourceSequence = 1
       await sendFrame(active, 'observer.register', {
-        processIncarnationId: processId,
-        piSessionId,
-        extensionInstanceId: extensionId,
-        hostPid,
+        processIncarnationId: session.processIncarnationId,
+        piSessionId: session.piSessionId,
+        extensionInstanceId: session.extensionInstanceId,
+        hostPid: session.hostPid,
         hostMode: 'tui',
         observerVersion: options.observerVersion ?? '0.1.0',
         capabilities: [...OBSERVER_CAPABILITIES],
-        registrationAttempt,
-        sourceSequence: 1,
+        registrationAttempt: attempt,
+        sourceSequence: registrationSourceSequence,
         lifecycle: 'running',
         activity: classifyActivity(active),
         health: 'healthy',
       })
+      for (const frame of pendingFrames.splice(0)) await handleFrame(active, frame)
     } catch {
-      if (state !== null) await failOpen(state, true)
+      if (current !== null) await failOpen(current, true)
+      else await closeUnboundConnection(connection)
+      if (isSessionCurrent(session)
+          && state === null
+          && !session.permanentIncompatibility
+          && (current === null || (!current.managed && current.committed === null))) {
+        scheduleReconnect(session)
+      }
     } finally {
-      starting = false
+      if (connectingGeneration === session.generation) connectingGeneration = null
+    }
+  }
+
+  const startSession = async (context: PiExtensionContext): Promise<void> => {
+    if (activeSession !== null || state !== null) return
+    if (context.mode !== 'tui' || context.hasUI !== true) return
+    if (typeof options.connect !== 'function') return
+
+    try {
+      const piSessionId = context.sessionManager?.getSessionId?.()
+      if (!isId(piSessionId)) return
+      const processId = makeProcessIncarnationId()
+      const extensionId = makeExtensionInstanceId()
+      if (processId === piSessionId || processId === extensionId || piSessionId === extensionId) return
+      const hostPid = makeHostPid()
+      if (sessionGeneration >= Number.MAX_SAFE_INTEGER) return
+      sessionGeneration += 1
+      const session: SessionState = {
+        generation: sessionGeneration,
+        context,
+        processIncarnationId: processId,
+        piSessionId,
+        extensionInstanceId: extensionId,
+        hostPid,
+        sourceSequence: 0,
+        reconnectHandle: null,
+        reconnectAttempts: 0,
+        permanentIncompatibility: false,
+        shuttingDown: false,
+      }
+      activeSession = session
+      await connectSession?.(session)
+    } catch {
+      // Invalid identity or connector setup fails open without touching Pi UI.
     }
   }
 
   const shutdownSession = async (event: unknown): Promise<void> => {
+    const session = activeSession
+    if (session === null) return
+    session.shuttingDown = true
+    cancelReconnect(session)
     const current = state
-    if (current === null || current.closed || current.shuttingDown) return
-    current.shuttingDown = true
-    stopHeartbeat(current)
-    if (current.registered !== null) {
-      const value = event !== null && typeof event === 'object'
-        ? (event as Record<string, unknown>).reason
-        : undefined
-      const reason = isCloseReason(value) ? value : 'quit'
-      try {
-        await sendFrame(current, 'observer.close', {
-          connectionId: current.registered.body.connectionId,
-          connectionChallenge: current.registered.body.connectionChallenge,
-          sourceSequence: nextSourceSequence(current),
-          reason,
-        }, true)
-      } catch {
-        // Always close the local resource even if the close frame cannot send.
+    if (current !== null && !current.closed) {
+      if (current.registered !== null) {
+        const value = event !== null && typeof event === 'object'
+          ? (event as Record<string, unknown>).reason
+          : undefined
+        const reason = isCloseReason(value) ? value : 'quit'
+        try {
+          await sendFrame(current, 'observer.close', {
+            connectionId: current.registered.body.connectionId,
+            connectionChallenge: current.registered.body.connectionChallenge,
+            sourceSequence: nextSourceSequence(current),
+            reason,
+          }, true)
+        } catch {
+          // Always close the local resource even if the close frame cannot send.
+        }
       }
+      await closeConnection(current)
     }
-    await closeConnection(current)
+    if (activeSession === session) activeSession = null
   }
 
   const lifecycle = (kind: 'start' | 'settled' | 'prompt_start' | 'prompt_end') => async (): Promise<void> => {
@@ -734,4 +913,40 @@ function defaultCancelHeartbeat(handle: HeartbeatHandle): void {
     return
   }
   clearInterval(handle as unknown as ReturnType<typeof setInterval>)
+}
+
+function defaultScheduleReconnect(callback: () => void, delayMs: number): ReconnectHandle {
+  return setTimeout(callback, delayMs) as unknown as ReconnectHandle
+}
+
+function defaultCancelReconnect(handle: ReconnectHandle): void {
+  const cancel = (handle as ReconnectHandle & { cancel?: () => void }).cancel
+  if (typeof cancel === 'function') {
+    cancel()
+    return
+  }
+  clearTimeout(handle as unknown as ReturnType<typeof setTimeout>)
+}
+
+async function closeUnboundConnection(connection: ObserverConnection | null): Promise<void> {
+  if (connection === null) return
+  try {
+    await connection.close?.()
+  } catch {
+    // A connector that fails before binding has no observer resources to keep.
+  }
+}
+
+function normalizeReconnectLimit(value: number | undefined, fallback: number): number {
+  if (value === undefined) return fallback
+  return Number.isSafeInteger(value) && value >= 0
+    ? Math.min(value, MAX_RECONNECT_ATTEMPTS)
+    : fallback
+}
+
+function normalizeReconnectDelay(value: number | undefined, fallback: number): number {
+  if (value === undefined) return fallback
+  return Number.isSafeInteger(value) && value > 0
+    ? Math.min(value, MAX_RECONNECT_DELAY_MS)
+    : fallback
 }

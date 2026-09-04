@@ -28,6 +28,12 @@ export interface FakePiSessionEvent {
   previousSessionFile?: string
 }
 
+export interface FakePiHostEventRecord {
+  event: 'session_start' | 'session_shutdown'
+  reason: string
+  sessionId: string
+}
+
 export interface FakePiHostApi extends PiExtensionAPI {}
 
 type Handler = (payload: unknown, context: PiExtensionContext) => unknown | Promise<unknown>
@@ -43,6 +49,7 @@ export class FakePiHost {
   readonly statusWrites: Array<{ key: string; value: string | undefined }> = []
   readonly titleWrites: string[] = []
   readonly managedBridgeWrites: Array<Record<string, unknown>> = []
+  readonly sessionEvents: FakePiHostEventRecord[] = []
 
   private readonly handlers = new Map<string, Handler[]>()
   private readonly statuses = new Map<string, string>()
@@ -177,10 +184,20 @@ export class FakePiHost {
   async startSession(event: FakePiSessionEvent = { reason: 'startup' }): Promise<void> {
     this.sessionRunning = true
     this.activityValue = 'idle'
+    this.sessionEvents.push({
+      event: 'session_start',
+      reason: event.reason,
+      sessionId: this.sessionIdValue,
+    })
     await this.emit('session_start', event)
   }
 
   async shutdownSession(event: FakePiSessionEvent = { reason: 'quit' }): Promise<void> {
+    this.sessionEvents.push({
+      event: 'session_shutdown',
+      reason: event.reason,
+      sessionId: this.sessionIdValue,
+    })
     await this.emit('session_shutdown', event)
     this.sessionRunning = false
   }

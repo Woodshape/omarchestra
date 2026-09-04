@@ -13,7 +13,7 @@ The automated gate remains fake-only and never invokes any visible agent host, t
 | `just prototype-vertical-slice` | fake-only automated | proven (durable runner, protocol, takeover, restart, reconnect) |
 | `just prototype-vertical-slice-manual-check` | fake-only automated | proven for the role-label adapter |
 | `just prototype-live-agent-console-check` | fake-only automated | green — adapter, QML, historical launcher, setup-contract, cleanup, source-audit, syntax, and QML-lint checks |
-| `just prototype-companion-check` | fake-only automated | green — 77 installation, Projection Session, acceptance, setup-contract, live-launcher regression tests plus standalone acceptance and launcher `--check` |
+| `just prototype-companion-check` | fake-only automated | green — 78 installation, Projection Session, acceptance, setup-contract, live-launcher regression tests plus standalone acceptance and launcher `--check` |
 | `just prototype-vertical-slice-role-label-gate` | prior human evidence | completed — three decorationless visible Pi hosts, persistent Pi status labels, waiting → managed → manual_takeover, sibling isolation, one-minute persistence |
 | Persistent Companion Plugin setup/update/uninstall | fake-only then human-authorized | live installation/update and installed capability discovery passed; uninstall remains fake-proven |
 | Agent Console cards against live Pi | human-only | passed 2026-09-03 |

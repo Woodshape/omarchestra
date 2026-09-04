@@ -10,11 +10,12 @@
 //     the exact local prototype runner launches already authorized by the
 //     existing vertical-slice gate;
 //   - the human-only recipes (`prototype-vertical-slice-role-label-gate`,
-//     `prototype-companion-setup-validation`) are the only places live systems
-//     may ever be referenced, and they are never invoked by an automated
-//     recipe or module;
+//     `prototype-companion-setup-validation`,
+//     `prototype-live-observer-bridge`) are the only places live systems may
+//     ever be referenced, and they are never invoked by an automated recipe or
+//     module;
 //   - the live Companion adapter (`manual/live-companion-omarchy.ts`) is
-//     reachable only from the human setup script and its own seam test;
+//     reachable only from human-only scripts/gateways and their seam tests;
 //   - routine projection modules never import installation or configuration
 //     mutation code, and Companion modules contain no live-system, process,
 //     or storage tokens;
@@ -39,10 +40,12 @@ const AUTOMATED_RECIPES = [
   'prototype-vertical-slice-manual-check',
   'prototype-live-agent-console-check',
   'prototype-companion-check',
+  'prototype-live-observer-check',
 ]
 const HUMAN_RECIPES = [
   'prototype-vertical-slice-role-label-gate',
   'prototype-companion-setup-validation',
+  'prototype-live-observer-bridge',
 ]
 
 // Tokens that, in executable (comment-stripped) recipe or module text, mean a
@@ -225,7 +228,11 @@ test('the existing acceptance gate keeps its exact spawn boundary', () => {
 // Companion milestone boundary extensions (task 3.c)
 // ---------------------------------------------------------------------------
 
-const LIVE_SCRIPTS = ['run-companion-setup-validation.sh', 'run-live-agent-console-gate.sh']
+const LIVE_SCRIPTS = [
+  'run-companion-setup-validation.sh',
+  'run-live-agent-console-gate.sh',
+  'run-live-observer-bridge.sh',
+]
 const LIVE_ADAPTER_FILE = 'live-companion-omarchy.ts'
 
 test('the fusion harness recipe orchestrates agents but can never reach Companion live setup', () => {
@@ -276,7 +283,7 @@ test('automated recipes reach the replacement human launcher only through --chec
   }
 })
 
-test('the live Companion adapter is reachable only from the human script and its own seam test', () => {
+test('the live Companion adapter is reachable only from human-only paths and seam tests', () => {
   const routineRoots = [
     path.join(PROTOTYPE_ROOT, 'companion'),
     path.join(PROTOTYPE_ROOT, 'console'),
@@ -295,7 +302,12 @@ test('the live Companion adapter is reachable only from the human script and its
   }
   for (const file of listFiles(path.join(PROTOTYPE_ROOT, 'manual'), ['.ts', '.mjs', '.sh'])) {
     const base = path.basename(file)
-    if (base === 'run-companion-setup-validation.sh' || base === 'companion-setup-validation.test.mjs') continue
+    if (
+      base === 'run-companion-setup-validation.sh'
+      || base === 'companion-setup-validation.test.mjs'
+      || base === 'run-live-observer-bridge.sh'
+      || base === 'live-observer-gateway.ts'
+    ) continue
     const value = fs.readFileSync(file, 'utf8')
     assert.doesNotMatch(
       value,

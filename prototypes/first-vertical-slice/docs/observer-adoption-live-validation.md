@@ -1,116 +1,205 @@
-# Proposed observer/Adoption live validation
+# Proposed observer bridge live validation
 
-Status: **PROPOSED — not run; R1 bounded-risk limitation accepted**
+Status: **PROPOSED — not run; no live observer or Adoption evidence exists**
 
-**PROTOTYPE — NOT PRODUCTION.** This is a human-only validation procedure
-proposal for the bounded observer/Adoption contract. It is intentionally not an
-automated recipe and does not authorize installation or live execution.
+**PROTOTYPE — NOT PRODUCTION.** This is a human-only procedure for the
+observation-only bridge. It is not an automated recipe and it does not install
+the Companion, create a Team Goal, perform Adoption, or claim production
+support.
 
-## R1 limitation to record
+## Scope and stop rules
 
-The Pi public extension surface does not provide a complete content-free
-start/end lifecycle for slash-command and `user_bash` execution: extension
-commands bypass the input event, `user_bash` is content-bearing and has no
-matching completion event, and `ctx.isIdle()` is not a complete classifier for
-arbitrary command activity. This is R1 from
-[`observer-adoption-v1.md`](observer-adoption-v1.md).
+This procedure validates only:
 
-The current contract explicitly accepts `ctx.isIdle()` plus its existing guards
-as best-effort reconciliation. A future live run must record this limitation
-and must not add input inspection, shell wrapping, terminal scraping,
-conversation inspection, or input injection. A passing fake gate still does not constitute live evidence.
-
-## Our observer-capable Companion release
-
-The required plugin is our own `omarchestra.agent-console` release **0.3.0**.
-If the read-only preflight reports that it is absent, install it as a separate
-explicitly authorized setup operation—not as an assumption inside the observer
-run:
-
-```bash
-node --experimental-strip-types \
-  prototypes/first-vertical-slice/manual/live-companion-omarchy.ts \
-  --live --release 0.3.0
+```text
+visible ordinary Pi
+  -> observer extension in that same Pi process
+  -> owner-only Unix NDJSON socket
+  -> disposable observation gateway
+  -> Companion 0.3.0 applyObservedAgents seam
 ```
 
-The command displays the exact installation plan and requires typing the
-release-specific authorization phrase. Afterward, rerun the read-only
-preflight and verify the installed version/capabilities before continuing.
-This is our plugin, not an Omarchy-provided component.
+Observation grants no Team Goal, Role, Assignment, control mode, writer lease,
+Runtime Binding, PTY, terminal, process, prompt, input, or workflow authority.
+The separate Pi command is printed for the operator and is never launched by the
+launcher. The gateway has no Adoption route.
 
-## Required human setup
+Stop without weakening the contract if any step would require terminal
+scraping, conversation inspection, input inspection, input injection, PTY
+control, a hidden Pi, a child process launched for Pi, or a plugin mutation.
+Do not turn this procedure into live Adoption validation. No live Adoption
+claim is permitted from this run.
 
-With R1 accepted as a bounded risk, an owner-authorized operator may prepare a
-future disposable local validation run with:
+## Companion 0.3.0 prerequisite
 
-- the pinned compatible Pi, Omarchy, and Companion versions recorded in the
-  resulting private evidence;
-- the explicit observer installation plan and authorization, separate from any
-  Team Goal or Projection Session;
-- a local owner-only Agent Registry and Team Runner with fresh run state;
-- one local Team Goal with a vacant Role on the same Execution Node;
-- one ordinary visible Pi started through the normal terminal workflow, not by
-  the Team Runner; and
-- private owner-only evidence storage outside Git.
+The required installed component is the Omarchestra-owned
+`omarchestra.agent-console` **0.3.0** release. The catalog retains the earlier
+0.2.0 managed Companion artifact as historical coverage. The observer release
+is a separate catalog entry with the same plugin ID, additive
+`session.observer`, and the observer QML assets. `COMPANION_PLUGIN_VERSION =
+0.2.0` remains the historical default for the existing managed Projection
+Session path and must not be changed as part of this observer procedure.
 
-The operator must record the exact observer, Pi session, extension, connection,
-and registry identities in private evidence without recording prompts,
-responses, input text or length, tool data, terminal output, repository content,
-credentials, environment values, cwd, title, focus, or recency.
+The operator must complete any install or update as a separate, explicitly
+authorized setup operation before this run. The observer launcher performs only
+read-only capability discovery and before/after installation fingerprinting.
+It must not install, update, rescan, enable, disable, unload, or rewrite the
+Companion.
 
-## Validation sequence
+The read-only preflight must report:
 
-1. Verify the Companion is already installed and enabled. Record its immutable
-   installation fingerprint before the run. Do not install, update, unload, or
-   rewrite it as part of the observer test.
-2. Start the ordinary visible Pi. Confirm it remains interactive while the
-   registry is absent or unavailable, and that no hidden agent, process action,
-   prompt delivery, input injection, PTY operation, or terminal supervision is
-   introduced.
-3. Enable the observer connection through the separately authorized setup.
-   Confirm exactly one current registry record with `Unassigned · observed`,
-   fresh connection values, and no Team Goal, Role, Assignment, control mode,
-   writer lease, Runtime Binding, or PTY authority.
-4. Exercise disconnect, reconnect, expiry, stale identity, reused-PID,
-   node-mismatch, remote-goal, occupied-role, busy, unknown, exited,
-   already-managed, duplicate, timeout, refusal, and identity-drift cases.
-   Confirm each leaves the ordinary Pi observed/unassigned when still current,
-   and that no Team Runner dispatch occurs.
-5. Exercise the R1-sensitive command/activity cases and record the bounded
-   limitation. Use only the available lifecycle facts and `ctx.isIdle()`;
-   do not add an input hook or shell wrapper, capture command content, scrape
-   the terminal, or inspect conversation state. Treat the result as best-effort,
-   not as proof that arbitrary command activity is absent.
-6. From Unassigned Agents, select the exact current observed session, choose the
-   same-Node local Team Goal and vacant Role, and display the immutable proposal.
-   Record that explicit human confirmation is required and that QML supplied
-   only the opaque choice identity.
-7. Confirm the same-process acknowledgement arrives on the exact current
-   connection. Reconcile again immediately before commit, then verify one
-   atomic transition to the selected Agent Run and exactly one committed
-   `<Role> · <state>` presentation. Confirm no assignment, prompt, or managed
-   work was sent before the durable commit.
-8. Reconnect the Companion and observer projections from authoritative state.
-   Confirm the same process/session/extension identity is represented as the one
-   committed Agent Run, no duplicate Adoption exists, and the old observed
-   record is not recreated.
-9. Close the ordinary terminal and complete the documented managed/observer
-   recovery checks. Distinguish unavailable observation from managed Runtime
-   Binding state; do not infer PTY persistence from correlation or title data.
-10. Clear the Projection Session and clean only the exact disposable runtime
-    resources. Compare the Companion installation fingerprint and configuration
-    bytes with the pre-run record; they must be unchanged.
+- protocol `omarchestra.companion/v1`;
+- plugin ID `omarchestra.agent-console`;
+- version `0.3.0`;
+- a positive plugin generation;
+- all six baseline managed capabilities; and
+- additive `session.observer`.
+
+If any fact differs, stop. Do not treat a 0.2.0 installation as an observer
+release and do not install from inside this bridge run.
+
+## Automated preparation
+
+The only unattended command for this bridge is the fake-only check:
+
+```bash
+just prototype-live-observer-check
+```
+
+It runs injected in-memory transports, the observer and Companion fakes, static
+reachability/privacy audits, module imports, shell syntax checks, and
+`run-live-observer-bridge.sh --check`. It does not inspect user state, invoke
+Omarchy shell IPC, open a live socket, launch Pi, or inspect an installed
+plugin. It produces no private live evidence. Automation performed no live run,
+and no live Adoption claim is made.
+
+## Human setup
+
+Use one ordinary terminal and one additional interactive terminal for the
+visible Pi. Run from a checkout of the repository with:
+
+- Pi 0.84.4 or the explicitly validated compatible Pi version;
+- the compatible Omarchy/Quickshell host for Companion 0.3.0;
+- a canonical existing `XDG_RUNTIME_DIR` outside the repository; and
+- an `XDG_STATE_HOME` outside the repository for private evidence.
+
+The runtime directory created by the launcher is mode `0700`. Evidence is
+created below `$XDG_STATE_HOME/omarchestra/observer-gates`, with the evidence
+directory mode `0700` and evidence files mode `0600`. Do not point either
+location into the repository, through a symlink, or at a shared scratch tree.
+
+The launcher will print the ordinary visible Pi command before starting the
+gateway. Run that command manually through the normal terminal workflow. Do not
+start Pi through a Team Runner, a terminal runtime, a shell wrapper, or the
+launcher. Do not record prompts, responses, input, tool data, terminal output,
+repository content, credentials, cwd, title, focus, provider/model values, or
+raw errors.
+
+## Human procedure
+
+From the repository root, in the gateway terminal, run:
+
+```bash
+just prototype-live-observer-bridge
+```
+
+The command requires a TTY on both stdin and stdout. It prints the exact Pi
+command, the bounded checklist, and the exact authorization phrase. Type the
+phrase exactly when prompted:
+
+```text
+I AUTHORIZE OMARCHESTRA OBSERVER LIVE BRIDGE
+```
+
+The launcher prints the Pi command, waits, and then starts one foreground
+observer gateway only after the operator presses Enter. It never launches the
+printed Pi command. In the other terminal, the operator runs the printed
+command manually with `OMARCHESTRA_OBSERVER_SOCKET` set to the exact displayed
+Unix-socket path.
+
+Check the following facts in order. Record only the phase labels and bounded
+status/version facts, not the session content:
+
+1. **Fail-open.** While the launcher is waiting and the gateway socket is
+   absent, run the printed Pi command. Keep that same Pi process open and
+   confirm it remains interactive while observer connection attempts fail.
+2. **Reconnect and registration.** Promptly return to the launcher and press
+   Enter before the bounded reconnect budget is exhausted. Complete the exact
+   authorization prompt. Confirm that the same visible Pi process reconnects
+   and produces one current observed registration with no duplicate record.
+   Registration attempt and source sequence values must increase, and the
+   status must be exactly `Unassigned · observed`. If the retry budget expires,
+   stop and restart the procedure instead of weakening it.
+3. **Heartbeat.** Leave the visible Pi idle for more than one five-second
+   heartbeat interval. Confirm the gateway remains healthy and the observation
+   remains current.
+4. **Disconnect.** Close the visible Pi normally. Confirm the observation is
+   unavailable. The bridge must not kill, supervise, scrape, or reattach the
+   terminal.
+5. **Expiry.** Leave the disconnected observation alone for more than the
+   fifteen-second lease. Confirm it expires from the current collection.
+6. **Fresh process.** Run the same printed command again while the gateway is
+   running. Confirm one fresh current registration with fresh process/session
+   identities and no duplicate collection entry. Do not claim continuity with
+   the closed Pi process.
+7. **Pause and resume.** Use only `pause`, `status`, and `resume` in the
+   gateway terminal. Confirm registry sweeping and lease expiry continue while
+   publication is paused, and that the latest bounded snapshot publishes after
+   resume.
+8. **Quit and cleanup.** Use `quit`. Confirm the gateway exits, installation
+   fingerprint before and after is identical, and the exact socket and runtime
+   directory are absent after device/inode checks. Do not recursively remove a
+   substituted or unexpected resource.
+
+## Companion panel-opening limitation
+
+Companion 0.3.0 exposes `applyObservedAgents` as a sessionless observer state
+update. That call does **not** open `AgentConsole.qml`: the panel's visibility
+still depends on its existing `open()` Projection Session path. The observer
+gateway cannot summon the panel, create a managed three-card projection, or
+invent a Projection Session to make an observed card visible.
+
+Therefore this procedure may establish successful capability verification,
+observation publication health, registration, heartbeat, disconnect, expiry,
+reconnect, and cleanup without visual panel evidence. If an independently valid
+Companion Projection Session is already open, the operator may observe the
+`Unassigned Agents` projection there, but must not create that managed session
+solely for this test or interpret it as live Adoption evidence. A future
+Companion contract change is required for a standalone observer-only panel.
+
+## R1 limitation
+
+Pi 0.84.4 does not expose a complete content-free start/end lifecycle for
+slash-command and `user_bash` execution. Extension commands bypass the input
+hook, and `user_bash` is content-bearing without a matching completion event.
+The observer contract therefore accepts `ctx.isIdle()` plus its existing guards
+as best-effort reconciliation. This run must not inspect input or command
+content, wrap shell execution, scrape the terminal, inspect conversation state,
+or inject input. A passing run is not proof that arbitrary command activity was
+absent.
 
 ## Evidence and disposition
 
-The operator should retain private evidence for protocol decisions, identity
-matching, ordered Adoption phases, pre-commit authority counters, post-commit
-state, duplicate prevention, and exact cleanup. It must contain no forbidden
-telemetry classes and must not enter Git.
+The launcher retains only bounded private evidence:
 
-A successful run would establish only the bounded live behavior covered by the
-resolved contract. It would not establish production packaging, remote
-execution, reboot recovery, PTY guarantees for an adopted ordinary session,
-or broader Pi compatibility. If any public API fails to provide the R1 proof,
-stop and record the blocker rather than scraping the terminal, inspecting
-conversation state, wrapping shell execution, or weakening the contract.
+- `procedure.md`, the fixed checklist;
+- `companion-capabilities.json`, the validated protocol/plugin/version/generation
+  and capability list;
+- `installation-fingerprint-before.txt` and `installation-fingerprint-after.txt`;
+- `observer-events.ndjson`, containing allow-listed phase names; and
+- `verdict.txt`.
+
+Evidence contains no prompts, responses, input, tool names or results, terminal
+output, repository content, credentials, environment values, cwd, title,
+focus, provider/model values, or raw errors. It must remain outside Git.
+
+The launcher refuses existing runtime paths, symlink components, non-canonical
+paths, unsafe ownership/modes, socket substitution, and runtime identity drift.
+It uses exact device/inode checks and non-recursive directory removal. If a
+cleanup check fails, preserve the resource and the private evidence for manual
+reconciliation. Never guess a path or use recursive deletion.
+
+A successful run would establish only the bounded live observer transport and
+publication behavior above. It would not establish production packaging,
+standalone observer-panel opening, Adoption, remote execution, reboot
+recovery, PTY guarantees for an adopted session, or broader Pi compatibility.

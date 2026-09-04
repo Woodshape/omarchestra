@@ -112,6 +112,38 @@ prototype-observer-adoption-check:
     node "${flags[@]}" "$root/prototypes/first-vertical-slice/observer/acceptance.ts" 2>&1 \
         | tee "$root/prototypes/first-vertical-slice/evidence/observer-acceptance-green.txt"
 
+# PROTOTYPE — NOT PRODUCTION: complete unattended fake-only observer bridge
+# check. It runs injected transports, static audits, and the launcher's
+# no-resource --check path. It never starts a live socket, Pi, Companion shell,
+# provider, terminal, Adoption operation, or process-control integration.
+prototype-live-observer-check:
+    #!/usr/bin/env bash
+    set -euo pipefail
+    root='{{justfile_directory()}}'
+    flags=()
+    if node --help | grep -qE '(^|[[:space:]])--experimental-strip-types([[:space:]]|$)'; then
+        flags+=(--experimental-strip-types)
+    fi
+    node "${flags[@]}" --test \
+        "$root/prototypes/first-vertical-slice/observer/test/live-frame-channel.test.ts" \
+        "$root/prototypes/first-vertical-slice/observer/test/live-gateway-core.test.ts" \
+        "$root/prototypes/first-vertical-slice/observer/test/live-companion-projection.test.ts" \
+        "$root/prototypes/first-vertical-slice/observer/test/live-observer-bridge.test.ts" \
+        "$root/prototypes/first-vertical-slice/observer/test/live-bridge-source-audit.test.mjs" \
+        "$root/prototypes/first-vertical-slice/manual/test/live-observer-launcher.test.mjs"
+    bash -n "$root/prototypes/first-vertical-slice/manual/run-live-observer-bridge.sh"
+    bash "$root/prototypes/first-vertical-slice/manual/run-live-observer-bridge.sh" --check
+    if command -v shellcheck >/dev/null; then
+        shellcheck "$root/prototypes/first-vertical-slice/manual/run-live-observer-bridge.sh"
+    fi
+
+# HUMAN-AUTHORIZED LIVE GATE: runs the disposable observer-only bridge after
+# the operator has verified the pinned Companion 0.3.0 release and is using an
+# interactive TTY. It prints the separate Pi command but never launches Pi.
+# Never invoke from automated recipes.
+prototype-live-observer-bridge:
+    bash '{{justfile_directory()}}/prototypes/first-vertical-slice/manual/run-live-observer-bridge.sh' --live
+
 # PROTOTYPE — NOT PRODUCTION: complete unattended fake-only Companion check.
 # It never invokes the human setup path except through --check.
 prototype-companion-check:

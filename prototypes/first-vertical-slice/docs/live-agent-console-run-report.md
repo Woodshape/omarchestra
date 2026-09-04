@@ -237,7 +237,7 @@ only an ephemeral Projection Session and cannot mutate installation state.
 | Integrated Companion acceptance | `companion-acceptance-red.txt`: 1 boundary pass / 4 intended failures | `companion-acceptance-green.txt`: 5 pass plus standalone acceptance verdict |
 | Extended recipe/module/QML boundary | Assertions added after implementation | `companion-boundary-green.txt`: 18 pass |
 | Human replacement procedure | Live execution prohibited in automation | TTY, exact authorization, private evidence, and `--check` boundaries pass; separate live gate passed 2026-09-03 |
-| Complete Companion gate | All fake seams compose | `just prototype-companion-check`: 77/77 tests plus standalone acceptance and launcher `--check` pass |
+| Complete Companion gate | All fake seams compose | `just prototype-companion-check`: 78/78 tests plus standalone acceptance and launcher `--check` pass |
 | Agent Console fake-only regression | Existing and extended seams remain green | `just prototype-live-agent-console-check`: module links, launcher `--check`, syntax, QML lint, and fake-only tests pass |
 | Existing prototype gates | No regression | `prototype-vertical-slice` and `prototype-vertical-slice-manual-check` pass |
 | Live Pi/Agent Console visual agreement | Human-only | PASS — waiting, managed Builder, takeover, sibling isolation, persistence, reload, clear/hide, and exact runtime reconciliation |

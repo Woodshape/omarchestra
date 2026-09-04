@@ -41,13 +41,25 @@ A discovered ordinary session:
 Observation reports only protocol/version, exact ephemeral session identity, process instance identity needed for same-process correlation, lifecycle state, availability/busy eligibility, and bounded health facts. It excludes prompts, responses, thinking, tool arguments and results, terminal output, repository contents, credentials, and environment values. For the bounded prototype, [ADR 0003](../adr/0003-use-connection-bound-observer-capabilities.md) selects random process/session/extension capabilities bound to the exact current local connection and fresh challenges. The [Observer and Adoption v1 contract](../../prototypes/first-vertical-slice/docs/observer-adoption-v1.md) fixes strict envelopes, monotonic ordering, a five-second heartbeat, a fifteen-second lease, privacy classes, reconciliation, and atomic commit behavior. Sender wall clocks do not authorize expiry. PID, title, cwd, focus, recency, display name, or equal strings never authorize correlation or Adoption.
 
 The removable observer/Adoption prototype is now fake-only green across its
-protocol, privacy, registry, acknowledgement, projection, and transaction
-seams. It is not live feasibility evidence: the Pi 0.84.4 public surface lacks a
-complete content-free start/end lifecycle for slash-command and `user_bash`
-execution. The current bounded contract accepts `ctx.isIdle()` plus its
-existing guards as best-effort reconciliation, without inspecting content;
-this R1 limitation is recorded for later hardening and is not a stronger Pi
-attestation.
+protocol, privacy, registry, acknowledgement, projection, transaction,
+transport, gateway, and launcher seams. It is not live feasibility evidence.
+The human-only procedure is documented in
+[`observer-adoption-live-validation.md`](../../prototypes/first-vertical-slice/docs/observer-adoption-live-validation.md);
+automation runs only its no-resource `--check` path. Automation performed no
+live run, and no live Adoption claim is made.
+
+The observer publisher targets Companion 0.3.0's additive
+`session.observer`/`applyObservedAgents` seam. That sessionless update does not
+open the Agent Console. The observer path must not summon the panel, fabricate a
+managed projection, or create a Projection Session solely to make an observed
+card visible. Standalone observer-panel opening remains a future Companion
+contract change.
+
+The Pi 0.84.4 public surface lacks a complete content-free start/end lifecycle
+for slash-command and `user_bash` execution. The current bounded contract
+accepts `ctx.isIdle()` plus its existing guards as best-effort reconciliation,
+without inspecting content; this R1 limitation is recorded for later hardening
+and is not a stronger Pi attestation.
 
 ## Adoption
 

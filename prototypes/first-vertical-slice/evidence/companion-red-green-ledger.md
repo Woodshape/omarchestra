@@ -38,7 +38,7 @@ acceptance, QML/release, replacement setup-procedure, and live-launcher
 regression suites, followed by the standalone `companion/acceptance.ts`
 scenario and the human launcher's fake-only `--check` path.
 
-Current result: **77/77 tests pass**, the standalone scenario prints
+Current result: **78/78 tests pass**, the standalone scenario prints
 `VERDICT PASS`, and the launcher check prints `PASS (fake-only)`.
 
 The standalone scenario records:

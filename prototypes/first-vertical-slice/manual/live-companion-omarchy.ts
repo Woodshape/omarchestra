@@ -259,7 +259,7 @@ export class LiveCompanionShell implements CompanionInstallationShellPort, Compa
 
   call(
     pluginId: string,
-    method: 'applyHandoff' | 'clear' | 'intentResult' | 'takeIntent',
+    method: 'applyHandoff' | 'clear' | 'intentResult' | 'takeIntent' | 'applyObservedAgents',
     payloadJson: string,
   ): string {
     assertPluginId(pluginId)

@@ -1,6 +1,6 @@
 # Observer and Adoption vertical-slice red-to-green ledger
 
-Status: **Phases 0–7 fake-only green; R1 accepted as bounded risk; ready for user review, live validation not run**
+Status: **Phases 0–8 fake-only green; R1 accepted as bounded risk; ready for user review, live validation not run**
 
 This ledger records the test-first progression for the observer/Adoption
 prototype milestone defined in
@@ -27,8 +27,8 @@ acceptance and documentation work is now checkpointed as listed above.
 
 | Command | Result | Exit |
 | --- | --- | --- |
-| `QMLLINT_BIN=/usr/lib/qt6/bin/qmllint just prototype-companion-check` | 77/77 tests pass; standalone Companion verdict PASS; setup `--check` and launcher checks PASS | 0 |
-| `QMLLINT_BIN=/usr/lib/qt6/bin/qmllint just prototype-live-agent-console-check` | 70/70 tests pass; fake-only setup checks PASS | 0 |
+| `QMLLINT_BIN=/usr/lib/qt6/bin/qmllint just prototype-companion-check` | 78/78 tests pass; standalone Companion verdict PASS; setup `--check` and launcher checks PASS | 0 |
+| `QMLLINT_BIN=/usr/lib/qt6/bin/qmllint just prototype-live-agent-console-check` | 71/71 tests pass; fake-only setup checks PASS | 0 |
 | `just prototype-vertical-slice` | complete default and WAL runner scenarios; `ACCEPTANCE GATE COMPLETE` | 0 |
 | `just prototype-vertical-slice-manual-check` | 6/6 tests pass; role-label wizard static check PASS | 0 |
 
@@ -58,7 +58,7 @@ No assertion was weakened to obtain the red results.
 | Phase 4 transactional Adoption | `observer-adoption-green.txt` | 28/28 green; ordering, complete invalid/crash matrix, restart discard, committed reconstruction, and no partial authority |
 | Phase 5 same-process adapter | `observer-extension-adapter-green.txt` | 20/20 green in the fake host; exact identity/ack, fail-open behavior, status isolation, and post-commit bridge boundary |
 | Phase 6 Companion/QML | `observer-companion-qml-green.txt` | 29/29 green; Unassigned Agents, opaque intents/results, QML/source audits, lint, and canonical/package byte equality |
-| Phase 7 integrated acceptance | `observer-acceptance-green.txt` | `just prototype-observer-adoption-check`: 123/123 tests green plus static QML lint; standalone ten-outcome acceptance PASS |
+| Phase 7 integrated acceptance | `observer-acceptance-green.txt` | `just prototype-observer-adoption-check`: 129/129 tests green plus static QML lint; standalone ten-outcome acceptance PASS |
 | Phase 8 review/closeout | this ledger and linked design docs | fake-only closeout recorded; R1 risk disposition is explicit; live validation remains unrun |
 
 ## Phase 6 — Companion/QML evidence
@@ -102,6 +102,16 @@ The concise standalone output is retained in `observer-acceptance-green.txt`.
 The complete recipe also reran the observer suites, source audits, QML
 boundary, and static lint without invoking any human-only path.
 
+The separate observer bridge gate is `prototype-live-observer-check`. Its
+62/62 tests passed, including the explicit 0.3.0-versus-0.2.0 catalog check,
+fragmented/multiple framing, malformed and
+bounded input, registration, heartbeat, disconnect, expiry, reconnect,
+Companion publication, fail-open extension behavior, launcher TTY and private
+resource audits, and static import/recipe/privacy reachability. It also passed
+Bash syntax validation, side-effect-free manual module imports, and the
+launcher `--check` path. No live socket, Pi, Omarchy shell, installed
+Companion, user configuration, or private live evidence was accessed.
+
 ## R1 — accepted bounded risk; future hardening
 
 The Pi 0.84.4 public extension surface supports the selected random
@@ -131,7 +141,8 @@ Completed closeout checks:
 - [x] observer implementation modules remain under the removable prototype
   directory and are marked **PROTOTYPE — NOT PRODUCTION**;
 - [x] protocol, privacy, registry, Adoption, adapter, Companion projection,
-  acceptance, QML, import-graph, and automated-recipe source audits pass;
+  transport, gateway, launcher, acceptance, QML, import-graph, and
+  automated-recipe source audits pass;
 - [x] `git diff --check` passes after generated nondeterministic evidence is
   restored;
 - [x] README, `CONTEXT.md`, MVP design, Pi terminal design, implementation

@@ -10,7 +10,14 @@ bounded risk for the current prototype contract: Pi 0.84.4 does not expose a
 complete content-free start/end lifecycle for slash-command and `user_bash`
 execution, so the adapter uses `ctx.isIdle()` plus its existing guards as
 best-effort and records the limitation for later hardening without inspecting
-content. No live observer/Adoption validation has been run.
+content. The observer bridge has fake-only transport, gateway, Companion 0.3.0,
+launcher, and reachability evidence. Its `--check` path is no-resource and its
+live procedure requires a human TTY. Automation performed no live run. No live
+observer or Adoption validation has been run, and no live Adoption claim is
+made. The Companion observer `applyObservedAgents` seam updates sessionless
+observer state
+but does not independently open the panel; the observer path must not fabricate
+a Projection Session or managed cards.
 
 ## Core terms
 

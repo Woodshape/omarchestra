@@ -1,10 +1,9 @@
 /**
  * PROTOTYPE — NOT PRODUCTION.
  *
- * Phase 2 red gate for the same-process Pi observer adapter. These tests are
- * written against the locked public Pi extension lifecycle contract and are
- * intended to FAIL until `observer/extension-adapter.ts` and
- * `observer/fake-pi-host.ts` are implemented in Phase 5.
+ * Fake-only coverage for the same-process Pi observer adapter. These tests
+ * use the locked public Pi extension lifecycle contract and never contact a
+ * live Pi, registry, terminal, or installed plugin.
  *
  * The harness is entirely in memory. It does not start Pi, create a process,
  * open a socket, launch a provider, access a terminal, or mutate any global
@@ -174,6 +173,11 @@ async function createHarness(adapterModule: any, fakeHostModule: any, options: {
   mode?: string
   hasUI?: boolean
   connectError?: Error
+  connectFailures?: number
+  newConnectionOnReconnect?: boolean
+  maxReconnectAttempts?: number
+  reconnectInitialDelayMs?: number
+  reconnectMaxDelayMs?: number
   managedBridgeError?: Error
 } = {}) {
   const host = new fakeHostModule.FakePiHost({
@@ -187,7 +191,14 @@ async function createHarness(adapterModule: any, fakeHostModule: any, options: {
     },
   })
   const connection = new FakeObserverConnection()
+  const connections = [connection]
   const heartbeats: Array<{ callback: () => void; intervalMs: number; active: boolean }> = []
+  const reconnects: Array<{
+    callback: () => void
+    delayMs: number
+    active: boolean
+    unrefCalls: number
+  }> = []
   let connectCount = 0
   let extensionCounter = 0
 
@@ -201,8 +212,15 @@ async function createHarness(adapterModule: any, fakeHostModule: any, options: {
     connect: (handler: (frame: unknown) => void) => {
       connectCount += 1
       if (options.connectError !== undefined) throw options.connectError
-      connection.bind(handler)
-      return connection
+      if (options.connectFailures !== undefined && connectCount <= options.connectFailures) {
+        throw new Error(`injected observer connect failure ${connectCount}`)
+      }
+      const selected = options.newConnectionOnReconnect && connectCount > 1
+        ? new FakeObserverConnection()
+        : connection
+      if (!connections.includes(selected)) connections.push(selected)
+      selected.bind(handler)
+      return selected
     },
     ...(options.managedBridgeError === undefined ? {} : {
       managedBridge: {
@@ -218,6 +236,31 @@ async function createHarness(adapterModule: any, fakeHostModule: any, options: {
     cancelHeartbeat: (handle: { active?: boolean }) => {
       handle.active = false
     },
+    scheduleReconnect: (callback: () => void, delayMs: number) => {
+      const handle = {
+        callback,
+        delayMs,
+        active: true,
+        unrefCalls: 0,
+        unref() {
+          this.unrefCalls += 1
+        },
+      }
+      reconnects.push(handle)
+      return handle
+    },
+    cancelReconnect: (handle: { active?: boolean }) => {
+      handle.active = false
+    },
+    ...(options.maxReconnectAttempts === undefined ? {} : {
+      maxReconnectAttempts: options.maxReconnectAttempts,
+    }),
+    ...(options.reconnectInitialDelayMs === undefined ? {} : {
+      reconnectInitialDelayMs: options.reconnectInitialDelayMs,
+    }),
+    ...(options.reconnectMaxDelayMs === undefined ? {} : {
+      reconnectMaxDelayMs: options.reconnectMaxDelayMs,
+    }),
   })
   extension(host.api)
 
@@ -226,7 +269,17 @@ async function createHarness(adapterModule: any, fakeHostModule: any, options: {
     connection,
     extension,
     connectCount: () => connectCount,
+    connections: () => [...connections],
+    reconnects: () => [...reconnects],
     activeHeartbeats: () => heartbeats.filter((heartbeat) => heartbeat.active),
+    fireReconnect: async (index = 0) => {
+      const handle = reconnects[index]
+      assert.ok(handle, `missing reconnect handle ${index}`)
+      if (!handle.active) return
+      handle.active = false
+      handle.callback()
+      await flush()
+    },
     fireHeartbeat: async () => {
       for (const heartbeat of heartbeats.filter((candidate) => candidate.active)) heartbeat.callback()
       await flush()
@@ -376,6 +429,161 @@ test('registry disconnect clears only observer resources and leaves ordinary Pi 
   assert.equal(await harness.host.submitInput('ordinary input remains local'), 'continue')
   assert.deepEqual(harness.host.sentUserMessages, [])
   assert.deepEqual(harness.host.processActions, [])
+})
+
+test('disconnect reconnects with one session identity, a fresh transport, and increasing registration/source sequences', async () => {
+  const adapterModule = await loadAdapter()
+  const fakeHostModule = await loadFakeHost()
+  const harness = await createHarness(adapterModule, fakeHostModule, {
+    newConnectionOnReconnect: true,
+    reconnectInitialDelayMs: 125,
+    reconnectMaxDelayMs: 250,
+  })
+
+  await harness.host.startSession({ reason: 'startup' })
+  const first = registerFrame(harness.connection)
+  harness.connection.deliver('observer.registered', registeredBody())
+  await flush()
+  await harness.host.startAgent()
+  await harness.host.settleAgent()
+  await flush()
+  harness.connection.disconnectFromRegistry()
+  await flush()
+
+  assert.equal(harness.host.status(observerStatusKey(adapterModule)), undefined)
+  assert.equal(harness.activeHeartbeats().length, 0)
+  assert.equal(harness.reconnects().length, 1)
+  assert.equal(harness.reconnects()[0].delayMs, 125)
+  assert.equal(harness.reconnects()[0].unrefCalls, 1)
+
+  await harness.fireReconnect(0)
+  assert.equal(harness.connectCount(), 2)
+  const secondConnection = harness.connections()[1]
+  assert.ok(secondConnection)
+  const second = registerFrame(secondConnection)
+  assert.equal(second.body.registrationAttempt, 2)
+  assert.equal(second.body.sourceSequence, 4)
+  assert.equal(second.body.processIncarnationId, first.body.processIncarnationId)
+  assert.equal(second.body.piSessionId, first.body.piSessionId)
+  assert.equal(second.body.extensionInstanceId, first.body.extensionInstanceId)
+  assert.deepEqual(harness.host.sessionEvents.map((entry: { event: string }) => entry.event), ['session_start'])
+
+  secondConnection.deliver('observer.registered', registeredBody({
+    connectionId: `${IDS.connectionId.slice(0, -1)}2`,
+    connectionChallenge: `${IDS.connectionChallenge.slice(0, -1)}2`,
+    acceptedRegistrationAttempt: 2,
+    acceptedSourceSequence: 4,
+    registryRevision: 2,
+  }))
+  await flush()
+  assert.equal(harness.host.status(observerStatusKey(adapterModule)), 'Unassigned · observed')
+  assert.equal(harness.host.title, 'ordinary Pi title')
+  assert.equal(harness.host.titleWrites.length, 0)
+  assert.deepEqual(harness.host.sentUserMessages, [])
+  assert.deepEqual(harness.host.processActions, [])
+  assert.equal(harness.activeHeartbeats().length, 1)
+})
+
+test('failed connections use bounded unref reconnect backoff and resume at the next source sequence', async () => {
+  const adapterModule = await loadAdapter()
+  const fakeHostModule = await loadFakeHost()
+  const harness = await createHarness(adapterModule, fakeHostModule, {
+    connectFailures: 2,
+    reconnectInitialDelayMs: 10,
+    reconnectMaxDelayMs: 15,
+    maxReconnectAttempts: 3,
+  })
+
+  await harness.host.startSession({ reason: 'startup' })
+  assert.equal(harness.connectCount(), 1)
+  assert.equal(harness.reconnects().length, 1)
+  assert.equal(harness.reconnects()[0].delayMs, 10)
+  assert.equal(harness.reconnects()[0].unrefCalls, 1)
+
+  await harness.fireReconnect(0)
+  assert.equal(harness.connectCount(), 2)
+  assert.equal(harness.reconnects().length, 2)
+  assert.equal(harness.reconnects()[1].delayMs, 15)
+  assert.equal(harness.reconnects()[1].unrefCalls, 1)
+
+  await harness.fireReconnect(1)
+  assert.equal(harness.connectCount(), 3)
+  const register = registerFrame(harness.connection)
+  assert.equal(register.body.registrationAttempt, 3)
+  assert.equal(register.body.sourceSequence, 3)
+})
+
+test('reconnect retries stop at the configured bound', async () => {
+  const adapterModule = await loadAdapter()
+  const fakeHostModule = await loadFakeHost()
+  const harness = await createHarness(adapterModule, fakeHostModule, {
+    connectError: new Error('observer registry unavailable'),
+    maxReconnectAttempts: 2,
+    reconnectInitialDelayMs: 1,
+    reconnectMaxDelayMs: 1,
+  })
+
+  await harness.host.startSession({ reason: 'startup' })
+  await harness.fireReconnect(0)
+  await harness.fireReconnect(1)
+  assert.equal(harness.connectCount(), 3)
+  assert.equal(harness.reconnects().length, 2)
+  assert.equal(harness.reconnects().filter((handle) => handle.active).length, 0)
+})
+
+test('transient registry rejection clears observation and schedules a fresh connection attempt', async () => {
+  const adapterModule = await loadAdapter()
+  const fakeHostModule = await loadFakeHost()
+  const harness = await createHarness(adapterModule, fakeHostModule, {
+    newConnectionOnReconnect: true,
+  })
+
+  await harness.host.startSession({ reason: 'startup' })
+  harness.connection.deliver('observer.registered', registeredBody())
+  await flush()
+  harness.connection.deliver('observer.rejected', rejectedBody({ code: 'session_limit' }))
+  await flush()
+
+  assert.equal(harness.host.status(observerStatusKey(adapterModule)), undefined)
+  assert.equal(harness.reconnects().length, 1)
+  await harness.fireReconnect(0)
+  const secondConnection = harness.connections()[1]
+  assert.ok(secondConnection)
+  const register = registerFrame(secondConnection)
+  assert.equal(register.body.registrationAttempt, 2)
+  assert.equal(register.body.sourceSequence, 2)
+})
+
+test('permanent incompatibility clears observation and never schedules reconnect', async () => {
+  const adapterModule = await loadAdapter()
+  const fakeHostModule = await loadFakeHost()
+  const harness = await createHarness(adapterModule, fakeHostModule)
+  const statusKey = observerStatusKey(adapterModule)
+
+  await harness.host.startSession({ reason: 'startup' })
+  harness.connection.deliver('observer.registered', registeredBody())
+  await flush()
+  harness.connection.deliver('observer.rejected', rejectedBody({ code: 'incompatible_extension' }))
+  await flush()
+
+  assert.equal(harness.host.status(statusKey), undefined)
+  assert.equal(harness.activeHeartbeats().length, 0)
+  assert.equal(harness.reconnects().length, 0)
+})
+
+test('session shutdown cancels a pending reconnect before it can create another connection', async () => {
+  const adapterModule = await loadAdapter()
+  const fakeHostModule = await loadFakeHost()
+  const harness = await createHarness(adapterModule, fakeHostModule, {
+    connectError: new Error('observer registry unavailable'),
+  })
+
+  await harness.host.startSession({ reason: 'startup' })
+  assert.equal(harness.reconnects().length, 1)
+  await harness.host.shutdownSession({ reason: 'quit' })
+  assert.equal(harness.reconnects()[0].active, false)
+  await harness.fireReconnect(0)
+  assert.equal(harness.connectCount(), 1)
 })
 
 test('non-TUI or UI-less sessions do not register as ordinary observed sessions', async () => {

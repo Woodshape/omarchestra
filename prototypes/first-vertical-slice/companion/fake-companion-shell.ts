@@ -46,7 +46,7 @@ export type FakeShellOperation = 'capabilities' | 'summon' | 'call' | 'hide'
 export interface FakeCompanionShellCall {
   operation: FakeShellOperation
   pluginId: string
-  method?: 'applyHandoff' | 'clear' | 'intentResult' | 'takeIntent'
+  method?: 'applyHandoff' | 'clear' | 'intentResult' | 'takeIntent' | 'applyObservedAgents'
   payloadJson?: string
 }
 
@@ -67,6 +67,7 @@ export class FakeCompanionShell implements CompanionShellPort {
     cleared: boolean
     handoffs: Array<Record<string, unknown>>
     intentResults: Array<Record<string, unknown>>
+    observerProjections: Array<Record<string, unknown>>
   }
 
   private readonly pluginId: string
@@ -89,7 +90,7 @@ export class FakeCompanionShell implements CompanionShellPort {
     this.declaredCapabilities = [...(options.capabilities ?? [])]
     this.installed = options.installed ?? true
     this.generation = 1
-    this.panel = { visible: false, cleared: false, handoffs: [], intentResults: [] }
+    this.panel = { visible: false, cleared: false, handoffs: [], intentResults: [], observerProjections: [] }
     this.installationSnapshot = {
       pluginId: this.pluginId,
       version: this.version,
@@ -133,7 +134,7 @@ export class FakeCompanionShell implements CompanionShellPort {
 
   call(
     pluginId: string,
-    method: 'applyHandoff' | 'clear' | 'intentResult' | 'takeIntent',
+    method: 'applyHandoff' | 'clear' | 'intentResult' | 'takeIntent' | 'applyObservedAgents',
     payloadJson: string,
   ): void | string {
     this.assertKnownPlugin(pluginId)
@@ -179,6 +180,13 @@ export class FakeCompanionShell implements CompanionShellPort {
         detail: envelope.detail,
       })
       return
+    }
+    if (method === 'applyObservedAgents') {
+      const body: unknown = JSON.parse(payloadJson)
+      const projection = plainObserverProjection(body)
+      this.records.push({ operation: 'call', pluginId, method, payloadJson })
+      this.panel.observerProjections.push(projection)
+      return 'true'
     }
     throw new CompanionError('invalid_envelope', `unsupported plugin call method ${String(method)}`)
   }
@@ -267,4 +275,21 @@ export class FakeCompanionShell implements CompanionShellPort {
 
 function plainHandoff(value: { status: string; cursor: number; cards: Array<Record<string, unknown>> }): Record<string, unknown> {
   return { status: value.status, cursor: value.cursor, cards: value.cards.map((card) => ({ ...card })) }
+}
+
+/** Extract the sessionless observer projection from an applyObservedAgents payload. */
+function plainObserverProjection(body: unknown): Record<string, unknown> {
+  if (body === null || typeof body !== 'object' || Array.isArray(body)) {
+    throw new CompanionError('invalid_envelope', 'applyObservedAgents payload must be an object')
+  }
+  const value = body as Record<string, unknown>
+  const projection = value.observerProjection !== undefined
+    ? value.observerProjection
+    : value.projection !== undefined
+      ? value.projection
+      : value
+  if (projection === null || typeof projection !== 'object' || Array.isArray(projection)) {
+    throw new CompanionError('invalid_envelope', 'applyObservedAgents projection must be an object')
+  }
+  return { ...(projection as Record<string, unknown>) }
 }

@@ -184,7 +184,22 @@ The observer reports lifecycle and identity metadata only under an explicit tele
 
 The removable observer/Adoption prototype is fake-only green across its
 protocol, privacy, registry, same-process acknowledgement, transaction,
-Companion projection, and cleanup gates. It does not establish live evidence.
+Companion projection, cleanup, transport, gateway, and launcher audits. It
+does not establish live evidence. The human-only procedure is
+[`observer-adoption-live-validation.md`](../../prototypes/first-vertical-slice/docs/observer-adoption-live-validation.md)
+and has not been run. Bridge automation uses only the dedicated fake-only
+`prototype-live-observer-check` recipe and never reaches live Pi, Omarchy shell,
+installed Companion, or Adoption state. Automation performed no live run, and
+no live Adoption claim is made.
+
+The observer-capable Companion catalog entry is version `0.3.0` and advertises
+additive `session.observer`; the existing managed Projection Session default
+remains the historical `0.2.0` release. In 0.3.0, `applyObservedAgents` is a
+sessionless observer update and does not open the Agent Console. The observer
+path must not summon the panel, fabricate managed cards, or create a managed
+Projection Session to obtain visual evidence. A standalone observer-only panel
+remains a future Companion contract change.
+
 Pi 0.84.4 exposes no complete content-free start/end lifecycle for
 slash-command and `user_bash` execution; the current bounded contract accepts
 `ctx.isIdle()` plus its existing guards as best-effort and records this as a

@@ -43,7 +43,8 @@ export const COMPANION_CAPABILITIES = Object.freeze([
   'session.clear',
   'session.resnapshot',
 ] as const)
-export type CompanionCapability = (typeof COMPANION_CAPABILITIES)[number]
+/** Capability type for the unchanged managed Companion surface. */
+export type CompanionBaselineCapability = (typeof COMPANION_CAPABILITIES)[number]
 
 /** Additive observer capability; never part of the six managed capabilities. */
 export const COMPANION_OBSERVER_CAPABILITY = 'session.observer'
@@ -53,6 +54,7 @@ export const COMPANION_ALL_CAPABILITIES = Object.freeze([
   ...COMPANION_CAPABILITIES,
   COMPANION_OBSERVER_CAPABILITY,
 ] as const)
+export type CompanionCapability = (typeof COMPANION_ALL_CAPABILITIES)[number]
 
 export const COMPANION_LIMITS = Object.freeze({
   envelopeBytes: 16 * 1024,
@@ -299,7 +301,7 @@ export interface CompanionShellPort {
   summon(pluginId: string, payloadJson: string): MaybePromise<void>
   call(
     pluginId: string,
-    method: 'applyHandoff' | 'clear' | 'intentResult' | 'takeIntent',
+    method: 'applyHandoff' | 'clear' | 'intentResult' | 'takeIntent' | 'applyObservedAgents',
     payloadJson: string,
   ): MaybePromise<void | string>
   hide(pluginId: string, payloadJson: string): MaybePromise<void>
