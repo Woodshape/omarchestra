@@ -45,12 +45,21 @@ export const COMPANION_CAPABILITIES = Object.freeze([
 ] as const)
 export type CompanionCapability = (typeof COMPANION_CAPABILITIES)[number]
 
+/** Additive observer capability; never part of the six managed capabilities. */
+export const COMPANION_OBSERVER_CAPABILITY = 'session.observer'
+
+/** All valid capabilities, including the additive observer capability. */
+export const COMPANION_ALL_CAPABILITIES = Object.freeze([
+  ...COMPANION_CAPABILITIES,
+  COMPANION_OBSERVER_CAPABILITY,
+] as const)
+
 export const COMPANION_LIMITS = Object.freeze({
   envelopeBytes: 16 * 1024,
   identifierCharacters: 128,
   detailCharacters: 1024,
   labelCharacters: 512,
-  capabilityCount: COMPANION_CAPABILITIES.length,
+  capabilityCount: COMPANION_ALL_CAPABILITIES.length,
   intentPayloadBytes: 4096,
   intentHistoryCount: 256,
   releaseAssetCount: 32,
@@ -901,7 +910,7 @@ function requireCapabilityArray(input: unknown): CompanionCapability[] {
   if (!Array.isArray(input) || input.length > COMPANION_LIMITS.capabilityCount) {
     throw new CompanionCapabilityError('capabilities must be a bounded array')
   }
-  const capabilities = input.map((value) => requireOneOf(value, COMPANION_CAPABILITIES, 'capability'))
+  const capabilities = input.map((value) => requireOneOf(value, COMPANION_ALL_CAPABILITIES, 'capability'))
   if (new Set(capabilities).size !== capabilities.length) {
     throw new CompanionCapabilityError('capabilities must not contain duplicates')
   }

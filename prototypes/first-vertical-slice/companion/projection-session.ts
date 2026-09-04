@@ -69,6 +69,16 @@ export interface ProjectionIntentOutcome {
   detail: string | null
 }
 
+/**
+ * Additive observer intent routing seam. Adoption intents never travel
+ * through the managed LiveProjectionAdapter; an injected router forwards
+ * request-proposal and authorize-exact-proposal intents to the observer
+ * projection adapter. Optional and non-breaking.
+ */
+export interface ObserverIntentRouter {
+  submitIntent(session: ProjectionSessionIdentity, intent: Record<string, unknown>): Promise<unknown> | unknown
+}
+
 export interface ProjectionSessionManagerOptions {
   pluginId: string
   protocol: string
@@ -79,6 +89,8 @@ export interface ProjectionSessionManagerOptions {
   clientId?: string
   /** Injectable only for deterministic tests; production defaults to a fresh UUID. */
   sessionIdFactory?: () => string
+  /** Optional additive observer intent router (request/authorize Adoption). */
+  observerIntentRouter?: ObserverIntentRouter
 }
 
 type SessionPhase = 'idle' | 'opening' | 'active' | 'ended'
@@ -134,6 +146,7 @@ export class ProjectionSessionManager {
   private lastErrorMessage: string | null = null
   private readonly sharedProjection: AgentConsoleProjection
   private readonly userSink: ((handoff: AgentConsoleHandoff) => void) | null
+  private readonly observerIntentRouter: ObserverIntentRouter | null
   private publishChain: Promise<void> = Promise.resolve()
   private shellChain: Promise<void> = Promise.resolve()
 
@@ -153,6 +166,7 @@ export class ProjectionSessionManager {
     this.clientId = options.clientId ?? 'omarchestra-companion-client'
     this.sessionIdFactory = options.sessionIdFactory ?? (() => `companion-session-${randomUUID()}`)
     this.userSink = options.sink ?? null
+    this.observerIntentRouter = options.observerIntentRouter ?? null
     this.sharedProjection = new AgentConsoleProjection()
     this.projection = this.sharedProjection
   }
@@ -395,6 +409,31 @@ export class ProjectionSessionManager {
       this.openGate?.reject(new CompanionIntentError('invalid_projection_state', 'the Projection Session was cleared'))
       this.endSession()
     }
+  }
+
+  /**
+   * Routes one observer Adoption intent (request_proposal or
+   * authorize_exact_proposal) through the injected observer router. The
+   * session must be the current active Projection Session; stale sessions are
+   * rejected before the router. Adoption intents never travel through the
+   * managed LiveProjectionAdapter.
+   */
+  async submitObserverIntent(session: ProjectionSessionIdentity, intent: Record<string, unknown>): Promise<unknown> {
+    if (this.phase !== 'active' || this.activeSession === null) {
+      throw new CompanionIntentError('invalid_projection_state', 'observer intents require an active Projection Session')
+    }
+    const current = this.activeSession
+    if (session.sessionId !== current.sessionId
+        || session.teamGoalId !== current.teamGoalId
+        || session.clientId !== current.clientId
+        || session.sessionGeneration !== current.sessionGeneration
+        || session.pluginGeneration !== current.pluginGeneration) {
+      throw new CompanionIntentError('invalid_intent', 'the observer intent Projection Session is stale')
+    }
+    if (this.observerIntentRouter === null) {
+      throw new CompanionIntentError('invalid_intent', 'no observer intent router is configured')
+    }
+    return this.observerIntentRouter.submitIntent(session, intent)
   }
 
   // --- internals ---

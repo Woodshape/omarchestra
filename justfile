@@ -70,7 +70,8 @@ prototype-live-agent-console-check:
     if command -v qmllint >/dev/null; then
         qmllint -I /usr/share/omarchy/shell \
             "$root/prototypes/first-vertical-slice/console/plugin/AgentConsole.qml" \
-            "$root/prototypes/first-vertical-slice/console/plugin/AgentConsoleCards.qml"
+            "$root/prototypes/first-vertical-slice/console/plugin/AgentConsoleCards.qml" \
+            "$root/prototypes/first-vertical-slice/console/plugin/UnassignedAgents.qml"
     fi
     if command -v shellcheck >/dev/null; then
         shellcheck "$root/prototypes/first-vertical-slice/manual/run-companion-setup-validation.sh"

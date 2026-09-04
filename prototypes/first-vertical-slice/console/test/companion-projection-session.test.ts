@@ -977,11 +977,15 @@ test('the adapted Agent Console QML gains session clear and presentation-intent 
   )
 })
 
-test('the installable release QML is byte-identical to the canonical plugin sources', async () => {
-  const { COMPANION_RELEASE } = await import('../../companion/releases.ts')
-  for (const file of ['AgentConsole.qml', 'AgentConsoleCards.qml']) {
+test('the observer-capable release QML is byte-identical to canonical sources without rewriting 0.2.0', async () => {
+  const { COMPANION_RELEASE, RELEASE_CATALOG } = await import('../../companion/releases.ts')
+  assert.equal(COMPANION_RELEASE.version, '0.2.0', 'the evidenced legacy release remains immutable')
+  const observerRelease = RELEASE_CATALOG['0.3.0']
+  assert.ok(observerRelease, 'the observer-capable release must be additive')
+  assert.notEqual(observerRelease, COMPANION_RELEASE)
+  for (const file of ['AgentConsole.qml', 'AgentConsoleCards.qml', 'UnassignedAgents.qml']) {
     assert.equal(
-      COMPANION_RELEASE.assets[file],
+      observerRelease.assets[file],
       readFileSync(join(PROTOTYPE_ROOT, 'console', 'plugin', file), 'utf8'),
       `${file} must have one canonical source enforced by this executable gate`,
     )

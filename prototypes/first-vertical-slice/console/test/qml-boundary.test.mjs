@@ -1,4 +1,5 @@
 import assert from 'node:assert/strict'
+import { createHash } from 'node:crypto'
 import { spawnSync } from 'node:child_process'
 import { existsSync, readFileSync, readdirSync, statSync } from 'node:fs'
 import { dirname, join, resolve } from 'node:path'
@@ -10,6 +11,7 @@ const PROTOTYPE_ROOT = resolve(TEST_DIR, '..', '..')
 const CONSOLE_PLUGIN_ROOT = join(PROTOTYPE_ROOT, 'console', 'plugin')
 const CONSOLE_QML = join(CONSOLE_PLUGIN_ROOT, 'AgentConsole.qml')
 const CARDS_QML = join(CONSOLE_PLUGIN_ROOT, 'AgentConsoleCards.qml')
+const UNASSIGNED_QML = join(CONSOLE_PLUGIN_ROOT, 'UnassignedAgents.qml')
 const MANIFEST = join(CONSOLE_PLUGIN_ROOT, 'manifest.json')
 
 const REQUIRED_STATUSES = ['ready', 'reconnecting', 'gap']
@@ -35,6 +37,18 @@ const COMMITTED_PROJECTION = {
       piStatus: 'Reviewer · waiting',
     },
   ],
+}
+
+const OBSERVER_PROJECTION = {
+  observerRevision: 7,
+  agents: [{
+    observedSessionId: 'observed-session-1',
+    piStatus: 'Unassigned · observed',
+    lifecycle: 'running',
+    availability: 'available',
+    health: 'healthy',
+    choices: [{ choiceId: 'choice-1', label: 'Local goal · Builder', enabled: true }],
+  }],
 }
 
 function source(path) {
@@ -91,6 +105,7 @@ test('the plugin manifest exposes a schema-versioned panel entry point', () => {
   assert.doesNotMatch(String(value.id), /^omarchy\./)
   assert.equal(statSync(CONSOLE_QML).isFile(), true)
   assert.equal(statSync(CARDS_QML).isFile(), true)
+  assert.equal(statSync(UNASSIGNED_QML).isFile(), true)
   assert.match(consoleSource, /^import\s+Quickshell\b/m)
   assert.match(consoleSource, /\b(?:PanelWindow|FloatingWindow)\b/)
 })
@@ -176,8 +191,86 @@ test('QML contains no role/state label maps or client-side label derivation', ()
   }
 })
 
+test('QML renders a separate authoritative Unassigned Agents projection without changing managed cards', () => {
+  const consoleSource = stripQmlComments(source(CONSOLE_QML))
+  const unassignedSource = stripQmlComments(source(UNASSIGNED_QML))
+
+  assert.equal(COMMITTED_PROJECTION.cards.length, 3, 'the existing managed handoff remains exactly three cards')
+  assert.equal(OBSERVER_PROJECTION.agents[0].piStatus, 'Unassigned · observed')
+  assert.deepEqual(Object.keys(OBSERVER_PROJECTION).sort(), ['agents', 'observerRevision'])
+  assert.match(consoleSource, /UnassignedAgents\s*\{/)
+  assert.match(consoleSource, /(?:observerProjection|observedAgents)/)
+  assert.match(unassignedSource, /["']Unassigned Agents["']/)
+  assert.match(unassignedSource, /\btext\s*:[^\n;]*\.piStatus\b/)
+  assert.match(unassignedSource, /\btext\s*:[^\n;]*\.lifecycle\b/)
+  assert.match(unassignedSource, /\btext\s*:[^\n;]*\.availability\b/)
+  assert.match(unassignedSource, /\btext\s*:[^\n;]*\.health\b/)
+  assert.match(unassignedSource, /\benabled\s*:[^\n;]*\.enabled\b/)
+  assert.doesNotMatch(
+    unassignedSource,
+    /["']Unassigned\s*[·:-]\s*observed["']/,
+    'the observer status is injected as one opaque committed value',
+  )
+})
+
+test('QML emits separate request and exact-confirmation intents and renders bounded results only', () => {
+  const combined = stripQmlComments(source(CONSOLE_QML) + source(UNASSIGNED_QML))
+
+  assert.match(combined, /signal\s+(?:requestAdoption|adoptionRequested)\s*\(/)
+  assert.match(combined, /signal\s+(?:authorizeAdoption|adoptionAuthorized)\s*\(/)
+  assert.match(combined, /request_adoption/)
+  assert.match(combined, /authorize_adoption/)
+  assert.match(combined, /observedSessionId/)
+  assert.match(combined, /choiceId/)
+  assert.match(combined, /proposalId/)
+  assert.match(combined, /proposalDigest/)
+  assert.match(combined, /(?:observerIntentResult|observedIntentResult)/)
+  assert.match(combined, /(?:observerIntentResult|observedIntentResult)\s*\.\s*detail/)
+
+  // QML carries opaque values. It cannot map choices to authority, calculate
+  // expiry, validate identity/digests, deduplicate, reconcile, or commit.
+  assert.doesNotMatch(combined, /targetTeamGoalId|targetExecutionNodeId|targetRole/)
+  assert.doesNotMatch(combined, /processIncarnationId|piSessionId|extensionInstanceId|connectionChallenge|hostPid/)
+  assert.doesNotMatch(combined, /sha256|createHash|digest\s*===|registryRevision\s*[+\-*\/]/i)
+  assert.doesNotMatch(combined, /remainingMs\s*[-+]=|remainingMs\s*[-+]\s*\d/)
+  assert.doesNotMatch(combined, /(?:derive|compute|validate|check)(?:Adoption|Eligibility|Expiry|Identity|Digest)/i)
+  assert.doesNotMatch(combined, /(?:deduplicat|reconcil|transaction|commitAdoption)/i)
+})
+
+test('the observer-capable immutable release packages canonical QML bytes while release 0.2.0 remains distinct', async () => {
+  const releases = await import('../../companion/releases.ts')
+  const legacy = releases.RELEASE_CATALOG['0.2.0']
+  const observer = releases.RELEASE_CATALOG['0.3.0']
+
+  assert.ok(legacy, 'the evidenced 0.2.0 release must remain in the immutable catalog')
+  assert.deepEqual(
+    Object.fromEntries(Object.entries(legacy.assets).map(([file, bytes]) => [
+      file,
+      createHash('sha256').update(bytes).digest('hex'),
+    ])),
+    {
+      'manifest.json': '413c16fa2c01491d08acacf92b50799204c361d864b632cd8ebd372de30a6682',
+      'AgentConsole.qml': 'ab46d9b062445f5d6dce1a9f4f82395cd5c8da0dbaf7a3b034c4ebbc10a30d30',
+      'AgentConsoleCards.qml': '27c23b2ddf673649aef418f71ac7b9466959971f2dc08b475d5f8cc544fc3514',
+    },
+    'release 0.2.0 bytes are immutable historical evidence',
+  )
+  assert.ok(observer, 'an additive observer-capable release must exist')
+  assert.notEqual(observer, legacy)
+  assert.equal(observer.version, '0.3.0')
+  assert.equal(observer.assets['manifest.json'], source(MANIFEST))
+  assert.match(observer.assets['AgentConsole.qml'], /session\.observer/)
+  for (const file of ['AgentConsole.qml', 'AgentConsoleCards.qml', 'UnassignedAgents.qml']) {
+    assert.equal(
+      observer.assets[file],
+      source(join(CONSOLE_PLUGIN_ROOT, file)),
+      `${file} must be byte-identical between canonical and packaged observer release`,
+    )
+  }
+})
+
 test('QML syntax and lint pass through qmllint without launching a UI', () => {
-  const files = [CONSOLE_QML, CARDS_QML]
+  const files = [CONSOLE_QML, CARDS_QML, UNASSIGNED_QML]
   for (const path of files) source(path)
 
   const executable = process.env.QMLLINT_BIN || 'qmllint'
@@ -224,7 +317,7 @@ test('the adapted Companion QML gains no filesystem, cursor, reconnect, shell-co
     ['reconnect or resnapshot authority', /\b(?:reconnect|resnapshot|resumeAfter|event_page|recoveryCursor)\b/i],
     ['shell command execution', /\b(?:QProcess|omarchy-shell|hyprctl|systemctl|pkill|killall|popen)\b|\bexec\s*\(|\bbash\b/],
     ['terminal authority', /\b(?:ghostty|pty|terminal\s+(?:output|input|capture))\b/i],
-    ['orchestration authority', /\b(?:orchestration|assignment\s+dispatch|writer\s+lease|adoption)\b/i],
+    ['orchestration authority', /\b(?:orchestration|assignment\s+dispatch|writer\s+lease|commitAdoption|validateAdoption|isAdoptionEligible)\b/i],
     ['installation or configuration paths', /\bshell\.json\b|\.config\/omarchy/],
   ]
   for (const file of allQmlSources()) {

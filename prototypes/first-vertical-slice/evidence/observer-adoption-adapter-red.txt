@@ -1,0 +1,47 @@
+\$ node --experimental-strip-types --test prototypes/first-vertical-slice/observer/test/adoption.test.ts prototypes/first-vertical-slice/observer/test/extension-adapter.test.ts
+✖ Adoption ordering is propose → authorize → same-connection ack → reconcile → one atomic commit
+✖ no assignment, prompt, process action, PTY guarantee, or Runtime Binding exists before the durable commit
+✖ stale identity is rejected before proposal creation and leaves observation unchanged
+✖ a reused PID cannot correlate a new process to the old observed session
+✖ Node mismatch is rejected before authorization or commit
+✖ remote Team Goal is rejected even when the selected Role is otherwise vacant
+✖ occupied Role is rejected before a proposal can be authorized
+✖ busy session cannot create an Adoption proposal
+✖ exited session cannot create an Adoption proposal
+✖ already-managed session cannot create an Adoption proposal
+✖ unavailable or expired observation cannot be adopted
+✖ a second pending proposal is rejected and cannot create a second proposal identity
+✖ proposal expiry is controlled by the injected monotonic clock and blocks authorization
+✖ authorization must bind the exact immutable proposal before an ack request is sent
+✖ failure delivering the acknowledgement request leaves the session observed and unassigned
+✖ acknowledgement refusal cannot commit or dispatch managed work
+✖ acknowledgement timeout is controlled by the injected monotonic clock
+✖ equal acknowledgement fields on another transport are rejected
+✖ acknowledgement nonce and proposal digest must match the authorized proposal exactly
+✖ identity or registry revision drift after authorization invalidates the pending attempt
+✖ busy reconciliation after an otherwise acknowledged proposal prevents commit
+✖ unknown reconciliation refuses Adoption instead of assuming idle
+✖ transaction failure rolls back fully to observed/unassigned and performs no dispatch
+✖ post-commit presentation failure preserves exactly one committed managed result
+✖ replaying an already committed proposal returns the same result without a second durable commit
+✖ committed state has managed control but no fabricated Runtime Binding or PTY guarantee
+✖ the adapter starts no resource in its factory and registers only at session_start
+✖ registration owns one status slot, displays Unassigned observed, and leaves the native title unchanged
+✖ missing or incompatible registry fails open and leaves ordinary Pi use intact
+✖ non-TUI or UI-less sessions do not register as ordinary observed sessions
+✖ session_shutdown sends close, clears only the observer slot, and is idempotent
+✖ a new Pi session gets a fresh extension identity and never inherits the old registration
+✖ only the current idle same-process extension acknowledges the exact proposal
+✖ busy and unknown activity refuse acknowledgement without changing status or enabling management
+✖ identity drift or a mismatched proposal is refused from the observer process
+✖ committed presentation switches the same status slot only after adoption commit
+✖ interactive input remains ordinary and no input text or length crosses the observer seam
+✖ managed bridge activation is impossible before committed and carries no fabricated Runtime Binding
+ℹ tests 38
+ℹ pass 0
+ℹ fail 38
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+RED_EXIT_STATUS=1
+RED_CONFIRMED: Adoption coordinator and same-process observer adapter modules are intentionally absent before Phase 3/4/5 implementation.

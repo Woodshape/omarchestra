@@ -3,6 +3,7 @@ import fs from 'node:fs'
 import path from 'node:path'
 import test from 'node:test'
 import { fileURLToPath } from 'node:url'
+import { COMPANION_RELEASE } from '../releases.ts'
 
 /**
  * Integrated Companion acceptance seam — tests precede implementation.
@@ -54,27 +55,7 @@ async function modules(): Promise<CompanionModules> {
 }
 
 function companionRelease(): Record<string, unknown> {
-  const sourceManifest = JSON.parse(fs.readFileSync(path.join(PLUGIN_ROOT, 'manifest.json'), 'utf8'))
-  const manifest = {
-    ...sourceManifest,
-    schemaVersion: 1,
-    id: PLUGIN_ID,
-    version: PLUGIN_VERSION,
-    kinds: ['panel'],
-    entryPoints: { panel: 'AgentConsole.qml' },
-    companion: { protocol: COMPANION_PROTOCOL },
-  }
-  return {
-    pluginId: PLUGIN_ID,
-    version: PLUGIN_VERSION,
-    protocol: COMPANION_PROTOCOL,
-    compatibility: { ...COMPATIBILITY },
-    assets: {
-      'manifest.json': JSON.stringify(manifest),
-      'AgentConsole.qml': fs.readFileSync(path.join(PLUGIN_ROOT, 'AgentConsole.qml'), 'utf8'),
-      'AgentConsoleCards.qml': fs.readFileSync(path.join(PLUGIN_ROOT, 'AgentConsoleCards.qml'), 'utf8'),
-    },
-  }
+  return COMPANION_RELEASE
 }
 
 interface FakeHandler {

@@ -1,0 +1,94 @@
+PROTOTYPE — NOT PRODUCTION
+Phase 3 observer protocol, privacy, and Agent Registry green evidence
+
+CONTRACT REVIEW
+
+F1 RESOLVED — Current connection authority was matched by caller-supplied
+transport `id`. A different object with the same string could act as current.
+The registry now binds the exact transport object and invalidates it on clean or
+abrupt close.
+
+F2 RESOLVED — Reconnect enforced only registrationAttempt. It now also requires
+a strictly greater sourceSequence and retains both high-water marks after lease
+expiry for the registry incarnation.
+
+F3 RESOLVED — Availability was derived from lifecycle and health. It is now an
+explicit registry-owned current-transport fact, distinct from lifecycle,
+activity, health, eligibility, and expiry. Degraded or exited observations stay
+available while the exact transport remains current; close makes them
+unavailable.
+
+F4 RESOLVED — Registry-owned observed-session, connection, and challenge IDs
+were short counters. The registry now requires an injected issuer responsible
+for at least 128 unpredictable bits, validates bounded outputs, rejects reuse,
+and uses a deterministic 32-hex-character fake issuer only in tests.
+
+F5 RESOLVED — Registry revisions were not persisted by accepted mutations and
+event pages were unbounded. Revision advancement is now persisted before the
+corresponding in-memory mutation, events retain at most 128 entries, capability
+failure cannot leave a revision-only partial mutation, and abrupt transport
+close has an explicit idempotent registry seam.
+
+F6 RESOLVED — Telemetry record construction could accept missing identities,
+non-plain values under allow-listed keys, and availability derived from other
+facts. Construction now requires the exact allow-listed fact set and validates
+every identity, enum, revision, plain-object boundary, and value bound. Typed
+observer errors now require an allow-listed code and 1–1024 Unicode-character
+locally-authored detail; reviewed protocol/registry failures do not echo
+submitted values.
+
+F7 RESOLVED — The NDJSON decoder applied the 32 KiB partial-buffer bound to a
+whole chunk before consuming complete frames. It now accepts any number of
+complete individually bounded frames, rejects frames over 16 KiB, then applies
+the 32 KiB limit only to the remaining partial frame.
+
+F8 RESOLVED — Detail and presentation-label limits counted UTF-16 code units,
+which rejected valid bounded non-BMP Unicode text. They now count Unicode code
+points while the independent encoded-frame byte limit remains enforced.
+
+TEST-FIRST REVIEW EVIDENCE
+
+Initial strengthened Phase 3 review suite:
+  tests 40
+  pass 15
+  fail 25
+  exit 1 (expected review red)
+
+Additional focused red checks:
+  capability issuer collision: 1 test, 0 pass, 1 fail, exit 1
+  abrupt transport disconnect: 1 test, 0 pass, 1 fail, exit 1
+  Unicode character bounds: 1 test, 0 pass, 1 fail, exit 1
+
+FINAL GREEN COMMAND
+
+$ node --experimental-strip-types --test \
+    prototypes/first-vertical-slice/observer/test/protocol.test.ts \
+    prototypes/first-vertical-slice/observer/test/telemetry-policy.test.ts \
+    prototypes/first-vertical-slice/observer/test/registry.test.ts
+
+tests 43
+pass 43
+fail 0
+cancelled 0
+skipped 0
+todo 0
+exit 0
+
+IMPORT/AUTHORITY BOUNDARY
+
+Static import-set assertion over contracts.ts, telemetry-policy.ts, registry.ts,
+and fakes.ts: PASS.
+
+Permitted import edges are exactly:
+  contracts.ts -> ../src/protocol.ts
+  telemetry-policy.ts -> ./contracts.ts
+  registry.ts -> ./contracts.ts
+  registry.ts -> ./telemetry-policy.ts
+  fakes.ts -> ./contracts.ts
+
+No Phase 3 module imports Adoption or QML. The validation used only in-memory
+fakes and static source inspection. It contacted no Pi/provider, terminal,
+PTY, desktop, socket, installed Companion state, user configuration, Boomux,
+SSH, or service resource.
+
+git diff --check: PASS

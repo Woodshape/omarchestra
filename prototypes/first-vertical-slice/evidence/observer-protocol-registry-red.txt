@@ -1,0 +1,42 @@
+\$ node --experimental-strip-types --test prototypes/first-vertical-slice/observer/test/protocol.test.ts prototypes/first-vertical-slice/observer/test/telemetry-policy.test.ts prototypes/first-vertical-slice/observer/test/registry.test.ts
+✖ protocol identifier and capabilities are exactly the locked values
+✖ register requires exactly the locked body fields and tui host mode
+✖ capabilities must be exactly three unique entries in canonical order
+✖ heartbeat, lifecycle, close, and adoption.ack require exact body fields
+✖ close reasons are exactly quit, reload, new, resume, or fork
+✖ adoption.ack decision is acknowledged or refused and refusalCode is null only for acknowledgement
+✖ registry-to-observer envelopes require exact body fields and locked values
+✖ adoption.committed controlMode is exactly managed and runtime guarantee is unavailable
+✖ proposalDigest is exactly 64 lowercase hexadecimal characters
+✖ hostPid is a positive integer bounded to 2^31-1 and is diagnostic only
+✖ non-finite, cyclic, and deeply nested values are rejected
+✖ envelope and decode-buffer byte bounds are enforced
+✖ encodeFrame rejects unknown frame types and oversized frames
+✖ typed failures carry a stable code and bounded detail
+✖ registration produces exactly one current Observed Pi Session
+✖ the registry snapshot contains no management or authority fields
+✖ reconnect requires a strictly greater registration attempt for the exact extension identity
+✖ source sequence is monotonic per extension incarnation
+✖ injected monotonic clock drives disconnect and lease expiry
+✖ transport close makes the record unavailable immediately and it cannot be adopted
+✖ message deduplication is bounded to 256 identities per extension incarnation
+✖ authoritative reconstruction after restart requires fresh registration
+✖ incompatible or absent registry fails open and creates no observed record
+✖ the registry enforces the 64-session capacity bound
+✖ registry events are stable and ordered and advance the registry revision
+✖ the authoritative observed record contains exactly the allow-listed fields
+✖ the observed record contains no management or authority fields
+✖ forbidden telemetry classes are rejected before transport
+✖ forbidden content never enters the projection
+✖ privacy violations are rejected before persistence, logging, events, or projection
+✖ allow-listed lifecycle facts pass the policy unchanged
+✖ lifecycle, activity, availability, health, and eligibility remain distinct
+✖ unbounded or oversized fields are rejected
+ℹ tests 33
+ℹ pass 0
+ℹ fail 33
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+RED_EXIT_STATUS=1
+RED_CONFIRMED: Protocol, telemetry-policy, and registry modules are intentionally absent before Phase 3 implementation.

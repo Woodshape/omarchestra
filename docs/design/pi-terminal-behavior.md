@@ -1,6 +1,6 @@
 # Pi terminal behavior
 
-Status: **MVP behavior locked; observer protocol and packaging remain open technical contracts.**
+Status: **MVP behavior locked; bounded observer protocol selected; packaging, implementation, and live validation remain open.**
 
 This document specializes the authoritative MVP design for visible Pi terminals. It does not grant QML, the observer, or the terminal runtime additional domain authority.
 
@@ -38,7 +38,7 @@ A discovered ordinary session:
 - receives no prompt, assignment, keystroke, cancellation, process action, or lifecycle supervision from Omarchestra;
 - remains usable when the registry or Companion Plugin is absent, restarting, incompatible, or unreachable.
 
-Observation reports only protocol/version, exact ephemeral session identity, process instance identity needed for same-process correlation, lifecycle state, availability/busy eligibility, and bounded timestamps/health. It excludes prompts, responses, thinking, tool arguments and results, terminal output, repository contents, credentials, and environment values. Exact identity shape, retention, and expiry are open protocol work; PID, title, cwd, or a display name alone are never authority.
+Observation reports only protocol/version, exact ephemeral session identity, process instance identity needed for same-process correlation, lifecycle state, availability/busy eligibility, and bounded health facts. It excludes prompts, responses, thinking, tool arguments and results, terminal output, repository contents, credentials, and environment values. For the bounded prototype, [ADR 0003](../adr/0003-use-connection-bound-observer-capabilities.md) selects random process/session/extension capabilities bound to the exact current local connection and fresh challenges. The [Observer and Adoption v1 contract](../../prototypes/first-vertical-slice/docs/observer-adoption-v1.md) fixes strict envelopes, monotonic ordering, a five-second heartbeat, a fifteen-second lease, privacy classes, reconciliation, and atomic commit behavior. Sender wall clocks do not authorize expiry. PID, title, cwd, focus, recency, display name, or equal strings never authorize correlation or Adoption.
 
 ## Adoption
 
@@ -76,4 +76,4 @@ Observer and Companion Plugin installation, compatibility verification, update, 
 
 The Companion prototype fake-proves this split through injected ports: one authorized installation remains enabled across two Team Goals, while open, reconnect, clear, hide, and cleanup leave plugin assets, receipt, and `shell.json` bytes unchanged. `just prototype-companion-check` reproduces that unattended evidence. The separate TTY- and exact-authorization-gated `just prototype-companion-setup-validation` procedure passed on 2026-09-03; its before/after installation fingerprints matched and its runtime resources reconciled absent while the plugin remained enabled.
 
-Ordinary-terminal observation and Adoption were not implemented by the Companion milestone. Their observer protocol, packaging, identity, expiry, acknowledgement, and reconciliation contracts remain open exactly as described above.
+Ordinary-terminal observation and Adoption were not implemented by the Companion milestone. Their bounded prototype identity, expiry, acknowledgement, privacy, reconciliation, and transaction shapes are now selected by ADR 0003 and the Observer and Adoption v1 contract. Implementation evidence, observer packaging and installation lifecycle, production persistence and socket trust, and human live validation remain open.

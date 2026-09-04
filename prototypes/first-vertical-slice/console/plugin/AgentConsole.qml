@@ -27,6 +27,8 @@ Item {
         cards: []
     })
     property var lastIntentResult: null
+    property var observerProjection: ({ observerRevision: 0, agents: [] })
+    property var observerIntentResult: null
     property var activeSession: null
     property var pendingIntents: []
     property int intentCounter: 0
@@ -37,6 +39,8 @@ Item {
     // acknowledges it; this component never speaks the runner protocol or
     // derives any cursor value.
     signal intentRequested(var payload)
+    signal requestAdoption(var payload)
+    signal authorizeAdoption(var payload)
     onIntentRequested: function(payload) {
         if (activeSession === null || pendingIntents.length >= 16) return
         var next = pendingIntents.slice()
@@ -96,7 +100,8 @@ Item {
             pluginGeneration: pluginGeneration,
             capabilities: [
                 "session.open", "session.update", "session.intent",
-                "session.hide", "session.clear", "session.resnapshot"
+                "session.hide", "session.clear", "session.resnapshot",
+                "session.observer"
             ]
         })
     }
@@ -146,6 +151,38 @@ Item {
         return true
     }
 
+    function applyObservedAgents(value) {
+        var envelope = parsePayload(value)
+        if (!envelope || typeof envelope !== "object") return false
+        if (envelope.session !== undefined && !sessionMatches(envelope)) return false
+        var next = envelope.observerProjection && typeof envelope.observerProjection === "object"
+            ? envelope.observerProjection
+            : envelope.projection && typeof envelope.projection === "object"
+                ? envelope.projection : envelope
+        if (typeof next.observerRevision !== "number" || !Array.isArray(next.agents)) return false
+        observerProjection = ({
+            observerRevision: next.observerRevision,
+            agents: next.agents
+        })
+        return true
+    }
+
+    function applyObserverProjection(value) {
+        return applyObservedAgents(value)
+    }
+
+    function observedIntentResult(value) {
+        var result = parsePayload(value)
+        if (!result || typeof result !== "object") return false
+        if (result.session !== undefined && !sessionMatches(result)) return false
+        observerIntentResult = result
+        return unassignedAgents.applyIntentResult(result)
+    }
+
+    function applyObserverIntentResult(value) {
+        return observedIntentResult(value)
+    }
+
     function open(payloadJson) {
         var envelope = parsePayload(payloadJson)
         var session = sessionFrom(envelope)
@@ -162,6 +199,9 @@ Item {
         if (!applyProjection(value)) return false
         pendingIntents = []
         intentCounter = 0
+        observerProjection = ({ observerRevision: 0, agents: [] })
+        observerIntentResult = null
+        unassignedAgents.clearIntentState()
         activeSession = ({
             sessionId: session.sessionId,
             teamGoalId: session.teamGoalId,
@@ -178,6 +218,9 @@ Item {
         activeSession = null
         projection = ({ status: "reconnecting", cursor: 0, cards: [] })
         lastIntentResult = null
+        observerProjection = ({ observerRevision: 0, agents: [] })
+        observerIntentResult = null
+        unassignedAgents.clearIntentState()
         pendingIntents = []
     }
 
@@ -189,6 +232,9 @@ Item {
         if (!sessionMatches(value)) return false
         projection = ({ status: "reconnecting", cursor: 0, cards: [] })
         lastIntentResult = null
+        observerProjection = ({ observerRevision: 0, agents: [] })
+        observerIntentResult = null
+        unassignedAgents.clearIntentState()
         pendingIntents = []
         activeSession = null
         return true
@@ -288,6 +334,14 @@ Item {
                     Layout.fillWidth: true
                     cards: root.projection.cards
                     onPresentRequested: function(role) { root.requestPresent(role) }
+                }
+
+                UnassignedAgents {
+                    id: unassignedAgents
+                    Layout.fillWidth: true
+                    projection: root.observerProjection
+                    onRequestAdoption: function(payload) { root.requestAdoption(payload) }
+                    onAuthorizeAdoption: function(payload) { root.authorizeAdoption(payload) }
                 }
 
                 Text {

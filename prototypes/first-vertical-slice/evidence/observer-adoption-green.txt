@@ -1,0 +1,37 @@
+\$ node --experimental-strip-types --test prototypes/first-vertical-slice/observer/test/adoption.test.ts
+✔ Adoption ordering is propose → authorize → same-connection ack → reconcile → one atomic commit
+✔ no assignment, prompt, process action, PTY guarantee, or Runtime Binding exists before the durable commit
+✔ stale identity is rejected before proposal creation and leaves observation unchanged
+✔ a reused PID cannot correlate a new process to the old observed session
+✔ Node mismatch is rejected before authorization or commit
+✔ remote Team Goal is rejected even when the selected Role is otherwise vacant
+✔ occupied Role is rejected before a proposal can be authorized
+✔ busy session cannot create an Adoption proposal
+✔ exited session cannot create an Adoption proposal
+✔ already-managed session cannot create an Adoption proposal
+✔ unavailable or expired observation cannot be adopted
+✔ a second pending proposal is rejected and cannot create a second proposal identity
+✔ proposal expiry is controlled by the injected monotonic clock and blocks authorization
+✔ authorization must bind the exact immutable proposal before an ack request is sent
+✔ failure delivering the acknowledgement request leaves the session observed and unassigned
+✔ acknowledgement refusal cannot commit or dispatch managed work
+✔ acknowledgement timeout is controlled by the injected monotonic clock
+✔ equal acknowledgement fields on another transport are rejected
+✔ acknowledgement nonce and proposal digest must match the authorized proposal exactly
+✔ identity or registry revision drift after authorization invalidates the pending attempt
+✔ busy reconciliation after an otherwise acknowledged proposal prevents commit
+✔ unknown reconciliation refuses Adoption instead of assuming idle
+✔ transaction failure rolls back fully to observed/unassigned and performs no dispatch
+✔ post-commit presentation failure preserves exactly one committed managed result
+✔ replaying an already committed proposal returns the same result without a second durable commit
+✔ restart discards pending proposals and requires a fresh proposal
+✔ committed state reconstructs once after restart without a second durable commit
+✔ committed state has managed control but no fabricated Runtime Binding or PTY guarantee
+ℹ tests 28
+ℹ pass 28
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+GREEN_EXIT_STATUS=0
+GREEN_CONFIRMED: Adoption happy path, full invalid matrix, transaction/crash invariants, restart discard, and committed reconstruction are green.

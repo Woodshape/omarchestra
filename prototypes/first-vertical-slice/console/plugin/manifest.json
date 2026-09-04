@@ -2,7 +2,7 @@
   "schemaVersion": 1,
   "id": "omarchestra.agent-console",
   "name": "Agent Console",
-  "version": "0.2.0",
+  "version": "0.3.0",
   "author": "Omarchestra",
   "license": "MIT",
   "description": "Presentation-only Agent Console cards for a committed team projection.",

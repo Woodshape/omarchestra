@@ -1,0 +1,35 @@
+\$ QMLLINT_BIN=/usr/lib/qt6/bin/qmllint node --experimental-strip-types --test prototypes/first-vertical-slice/observer/test/companion-projection.test.ts prototypes/first-vertical-slice/observer/test/source-audit.test.mjs prototypes/first-vertical-slice/observer/test/acceptance.test.ts prototypes/first-vertical-slice/console/test/qml-boundary.test.mjs
+✖ the plugin manifest exposes a schema-versioned panel entry point
+✖ QML renders a separate authoritative Unassigned Agents projection without changing managed cards
+✖ QML emits separate request and exact-confirmation intents and renders bounded results only
+✖ the observer-capable immutable release packages canonical QML bytes while release 0.2.0 remains distinct
+✖ QML syntax and lint pass through qmllint without launching a UI
+✖ standalone acceptance proves all ten observer and Adoption outcomes
+✖ acceptance evidence itself contains no forbidden canary or fabricated PTY guarantee
+✖ acceptance implementation is fake-only and cannot launch a subprocess or import a human adapter
+✖ observer capability is additive and leaves the six managed capabilities unchanged
+✖ plain observer projection is authoritative, bounded, and separate from the managed handoff
+✖ observer projection exposes only opaque choices and no identity or management authority
+✖ forbidden or unknown content is rejected before observer presentation
+✖ observer revisions are monotonic and stale updates cannot replace current presentation
+✖ request_adoption forwards only current session, intent, observed-session, and opaque choice identities
+✖ authorize_adoption forwards only the exact proposal identity displayed for confirmation
+✖ stale Projection Session rejects both request and confirmation before the observer port
+✖ intent validation rejects target authority supplied by QML and malformed proposal digests
+✖ observer intent results have exact fields and bounded plain data
+✖ stop clears only ephemeral observer presentation and unsubscribes once
+✖ all observer implementation seams exist under the removable prototype directory
+✖ observer implementation modules contain no live-system or process-launch primitive
+✖ observer modules cannot reach installation, existing SQLite, human adapters, or private evidence
+✖ the pure contracts and telemetry policy own no I/O
+✖ the Pi adapter subscribes to lifecycle only and never observes content-bearing hooks
+✖ the automated observer gate is fake-only and cannot invoke a human-only recipe
+✖ observer acceptance imports only fake/runtime core modules and never launches a process
+ℹ tests 32
+ℹ pass 6
+ℹ fail 26
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+RED_EXIT_STATUS=1
+RED_CONFIRMED: Companion observer projection, QML boundary/release 0.3.0, source audits, and ten-point acceptance are intentionally red before Phase 6 implementation.
