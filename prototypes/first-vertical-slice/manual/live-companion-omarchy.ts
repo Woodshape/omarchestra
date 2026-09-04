@@ -50,7 +50,11 @@ import {
 import { CompanionInstallation } from '../companion/installation.ts'
 import { normalizeAbsolutePath } from '../companion/path-validation.ts'
 import { FakeOmarchy } from '../companion/fake-omarchy.ts'
-import { DEFAULT_COMPANION_RELEASE, COMPANION_RELEASE } from '../companion/releases.ts'
+import {
+  DEFAULT_COMPANION_RELEASE,
+  COMPANION_RELEASE,
+  companionRelease,
+} from '../companion/releases.ts'
 import { ProjectionSessionManager } from '../companion/projection-session.ts'
 import { UnixProjectionConnector } from '../console/live-projection-adapter.ts'
 
@@ -58,8 +62,11 @@ const POSIX = path.posix
 const MAX_COMMAND_OUTPUT = 1024 * 1024
 const DEFAULT_COMMAND_TIMEOUT_MS = 15_000
 
-export const LIVE_AUTHORIZATION_PHRASE =
-  'I AUTHORIZE OMARCHESTRA COMPANION INSTALL 0.2.0'
+export function liveAuthorizationPhrase(release: Pick<CompanionRelease, 'version'> = COMPANION_RELEASE): string {
+  return `I AUTHORIZE OMARCHESTRA COMPANION INSTALL ${release.version}`
+}
+
+export const LIVE_AUTHORIZATION_PHRASE = liveAuthorizationPhrase()
 
 export interface LiveCommandResult {
   status: number | null
@@ -752,7 +759,8 @@ class LiveAuthorizationIssuer implements CompanionAuthorizationPort {
   private sequence = 0
 
   issue(plan: CompanionInstallationPlan, phrase: string): CompanionInstallationAuthorization {
-    if (phrase !== LIVE_AUTHORIZATION_PHRASE) {
+    const expectedPhrase = liveAuthorizationPhrase(plan.release ?? COMPANION_RELEASE)
+    if (phrase !== expectedPhrase) {
       throw new CompanionInstallationError('authorization_mismatch', 'typed authorization phrase did not match exactly')
     }
     const authorizationId = `tty-companion-${process.pid}-${++this.sequence}`
@@ -760,7 +768,7 @@ class LiveAuthorizationIssuer implements CompanionAuthorizationPort {
       authorizationId,
       operation: plan.operation,
       planDigest: plan.planDigest,
-      phrase: LIVE_AUTHORIZATION_PHRASE,
+      phrase: expectedPhrase,
     }))
     const authorization: CompanionInstallationAuthorization = {
       operation: plan.operation,
@@ -925,10 +933,10 @@ export function captureLiveInstallationFingerprint(ports: LiveCompanionPorts): s
   })
 }
 
-async function promptExactAuthorization(): Promise<string> {
+async function promptExactAuthorization(release: CompanionRelease = COMPANION_RELEASE): Promise<string> {
   const prompt = readline.createInterface({ input: process.stdin, output: process.stdout })
   try {
-    return await prompt.question(`Type exactly ${LIVE_AUTHORIZATION_PHRASE}\n> `)
+    return await prompt.question(`Type exactly ${liveAuthorizationPhrase(release)}\n> `)
   } finally {
     prompt.close()
   }
@@ -956,18 +964,19 @@ export async function runLiveSetup(options: LiveSetupOptions = {}): Promise<{
   const evidenceDirectory = options.evidenceDirectory ?? createPrivateEvidenceDirectory()
   fs.mkdirSync(evidenceDirectory, { recursive: true, mode: 0o700 })
   fs.chmodSync(evidenceDirectory, 0o700)
-  const ports = createLiveCompanionPorts({ release: options.release ?? COMPANION_RELEASE })
+  const release = options.release ?? COMPANION_RELEASE
+  const ports = createLiveCompanionPorts({ release })
   const installer = new CompanionInstallation(ports)
   const receipt = await ports.receipts.inspectNoFollow(COMPANION_PLUGIN_ID)
   const root = ports.filesystem.inspectNoFollow(ports.paths.pluginRoot)
   const operation = receipt === null && root.kind === 'missing' ? 'install' : 'update'
-  const plan = await installer.inspect({ operation, release: options.release ?? COMPANION_RELEASE })
+  const plan = await installer.inspect({ operation, release })
   writeOwnerOnly(path.join(evidenceDirectory, 'installation-plan.json'), `${JSON.stringify(plan, null, 2)}\n`)
 
   console.log('\nExact Companion installation plan (no mutation has occurred):')
   console.log(JSON.stringify(plan, null, 2))
   console.log(`\nPrivate evidence directory: ${evidenceDirectory} (mode 0700)`)
-  const phrase = await promptExactAuthorization()
+  const phrase = await promptExactAuthorization(release)
   const authorization = new LiveAuthorizationIssuer()
   // The issuer is intentionally local to this one displayed plan. There is no
   // environment-variable, flag, or remembered approval bypass.
@@ -1286,6 +1295,22 @@ export async function runLiveProjection(options: ProjectionOptions): Promise<voi
   }
 }
 
+function parseLiveSetupOptions(args: readonly string[]): LiveSetupOptions {
+  let evidenceDirectory: string | undefined
+  let release: CompanionRelease = COMPANION_RELEASE
+  for (let index = 0; index < args.length; index += 1) {
+    const argument = args[index]
+    if (argument === '--evidence-dir') {
+      evidenceDirectory = normalizeAbsolute(args[++index] ?? '')
+    } else if (argument === '--release') {
+      release = companionRelease(args[++index] ?? '')
+    } else {
+      throw new Error(`unknown live setup option ${argument}`)
+    }
+  }
+  return { evidenceDirectory, release }
+}
+
 async function main(): Promise<void> {
   const args = process.argv.slice(2)
   if (args[0] === '--check') {
@@ -1303,12 +1328,8 @@ async function main(): Promise<void> {
     return
   }
   if (args[0] === '--live' || args.length === 0) {
-    let evidenceDirectory: string | undefined
-    for (let index = 1; index < args.length; index += 1) {
-      if (args[index] === '--evidence-dir') evidenceDirectory = normalizeAbsolute(args[++index] ?? '')
-      else throw new Error(`unknown live setup option ${args[index]}`)
-    }
-    await runLiveSetup({ evidenceDirectory })
+    const options = args[0] === '--live' ? args.slice(1) : args
+    await runLiveSetup(parseLiveSetupOptions(options))
     return
   }
   throw new Error(`unknown live Companion mode ${args[0]}`)

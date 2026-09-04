@@ -54,4 +54,4 @@ Run the complete fake-only observer/Adoption gate:
 QMLLINT_BIN=/usr/lib/qt6/bin/qmllint just prototype-observer-adoption-check
 ```
 
-The only active live Companion recipe is `just prototype-companion-setup-validation`. It requires a compatible host, an interactive TTY, and the exact displayed authorization phrase. Automation and Fusion never invoke its live path.
+The existing live Companion recipe is `just prototype-companion-setup-validation` and retains the historical base release. For the observer slice, use our explicit `0.3.0` release command documented in [`observer-adoption-live-validation.md`](prototypes/first-vertical-slice/docs/observer-adoption-live-validation.md); it requires a compatible host, an interactive TTY, and the exact displayed authorization phrase. Automation and Fusion never invoke either live path.

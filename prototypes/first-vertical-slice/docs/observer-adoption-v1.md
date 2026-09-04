@@ -14,6 +14,11 @@ Related authority:
 - [ADR 0002](../../../docs/adr/0002-observe-ordinary-pi-before-explicit-adoption.md)
 - [ADR 0003](../../../docs/adr/0003-use-connection-bound-observer-capabilities.md)
 
+The live Companion dependency for this observer slice is our own
+`omarchestra.agent-console` release **0.3.0**. Release `0.2.0` is the earlier
+base Companion artifact and is retained as immutable historical coverage; it
+is not the target for observer validation.
+
 ## Authority boundary
 
 An ordinary session is the visible interactive Pi process. Observation grants

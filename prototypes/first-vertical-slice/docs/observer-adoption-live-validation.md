@@ -18,8 +18,25 @@ arbitrary command activity. This is R1 from
 The current contract explicitly accepts `ctx.isIdle()` plus its existing guards
 as best-effort reconciliation. A future live run must record this limitation
 and must not add input inspection, shell wrapping, terminal scraping,
-conversation inspection, or input injection. A passing fake gate still does not
-constitute live evidence.
+conversation inspection, or input injection. A passing fake gate still does not constitute live evidence.
+
+## Our observer-capable Companion release
+
+The required plugin is our own `omarchestra.agent-console` release **0.3.0**.
+If the read-only preflight reports that it is absent, install it as a separate
+explicitly authorized setup operation—not as an assumption inside the observer
+run:
+
+```bash
+node --experimental-strip-types \
+  prototypes/first-vertical-slice/manual/live-companion-omarchy.ts \
+  --live --release 0.3.0
+```
+
+The command displays the exact installation plan and requires typing the
+release-specific authorization phrase. Afterward, rerun the read-only
+preflight and verify the installed version/capabilities before continuing.
+This is our plugin, not an Omarchy-provided component.
 
 ## Required human setup
 

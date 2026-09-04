@@ -153,6 +153,14 @@ test('the replacement --check path is the real fake-only invocation', () => {
   }
 })
 
+test('the live adapter formats authorization for the selected Companion release', async () => {
+  const { liveAuthorizationPhrase } = await import('../live-companion-omarchy.ts')
+  assert.equal(liveAuthorizationPhrase({ version: '0.2.0' }),
+    'I AUTHORIZE OMARCHESTRA COMPANION INSTALL 0.2.0')
+  assert.equal(liveAuthorizationPhrase({ version: '0.3.0' }),
+    'I AUTHORIZE OMARCHESTRA COMPANION INSTALL 0.3.0')
+})
+
 test('live mode requires a TTY and cannot accept authorization from an environment flag', () => {
   const script = read(SCRIPT)
   const adapter = read(ADAPTER)
@@ -160,7 +168,8 @@ test('live mode requires a TTY and cannot accept authorization from an environme
   assert.match(script, /! -t 1|\[\[\s*!\s*-t 1/)
   assert.match(adapter, /process\.stdin\.isTTY/)
   assert.match(adapter, /process\.stdout\.isTTY/)
-  assert.match(adapter, /I AUTHORIZE OMARCHESTRA COMPANION INSTALL 0\.2\.0/)
+  assert.match(adapter, /liveAuthorizationPhrase/)
+  assert.match(adapter, /I AUTHORIZE OMARCHESTRA COMPANION INSTALL \$\{release\.version\}/)
   assert.match(adapter, /typed authorization phrase did not match exactly/)
   assert.doesNotMatch(stripComments(script), /OMARCHESTRA_CONFIRM|OMARCHESTRA_AUTHORIZE|SKIP_AUTH/)
   assert.doesNotMatch(stripComments(adapter), /OMARCHESTRA_CONFIRM|OMARCHESTRA_AUTHORIZE|SKIP_AUTH/)
@@ -181,13 +190,14 @@ test('the exact immutable plan is displayed and authorized before installation e
   const adapter = read(ADAPTER)
   const planDisplay = adapter.indexOf('Exact Companion installation plan')
   const planWrite = adapter.indexOf("installation-plan.json")
-  const prompt = adapter.indexOf('const phrase = await promptExactAuthorization()')
+  const prompt = adapter.indexOf('const phrase = await promptExactAuthorization(release)')
   const execute = adapter.indexOf('authorizedInstaller.execute(plan, grant)')
   assert.ok(planDisplay >= 0)
   assert.ok(planWrite >= 0)
   assert.ok(prompt > planDisplay)
   assert.ok(execute > prompt)
   assert.match(script, /--live --evidence-dir/)
+  assert.match(adapter, /--release/)
   assert.match(adapter, /planDigest/)
   assert.match(adapter, /authorization\.issue\(plan, phrase\)/)
 })
