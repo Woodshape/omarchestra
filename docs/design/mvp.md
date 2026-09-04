@@ -184,11 +184,11 @@ The observer reports lifecycle and identity metadata only under an explicit tele
 
 The removable observer/Adoption prototype is fake-only green across its
 protocol, privacy, registry, same-process acknowledgement, transaction,
-Companion projection, and cleanup gates. It does not establish live
-feasibility. R1 remains open because Pi 0.84.4 exposes no complete content-free
-start/end lifecycle for slash-command and `user_bash` execution; live
-installation and Adoption validation stay blocked until a public activity
-signal exists or the reconciliation contract is explicitly revised.
+Companion projection, and cleanup gates. It does not establish live evidence.
+Pi 0.84.4 exposes no complete content-free start/end lifecycle for
+slash-command and `user_bash` execution; the current bounded contract accepts
+`ctx.isIdle()` plus its existing guards as best-effort and records this as a
+future hardening item without inspecting content.
 
 ## Domain model
 
@@ -541,7 +541,7 @@ Status: **MVP product scope and the local/remote feasibility classifications are
 
 Before delegating broad implementation to Fusion Harness, the project still needs:
 
-1. preserve the fake-only observer/Adoption evidence while validating opt-in ordinary-terminal Pi observation and exact acknowledged Adoption without granting premature authority; live validation is blocked by R1 until the activity-lifecycle contract is resolved;
+1. preserve the fake-only observer/Adoption evidence while validating opt-in ordinary-terminal Pi observation and exact acknowledged Adoption without granting premature authority; the current contract accepts the documented activity limitation as bounded risk and live validation remains unrun;
 2. resolve the product policy or runtime capability for Boomux's generic exact-Run presentation race;
 3. define production runner/bridge/observer snapshot, event, intent, SSH trust, deployment, and persistence contracts;
 4. convert validated prototype slices into milestone-sized production implementation slices with executable acceptance gates.
@@ -564,7 +564,7 @@ Preserved evidence:
 
 ## Product decision status
 
-All MVP product-scope decisions and feasibility classifications are locked. The bounded Companion Plugin packaging and Projection Session prototype milestone is complete with fake-only failure coverage and a human live PASS. The observer/Adoption slice is fake-only green, but R1 blocks its live feasibility validation. Remaining work is confined to the production technical contracts below, R1 resolution, and the separate live observer installation lifecycle.
+All MVP product-scope decisions and feasibility classifications are locked. The bounded Companion Plugin packaging and Projection Session prototype milestone is complete with fake-only failure coverage and a human live PASS. The observer/Adoption slice is fake-only green with the R1 activity limitation explicitly accepted as bounded risk; live evidence and production work remain separate. Remaining work is confined to the production technical contracts below, later activity hardening, and the separate live observer installation lifecycle.
 
 ## Accepted vertical-slice prototype defaults
 
@@ -624,4 +624,4 @@ These are specification/spike outputs rather than product-feature choices, but e
 - 2026-09-02: An opt-in global Pi observer may list ordinary-terminal Pi sessions as Observed and Unassigned, but observation grants no management authority. Exact same-process acknowledgement, user confirmation, reconciliation, and a durable commit are required for Adoption into a Team Goal.
 - 2026-09-02: The bounded Companion Plugin vertical slice completed fake-only: exact authorized installation lifecycle, one persistent installation across Team Goals, ephemeral session generations, reload reconstruction, acknowledged intents, presentation-only QML, and byte-identical runtime cleanup are green.
 - 2026-09-03: The human Companion gate passed on the pinned live host: three real interactive Pi processes and Agent Console cards agreed across waiting, managed work, takeover, persistence, reload, and clear/hide; installation fingerprints matched and all ephemeral resources reconciled absent.
-- 2026-09-04: The observer/Adoption prototype reached fake-only green across protocol, privacy, registry, same-process acknowledgement, transactional Adoption, Companion projection, and cleanup. R1 remains explicit: Pi 0.84.4 has no complete content-free slash-command and `user_bash` activity lifecycle, so live observer installation and Adoption validation stay blocked until a public signal or an explicitly recorded reconciliation-contract revision.
+- 2026-09-04: The observer/Adoption prototype reached fake-only green across protocol, privacy, registry, same-process acknowledgement, transactional Adoption, Companion projection, and cleanup. The user explicitly accepted Pi 0.84.4's incomplete content-free slash-command and `user_bash` activity lifecycle as bounded risk for the current contract; `ctx.isIdle()` plus existing guards remain best-effort, with stronger activity signalling deferred as hardening.

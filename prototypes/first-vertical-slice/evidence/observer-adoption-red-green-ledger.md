@@ -1,6 +1,6 @@
 # Observer and Adoption vertical-slice red-to-green ledger
 
-Status: **Phases 0–7 fake-only green; R1 blocks live validation; ready for user review, not live review**
+Status: **Phases 0–7 fake-only green; R1 accepted as bounded risk; ready for user review, live validation not run**
 
 This ledger records the test-first progression for the observer/Adoption
 prototype milestone defined in
@@ -59,7 +59,7 @@ No assertion was weakened to obtain the red results.
 | Phase 5 same-process adapter | `observer-extension-adapter-green.txt` | 20/20 green in the fake host; exact identity/ack, fail-open behavior, status isolation, and post-commit bridge boundary |
 | Phase 6 Companion/QML | `observer-companion-qml-green.txt` | 29/29 green; Unassigned Agents, opaque intents/results, QML/source audits, lint, and canonical/package byte equality |
 | Phase 7 integrated acceptance | `observer-acceptance-green.txt` | `just prototype-observer-adoption-check`: 123/123 tests green plus static QML lint; standalone ten-outcome acceptance PASS |
-| Phase 8 review/closeout | this ledger and linked design docs | fake-only closeout recorded; R1 remains an explicit live-feasibility blocker |
+| Phase 8 review/closeout | this ledger and linked design docs | fake-only closeout recorded; R1 risk disposition is explicit; live validation remains unrun |
 
 ## Phase 6 — Companion/QML evidence
 
@@ -102,7 +102,7 @@ The concise standalone output is retained in `observer-acceptance-green.txt`.
 The complete recipe also reran the observer suites, source audits, QML
 boundary, and static lint without invoking any human-only path.
 
-## R1 — unresolved live-feasibility blocker
+## R1 — accepted bounded risk; future hardening
 
 The Pi 0.84.4 public extension surface supports the selected random
 process/Pi-session/extension identities, current connection binding, named
@@ -110,20 +110,18 @@ status, documented session lifecycle, and the fake-tested acknowledgement
 shape. It does **not** provide a complete content-free start/end lifecycle for
 slash-command execution: extension commands bypass the input event, and
 `user_bash` is a content-bearing pre-execution hook with no matching completion
-event. `ctx.isIdle()` is not documented as a complete classifier for arbitrary
-slash-command or `user_bash` activity.
+event. `ctx.isIdle()` is not a complete classifier for arbitrary slash-command
+or `user_bash` activity.
 
-The adapter therefore cannot safely prove idleness at Adoption acknowledgement
-for those cases without violating the locked privacy/process boundary. The
-fake `idle`/`unknown` controls are not live evidence. The prototype stops here:
-no live observer installation or Adoption validation is claimed.
+The user explicitly accepts this limitation for the current bounded contract.
+The adapter uses `ctx.isIdle()` plus its existing guards as best-effort
+reconciliation, without adding input inspection, shell wrapping, terminal
+scraping, conversation inspection, or input injection. R1 no longer blocks the
+prototype or a future human validation attempt; stronger activity signalling
+remains future hardening. No live observer installation or Adoption validation
+has been run.
 
-Resolve R1 with a public content-free Pi activity signal, or explicitly revise
-the reconciliation contract in the authoritative design and decision log. Do
-not add input inspection, shell wrapping, terminal scraping, conversation
-inspection, or input injection as a workaround.
-
-The proposed, currently blocked human-only procedure is
+The proposed human-only procedure is
 [`../docs/observer-adoption-live-validation.md`](../docs/observer-adoption-live-validation.md).
 
 ## Phase 8 — review and closeout disposition
@@ -138,13 +136,13 @@ Completed closeout checks:
   restored;
 - [x] README, `CONTEXT.md`, MVP design, Pi terminal design, implementation
   plan, prototype README, observer contract, and the proposed human procedure
-  state the fake-only boundary and R1 blocker;
+  state the fake-only boundary and accepted R1 risk disposition;
 - [x] the generic `just fusion` launcher remains general after integrating
   `main`; the observer milestone launcher is `just fusion-observer-adoption`;
 - [x] the persistent Companion installation lifecycle is not touched by the
   observer acceptance path; and
-- [ ] live observer feasibility, installation, and Adoption validation — blocked
-  by R1 and intentionally not attempted.
+- [ ] live observer feasibility, installation, and Adoption validation — not run
+  in this fake-only milestone and still not claimed as evidence.
 
 No independent live Standards/Spec review can be claimed from the interrupted
 Fusion session. The static contract/source review is green; the remaining

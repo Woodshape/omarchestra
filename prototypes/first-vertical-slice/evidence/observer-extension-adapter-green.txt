@@ -118,3 +118,12 @@ before claiming full Phase 5 feasibility or proceeding to live validation.
 No Pi/provider, GUI, terminal, PTY, process, socket, installed extension,
 configuration, Companion state, Boomux, SSH, or service resource was started,
 inspected, or mutated. No commit or push was made.
+
+R1 DISPOSITION (2026-09-04)
+
+The user explicitly accepted the documented `ctx.isIdle()` limitation as a
+bounded risk for the current observer/Adoption contract. R1 no longer blocks
+the prototype or a future human validation attempt. Stronger content-free
+slash-command and user-bash activity signalling remains future hardening; no
+content-bearing hook or terminal inspection is added, and this historical
+finding does not constitute live evidence.

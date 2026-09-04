@@ -1,6 +1,6 @@
 # Observer and Adoption implementation plan
 
-Status: **fake-only prototype phases complete; live validation blocked by R1; prototype milestone only**
+Status: **fake-only prototype phases complete; R1 accepted as bounded risk; live validation not run; prototype milestone only**
 
 ## Outcome
 
@@ -10,8 +10,9 @@ a normal local Omarchy terminal becomes an **Observed Pi Session** shown under
 exact, current, user-confirmed, same-process acknowledged **Adoption**.
 
 This milestone closes the bounded fake-only observer/Adoption contract. It does
-not establish live Pi feasibility or start broad production implementation;
-those remain subject to the explicit R1 boundary below.
+not claim live Pi evidence or start broad production implementation. The R1
+activity-classification limitation is explicitly accepted as bounded risk for
+this contract and remains a later hardening item.
 
 ## Required context
 
@@ -186,20 +187,24 @@ or modify global Pi configuration.
 
 Completion criterion: fake-host tests prove same-process identity/
 acknowledgement, fail-open ordinary use, status-slot isolation, and absence of
-a hidden agent or terminal/process control. Live feasibility remains subject to
-R1 below.
+a hidden agent or terminal/process control. The R1 limitation below is an
+accepted bounded risk for this prototype contract.
 
-#### R1 — content-free command/activity lifecycle
+#### R1 — accepted bounded risk; future hardening
 
 The fake-host implementation and tests are green, but the Pi 0.84.4 public
 extension surface does not provide complete content-free start/end lifecycle
 coverage for slash-command or `user_bash` execution. The input hook is bypassed
 for extension commands, and the `user_bash` hook is content-bearing without a
-matching completion event. `ctx.isIdle()` alone cannot prove safe Adoption
-reconciliation for those activities. This is a live-feasibility blocker, not a
-permission to inspect content, wrap shell execution, scrape the terminal, or
-weaken the contract. Live installation and validation remain stopped until a
-public signal is available or this rule is explicitly revised in the design.
+matching completion event. `ctx.isIdle()` alone is therefore not a complete
+classifier for those activities.
+
+The user explicitly accepts this limitation for the current bounded contract:
+the adapter may use `ctx.isIdle()` plus its existing guards as best-effort
+reconciliation and must not inspect content, wrap shell execution, scrape the
+terminal, or inject input. R1 no longer blocks the prototype or a future human
+validation attempt; it remains a follow-up hardening item and must not be
+presented as stronger Pi attestation than it is.
 
 ### Phase 6 — Companion presentation
 

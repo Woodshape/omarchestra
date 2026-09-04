@@ -1,6 +1,6 @@
 # Observer and Adoption v1 prototype contract
 
-Status: **bounded fake-only prototype implemented; live validation blocked by R1**
+Status: **bounded fake-only prototype implemented; R1 accepted as bounded risk; live validation not run**
 
 **PROTOTYPE — NOT PRODUCTION.** This contract records the shapes required for
 the removable observer/Adoption milestone. It does not define production
@@ -297,28 +297,27 @@ continuation is active, no extension UI prompt is active, the session is not
 shutting down, and any editor check remains local without emitting content or
 length.
 
-`busy`, `unknown`, and `exited` refuse. If slash-command or user-bash activity
-cannot be classified through the public extension surface, the result is
-`unknown`. The observer must not wrap shell execution, scrape terminal output,
-inspect conversation state, or inject input to obtain certainty.
+`busy`, `unknown`, and `exited` refuse. On Pi 0.84.4, slash-command and
+`user_bash` activity are not independently classified because extension
+commands bypass the input event and `user_bash` is a content-bearing
+pre-execution hook without a matching completion event. For this bounded
+contract, the adapter uses `ctx.isIdle()` plus its existing guards as
+best-effort reconciliation. It must not wrap shell execution, scrape terminal
+output, inspect conversation state, or inject input.
 
-### R1 — live content-free activity lifecycle remains open
+### R1 — accepted bounded risk; future hardening
 
 The fake Pi host can inject `idle`, `busy`, `unknown`, and `exited` facts, and
-those cases are covered by the fake-only adapter and Adoption gates. That does
-not establish the corresponding live Pi guarantee. Review of the documented Pi
-0.84.4 extension surface found no complete content-free start/end lifecycle for
-slash-command execution: extension commands bypass the input event, while
-`user_bash` is a content-bearing pre-execution hook with no matching completion
-event. `ctx.isIdle()` is not documented as a complete classifier for those
-arbitrary activities.
+those cases are covered by the fake-only adapter and Adoption gates. The public
+Pi surface still lacks a complete content-free lifecycle for arbitrary
+slash-command and `user_bash` activity, so `ctx.isIdle()` does not attest that
+those activities are absent.
 
-Therefore the prototype deliberately stops before live installation or
-Adoption validation. Until Pi exposes a content-free command/activity lifecycle
-(or this reconciliation rule is explicitly revised and recorded), an adapter
-must not treat `ctx.isIdle()` alone as proof that acknowledgement is safe. The
-fake acceptance result is evidence of composition and authority ordering only,
-not live feasibility.
+The user explicitly accepts this limitation for the current bounded contract.
+R1 therefore no longer blocks the prototype or a future human validation
+attempt; it remains a follow-up hardening item. The fake acceptance result is
+evidence of composition and authority ordering, not proof of a stronger live
+activity guarantee.
 
 Reconciliation imports no conversation, prior work, repository change, or
 Assignment state. It cannot fabricate completed work.
@@ -433,4 +432,4 @@ private evidence, Pi configuration, or Omarchy configuration, and never invoke
 Pi/provider requests, Ghostty, Hyprland, Quickshell, Omarchy shell IPC, Boomux,
 SSH, systemd, PTYs, or terminal scraping. The proposed human-only procedure is
 recorded in [`observer-adoption-live-validation.md`](observer-adoption-live-validation.md),
-but it is blocked by R1 and has not been run.
+but it has not been run in this fake-only milestone.

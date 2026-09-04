@@ -93,11 +93,12 @@ the full invalid Adoption matrix, exact same-process acknowledgement, one
 atomic commit, managed presentation, reconstruction, and exact cleanup. It does
 not prove live Pi behavior or production readiness.
 
-R1 remains an explicit stop boundary. Pi 0.84.4 has no complete content-free
-start/end lifecycle for slash-command and `user_bash` execution; the fake
-`idle`/`unknown` controls cannot substitute for that live proof. Do not install
-or validate the observer live until a public activity signal is available or
-the reconciliation rule is explicitly revised. The proposed procedure is
+R1 is an accepted bounded risk for this contract. Pi 0.84.4 has no complete
+content-free start/end lifecycle for slash-command and `user_bash` execution,
+so the adapter uses `ctx.isIdle()` plus its existing guards as best-effort
+reconciliation without inspecting content. The limitation is recorded for
+later hardening; the proposed human procedure remains unrun and must report
+this boundary honestly:
 [`docs/observer-adoption-live-validation.md`](docs/observer-adoption-live-validation.md).
 
 ## Setup
@@ -210,7 +211,7 @@ and exact Omarchy configuration change.
 3. `QMLLINT_BIN=/usr/lib/qt6/bin/qmllint just prototype-observer-adoption-check`
    — run the fake-only observer/Adoption, Companion projection, and QML gate.
 4. `evidence/observer-adoption-red-green-ledger.md` — inspect the observer
-   phases, acceptance output, and explicit R1 stop boundary.
+   phases, acceptance output, and explicit R1 risk disposition.
 5. `evidence/companion-red-green-ledger.md` — inspect the intended red and
    final green Companion evidence in execution order.
 6. `evidence/fake-only-acceptance.txt` — inspect the durable-runner gate output.
@@ -225,8 +226,8 @@ and exact Omarchy configuration change.
    and the retired launcher's fail-closed disposition.
 12. `docs/live-agent-console-launch-blocker.md` — installed-API evidence for
     the rejected repo-local loading path and the selected resolution.
-13. `docs/observer-adoption-live-validation.md` — the blocked human-only
-    observer procedure proposal.
+13. `docs/observer-adoption-live-validation.md` — the proposed human-only
+    observer procedure (not run).
 14. `docs/live-agent-console-run-report.md` — the seam-by-seam run report and
     evidence ledger for this fusion run.
 
@@ -318,7 +319,7 @@ Unresolved questions (deliberately not decided here):
 - production Companion packaging, compatibility beyond the validated host,
   and latency/performance requirements beyond the human gate;
 - live observer installation and validation, including the R1 activity
-  lifecycle boundary;
+  limitation and its accepted bounded-risk disposition;
 - socket trust beyond same-user Unix permissions, and the authenticated
   SSH-stdio protocol;
 - recovery beyond a surviving bridge identity (Pi restart, extension reload,
@@ -334,9 +335,9 @@ Projection Session slice is complete with fake-only failure coverage and a
 separate human live PASS. The repository-local per-run QML launcher stays
 fail-closed as rejected historical evidence and is absent
 from active recipes. Observer/Adoption is implemented only as a fake-only
-prototype and remains blocked from live installation and validation by R1;
-`reconciling` remains an explicit scope limit rather than silently simulated
-behavior.
+prototype; its R1 activity limitation is accepted as bounded risk for this
+contract and remains a hardening item. `reconciling` remains an explicit scope
+limit rather than silently simulated behavior.
 
 ## Wipe instructions
 

@@ -1,30 +1,30 @@
 # Proposed observer/Adoption live validation
 
-Status: **BLOCKED by R1 — proposal only; not run**
+Status: **PROPOSED — not run; R1 bounded-risk limitation accepted**
 
 **PROTOTYPE — NOT PRODUCTION.** This is a human-only validation procedure
 proposal for the bounded observer/Adoption contract. It is intentionally not an
 automated recipe and does not authorize installation or live execution.
 
-## Blocking precondition
+## R1 limitation to record
 
-Do not run this procedure until the Pi public extension surface provides a
-content-free start/end lifecycle for slash-command and `user_bash` execution,
-or the reconciliation rule is explicitly revised in the authoritative design
-and its decision log. Pi 0.84.4 does not currently provide that proof:
-extension commands bypass the input event, `user_bash` is content-bearing and has
-no matching completion event, and `ctx.isIdle()` is not a complete classifier
-for arbitrary command activity. This is R1 from
+The Pi public extension surface does not provide a complete content-free
+start/end lifecycle for slash-command and `user_bash` execution: extension
+commands bypass the input event, `user_bash` is content-bearing and has no
+matching completion event, and `ctx.isIdle()` is not a complete classifier for
+arbitrary command activity. This is R1 from
 [`observer-adoption-v1.md`](observer-adoption-v1.md).
 
-A passing fake gate cannot satisfy this precondition. No live observer
-installation, ordinary Pi launch, Companion mutation, provider request, or
-Adoption attempt is valid evidence while R1 remains open.
+The current contract explicitly accepts `ctx.isIdle()` plus its existing guards
+as best-effort reconciliation. A future live run must record this limitation
+and must not add input inspection, shell wrapping, terminal scraping,
+conversation inspection, or input injection. A passing fake gate still does not
+constitute live evidence.
 
 ## Required human setup
 
-After R1 is closed, an owner-authorized operator may prepare a disposable local
-validation run with:
+With R1 accepted as a bounded risk, an owner-authorized operator may prepare a
+future disposable local validation run with:
 
 - the pinned compatible Pi, Omarchy, and Companion versions recorded in the
   resulting private evidence;
@@ -59,11 +59,11 @@ credentials, environment values, cwd, title, focus, or recency.
    already-managed, duplicate, timeout, refusal, and identity-drift cases.
    Confirm each leaves the ordinary Pi observed/unassigned when still current,
    and that no Team Runner dispatch occurs.
-5. Exercise the R1-sensitive command/activity cases only after the blocking
-   precondition is satisfied. Use lifecycle facts rather than content capture;
-   prove that an active slash command or `user_bash` action is `busy` and that
-   an unclassifiable condition is `unknown`. Do not add an input hook or shell
-   wrapper to obtain this evidence.
+5. Exercise the R1-sensitive command/activity cases and record the bounded
+   limitation. Use only the available lifecycle facts and `ctx.isIdle()`;
+   do not add an input hook or shell wrapper, capture command content, scrape
+   the terminal, or inspect conversation state. Treat the result as best-effort,
+   not as proof that arbitrary command activity is absent.
 6. From Unassigned Agents, select the exact current observed session, choose the
    same-Node local Team Goal and vacant Role, and display the immutable proposal.
    Record that explicit human confirmation is required and that QML supplied
