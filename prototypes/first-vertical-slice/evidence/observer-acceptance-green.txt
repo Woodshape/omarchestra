@@ -1,0 +1,7 @@
+OMARCHESTRA OBSERVER/ADOPTION ACCEPTANCE — PROTOTYPE, FAKE-ONLY
+OBSERVE current=1 status=Unassigned · observed authority-before=true
+PRIVACY forbidden-canary-absent=true rejected-before-transport=true
+ADOPT order=proposed>authorized>same_process_acknowledged>reconciled>committed commits=1 observed-after=0 managed-status=Builder · managed
+RECOVERY commits=1 agents=1 duplicates=0 runtime-binding=unavailable
+CLEANUP exact=true unrelated-preserved=true live-actions=0
+VERDICT PASS — observed/unassigned before exact acknowledged Adoption and committed/managed after one transaction

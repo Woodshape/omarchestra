@@ -1,0 +1,40 @@
+$ QMLLINT_BIN=/usr/lib/qt6/bin/qmllint node --experimental-strip-types --test observer/test/companion-projection.test.ts observer/test/source-audit.test.mjs console/test/qml-boundary.test.mjs
+✔ the plugin manifest exposes a schema-versioned panel entry point (1.713775ms)
+✔ plain injected projection data exposes three opaque committed piStatus labels (2.513803ms)
+✔ QML presents ready, reconnecting, and explicit gap states from injected projection status (0.349659ms)
+✔ all QML stays presentation-only and has no forbidden runtime dependencies (1.885242ms)
+✔ QML contains no role/state label maps or client-side label derivation (1.333761ms)
+✔ QML renders a separate authoritative Unassigned Agents projection without changing managed cards (0.680871ms)
+✔ QML emits separate request and exact-confirmation intents and renders bounded results only (1.105191ms)
+✔ the observer-capable immutable release packages canonical QML bytes while release 0.2.0 remains distinct (61.317582ms)
+✔ QML syntax and lint pass through qmllint without launching a UI (312.318243ms)
+✔ the Companion manifest stays a panel-only surface advertising the companion protocol (0.458098ms)
+✔ the adapted Companion QML gains no filesystem, cursor, reconnect, shell-command, terminal, or orchestration authority (1.649069ms)
+✔ observer capability is additive and leaves the six managed capabilities unchanged (12.552171ms)
+✔ plain observer projection is authoritative, bounded, and separate from the managed handoff (3.833051ms)
+✔ observer projection exposes only opaque choices and no identity or management authority (0.465136ms)
+✔ forbidden or unknown content is rejected before observer presentation (0.823396ms)
+✔ observer revisions are monotonic and stale updates cannot replace current presentation (0.66425ms)
+✔ request_adoption forwards only current session, intent, observed-session, and opaque choice identities (1.085016ms)
+✔ authorize_adoption forwards only the exact proposal identity displayed for confirmation (0.583462ms)
+✔ stale Projection Session rejects both request and confirmation before the observer port (0.722015ms)
+✔ intent validation rejects target authority supplied by QML and malformed proposal digests (0.670513ms)
+✔ observer intent results have exact fields and bounded plain data (0.801664ms)
+✔ stop clears only ephemeral observer presentation and unsubscribes once (0.369012ms)
+✔ all observer implementation seams exist under the removable prototype directory (4.716141ms)
+✔ observer implementation modules contain no live-system or process-launch primitive (6.692315ms)
+✔ observer modules cannot reach installation, existing SQLite, human adapters, or private evidence (85.581876ms)
+✔ the pure contracts and telemetry policy own no I/O (0.613176ms)
+✔ the Pi adapter subscribes to lifecycle only and never observes content-bearing hooks (1.169596ms)
+✔ the automated observer gate is fake-only and cannot invoke a human-only recipe (0.722933ms)
+✔ observer acceptance imports only fake/runtime core modules and never launches a process (30.665799ms)
+ℹ tests 29
+ℹ suites 0
+ℹ pass 29
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 468.124445
+
+PHASE_6_GREEN: Companion observer projection, Unassigned Agents QML, intent/result validation, source audits, and canonical/package QML byte equality pass.

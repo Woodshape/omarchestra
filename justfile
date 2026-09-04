@@ -77,6 +77,41 @@ prototype-live-agent-console-check:
         shellcheck "$root/prototypes/first-vertical-slice/manual/run-companion-setup-validation.sh"
     fi
 
+# PROTOTYPE — NOT PRODUCTION: complete unattended fake-only observer and
+# Adoption check. It runs only the observer fakes, static audits, and QML
+# boundary tests; it never invokes a human-only recipe or live integration.
+prototype-observer-adoption-check:
+    #!/usr/bin/env bash
+    set -euo pipefail
+    root='{{justfile_directory()}}'
+    flags=()
+    if node --help | grep -qE '(^|[[:space:]])--experimental-strip-types([[:space:]]|$)'; then
+        flags+=(--experimental-strip-types)
+    fi
+    node "${flags[@]}" --test \
+        "$root/prototypes/first-vertical-slice/observer/test/protocol.test.ts" \
+        "$root/prototypes/first-vertical-slice/observer/test/telemetry-policy.test.ts" \
+        "$root/prototypes/first-vertical-slice/observer/test/registry.test.ts" \
+        "$root/prototypes/first-vertical-slice/observer/test/adoption.test.ts" \
+        "$root/prototypes/first-vertical-slice/observer/test/extension-adapter.test.ts" \
+        "$root/prototypes/first-vertical-slice/observer/test/companion-projection.test.ts" \
+        "$root/prototypes/first-vertical-slice/observer/test/source-audit.test.mjs" \
+        "$root/prototypes/first-vertical-slice/observer/test/acceptance.test.ts" \
+        "$root/prototypes/first-vertical-slice/console/test/qml-boundary.test.mjs"
+    qml_lint="${QMLLINT_BIN:-}"
+    if [[ -z "$qml_lint" ]] && command -v qmllint >/dev/null; then
+        qml_lint=qmllint
+    fi
+    if [[ -n "$qml_lint" ]]; then
+        "$qml_lint" -I /usr/share/omarchy/shell \
+            "$root/prototypes/first-vertical-slice/console/plugin/AgentConsole.qml" \
+            "$root/prototypes/first-vertical-slice/console/plugin/AgentConsoleCards.qml" \
+            "$root/prototypes/first-vertical-slice/console/plugin/UnassignedAgents.qml"
+    fi
+    mkdir -p "$root/prototypes/first-vertical-slice/evidence"
+    node "${flags[@]}" "$root/prototypes/first-vertical-slice/observer/acceptance.ts" 2>&1 \
+        | tee "$root/prototypes/first-vertical-slice/evidence/observer-acceptance-green.txt"
+
 # PROTOTYPE — NOT PRODUCTION: complete unattended fake-only Companion check.
 # It never invokes the human setup path except through --check.
 prototype-companion-check:
