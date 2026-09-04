@@ -160,15 +160,16 @@ spike-omarchy-ephemeral-plugin-loader:
 prototype-vertical-slice-role-label-gate:
     bash '{{justfile_directory()}}/prototypes/first-vertical-slice/manual/run-role-label-gate.sh'
 
-# Raw three-slot Fusion shell without an initial collaboration command.
-fusion-shell *ARGS:
+# General three-slot Fusion stack. Pi and every child agent use this directory
+# as their CWD; optional arguments are forwarded unchanged to Pi.
+fusion *ARGS:
     pi -e "{{fusion_harness}}/extensions/fusion-harness/fusion-harness.ts" \
         --fh-config "{{fusion_harness}}/.pi/fusion-harness/model-stack-fusion.yaml" \
         {{ARGS}}
 
-# Start or resume the observer/Adoption implementation branch, then launch the
-# three-slot Fusion collaboration against its committed execution plan.
-fusion:
+# Opt-in observer/Adoption milestone: create or resume its branch, then launch
+# Fusion collaboration against the committed execution plan.
+fusion-observer-adoption:
     #!/usr/bin/env bash
     set -euo pipefail
     root='{{justfile_directory()}}'
@@ -176,7 +177,7 @@ fusion:
     target='prototype/observer-adoption-gate'
     cd "$root"
     [[ -z "$(git status --porcelain)" ]] || {
-        printf 'just fusion requires a clean worktree\n' >&2
+        printf 'just fusion-observer-adoption requires a clean worktree\n' >&2
         exit 2
     }
     current=$(git branch --show-current)
@@ -189,7 +190,7 @@ fusion:
             git switch -c "$target"
         fi
     elif [[ "$current" != "$target" ]]; then
-        printf 'just fusion requires main or %s; current branch is %s\n' "$target" "$current" >&2
+        printf 'just fusion-observer-adoption requires main or %s; current branch is %s\n' "$target" "$current" >&2
         exit 2
     fi
     exec pi -e "$harness/extensions/fusion-harness/fusion-harness.ts" \
