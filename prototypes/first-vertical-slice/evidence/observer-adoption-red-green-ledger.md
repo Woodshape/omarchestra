@@ -1,143 +1,160 @@
 # Observer and Adoption vertical-slice red-to-green ledger
 
-Status: **Phases 0–2 recorded; red gates confirmed; implementation not yet started**
+Status: **Phases 0–7 fake-only green; R1 blocks live validation; ready for user review, not live review**
 
 This ledger records the test-first progression for the observer/Adoption
 prototype milestone defined in
 [`docs/plans/observer-adoption-implementation.md`](../../../docs/plans/observer-adoption-implementation.md).
-All commands in this ledger are fake-only or static. They did not contact a
+All automated commands below are fake-only or static. They did not contact a
 live Omarchy shell, mutate user configuration, launch a GUI, Pi, provider,
-Boomux, SSH, Hyprland, or systemd, or create private live evidence. No commit
-or push was made.
+Boomux, SSH, Hyprland, or systemd, or create private live evidence.
+
+The interrupted Fusion session had no recoverable in-memory state. The
+recoverable work was checkpointed before the main-branch integration:
+
+| Checkpoint | Meaning |
+| --- | --- |
+| `11343bb` | existing observer/Adoption implementation and test WIP checkpoint |
+| `a7e4c6a` | fake-only observer acceptance gate, evidence, and recipe checkpoint |
+| `62837f9` | merge of `main` commit `e45c72c` (`just fusion` stays general; the milestone launcher is `just fusion-observer-adoption`) |
 
 ## Phase 0 — baseline and branch safety
 
-### Checkout verification
-
-| Check | Result |
-| --- | --- |
-| Current branch | `prototype/observer-adoption-gate` |
-| Starting worktree | clean (`git status --porcelain` empty) |
-| Plan commit | `be27626 docs: plan observer adoption milestone` |
-| Plan commit is ancestor of HEAD | yes (`git merge-base --is-ancestor be27626 HEAD` → 0) |
-| Plan commit is on `main` | yes (`git branch --contains be27626` lists `main`) |
-| HEAD | `6a104b9 merge: live Agent Console companion milestone` |
-
-### Baseline fake-only gates
-
-All four existing fake-only gates were run on the clean checkout. The
-`prototype-live-agent-console-check` gate requires the static QML linter
-`qmllint`, which is installed at `/usr/lib/qt6/bin/qmllint` but is not on
-`PATH` in this environment; the gate's own test honors the `QMLLINT_BIN`
-environment variable, so it was run with `QMLLINT_BIN=/usr/lib/qt6/bin/qmllint`.
-`qmllint` is a static linter and is explicitly permitted by the plan; no live
-Quickshell/Omarchy UI was started.
+The baseline checkout was `prototype/observer-adoption-gate`, clean, and based
+on plan commit `be27626` plus the live Companion milestone at `6a104b9`. The
+current branch is still `prototype/observer-adoption-gate`; the later
+acceptance and documentation work is now checkpointed as listed above.
 
 | Command | Result | Exit |
 | --- | --- | --- |
-| `just prototype-companion-check` | 77/77 tests pass; standalone `VERDICT PASS`; setup-validation check `PASS (fake-only)`; launcher `PASS (fake-only)` | 0 |
-| `QMLLINT_BIN=/usr/lib/qt6/bin/qmllint just prototype-live-agent-console-check` | 67/67 tests pass; setup-validation check `PASS (fake-only)`; launcher `PASS (fake-only)` | 0 |
-| `just prototype-vertical-slice` | `ACCEPTANCE GATE COMPLETE` (default + WAL journal scenarios) | 0 |
-| `just prototype-vertical-slice-manual-check` | 6/6 tests pass; manual role-label wizard static check `PASS` | 0 |
+| `QMLLINT_BIN=/usr/lib/qt6/bin/qmllint just prototype-companion-check` | 77/77 tests pass; standalone Companion verdict PASS; setup `--check` and launcher checks PASS | 0 |
+| `QMLLINT_BIN=/usr/lib/qt6/bin/qmllint just prototype-live-agent-console-check` | 70/70 tests pass; fake-only setup checks PASS | 0 |
+| `just prototype-vertical-slice` | complete default and WAL runner scenarios; `ACCEPTANCE GATE COMPLETE` | 0 |
+| `just prototype-vertical-slice-manual-check` | 6/6 tests pass; role-label wizard static check PASS | 0 |
 
-### Nondeterministic evidence restore
+`prototype-vertical-slice` refreshes `evidence/fake-only-acceptance.txt` with
+fresh PIDs, temporary paths, and timestamps. That nondeterministic tracked
+output was restored after the run, so it is not an accidental diff.
 
-`just prototype-vertical-slice` refreshes the tracked evidence file
-`evidence/fake-only-acceptance.txt` with nondeterministic content (fresh PIDs,
-temporary state-directory paths, and timestamps). Per the plan, this generated
-evidence was restored to its committed state:
+## Red gates before implementation
 
-```bash
-git checkout -- prototypes/first-vertical-slice/evidence/fake-only-acceptance.txt
-```
+The Phase 2 red suites were captured before implementation and remain retained:
 
-After restore, `git status --porcelain` is empty (clean worktree).
+| Suite | Result |
+| --- | --- |
+| protocol/privacy/registry | 33 intended failures, 0 pass |
+| Adoption/observer adapter | 38 intended failures, 0 pass |
+| Companion observer/QML/acceptance | 26 intended failures and 6 unchanged managed-QML passes |
 
-### Phase 0 completion criterion
-
-- [x] Checkout is on `prototype/observer-adoption-gate`, clean, and based on the
-  main commit containing the plan.
-- [x] Existing fake-only gates are green.
-- [x] Nondeterministic generated evidence was reverted; the worktree contains
-  only the intentional ledger addition.
-- [x] No live resource was contacted.
-
-## Sequence (to be filled by later phases)
-
-| Phase | Evidence | Intended result | Final result |
-| --- | --- | --- | --- |
-| Phase 2 red gates | `observer-protocol-registry-red.txt`, `observer-adoption-adapter-red.txt`, `observer-companion-acceptance-red.txt` | Missing observer/Adoption implementation fails at owning seams | 33 + 38 + 26 intended failures; managed QML boundary stays green |
-| Phase 3 protocol/privacy/registry | `observer-protocol-registry-green.txt` | Protocol, telemetry policy, and registry green without Adoption/QML | pending |
-| Phase 4 Adoption | `observer-adoption-green.txt` | Happy path and conflict/crash matrix green; no partial authority | 28/28 green; restart discard + committed reconstruction proven |
-| Phase 5 observer adapter | `observer-extension-adapter-green.txt` | Same-process identity/ack, fail-open, status-slot isolation | pending |
-| Phase 6 Companion/QML | `observer-companion-qml-green.txt` | Unassigned Agents + Adoption intents; QML presentation-only; byte equality | pending |
-| Phase 7 integrated acceptance | `observer-acceptance-green.txt` | `just prototype-observer-adoption-check` green; existing gates green | pending |
-| Phase 8 review/closeout | this ledger | Independent review green or blockers explicit; docs updated | pending |
-
-## Phase 2 — red gates before implementation
-
-All eight Phase 2 suites were run before any production behavior was
-implemented. Each fails at its owning seam because its implementation module
-does not exist yet (`contracts.ts`, `telemetry-policy.ts`, `fakes.ts`,
-`registry.ts`, `adoption.ts`, `extension-adapter.ts`, `fake-pi-host.ts`,
-`companion-projection.ts`, `acceptance.ts`, and the Companion 0.3.0 release).
-No assertion was weakened to obtain these results.
-
-### Protocol-registry suites (task 2.a)
-
-```bash
-node --experimental-strip-types --test \
-  prototypes/first-vertical-slice/observer/test/protocol.test.ts \
-  prototypes/first-vertical-slice/observer/test/telemetry-policy.test.ts \
-  prototypes/first-vertical-slice/observer/test/registry.test.ts
-```
-
-Result: **33 tests, 0 pass, 33 fail** — strict `omarchestra.observer/v1`
-envelope validation, forbidden telemetry rejection before transport, and
-registry registration/reconnect/expiry/dedup/reconstruction/fail-open all red
-at their owning seams.
-
-### Adoption-adapter suites (task 2.b)
-
-```bash
-node --experimental-strip-types --test \
-  prototypes/first-vertical-slice/observer/test/adoption.test.ts \
-  prototypes/first-vertical-slice/observer/test/extension-adapter.test.ts
-```
-
-Result: **38 tests, 0 pass, 38 fail** — full Adoption ordering/invalid matrix,
-transaction/crash invariants, and the same-process observer adapter red at
-their owning seams.
-
-### Companion-acceptance suites (task 2.c)
-
-```bash
-QMLLINT_BIN=/usr/lib/qt6/bin/qmllint node --experimental-strip-types --test \
-  prototypes/first-vertical-slice/observer/test/companion-projection.test.ts \
-  prototypes/first-vertical-slice/observer/test/source-audit.test.mjs \
-  prototypes/first-vertical-slice/observer/test/acceptance.test.ts \
-  prototypes/first-vertical-slice/console/test/qml-boundary.test.mjs
-```
-
-Result: **32 tests, 6 pass, 26 fail**. The 6 passing are the pre-existing
-unchanged managed-card QML boundary assertions (no regression on the managed
-path); every new observer Companion projection, stale-intent, source-audit,
-acceptance, and QML 0.3.0 behavior is red.
-
-Combined intended-failure total: **97 red tests** across the three evidence
-files. Evidence is captured in `observer-protocol-registry-red.txt`,
+The red evidence is in `observer-protocol-registry-red.txt`,
 `observer-adoption-adapter-red.txt`, and `observer-companion-acceptance-red.txt`.
-All required behaviors are red-capable at their owning seams; no required
-behavior is accidentally green.
+No assertion was weakened to obtain the red results.
 
-### Phase 2 completion criterion
+## Green phase ledger
 
-- [x] Every required behavior has a red-capable test at its owning seam.
-- [x] Intended failures are reviewed and captured before implementation.
-- [x] No assertion was weakened to obtain red results.
+| Phase | Evidence | Final result |
+| --- | --- | --- |
+| Phase 3 protocol/privacy/registry | `observer-protocol-registry-green.txt` | 43/43 green; strict envelopes, privacy policy, registry reconnect/expiry/dedup/reconstruction, and fail-open behavior |
+| Phase 4 transactional Adoption | `observer-adoption-green.txt` | 28/28 green; ordering, complete invalid/crash matrix, restart discard, committed reconstruction, and no partial authority |
+| Phase 5 same-process adapter | `observer-extension-adapter-green.txt` | 20/20 green in the fake host; exact identity/ack, fail-open behavior, status isolation, and post-commit bridge boundary |
+| Phase 6 Companion/QML | `observer-companion-qml-green.txt` | 29/29 green; Unassigned Agents, opaque intents/results, QML/source audits, lint, and canonical/package byte equality |
+| Phase 7 integrated acceptance | `observer-acceptance-green.txt` | `just prototype-observer-adoption-check`: 123/123 tests green plus static QML lint; standalone ten-outcome acceptance PASS |
+| Phase 8 review/closeout | this ledger and linked design docs | fake-only closeout recorded; R1 remains an explicit live-feasibility blocker |
 
-## Scope limit
+## Phase 6 — Companion/QML evidence
 
-This milestone implements ordinary-terminal Pi observation and Adoption as a
-fake-only prototype. It does not install an observer, mutate Pi or Omarchy
-configuration, run a live gate, or begin broad production work.
+```text
+$ QMLLINT_BIN=/usr/lib/qt6/bin/qmllint node --experimental-strip-types --test \
+    observer/test/companion-projection.test.ts \
+    observer/test/source-audit.test.mjs \
+    console/test/qml-boundary.test.mjs
+
+29 tests
+29 pass
+0 fail
+exit 0
+
+PHASE_6_GREEN
+```
+
+The full output is retained in `observer-companion-qml-green.txt`.
+
+## Phase 7 — integrated fake-only acceptance
+
+The new recipe is `prototype-observer-adoption-check`. Its standalone
+composition in `observer/acceptance.ts` proves:
+
+- an ordinary visible-host fake remains usable without the registry;
+- exactly one observed registration is projected as `Unassigned · observed`;
+- forbidden data is rejected before crossing protocol, registry, event,
+  Companion, or QML-handoff surfaces;
+- all 16 invalid Adoption cases remain observed and unassigned;
+- `propose → authorize → same_process_acknowledged → reconciled → committed`
+  occurs once on the exact connection;
+- no managed work, assignment, prompt, or process action occurs before commit;
+- the same identity becomes `Builder · managed` only after commit, with
+  `runtimeBindingGuarantee=unavailable`;
+- reload/reconnect reconstructs one committed result without duplication; and
+- cleanup removes only the exact fake resource while preserving unrelated and
+  installed-Companion state.
+
+The concise standalone output is retained in `observer-acceptance-green.txt`.
+The complete recipe also reran the observer suites, source audits, QML
+boundary, and static lint without invoking any human-only path.
+
+## R1 — unresolved live-feasibility blocker
+
+The Pi 0.84.4 public extension surface supports the selected random
+process/Pi-session/extension identities, current connection binding, named
+status, documented session lifecycle, and the fake-tested acknowledgement
+shape. It does **not** provide a complete content-free start/end lifecycle for
+slash-command execution: extension commands bypass the input event, and
+`user_bash` is a content-bearing pre-execution hook with no matching completion
+event. `ctx.isIdle()` is not documented as a complete classifier for arbitrary
+slash-command or `user_bash` activity.
+
+The adapter therefore cannot safely prove idleness at Adoption acknowledgement
+for those cases without violating the locked privacy/process boundary. The
+fake `idle`/`unknown` controls are not live evidence. The prototype stops here:
+no live observer installation or Adoption validation is claimed.
+
+Resolve R1 with a public content-free Pi activity signal, or explicitly revise
+the reconciliation contract in the authoritative design and decision log. Do
+not add input inspection, shell wrapping, terminal scraping, conversation
+inspection, or input injection as a workaround.
+
+The proposed, currently blocked human-only procedure is
+[`../docs/observer-adoption-live-validation.md`](../docs/observer-adoption-live-validation.md).
+
+## Phase 8 — review and closeout disposition
+
+Completed closeout checks:
+
+- [x] observer implementation modules remain under the removable prototype
+  directory and are marked **PROTOTYPE — NOT PRODUCTION**;
+- [x] protocol, privacy, registry, Adoption, adapter, Companion projection,
+  acceptance, QML, import-graph, and automated-recipe source audits pass;
+- [x] `git diff --check` passes after generated nondeterministic evidence is
+  restored;
+- [x] README, `CONTEXT.md`, MVP design, Pi terminal design, implementation
+  plan, prototype README, observer contract, and the proposed human procedure
+  state the fake-only boundary and R1 blocker;
+- [x] the generic `just fusion` launcher remains general after integrating
+  `main`; the observer milestone launcher is `just fusion-observer-adoption`;
+- [x] the persistent Companion installation lifecycle is not touched by the
+  observer acceptance path; and
+- [ ] live observer feasibility, installation, and Adoption validation — blocked
+  by R1 and intentionally not attempted.
+
+No independent live Standards/Spec review can be claimed from the interrupted
+Fusion session. The static contract/source review is green; the remaining
+finding is explicit rather than hidden behind the fake acceptance gate.
+
+## Remaining production work
+
+The fake-only milestone does not close production observer installation,
+socket trust and permissions, durable persistence/retention, replay/cursors,
+compatibility breadth, telemetry filtering/coalescing, slash-command and
+`user_bash` lifecycle coverage, or the final committed role/state fan-out.
+Those remain production technical contracts and must not be inferred from this
+prototype.

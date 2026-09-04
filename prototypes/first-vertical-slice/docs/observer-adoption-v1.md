@@ -1,8 +1,8 @@
 # Observer and Adoption v1 prototype contract
 
-Status: **bounded prototype contract; implementation and live validation pending**
+Status: **bounded fake-only prototype implemented; live validation blocked by R1**
 
-**PROTOTYPE — NOT PRODUCTION.** This contract closes the shapes required for
+**PROTOTYPE — NOT PRODUCTION.** This contract records the shapes required for
 the removable observer/Adoption milestone. It does not define production
 packaging, install an observer, grant a remote ordinary-session claim, or
 promote prototype code into production.
@@ -302,6 +302,24 @@ cannot be classified through the public extension surface, the result is
 `unknown`. The observer must not wrap shell execution, scrape terminal output,
 inspect conversation state, or inject input to obtain certainty.
 
+### R1 — live content-free activity lifecycle remains open
+
+The fake Pi host can inject `idle`, `busy`, `unknown`, and `exited` facts, and
+those cases are covered by the fake-only adapter and Adoption gates. That does
+not establish the corresponding live Pi guarantee. Review of the documented Pi
+0.84.4 extension surface found no complete content-free start/end lifecycle for
+slash-command execution: extension commands bypass the input event, while
+`user_bash` is a content-bearing pre-execution hook with no matching completion
+event. `ctx.isIdle()` is not documented as a complete classifier for those
+arbitrary activities.
+
+Therefore the prototype deliberately stops before live installation or
+Adoption validation. Until Pi exposes a content-free command/activity lifecycle
+(or this reconciliation rule is explicitly revised and recorded), an adapter
+must not treat `ctx.isIdle()` alone as proof that acknowledgement is safe. The
+fake acceptance result is evidence of composition and authority ordering only,
+not live feasibility.
+
 Reconciliation imports no conversation, prior work, repository change, or
 Assignment state. It cannot fabricate completed work.
 
@@ -407,9 +425,12 @@ change the committed Adoption result.
 
 Observer installation, update, rollback, and uninstall are explicit product
 operations separate from Team Goals. This milestone specifies them but does not
-implement or run them. Automated gates use only fake clock, persistence,
-transport, authorization, Pi host, managed bridge, Companion shell, and cleanup
+implement live installation or run it. Automated gates use only fake clock,
+persistence, transport, authorization, Pi host, managed bridge, Companion shell,
+and cleanup
 ports. They do not inspect or mutate a developer's installed Companion release,
 private evidence, Pi configuration, or Omarchy configuration, and never invoke
 Pi/provider requests, Ghostty, Hyprland, Quickshell, Omarchy shell IPC, Boomux,
-SSH, systemd, PTYs, or terminal scraping.
+SSH, systemd, PTYs, or terminal scraping. The proposed human-only procedure is
+recorded in [`observer-adoption-live-validation.md`](observer-adoption-live-validation.md),
+but it is blocked by R1 and has not been run.

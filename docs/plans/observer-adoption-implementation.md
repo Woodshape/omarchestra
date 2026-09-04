@@ -1,6 +1,6 @@
 # Observer and Adoption implementation plan
 
-Status: **ready for Fusion execution; prototype milestone only**
+Status: **fake-only prototype phases complete; live validation blocked by R1; prototype milestone only**
 
 ## Outcome
 
@@ -9,8 +9,9 @@ a normal local Omarchy terminal becomes an **Observed Pi Session** shown under
 **Unassigned Agents**, and can become a managed **Agent Run** only through an
 exact, current, user-confirmed, same-process acknowledged **Adoption**.
 
-This milestone closes the observer/Adoption technical contract. It does not
-start broad production implementation.
+This milestone closes the bounded fake-only observer/Adoption contract. It does
+not establish live Pi feasibility or start broad production implementation;
+those remain subject to the explicit R1 boundary below.
 
 ## Required context
 
@@ -183,9 +184,22 @@ Specify installation/update/uninstall as explicit product operations, but keep
 this milestone's unattended implementation and checks fake-only. Do not install
 or modify global Pi configuration.
 
-Completion criterion: tests prove same-process identity/acknowledgement,
-fail-open ordinary use, status-slot isolation, and absence of a hidden agent or
-terminal/process control.
+Completion criterion: fake-host tests prove same-process identity/
+acknowledgement, fail-open ordinary use, status-slot isolation, and absence of
+a hidden agent or terminal/process control. Live feasibility remains subject to
+R1 below.
+
+#### R1 — content-free command/activity lifecycle
+
+The fake-host implementation and tests are green, but the Pi 0.84.4 public
+extension surface does not provide complete content-free start/end lifecycle
+coverage for slash-command or `user_bash` execution. The input hook is bypassed
+for extension commands, and the `user_bash` hook is content-bearing without a
+matching completion event. `ctx.isIdle()` alone cannot prove safe Adoption
+reconciliation for those activities. This is a live-feasibility blocker, not a
+permission to inspect content, wrap shell execution, scrape the terminal, or
+weaken the contract. Live installation and validation remain stopped until a
+public signal is available or this rule is explicitly revised in the design.
 
 ### Phase 6 — Companion presentation
 

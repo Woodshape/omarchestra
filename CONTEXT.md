@@ -1,5 +1,16 @@
 # Omarchestra domain language
 
+## Current prototype boundary
+
+The observer/Adoption terms below are implemented only in the removable
+fake-only prototype under `prototypes/first-vertical-slice/`. Its automated
+protocol, privacy, registry, projection, and transaction gates are green, but
+that evidence is not live feasibility or production code. R1 remains open:
+Pi 0.84.4 does not expose a complete content-free start/end lifecycle for
+slash-command and `user_bash` execution, so live observer/Adoption validation
+must wait for a public signal or an explicitly recorded reconciliation-contract
+revision.
+
 ## Core terms
 
 ### Team Goal

@@ -6,11 +6,11 @@ Omarchestra coordinates teams of real interactive coding agents, each shown in i
 
 ## Status
 
-**MVP product scope locked; the Companion Plugin vertical slice is live-proven and production technical contracts remain pending.**
+**MVP product scope locked; the Companion Plugin slice is live-proven, and the observer/Adoption slice is fake-only green with live feasibility still blocked.**
 
-The visible Pi bridge, local Boomux runtime adapter, and one-Node remote execution are supported with documented constraints after automated and human validation. The removable first vertical slice proves one explicitly authorized, versioned Companion Plugin installation, three real interactive Pi hosts, ephemeral Projection Sessions, committed role/state agreement, Builder-only managed work and takeover, one-minute persistence, reload reconstruction, and runtime clear/hide without changing the persistent installation. The unattended proof remains fake-only; the separate human gate passed on 2026-09-03 with private owner-only evidence.
+The visible Pi bridge, local Boomux runtime adapter, and one-Node remote execution are supported with documented constraints after automated and human validation. The removable first vertical slice proves one explicitly authorized, versioned Companion Plugin installation, three real interactive Pi hosts, ephemeral Projection Sessions, committed role/state agreement, Builder-only managed work and takeover, one-minute persistence, reload reconstruction, and runtime clear/hide without changing the persistent installation. The observer/Adoption prototype now proves bounded protocol, privacy, registry, same-process acknowledgement, transactional Adoption, Companion projection, and cleanup behavior using fakes only.
 
-Ordinary-terminal Pi observation and Adoption remain separate open technical work. This milestone did not implement or validate either behavior.
+No live observer installation or Adoption validation is claimed. Pi 0.84.4 lacks a complete content-free lifecycle signal for slash-command and `user_bash` execution, so the R1 stop finding blocks live feasibility until that signal is available or the reconciliation contract is explicitly revised. The unattended proofs remain fake-only; the separate Companion human gate passed on 2026-09-03 with private owner-only evidence.
 
 ## Design
 
@@ -23,7 +23,8 @@ Ordinary-terminal Pi observation and Adoption remain separate open technical wor
 - [Fusion readiness review](docs/reviews/2026-08-30-implementation-readiness/) — independent implementation-blocker review
 - [Companion Plugin v1 prototype contract](prototypes/first-vertical-slice/docs/companion-plugin-v1.md) — persistent installation, ephemeral Projection Sessions, ports, and fail-closed lifecycle
 - [Companion setup and validation](prototypes/first-vertical-slice/docs/live-agent-console-gate.md) — fake-only gate plus the passed human-authorized procedure
-- [Observer and Adoption implementation plan](docs/plans/observer-adoption-implementation.md) — next bounded Fusion milestone
+- [Observer and Adoption implementation plan](docs/plans/observer-adoption-implementation.md) — bounded fake-only milestone and R1 boundary
+- [Proposed observer/Adoption live validation](prototypes/first-vertical-slice/docs/observer-adoption-live-validation.md) — blocked human-only procedure
 
 ## Fusion workspace
 
@@ -41,10 +42,16 @@ just fusion-observer-adoption
 
 The accepted prototype defaults are TypeScript/Node 22+, SQLite with explicit transactions (journal mode intentionally unlocked), versioned NDJSON over Unix sockets and SSH stdio, a systemd user service, and thin presentation-only QML. These remain reversible prototype defaults rather than final production commitments.
 
-Run the complete Companion gate without touching live systems:
+Run the complete fake-only Companion gate without touching live systems:
 
 ```bash
 just prototype-companion-check
+```
+
+Run the complete fake-only observer/Adoption gate:
+
+```bash
+QMLLINT_BIN=/usr/lib/qt6/bin/qmllint just prototype-observer-adoption-check
 ```
 
 The only active live Companion recipe is `just prototype-companion-setup-validation`. It requires a compatible host, an interactive TTY, and the exact displayed authorization phrase. Automation and Fusion never invoke its live path.
