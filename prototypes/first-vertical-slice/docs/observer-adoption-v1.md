@@ -221,9 +221,10 @@ Adoption proposal per observed session.
 
 Observer presentation is additive to `omarchestra.companion/v1`. It does not
 modify the existing `AgentConsoleHandoff`, its three managed cards, its Team
-Runner cursor, or the `present_agent` intent. An observer-capable immutable
-Companion release advertises optional `session.observer`; the existing six
-managed capabilities remain unchanged.
+Runner cursor, or the `present_agent` intent. The observer-capable immutable
+Companion 0.3.0 release advertises optional `session.observer`; the existing six
+managed capabilities remain unchanged. Companion 0.2.0 remains the immutable
+historical default for the managed Projection Session path.
 
 The separate observer snapshot contains exactly:
 
@@ -251,9 +252,18 @@ Role.
 | `authorize_adoption` | current Projection Session identity, `intentId`, `proposalId`, `proposalDigest` | Represents explicit confirmation of exactly the displayed proposal. |
 | observer intent result | current Projection Session identity, `intentId`, `phase`, `code`, `detail`, nullable `proposalId`, nullable `proposalDigest`, nullable `remainingMs`, nullable `displayLabel` | Bounded plain data. QML renders it and owns no validation, expiry, deduplication, acknowledgement, reconciliation, or transaction. |
 
-Observer shell calls are separate `applyObservedAgents` and
-`observedIntentResult` calls. Adoption intents never travel through the managed
-`LiveProjectionAdapter`.
+Companion 0.3.0 also exposes a separate, fake-proven standalone observer-panel
+lifecycle. `openObservedAgents` accepts a validated sessionless snapshot only
+when every agent is `Unassigned · observed` and has `choices: []`;
+`applyObservedAgents` applies later observer revisions; and
+`clearObservedAgents` removes only observer presentation state. Opening creates
+no Projection Session identity and populates no managed cards or Team Runner
+cursor. Clearing cannot clear or hide an open managed presentation.
+
+The existing `observedIntentResult` call and observer Adoption intents remain
+separate from this observation-only lifecycle and never travel through the
+managed `LiveProjectionAdapter`. The standalone lifecycle is fake-proven only;
+it carries no Adoption authority and has not been run live.
 
 ## Immutable Adoption proposal
 

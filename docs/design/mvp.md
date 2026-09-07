@@ -194,11 +194,14 @@ no live Adoption claim is made.
 
 The observer-capable Companion catalog entry is version `0.3.0` and advertises
 additive `session.observer`; the existing managed Projection Session default
-remains the historical `0.2.0` release. In 0.3.0, `applyObservedAgents` is a
-sessionless observer update and does not open the Agent Console. The observer
-path must not summon the panel, fabricate managed cards, or create a managed
-Projection Session to obtain visual evidence. A standalone observer-only panel
-remains a future Companion contract change.
+remains the immutable historical `0.2.0` release. Companion 0.3.0 has a
+fake-proven sessionless `openObservedAgents`, `applyObservedAgents`, and
+`clearObservedAgents` lifecycle that opens and updates a standalone `Unassigned
+Agents` panel, then clears only observer state. It does not use managed summon,
+populate managed cards or cursor state, or create a Projection Session, Team
+Goal, Agent Run, Role, Assignment, or managed authority. Observer update and
+clear preserve an already open managed panel. This is prototype evidence only;
+no live observer-panel run or live Adoption validation has occurred.
 
 Pi 0.84.4 exposes no complete content-free start/end lifecycle for
 slash-command and `user_bash` execution; the current bounded contract accepts

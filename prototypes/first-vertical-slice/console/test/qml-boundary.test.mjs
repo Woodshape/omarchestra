@@ -327,3 +327,113 @@ test('the adapted Companion QML gains no filesystem, cursor, reconnect, shell-co
     }
   }
 })
+
+// ---------------------------------------------------------------------------
+// Standalone observer-only presentation lifecycle (task 1.a)
+// ---------------------------------------------------------------------------
+
+/** Extract the source of one QML function by name, balanced to its close brace. */
+function functionBody(qmlSource, fnName) {
+  const start = qmlSource.indexOf(`function ${fnName}(`)
+  assert.ok(start >= 0, `missing function ${fnName}`)
+  const brace = qmlSource.indexOf('{', start)
+  assert.ok(brace >= 0, `function ${fnName} has no body`)
+  let depth = 0
+  let i = brace
+  for (; i < qmlSource.length; i += 1) {
+    if (qmlSource[i] === '{') depth += 1
+    else if (qmlSource[i] === '}') {
+      depth -= 1
+      if (depth === 0) { i += 1; break }
+    }
+  }
+  return qmlSource.slice(start, i)
+}
+
+test('the observer lifecycle is an explicit non-managed boundary with observerOpened separate from opened', () => {
+  const consoleSource = stripQmlComments(source(CONSOLE_QML))
+  // distinct seams and a distinct observer flag
+  assert.match(consoleSource, /function\s+openObservedAgents\s*\(/)
+  assert.match(consoleSource, /function\s+applyObservedAgents\s*\(/)
+  assert.match(consoleSource, /function\s+clearObservedAgents\s*\(/)
+  assert.match(consoleSource, /property\s+bool\s+opened\s*:/)
+  assert.match(consoleSource, /property\s+bool\s+observerOpened\s*:/)
+
+  // observer opening creates no managed identity, cards, cursor, or session
+  const openObserved = functionBody(consoleSource, 'openObservedAgents')
+  assert.doesNotMatch(openObserved, /\bactiveSession\b/)
+  assert.doesNotMatch(openObserved, /\bprojection\s*=\s*\{/)
+  assert.doesNotMatch(openObserved, /\bpendingIntents\b/)
+  assert.doesNotMatch(openObserved, /sessionId|teamGoalId|sessionGeneration|pluginGeneration/)
+
+  // observer clear hides only observer state and never toggles managed `opened`
+  const clearObserved = functionBody(consoleSource, 'clearObservedAgents')
+  assert.doesNotMatch(clearObserved, /\bactiveSession\b/)
+  assert.doesNotMatch(clearObserved, /\bprojection\s*=\s*\{/)
+  assert.doesNotMatch(clearObserved, /\bpendingIntents\b/)
+  assert.doesNotMatch(clearObserved, /\sopened\s*=\s*false/)
+  assert.doesNotMatch(clearObserved, /\bclose\s*\(/)
+  assert.match(clearObserved, /observerOpened\s*=\s*false/)
+})
+
+test('openObservedAgents requires an exact sessionless observerProjection with Unassigned · observed and empty choices', () => {
+  const consoleSource = stripQmlComments(source(CONSOLE_QML))
+  const openObserved = functionBody(consoleSource, 'openObservedAgents')
+  // exact sessionless { observerProjection } payload: session and projection rejected
+  assert.match(openObserved, /Object\.keys\(envelope\)\.length\s*!==\s*1/)
+  assert.match(openObserved, /envelope\.session\s*!==\s*undefined/)
+  assert.match(openObserved, /envelope\.projection\s*!==\s*undefined/)
+  assert.match(openObserved, /envelope\.observerProjection/)
+  // strict content validation runs before observerOpened is committed
+  assert.match(openObserved, /validObserverProjection\(next,\s*true\)/)
+  assert.match(openObserved, /observerOpened\s*=\s*true/)
+
+  const validator = functionBody(consoleSource, 'validObserverProjection')
+  assert.match(validator, /piStatus\s*!==\s*["']Unassigned · observed["']/)
+  assert.match(validator, /choices\.[\s\S]*?length\s*!==\s*0/)
+  assert.match(validator, /observerRevision/)
+  assert.match(validator, /lifecycle|availability|health/)
+})
+
+test('applyObservedAgents updates the projection without opening the panel', () => {
+  const consoleSource = stripQmlComments(source(CONSOLE_QML))
+  const body = functionBody(consoleSource, 'applyObservedAgents')
+  assert.match(body, /observerProjection\s*=\s*\(/)
+  assert.match(body, /managedObserverUpdate\s*=\s*envelope\.session\s*!==\s*undefined/)
+  assert.match(body, /managedObserverUpdate\s*&&\s*!sessionMatches\(envelope\)/)
+  assert.match(body, /validObserverProjection\(next,\s*!managedObserverUpdate\)/)
+  // non-opening: must never set observerOpened true
+  assert.doesNotMatch(body, /observerOpened\s*=\s*true/)
+})
+
+test('managed open/clear/close never reset or reference observer state', () => {
+  const consoleSource = stripQmlComments(source(CONSOLE_QML))
+  for (const name of ['open', 'close', 'clear']) {
+    const body = functionBody(consoleSource, name)
+    assert.doesNotMatch(body, /observerProjection/, `${name} must not touch observerProjection`)
+    assert.doesNotMatch(body, /observerOpened/, `${name} must not touch observerOpened`)
+    assert.doesNotMatch(body, /observerIntentResult/, `${name} must not touch observerIntentResult`)
+    assert.doesNotMatch(body, /clearIntentState/, `${name} must not clear observer intent state`)
+  }
+})
+
+test('panel visibility is derived from managed OR observer flags and managed content is gated separately', () => {
+  const consoleSource = stripQmlComments(source(CONSOLE_QML))
+  // PanelWindow and the observer section both use the derived visibility
+  const derivedCount = (consoleSource.match(/root\.opened\s*\|\|\s*root\.observerOpened/g) || []).length
+  assert.ok(derivedCount >= 2, 'panel and observer visibility must be derived from opened OR observerOpened')
+
+  // managed content is gated behind a dedicated managedConsole container
+  const managedStart = consoleSource.indexOf('id: managedConsole')
+  assert.ok(managedStart >= 0, 'managed content must be wrapped in managedConsole')
+  const managedBlock = consoleSource.slice(managedStart)
+  assert.match(managedBlock, /visible:\s*root\.opened/)
+  assert.match(managedBlock, /AgentConsoleCards/)
+  assert.match(managedBlock, /cards:\s*root\.projection\.cards/)
+  assert.match(managedBlock, /cursor/)
+
+  // the observer section is a sibling presented under derived visibility
+  const observerStart = consoleSource.indexOf('id: unassignedAgents')
+  assert.ok(observerStart >= 0)
+  assert.match(consoleSource.slice(observerStart), /visible:\s*root\.opened\s*\|\|\s*root\.observerOpened/)
+})

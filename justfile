@@ -158,6 +158,7 @@ prototype-companion-check:
         "$root/prototypes/first-vertical-slice/companion/test/installation.test.ts" \
         "$root/prototypes/first-vertical-slice/console/test/companion-projection-session.test.ts" \
         "$root/prototypes/first-vertical-slice/companion/test/acceptance.test.ts" \
+        "$root/prototypes/first-vertical-slice/companion/test/observer-panel-lifecycle.test.ts" \
         "$root/prototypes/first-vertical-slice/manual/test/companion-setup-validation.test.mjs"
     node "${flags[@]}" "$root/prototypes/first-vertical-slice/companion/acceptance.ts"
     bash "$root/prototypes/first-vertical-slice/manual/run-companion-setup-validation.sh" --check

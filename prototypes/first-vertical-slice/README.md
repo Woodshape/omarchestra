@@ -96,10 +96,12 @@ Companion 0.3.0 observer publication, launcher TTY checks, and static
 reachability. None of this proves live Pi behavior or production readiness.
 
 The observer-capable Companion catalog entry is 0.3.0 with additive
-`session.observer`. The existing managed Projection Session default remains
-0.2.0. `applyObservedAgents` is sessionless and does not independently open the
-Agent Console, so the observer path cannot summon the panel, fabricate managed
-cards, or create a managed Projection Session for visual evidence.
+`session.observer`. The immutable historical managed Projection Session default
+remains 0.2.0. Companion 0.3.0 now has a fake-proven sessionless
+`openObservedAgents`/`applyObservedAgents`/`clearObservedAgents` lifecycle for a
+standalone `Unassigned Agents` panel. It neither summons the managed panel nor
+populates a Projection Session identity, managed cards, or managed cursor, and
+observer clear cannot clear or hide an active managed panel.
 
 R1 is an accepted bounded risk for this contract. Pi 0.84.4 has no complete
 content-free start/end lifecycle for slash-command and `user_bash` execution,
@@ -219,10 +221,10 @@ Automation installs it only into the in-memory fake; the separate authorized
 human procedure installed and loaded release 0.2.0 on the live desktop.
 The observer bridge targets the distinct catalog release 0.3.0 and has not been
 run live. Automation did not inspect, install, or mutate the developer's
-separately verified installation. Its `applyObservedAgents` update does not
-independently open the panel, so no observer-only visual claim is made. Explicit
-human-authorized product setup—not a Team Goal—owns any installation and exact
-Omarchy configuration change.
+separately verified installation. Its standalone observer-only open, update,
+and clear lifecycle is fake-proven, but no observer panel has been observed live
+and no live Adoption claim is made. Explicit human-authorized product setup—not
+a Team Goal—owns any installation and exact Omarchy configuration change.
 
 ## Guided manual walkthrough (optional, no live systems)
 

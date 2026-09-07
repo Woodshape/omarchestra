@@ -3,9 +3,9 @@
  *
  * live-companion-projection.ts — the narrow Companion 0.3.0 observation
  * publisher. It accepts a narrow shell port exposing only `capabilities` and
- * `call(pluginId, "applyObservedAgents", payload)`, verifies the exact
- * observer release plus `session.observer`, validates every snapshot with the
- * existing observer projection validator, and publishes authoritative
+ * the standalone observer presentation calls, verifies the exact observer
+ * release plus `session.observer`, validates every snapshot with the
+ * standalone observer projection validator, and publishes authoritative
  * `Unassigned · observed` snapshots with empty choices.
  *
  * It performs no socket, process, or filesystem I/O and never uses
@@ -26,7 +26,7 @@ import {
   type MaybePromise,
 } from '../companion/contracts.ts'
 import {
-  validateObserverProjectionSnapshot,
+  validateStandaloneObserverProjectionSnapshot,
   type ObserverProjectionSnapshot,
 } from './companion-projection.ts'
 
@@ -38,9 +38,14 @@ import {
 export const OBSERVER_COMPANION_RELEASE_VERSION = '0.3.0'
 
 /** The narrow shell surface the observation publisher is allowed to use. */
+export type ObserverCompanionShellMethod =
+  | 'openObservedAgents'
+  | 'applyObservedAgents'
+  | 'clearObservedAgents'
+
 export interface ObserverCompanionShellPort {
   capabilities(pluginId: string): MaybePromise<CompanionCapabilitiesEnvelope>
-  call(pluginId: string, method: 'applyObservedAgents', payloadJson: string): MaybePromise<void | string>
+  call(pluginId: string, method: ObserverCompanionShellMethod, payloadJson: string): MaybePromise<void | string>
 }
 
 export interface LiveCompanionProjectionOptions {
@@ -61,6 +66,8 @@ export class LiveCompanionProjection {
   private readonly releaseVersion: string
   private verified = false
   private lastRevision = -1
+  private observerOpened = false
+  private operationTail: Promise<void> = Promise.resolve()
 
   constructor(options: LiveCompanionProjectionOptions) {
     if (options === null || typeof options !== 'object') {
@@ -73,6 +80,52 @@ export class LiveCompanionProjection {
 
   /** Verify the exact observer release and `session.observer` capability. */
   async verify(): Promise<void> {
+    await this.enqueue(async () => {
+      await this.verifyUnserialized()
+    })
+  }
+
+  /**
+   * Publish one authoritative observer projection. Validation happens before
+   * queueing or shell mutation. The first accepted revision opens the
+   * standalone panel, later increasing revisions update it, and a failed
+   * shell call leaves both lifecycle and revision state unchanged.
+   */
+  async publish(projection: unknown): Promise<void> {
+    const validated = validateStandaloneObserverProjectionSnapshot(projection)
+    await this.enqueue(async () => {
+      await this.verifyUnserialized()
+      if (validated.observerRevision <= this.lastRevision) return
+
+      const method: ObserverCompanionShellMethod = this.observerOpened
+        ? 'applyObservedAgents'
+        : 'openObservedAgents'
+      await this.shell.call(
+        this.pluginId,
+        method,
+        JSON.stringify({ observerProjection: validated }),
+      )
+      this.lastRevision = validated.observerRevision
+      this.observerOpened = true
+    })
+  }
+
+  /** Clear only the observer presentation, preserving revision protection. */
+  async clearObservedAgents(): Promise<void> {
+    await this.enqueue(async () => {
+      await this.verifyUnserialized()
+      await this.shell.call(this.pluginId, 'clearObservedAgents', '{}')
+      this.observerOpened = false
+    })
+  }
+
+  /** Current accepted observer revision, or -1 before any publish. */
+  get acceptedRevision(): number {
+    return this.lastRevision
+  }
+
+  private async verifyUnserialized(): Promise<void> {
+    if (this.verified) return
     const envelope = await this.shell.capabilities(this.pluginId)
     const validated = validateCapabilitiesEnvelope(envelope)
     if (validated.pluginId !== this.pluginId) {
@@ -96,23 +149,13 @@ export class LiveCompanionProjection {
     this.verified = true
   }
 
-  /**
-   * Publish one authoritative observer projection. Validates the snapshot,
-   * ignores a stale (non-increasing) revision, and sends a sessionless
-   * payload through `applyObservedAgents`. The shell port throws on failure.
-   */
-  async publish(projection: unknown): Promise<void> {
-    if (!this.verified) await this.verify()
-    const validated = validateObserverProjectionSnapshot(projection)
-    if (validated.observerRevision <= this.lastRevision) return
-    const payload = JSON.stringify({ observerProjection: validated })
-    await this.shell.call(this.pluginId, 'applyObservedAgents', payload)
-    this.lastRevision = validated.observerRevision
-  }
-
-  /** Current accepted observer revision, or -1 before any publish. */
-  get acceptedRevision(): number {
-    return this.lastRevision
+  private enqueue<T>(operation: () => Promise<T>): Promise<T> {
+    const next = this.operationTail.then(operation, operation)
+    this.operationTail = next.then(
+      () => undefined,
+      () => undefined,
+    )
+    return next
   }
 }
 

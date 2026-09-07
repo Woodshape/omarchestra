@@ -30,8 +30,14 @@ import {
   validateOpenEnvelope,
   validateProjectionApplyEnvelope,
   type CompanionCapabilitiesEnvelope,
+  type CompanionShellCallMethod,
   type CompanionShellPort,
 } from './contracts.ts'
+import {
+  validateObserverProjectionSnapshot,
+  validateStandaloneObserverProjectionSnapshot,
+  type ObserverProjectionSnapshot,
+} from '../observer/companion-projection.ts'
 
 export interface FakeCompanionShellOptions {
   pluginId?: string
@@ -46,7 +52,7 @@ export type FakeShellOperation = 'capabilities' | 'summon' | 'call' | 'hide'
 export interface FakeCompanionShellCall {
   operation: FakeShellOperation
   pluginId: string
-  method?: 'applyHandoff' | 'clear' | 'intentResult' | 'takeIntent' | 'applyObservedAgents'
+  method?: CompanionShellCallMethod
   payloadJson?: string
 }
 
@@ -63,10 +69,22 @@ const MODELED_RECEIPT_BYTES = JSON.stringify({ schemaVersion: 1, pluginId: COMPA
  */
 export class FakeCompanionShell implements CompanionShellPort {
   readonly panel: {
+    /** Aggregate panel visibility, matching the QML derived visibility. */
     visible: boolean
+    /** Managed lifecycle keeps its surface visible after managed clear. */
+    managedVisible: boolean
+    /** Current managed Projection Session identity, if one is open. */
+    managedSession: Record<string, unknown> | null
+    /** Current managed projection, cards, and cursor are separate state. */
+    managedProjection: Record<string, unknown> | null
+    managedCards: Array<Record<string, unknown>>
+    managedCursor: number | null
     cleared: boolean
     handoffs: Array<Record<string, unknown>>
     intentResults: Array<Record<string, unknown>>
+    /** Observer lifecycle state is independent from all managed fields. */
+    observerOpen: boolean
+    observerProjection: ObserverProjectionSnapshot
     observerProjections: Array<Record<string, unknown>>
   }
 
@@ -90,7 +108,20 @@ export class FakeCompanionShell implements CompanionShellPort {
     this.declaredCapabilities = [...(options.capabilities ?? [])]
     this.installed = options.installed ?? true
     this.generation = 1
-    this.panel = { visible: false, cleared: false, handoffs: [], intentResults: [], observerProjections: [] }
+    this.panel = {
+      visible: false,
+      managedVisible: false,
+      managedSession: null,
+      managedProjection: null,
+      managedCards: [],
+      managedCursor: null,
+      cleared: false,
+      handoffs: [],
+      intentResults: [],
+      observerOpen: false,
+      observerProjection: cloneObserverProjection({ observerRevision: 0, agents: [] }),
+      observerProjections: [],
+    }
     this.installationSnapshot = {
       pluginId: this.pluginId,
       version: this.version,
@@ -126,15 +157,25 @@ export class FakeCompanionShell implements CompanionShellPort {
     this.assertKnownPlugin(pluginId)
     const envelope = validateOpenEnvelope(JSON.parse(payloadJson))
     assertPluginGeneration(this.generation, envelope.pluginGeneration)
+    const handoff = plainHandoff(envelope.projection)
     this.records.push({ operation: 'summon', pluginId, payloadJson })
+    this.panel.managedVisible = true
     this.panel.visible = true
     this.panel.cleared = false
-    this.panel.handoffs.push(plainHandoff(envelope.projection))
+    this.panel.managedSession = {
+      sessionId: envelope.sessionId,
+      teamGoalId: envelope.teamGoalId,
+      clientId: envelope.clientId,
+      sessionGeneration: envelope.sessionGeneration,
+      pluginGeneration: envelope.pluginGeneration,
+    }
+    this.setManagedProjection(handoff)
+    this.panel.handoffs.push(handoff)
   }
 
   call(
     pluginId: string,
-    method: 'applyHandoff' | 'clear' | 'intentResult' | 'takeIntent' | 'applyObservedAgents',
+    method: CompanionShellCallMethod,
     payloadJson: string,
   ): void | string {
     this.assertKnownPlugin(pluginId)
@@ -142,12 +183,14 @@ export class FakeCompanionShell implements CompanionShellPort {
     if (method === 'applyHandoff') {
       const envelope = validateProjectionApplyEnvelope(body)
       assertPluginGeneration(this.generation, envelope.pluginGeneration)
-      this.records.push({ operation: 'call', pluginId, method, payloadJson })
-      this.panel.handoffs.push(plainHandoff({
+      const handoff = plainHandoff({
         status: envelope.status,
         cursor: envelope.cursor,
         cards: envelope.cards,
-      }))
+      })
+      this.records.push({ operation: 'call', pluginId, method, payloadJson })
+      this.setManagedProjection(handoff)
+      this.panel.handoffs.push(handoff)
       return
     }
     if (method === 'clear') {
@@ -156,6 +199,11 @@ export class FakeCompanionShell implements CompanionShellPort {
       this.records.push({ operation: 'call', pluginId, method, payloadJson })
       this.panel.cleared = true
       this.panel.handoffs = []
+      this.panel.managedSession = null
+      this.panel.managedProjection = null
+      this.panel.managedCards = []
+      this.panel.managedCursor = null
+      // Managed clear preserves the existing managed panel visibility.
       return
     }
     if (method === 'takeIntent') {
@@ -181,11 +229,45 @@ export class FakeCompanionShell implements CompanionShellPort {
       })
       return
     }
-    if (method === 'applyObservedAgents') {
-      const body: unknown = JSON.parse(payloadJson)
-      const projection = plainObserverProjection(body)
+    if (method === 'openObservedAgents') {
+      // Validate before recording or mutating any presentation state. An
+      // invalid observer open is indistinguishable from no open to callers.
+      const projection = observerProjectionFromPayload(body, true, true)
       this.records.push({ operation: 'call', pluginId, method, payloadJson })
-      this.panel.observerProjections.push(projection)
+      this.panel.observerOpen = true
+      this.panel.observerProjection = cloneObserverProjection(projection)
+      this.panel.observerProjections.push(cloneObserverProjection(projection) as unknown as Record<string, unknown>)
+      this.panel.visible = true
+      return 'true'
+    }
+    if (method === 'applyObservedAgents') {
+      const value = body as Record<string, unknown>
+      const managedObserverUpdate = body !== null
+        && typeof body === 'object'
+        && !Array.isArray(body)
+        && Object.hasOwn(value, 'session')
+      if (managedObserverUpdate && !sameManagedSession(value.session, this.panel.managedSession)) {
+        throw new CompanionError('stale_projection_session', 'observer update session is not current')
+      }
+      const projection = observerProjectionFromPayload(
+        body,
+        false,
+        !managedObserverUpdate,
+        managedObserverUpdate,
+      )
+      this.records.push({ operation: 'call', pluginId, method, payloadJson })
+      this.panel.observerProjection = cloneObserverProjection(projection)
+      this.panel.observerProjections.push(cloneObserverProjection(projection) as unknown as Record<string, unknown>)
+      // This is deliberately non-opening. Visibility remains whatever the
+      // managed or explicit observer lifecycle already established.
+      return 'true'
+    }
+    if (method === 'clearObservedAgents') {
+      this.records.push({ operation: 'call', pluginId, method, payloadJson })
+      this.panel.observerOpen = false
+      this.panel.observerProjection = cloneObserverProjection({ observerRevision: 0, agents: [] })
+      // Observer clear can never collapse an existing managed panel.
+      this.panel.visible = this.panel.managedVisible
       return 'true'
     }
     throw new CompanionError('invalid_envelope', `unsupported plugin call method ${String(method)}`)
@@ -196,7 +278,12 @@ export class FakeCompanionShell implements CompanionShellPort {
     const envelope = validateHideEnvelope(JSON.parse(payloadJson))
     assertPluginGeneration(this.generation, envelope.session.pluginGeneration)
     this.records.push({ operation: 'hide', pluginId, payloadJson })
-    this.panel.visible = false
+    this.panel.managedVisible = false
+    this.panel.managedSession = null
+    this.panel.managedProjection = null
+    this.panel.managedCards = []
+    this.panel.managedCursor = null
+    this.panel.visible = this.panel.observerOpen
   }
 
   // --- Test surface ---
@@ -221,9 +308,17 @@ export class FakeCompanionShell implements CompanionShellPort {
   reloadPlugin(): void {
     this.generation += 1
     this.panel.visible = false
+    this.panel.managedVisible = false
+    this.panel.managedSession = null
+    this.panel.managedProjection = null
+    this.panel.managedCards = []
+    this.panel.managedCursor = null
     this.panel.cleared = false
     this.panel.handoffs = []
     this.panel.intentResults = []
+    this.panel.observerOpen = false
+    this.panel.observerProjection = cloneObserverProjection({ observerRevision: 0, agents: [] })
+    this.panel.observerProjections = []
   }
 
   setProtocol(protocol: string): void {
@@ -266,6 +361,18 @@ export class FakeCompanionShell implements CompanionShellPort {
     }
   }
 
+  private setManagedProjection(value: Record<string, unknown>): void {
+    const cards = Array.isArray(value.cards)
+      ? value.cards.map((card) => ({ ...(card as Record<string, unknown>) }))
+      : []
+    this.panel.managedProjection = {
+      ...value,
+      cards,
+    }
+    this.panel.managedCards = cards.map((card) => ({ ...card }))
+    this.panel.managedCursor = typeof value.cursor === 'number' ? value.cursor : null
+  }
+
   private assertKnownPlugin(pluginId: string): void {
     if (pluginId !== this.pluginId) {
       throw new CompanionPluginUnavailableError(`plugin ${pluginId} is not installed in the fake shell`)
@@ -277,19 +384,74 @@ function plainHandoff(value: { status: string; cursor: number; cards: Array<Reco
   return { status: value.status, cursor: value.cursor, cards: value.cards.map((card) => ({ ...card })) }
 }
 
-/** Extract the sessionless observer projection from an applyObservedAgents payload. */
-function plainObserverProjection(body: unknown): Record<string, unknown> {
+function cloneObserverProjection(value: ObserverProjectionSnapshot): ObserverProjectionSnapshot {
+  return {
+    observerRevision: value.observerRevision,
+    agents: value.agents.map((agent) => ({
+      observedSessionId: agent.observedSessionId,
+      piStatus: agent.piStatus,
+      lifecycle: agent.lifecycle,
+      availability: agent.availability,
+      health: agent.health,
+      choices: agent.choices.map((choice) => ({ ...choice })),
+    })),
+  }
+}
+
+/**
+ * Extract and validate an observer payload. `openObservedAgents` requires the
+ * exact sessionless `{ observerProjection }` wrapper and empty choices.
+ * Updates retain older projection/direct-object compatibility; only an exact
+ * current managed session may carry the existing opaque Adoption choices.
+ */
+function observerProjectionFromPayload(
+  body: unknown,
+  requireWrapper: boolean,
+  requireEmptyChoices: boolean,
+  allowManagedSession = false,
+): ObserverProjectionSnapshot {
   if (body === null || typeof body !== 'object' || Array.isArray(body)) {
-    throw new CompanionError('invalid_envelope', 'applyObservedAgents payload must be an object')
+    throw new CompanionError('invalid_envelope', 'observer payload must be an object')
   }
   const value = body as Record<string, unknown>
-  const projection = value.observerProjection !== undefined
-    ? value.observerProjection
-    : value.projection !== undefined
-      ? value.projection
-      : value
-  if (projection === null || typeof projection !== 'object' || Array.isArray(projection)) {
-    throw new CompanionError('invalid_envelope', 'applyObservedAgents projection must be an object')
+  if (Object.hasOwn(value, 'session') && !allowManagedSession) {
+    throw new CompanionError('invalid_envelope', 'observer payload must be sessionless')
   }
-  return { ...(projection as Record<string, unknown>) }
+
+  let projection: unknown
+  if (requireWrapper) {
+    const fields = Object.keys(value)
+    if (fields.length !== 1 || fields[0] !== 'observerProjection') {
+      throw new CompanionError(
+        'invalid_envelope',
+        'openObservedAgents payload must contain exactly observerProjection',
+      )
+    }
+    projection = value.observerProjection
+  } else {
+    projection = value.observerProjection !== undefined
+      ? value.observerProjection
+      : value.projection !== undefined
+        ? value.projection
+        : value
+  }
+
+  return requireEmptyChoices
+    ? validateStandaloneObserverProjectionSnapshot(projection)
+    : validateObserverProjectionSnapshot(projection)
+}
+
+function sameManagedSession(
+  candidate: unknown,
+  current: Record<string, unknown> | null,
+): boolean {
+  if (candidate === null || typeof candidate !== 'object' || Array.isArray(candidate) || current === null) {
+    return false
+  }
+  const value = candidate as Record<string, unknown>
+  return value.sessionId === current.sessionId
+    && value.teamGoalId === current.teamGoalId
+    && value.clientId === current.clientId
+    && value.sessionGeneration === current.sessionGeneration
+    && value.pluginGeneration === current.pluginGeneration
 }

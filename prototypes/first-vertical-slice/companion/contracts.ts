@@ -296,12 +296,21 @@ export type CompanionSessionEnvelope =
   | CompanionClearEnvelope
   | CompanionReconnectEnvelope
 
+export type CompanionShellCallMethod =
+  | 'applyHandoff'
+  | 'clear'
+  | 'intentResult'
+  | 'takeIntent'
+  | 'openObservedAgents'
+  | 'applyObservedAgents'
+  | 'clearObservedAgents'
+
 export interface CompanionShellPort {
   capabilities(pluginId: string): MaybePromise<CompanionCapabilitiesEnvelope>
   summon(pluginId: string, payloadJson: string): MaybePromise<void>
   call(
     pluginId: string,
-    method: 'applyHandoff' | 'clear' | 'intentResult' | 'takeIntent' | 'applyObservedAgents',
+    method: CompanionShellCallMethod,
     payloadJson: string,
   ): MaybePromise<void | string>
   hide(pluginId: string, payloadJson: string): MaybePromise<void>

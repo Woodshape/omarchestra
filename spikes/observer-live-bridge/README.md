@@ -20,7 +20,9 @@ The fake-only gate must prove:
 - strict bounded observer framing and fail-closed malformed or oversized input;
 - registration, heartbeat, graceful disconnect, abrupt disconnect, lease expiry,
   and same-session reconnect with fresh connection values;
-- one `Unassigned · observed` projection with `choices: []`;
+- a standalone observer-only panel lifecycle that opens one validated
+  `Unassigned · observed` projection with `choices: []`, applies later
+  revisions, and clears without managed state;
 - rejection of Adoption and runner frames without registry mutation;
 - Companion protocol/plugin/version and `session.observer` verification;
 - isolation of Companion publication failure from the Pi connection;
@@ -47,7 +49,9 @@ Implemented seams:
 - `prototypes/first-vertical-slice/observer/live-gateway-core.ts` — disposable
   observation-only registry gateway;
 - `prototypes/first-vertical-slice/observer/live-companion-projection.ts` —
-  narrow Companion observer publisher;
+  narrow Companion observer publisher using the explicit
+  `openObservedAgents`, `applyObservedAgents`, and `clearObservedAgents`
+  lifecycle;
 - `prototypes/first-vertical-slice/manual/live-observer-transport.ts` — owner-
   only Unix socket server/client with path, UID, mode, and device/inode checks;
 - `prototypes/first-vertical-slice/manual/live-observer-extension.ts` — lazy
@@ -98,17 +102,23 @@ just prototype-observer-adoption-check
 just prototype-companion-check
 ```
 
-## Panel-opening limitation
+## Standalone panel lifecycle
 
-`applyObservedAgents` is a sessionless state update in Companion 0.3.0. It does
-not make `AgentConsole.qml` visible. Visibility still belongs to the existing
-valid Projection Session `open()` path. The observer bridge cannot summon the
-panel, fabricate managed cards, create a Team Goal, or perform Adoption.
+Companion 0.3.0 now has a fake-proven observer-only presentation lifecycle.
+`openObservedAgents` opens the panel only after a validated sessionless
+projection is accepted, `applyObservedAgents` replaces it with a later validated
+revision, and `clearObservedAgents` removes only observer presentation state.
+Every standalone agent is `Unassigned · observed` with `choices: []`.
 
-If a separately valid Projection Session is already open, its presentation may
-show the observed projection. That is optional visual context, not a requirement
-for this spike and not live Adoption evidence. A standalone observer-only panel
-requires a later Companion contract change.
+This lifecycle is independent of managed `open`, `clear`, and `hide`. It does
+not populate `activeSession`, a Projection Session identity, managed cards, or
+the managed cursor, and observer clear cannot clear or hide an active managed
+panel. The bridge does not use managed summon as a workaround and creates no
+Team Goal, Agent Run, Role, Assignment, or Adoption authority.
+
+This is fake and static evidence only. No operator has run the standalone panel
+path against a live Companion 0.3.0 installation, so no live observer-panel
+visual result or live Adoption evidence exists.
 
 ## R1 and live boundary
 
@@ -129,24 +139,25 @@ Automation performed no live observer run. No live Adoption claim is made.
 
 ## Conclusion
 
-The observation-only bridge contract is supported by fake and static evidence.
-Live feasibility remains unproven. The result does not establish Adoption,
-managed work, installed-plugin safety on a live machine, or a visible
-observer-only panel.
+The observation-only bridge and standalone observer-panel lifecycle are
+supported by fake and static evidence. Live feasibility remains unproven. The
+result does not establish Adoption, managed work, installed-plugin safety on a
+live machine, or a live visible observer-panel result.
 
 ## Design impact
 
 Keep observation transport, registry state, and Companion publication separate
 from Adoption and managed-runner authority. Keep Companion 0.2.0 as the
-historical managed default and select observer-capable 0.3.0 explicitly. Treat
-standalone observer panel opening as a future Companion contract change, and
-retain R1 as bounded best-effort activity reporting rather than adding
-content-bearing hooks.
+immutable historical managed default and select observer-capable 0.3.0
+explicitly. Keep its observer-only open/apply/clear lifecycle separate from the
+managed panel lifecycle, and retain R1 as bounded best-effort activity reporting
+rather than adding content-bearing hooks.
 
 ## Disposition
 
 Retain these modules and tests as removable prototype evidence for the bounded
 observer contract. Do not promote them directly into production. Production
 work remains open for authenticated transport, persistence and replay,
-compatibility policy, telemetry filtering/coalescing, standalone observer-panel
-lifecycle, slash-command and `user_bash` lifecycle coverage, and Adoption.
+compatibility policy, telemetry filtering/coalescing, productionizing the
+observer-panel lifecycle, slash-command and `user_bash` lifecycle coverage, and
+Adoption.

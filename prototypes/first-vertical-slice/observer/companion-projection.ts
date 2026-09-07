@@ -120,6 +120,27 @@ export function validateObserverProjectionSnapshot(input: unknown): ObserverProj
   return { observerRevision, agents }
 }
 
+/**
+ * Validate the stricter standalone observer-only presentation projection.
+ *
+ * The general observer projection remains Adoption-capable and may contain
+ * opaque choices for a managed Companion panel. A standalone observer panel
+ * has no managed authority or user-selection route, so every agent must carry
+ * an empty choices array.
+ */
+export function validateStandaloneObserverProjectionSnapshot(input: unknown): ObserverProjectionSnapshot {
+  const validated = validateObserverProjectionSnapshot(input)
+  for (const [index, agent] of validated.agents.entries()) {
+    if (agent.choices.length !== 0) {
+      throw new CompanionError(
+        'invalid_envelope',
+        `standalone observer agent ${index} choices must be empty`,
+      )
+    }
+  }
+  return validated
+}
+
 export function validateObserverIntentResult(input: unknown): ObserverIntentResult {
   const value = plainObject(input, 'observer intent result')
   exactKeys(value, RESULT_FIELDS, 'observer intent result')

@@ -13,11 +13,13 @@ best-effort and records the limitation for later hardening without inspecting
 content. The observer bridge has fake-only transport, gateway, Companion 0.3.0,
 launcher, and reachability evidence. Its `--check` path is no-resource and its
 live procedure requires a human TTY. Automation performed no live run. No live
-observer or Adoption validation has been run, and no live Adoption claim is
-made. The Companion observer `applyObservedAgents` seam updates sessionless
-observer state
-but does not independently open the panel; the observer path must not fabricate
-a Projection Session or managed cards.
+observer-panel or Adoption validation has been run, and no live Adoption claim
+is made. Companion 0.3.0's explicit sessionless `openObservedAgents`,
+`applyObservedAgents`, and `clearObservedAgents` lifecycle is fake-proven. It
+opens and updates only `Unassigned Agents` state and clears it without
+fabricating a Projection Session, managed cards, managed cursor, Team Goal,
+Role, Assignment, Agent Run, or managed authority. The immutable historical
+managed default remains Companion 0.2.0.
 
 ## Core terms
 

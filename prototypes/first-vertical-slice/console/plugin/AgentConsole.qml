@@ -7,6 +7,15 @@
 // computes protocol, cursor, or sequencing values itself. The Team Runner
 // and the non-QML adapter remain the authorities for status, identity, and
 // cursor.
+//
+// The observer-only lifecycle is a separate, standalone boundary: a host
+// opens a panel showing only Unassigned Agents through openObservedAgents(),
+// updates it through non-opening applyObservedAgents(), and dismisses it with
+// clearObservedAgents(). Observer opening never creates a Projection Session,
+// Active Session identity, managed card, or managed cursor, and managed
+// open()/clear()/close() never touch observer state. Panel visibility is
+// derived from the managed opened flag OR the observerOpened flag, so clearing
+// observer state can hide the panel only when no managed session is active.
 import QtQuick
 import QtQuick.Controls
 import QtQuick.Layouts
@@ -27,6 +36,7 @@ Item {
         cards: []
     })
     property var lastIntentResult: null
+    property bool observerOpened: false
     property var observerProjection: ({ observerRevision: 0, agents: [] })
     property var observerIntentResult: null
     property var activeSession: null
@@ -151,15 +161,64 @@ Item {
         return true
     }
 
+    // Content validation shared by observer open/update. Standalone opening
+    // additionally requires exactly empty choices; managed observer updates
+    // retain the existing opaque-choice presentation behavior.
+
+    function validObserverProjection(next, requireEmptyChoices) {
+        if (!next || typeof next !== "object") return false
+        if (typeof next.observerRevision !== "number" || next.observerRevision < 0) return false
+        if (!Array.isArray(next.agents)) return false
+        for (var index = 0; index < next.agents.length; index += 1) {
+            var agent = next.agents[index]
+            if (!agent || typeof agent !== "object") return false
+            if (agent.piStatus !== "Unassigned · observed") return false
+            if (!Array.isArray(agent.choices)
+                    || (requireEmptyChoices && agent.choices.length !== 0)) return false
+            if (typeof agent.observedSessionId !== "string"
+                    || typeof agent.lifecycle !== "string"
+                    || typeof agent.availability !== "string"
+                    || typeof agent.health !== "string") return false
+        }
+        return true
+    }
+
+    // Opens a standalone observer-only panel. Accepts only an exact
+    // sessionless { observerProjection } payload carrying Unassigned ·
+    // observed agents with empty choices. A validated payload commits the
+    // projection and observerOpened atomically; invalid data never opens the
+    // panel. No managed identity, card, cursor, or session is created.
+
+    function openObservedAgents(value) {
+        var envelope = parsePayload(value)
+        if (!envelope || typeof envelope !== "object") return false
+        if (Object.keys(envelope).length !== 1
+                || envelope.session !== undefined
+                || envelope.projection !== undefined) return false
+        var next = envelope.observerProjection
+        if (!validObserverProjection(next, true)) return false
+        observerProjection = ({
+            observerRevision: next.observerRevision,
+            agents: next.agents
+        })
+        observerOpened = true
+        return true
+    }
+
+    // Non-opening observer update. This re-renders the observer projection in
+    // the already visible panel (observer-only or alongside a managed panel)
+    // but never opens the panel and never touches managed state.
+
     function applyObservedAgents(value) {
         var envelope = parsePayload(value)
         if (!envelope || typeof envelope !== "object") return false
-        if (envelope.session !== undefined && !sessionMatches(envelope)) return false
+        var managedObserverUpdate = envelope.session !== undefined
+        if (managedObserverUpdate && !sessionMatches(envelope)) return false
         var next = envelope.observerProjection && typeof envelope.observerProjection === "object"
             ? envelope.observerProjection
             : envelope.projection && typeof envelope.projection === "object"
                 ? envelope.projection : envelope
-        if (typeof next.observerRevision !== "number" || !Array.isArray(next.agents)) return false
+        if (!validObserverProjection(next, !managedObserverUpdate)) return false
         observerProjection = ({
             observerRevision: next.observerRevision,
             agents: next.agents
@@ -169,6 +228,18 @@ Item {
 
     function applyObserverProjection(value) {
         return applyObservedAgents(value)
+    }
+
+    // Clears only observer presentation state. The panel hides only when no
+    // managed session is open (visibility is derived from the opened flag OR
+    // the observerOpened flag); managed state is never cleared or hidden.
+
+    function clearObservedAgents() {
+        observerOpened = false
+        observerProjection = ({ observerRevision: 0, agents: [] })
+        observerIntentResult = null
+        unassignedAgents.clearIntentState()
+        return true
     }
 
     function observedIntentResult(value) {
@@ -199,9 +270,6 @@ Item {
         if (!applyProjection(value)) return false
         pendingIntents = []
         intentCounter = 0
-        observerProjection = ({ observerRevision: 0, agents: [] })
-        observerIntentResult = null
-        unassignedAgents.clearIntentState()
         activeSession = ({
             sessionId: session.sessionId,
             teamGoalId: session.teamGoalId,
@@ -218,9 +286,6 @@ Item {
         activeSession = null
         projection = ({ status: "reconnecting", cursor: 0, cards: [] })
         lastIntentResult = null
-        observerProjection = ({ observerRevision: 0, agents: [] })
-        observerIntentResult = null
-        unassignedAgents.clearIntentState()
         pendingIntents = []
     }
 
@@ -232,9 +297,6 @@ Item {
         if (!sessionMatches(value)) return false
         projection = ({ status: "reconnecting", cursor: 0, cards: [] })
         lastIntentResult = null
-        observerProjection = ({ observerRevision: 0, agents: [] })
-        observerIntentResult = null
-        unassignedAgents.clearIntentState()
         pendingIntents = []
         activeSession = null
         return true
@@ -242,7 +304,7 @@ Item {
 
     PanelWindow {
         id: panel
-        visible: root.opened
+        visible: root.opened || root.observerOpened
         anchors {
             top: true
             bottom: true
@@ -272,85 +334,93 @@ Item {
                 anchors.margins: Style.space(18)
                 spacing: Style.space(12)
 
-                RowLayout {
+                ColumnLayout {
+                    id: managedConsole
                     Layout.fillWidth: true
-                    spacing: Style.space(10)
+                    visible: root.opened
+                    spacing: Style.space(12)
+
+                    RowLayout {
+                        Layout.fillWidth: true
+                        spacing: Style.space(10)
+
+                        Text {
+                            Layout.fillWidth: true
+                            text: "Agent Console"
+                            color: Color.popups.text
+                            font.family: Style.font.family
+                            font.pixelSize: Style.font.heading
+                            font.bold: true
+                        }
+
+                        Text {
+                            text: "cursor " + String(root.projection.cursor)
+                            color: Qt.darker(Color.popups.text, 1.45)
+                            font.family: Style.font.family
+                            font.pixelSize: Style.font.caption
+                        }
+                    }
 
                     Text {
                         Layout.fillWidth: true
-                        text: "Agent Console"
-                        color: Color.popups.text
+                        text: root.projection.status
+                        color: root.projection.status === "gap"
+                            ? Color.urgent : Color.accent
                         font.family: Style.font.family
-                        font.pixelSize: Style.font.heading
+                        font.pixelSize: Style.font.body
                         font.bold: true
                     }
 
                     Text {
-                        text: "cursor " + String(root.projection.cursor)
-                        color: Qt.darker(Color.popups.text, 1.45)
+                        Layout.fillWidth: true
+                        visible: root.projection.status === "ready"
+                        text: "Projection ready"
+                        color: Qt.darker(Color.popups.text, 1.35)
+                        font.family: Style.font.family
+                        font.pixelSize: Style.font.caption
+                    }
+
+                    Text {
+                        Layout.fillWidth: true
+                        visible: root.projection.status === "reconnecting"
+                        text: "Reconnecting to the Team Runner projection"
+                        color: Qt.darker(Color.popups.text, 1.35)
+                        font.family: Style.font.family
+                        font.pixelSize: Style.font.caption
+                    }
+
+                    Text {
+                        Layout.fillWidth: true
+                        visible: root.projection.status === "gap"
+                        text: "Projection gap: awaiting an authoritative snapshot"
+                        color: Color.urgent
+                        font.family: Style.font.family
+                        font.pixelSize: Style.font.caption
+                    }
+
+                    AgentConsoleCards {
+                        Layout.fillWidth: true
+                        cards: root.projection.cards
+                        onPresentRequested: function(role) { root.requestPresent(role) }
+                    }
+
+                    Text {
+                        Layout.fillWidth: true
+                        visible: root.lastIntentResult !== null
+                        text: root.lastIntentResult === null ? "" : "Present action: " + root.lastIntentResult.result
+                        color: Qt.darker(Color.popups.text, 1.35)
                         font.family: Style.font.family
                         font.pixelSize: Style.font.caption
                     }
                 }
 
-                Text {
-                    Layout.fillWidth: true
-                    text: root.projection.status
-                    color: root.projection.status === "gap"
-                        ? Color.urgent : Color.accent
-                    font.family: Style.font.family
-                    font.pixelSize: Style.font.body
-                    font.bold: true
-                }
-
-                Text {
-                    Layout.fillWidth: true
-                    visible: root.projection.status === "ready"
-                    text: "Projection ready"
-                    color: Qt.darker(Color.popups.text, 1.35)
-                    font.family: Style.font.family
-                    font.pixelSize: Style.font.caption
-                }
-
-                Text {
-                    Layout.fillWidth: true
-                    visible: root.projection.status === "reconnecting"
-                    text: "Reconnecting to the Team Runner projection"
-                    color: Qt.darker(Color.popups.text, 1.35)
-                    font.family: Style.font.family
-                    font.pixelSize: Style.font.caption
-                }
-
-                Text {
-                    Layout.fillWidth: true
-                    visible: root.projection.status === "gap"
-                    text: "Projection gap: awaiting an authoritative snapshot"
-                    color: Color.urgent
-                    font.family: Style.font.family
-                    font.pixelSize: Style.font.caption
-                }
-
-                AgentConsoleCards {
-                    Layout.fillWidth: true
-                    cards: root.projection.cards
-                    onPresentRequested: function(role) { root.requestPresent(role) }
-                }
-
                 UnassignedAgents {
                     id: unassignedAgents
                     Layout.fillWidth: true
+                    visible: root.opened || root.observerOpened
                     projection: root.observerProjection
                     onRequestAdoption: function(payload) { root.requestAdoption(payload) }
                     onAuthorizeAdoption: function(payload) { root.authorizeAdoption(payload) }
-                }
-
-                Text {
-                    Layout.fillWidth: true
-                    visible: root.lastIntentResult !== null
-                    text: root.lastIntentResult === null ? "" : "Present action: " + root.lastIntentResult.result
-                    color: Qt.darker(Color.popups.text, 1.35)
-                    font.family: Style.font.family
-                    font.pixelSize: Style.font.caption
                 }
             }
         }

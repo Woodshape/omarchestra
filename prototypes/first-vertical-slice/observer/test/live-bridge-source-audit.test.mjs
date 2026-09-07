@@ -134,6 +134,7 @@ test('manual observer seams are explicit and do not create Pi, terminal, or Adop
   assert.match(gateway, /ObserverUnixSocketServer/)
   assert.match(gateway, /ProcessMonotonicObserverClock/)
   assert.match(gateway, /applyObservedAgents|LiveCompanionProjection/)
+  assert.match(gateway, /clearObservedAgents/)
   assert.match(gateway, /status.*pause.*resume.*quit|status \| pause \| resume \| quit/s)
   assert.doesNotMatch(gateway, /node:child_process|sendUserMessage|ProjectionSessionManager|adoption\.ts/i)
   assert.doesNotMatch(gateway, /(?:summon|enable|disable|rescan|uninstall|install)\s*\(/i)
@@ -218,9 +219,17 @@ test('observer privacy and projection audits remain content-free and unassigned'
     assert.doesNotMatch(extension, new RegExp(`\\.on\\(\\s*['"]${hook}['"]`), `forbidden hook ${hook}`)
   }
   assert.doesNotMatch(extension, /getEntries|getBranch|buildContextEntries|getSystemPrompt|ctx\.cwd|sendUserMessage|pi\.exec/)
+  assert.match(projection, /openObservedAgents/)
   assert.match(projection, /applyObservedAgents/)
+  assert.match(projection, /clearObservedAgents/)
   assert.match(projectionValidator, /Unassigned · observed/)
   assert.match(gateway, /choices: \[\]/)
-  assert.doesNotMatch(projection, /summon|clear|hide|ProjectionSessionManager|submitObserverIntent|observedIntentResult/i)
+  // Permit only the observer-specific clear seam. Plain managed shell
+  // methods remain forbidden, as do managed/session authority paths.
+  assert.doesNotMatch(
+    projection,
+    /(?:["'`](?:summon|clear|hide)["'`]|\b(?:summon|clear|hide)\s*\(|ProjectionSessionManager|submitObserverIntent|observedIntentResult)/i,
+  )
+  assert.doesNotMatch(projection, /(?:installation|node:(?:fs|net|dgram|http|https|tls)|process\.env|process\.cwd|sendUserMessage|pi\.exec)/i)
   assert.doesNotMatch(gateway, /adoption\.ack.*(?:registry|commit)|Team Goal|Assignment|sendUserMessage/i)
 })

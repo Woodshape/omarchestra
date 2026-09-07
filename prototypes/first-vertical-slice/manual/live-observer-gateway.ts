@@ -120,22 +120,35 @@ export async function runLiveObserverGateway(options: LiveObserverGatewayRunOpti
   })
   const sweepIntervalMs = boundedSweepInterval(options.sweepIntervalMs)
 
-  await publisher.verify()
-  await publisher.publish(gateway.snapshot())
-  await server.start()
-  if (options.socketIdentityFile !== undefined) {
-    const identity = server.identity
-    if (identity === null) throw new Error('observer socket identity was not captured')
-    try {
+  let observerPresentationOpened = false
+  try {
+    await publisher.verify()
+    await publisher.publish(gateway.snapshot())
+    observerPresentationOpened = true
+    await server.start()
+    if (options.socketIdentityFile !== undefined) {
+      const identity = server.identity
+      if (identity === null) throw new Error('observer socket identity was not captured')
       writeSocketIdentity(options.socketIdentityFile, identity)
-    } catch (error) {
-      try {
-        await server.close()
-      } catch {
-        // Preserve the identity-file failure. Cleanup remains fail-closed.
-      }
-      throw error
     }
+  } catch (error) {
+    // A startup failure after observer presentation opened must not strand the
+    // standalone panel. Preserve the startup failure while cleanup remains
+    // exact, observer-only, and best effort.
+    try {
+      await server.close()
+    } catch {
+      // Preserve the startup failure.
+    }
+    gateway.close()
+    if (observerPresentationOpened) {
+      try {
+        await publisher.clearObservedAgents()
+      } catch {
+        // Preserve the startup failure.
+      }
+    }
+    throw error
   }
 
   const sweepTimer = setInterval(() => {
@@ -185,8 +198,17 @@ export async function runLiveObserverGateway(options: LiveObserverGatewayRunOpti
     } catch (error) {
       cleanupError = asError(error)
     }
+    // Discard the disposable observer registry before awaiting shell work so
+    // a delayed presentation call cannot retain Pi-side observer state.
     gateway.close()
     await publication
+    try {
+      await publisher.clearObservedAgents()
+    } catch {
+      // Observer presentation cleanup is best effort and cannot affect the
+      // already-closed registry or invoke any managed shell lifecycle.
+      publicationState = 'degraded'
+    }
   }
   if (cleanupError !== null) throw cleanupError
 }

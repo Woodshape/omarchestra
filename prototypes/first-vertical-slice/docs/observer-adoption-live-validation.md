@@ -16,7 +16,7 @@ visible ordinary Pi
   -> observer extension in that same Pi process
   -> owner-only Unix NDJSON socket
   -> disposable observation gateway
-  -> Companion 0.3.0 applyObservedAgents seam
+  -> Companion 0.3.0 observer-only open/apply/clear seams
 ```
 
 Observation grants no Team Goal, Role, Assignment, control mode, writer lease,
@@ -68,8 +68,10 @@ just prototype-live-observer-check
 
 It runs injected in-memory transports, the observer and Companion fakes, static
 reachability/privacy audits, module imports, shell syntax checks, and
-`run-live-observer-bridge.sh --check`. It does not inspect user state, invoke
-Omarchy shell IPC, open a live socket, launch Pi, or inspect an installed
+`run-live-observer-bridge.sh --check`. The fake gate proves the standalone
+`openObservedAgents`, `applyObservedAgents`, and `clearObservedAgents`
+presentation lifecycle without managed state. It does not inspect user state,
+invoke Omarchy shell IPC, open a live socket, launch Pi, or inspect an installed
 plugin. It produces no private live evidence. Automation performed no live run,
 and no live Adoption claim is made.
 
@@ -151,21 +153,22 @@ status/version facts, not the session content:
    directory are absent after device/inode checks. Do not recursively remove a
    substituted or unexpected resource.
 
-## Companion panel-opening limitation
+## Companion standalone panel status
 
-Companion 0.3.0 exposes `applyObservedAgents` as a sessionless observer state
-update. That call does **not** open `AgentConsole.qml`: the panel's visibility
-still depends on its existing `open()` Projection Session path. The observer
-gateway cannot summon the panel, create a managed three-card projection, or
-invent a Projection Session to make an observed card visible.
+Companion 0.3.0 now has a fake-proven sessionless observer presentation
+lifecycle. `openObservedAgents` accepts only a validated observer projection
+whose agents are `Unassigned · observed` with empty choices,
+`applyObservedAgents` updates the visible observer projection, and
+`clearObservedAgents` clears and hides it only when no managed panel remains
+open. These calls do not set `activeSession`, create a Projection Session, or
+populate managed cards or cursor state. They do not call managed summon,
+`clear`, or `hide`.
 
-Therefore this procedure may establish successful capability verification,
-observation publication health, registration, heartbeat, disconnect, expiry,
-reconnect, and cleanup without visual panel evidence. If an independently valid
-Companion Projection Session is already open, the operator may observe the
-`Unassigned Agents` projection there, but must not create that managed session
-solely for this test or interpret it as live Adoption evidence. A future
-Companion contract change is required for a standalone observer-only panel.
+That automated proof is not live visual evidence. This proposed human procedure
+has not been run against Companion 0.3.0, and no standalone observer panel has
+been observed live. A future run must record an explicit bounded visual check
+before making a live panel claim. It must not create a managed Projection
+Session for that check or interpret observer presentation as Adoption evidence.
 
 ## R1 limitation
 
@@ -199,7 +202,9 @@ It uses exact device/inode checks and non-recursive directory removal. If a
 cleanup check fails, preserve the resource and the private evidence for manual
 reconciliation. Never guess a path or use recursive deletion.
 
-A successful run would establish only the bounded live observer transport and
-publication behavior above. It would not establish production packaging,
-standalone observer-panel opening, Adoption, remote execution, reboot
-recovery, PTY guarantees for an adopted session, or broader Pi compatibility.
+A successful run of the currently documented checks would establish only the
+bounded live observer transport and publication behavior above. The standalone
+observer-panel lifecycle remains fake-proven until a separate explicit visual
+check is performed. This procedure would not establish production support,
+Adoption, remote execution, reboot recovery, PTY guarantees for an adopted
+session, or broader Pi compatibility.

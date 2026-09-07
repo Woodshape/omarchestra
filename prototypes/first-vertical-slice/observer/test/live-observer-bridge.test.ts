@@ -420,6 +420,34 @@ function createExtensionHarness(options: { rejectConnect?: boolean } = {}) {
 
 const settle = (): Promise<void> => new Promise<void>((resolve) => setTimeout(resolve, 0))
 
+/** Drain the publisher's internal operation tail plus gateway callbacks. */
+async function flush(rounds = 8): Promise<void> {
+  for (let index = 0; index < rounds; index += 1) {
+    await settle()
+  }
+}
+
+/** A valid managed open envelope for seeding an explicit managed panel. */
+function managedOpenEnvelope(): Record<string, unknown> {
+  return {
+    protocol: COMPANION_PROTOCOL_ID,
+    sessionId: 'companion-session-managed',
+    teamGoalId: 'team-goal-a',
+    clientId: 'client-1',
+    sessionGeneration: 1,
+    pluginGeneration: 1,
+    projection: {
+      status: 'ready',
+      cursor: 9,
+      cards: [
+        { role: 'coordinator', agentRunId: 'agent-run-coordinator', piStatus: 'Coordinator · waiting' },
+        { role: 'builder', agentRunId: 'agent-run-builder', piStatus: 'Builder · managed' },
+        { role: 'reviewer', agentRunId: 'agent-run-reviewer', piStatus: 'Reviewer · waiting' },
+      ],
+    },
+  }
+}
+
 // ---------------------------------------------------------------------------
 // Tests
 // ---------------------------------------------------------------------------
@@ -639,4 +667,107 @@ test('a failed initial connection keeps Pi usable (fail open)', async () => {
   assert.equal(host.isSessionRunning, true)
   assert.equal(host.hiddenAgentCount, 0)
   assert.equal(harness.gateway.snapshot().agents.length, 0)
+})
+
+// ---------------------------------------------------------------------------
+// Standalone observer-only panel lifecycle through the live bridge (task 3.b)
+// ---------------------------------------------------------------------------
+
+test('registration opens a visible observer-only panel and later projections render through the apply seam without reopening', async () => {
+  const harness = createGatewayHarness()
+  const connection = harness.connect()
+  connection.sendFrame(frame('observer.register', nextMessageId(), registerBody()))
+  await flush()
+
+  const shell = harness.shell as FakeCompanionShell
+  assert.equal(shell.panel.observerOpen, true, 'registration must open the standalone observer panel')
+  assert.equal(shell.panel.visible, true, 'the observer-only panel must be visible')
+  assert.equal(shell.panel.observerProjection.agents.length, 1)
+  assert.equal(shell.panel.observerProjection.agents[0].piStatus, 'Unassigned · observed')
+
+  // A later change to the observed health advances the registry revision and
+  // must render through the non-opening apply seam, never reopening the panel.
+  const values = connectionValues(connection.last('observer.registered'))
+  connection.sendFrame(frame('observer.heartbeat', nextMessageId(), heartbeatBody(values, { health: 'degraded' })))
+  await flush()
+
+  assert.equal(shell.panel.observerOpen, true)
+  assert.equal(shell.panel.visible, true)
+  assert.equal(shell.panel.observerProjection.agents[0].health, 'degraded', 'the update seam must render the later projection')
+  const openCount = shell.calls().filter((c) => c.method === 'openObservedAgents').length
+  assert.equal(openCount, 1, 'openObservedAgents must be called exactly once for the panel lifetime')
+  assert.ok(
+    shell.calls().some((c) => c.method === 'applyObservedAgents'),
+    'later projections must render through applyObservedAgents',
+  )
+})
+
+test('observer-only opening fabricates no managed handoff, session, cards, cursor, or managed visibility', async () => {
+  const harness = createGatewayHarness()
+  const connection = harness.connect()
+  connection.sendFrame(frame('observer.register', nextMessageId(), registerBody()))
+  await flush()
+
+  const shell = harness.shell as FakeCompanionShell
+  assert.equal(shell.panel.observerOpen, true)
+  assert.equal(shell.panel.visible, true)
+  assert.equal(shell.panel.managedSession, null)
+  assert.equal(shell.panel.managedProjection, null)
+  assert.deepEqual(shell.panel.managedCards, [])
+  assert.equal(shell.panel.managedCursor, null)
+  assert.equal(shell.panel.managedVisible, false, 'observer opening must not enable managed visibility')
+  assert.deepEqual(shell.panel.handoffs, [], 'no managed handoff may be fabricated')
+
+  const methods = shell.calls().map((c) => c.method).filter((m) => m !== undefined)
+  assert.equal(methods.includes('applyHandoff'), false, 'observer-only path must never use applyHandoff')
+  assert.equal(methods.includes('applyHandoff'), false)
+
+  // Only capability discovery plus the observer lifecycle may be exercised.
+  for (const forbidden of ['summon', 'applyHandoff', 'clear', 'intentResult', 'takeIntent']) {
+    assert.equal(
+      shell.calls().some((c) => c.operation === forbidden || c.method === forbidden),
+      false,
+      `observer-only path must never reach ${forbidden}`,
+    )
+  }
+})
+
+test('observer clear through the publisher leaves a managed presentation and panel visibility untouched', async () => {
+  const shell = new FakeCompanionShell({
+    version: '0.3.0',
+    capabilities: [...COMPANION_CAPABILITIES, COMPANION_OBSERVER_CAPABILITY],
+  })
+  // Seed an explicit managed panel that stays open for the test duration.
+  shell.summon(COMPANION_PLUGIN_ID, JSON.stringify(managedOpenEnvelope()))
+  assert.equal(shell.panel.managedVisible, true)
+  assert.equal(shell.panel.visible, true)
+
+  const harness = createGatewayHarness(shell)
+  const connection = harness.connect()
+  connection.sendFrame(frame('observer.register', nextMessageId(), registerBody()))
+  await flush()
+  assert.equal(shell.panel.observerOpen, true)
+  assert.equal(shell.panel.visible, true)
+
+  const managedBefore = {
+    managedVisible: shell.panel.managedVisible,
+    visible: shell.panel.visible,
+    managedSession: structuredClone(shell.panel.managedSession),
+    managedProjection: structuredClone(shell.panel.managedProjection),
+    managedCards: structuredClone(shell.panel.managedCards),
+    managedCursor: shell.panel.managedCursor,
+  }
+
+  await harness.publisher.clearObservedAgents()
+  await flush()
+
+  // observer presentation is cleared; the managed panel stays fully intact
+  assert.equal(shell.panel.observerOpen, false)
+  assert.equal(shell.panel.observerProjection.observerRevision, 0)
+  assert.equal(shell.panel.visible, true, 'an open managed panel must remain visible after observer clear')
+  assert.equal(shell.panel.managedVisible, managedBefore.managedVisible)
+  assert.deepEqual(shell.panel.managedSession, managedBefore.managedSession)
+  assert.deepEqual(shell.panel.managedProjection, managedBefore.managedProjection)
+  assert.deepEqual(shell.panel.managedCards, managedBefore.managedCards)
+  assert.equal(shell.panel.managedCursor, managedBefore.managedCursor)
 })
