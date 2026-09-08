@@ -1,6 +1,12 @@
 # Proposed observer bridge live validation
 
-Status: **PROPOSED — not run; no live observer or Adoption evidence exists**
+Status: **human-reported observation PASS accepted; live Adoption not run**
+
+Closeout recorded 2026-09-08: the operator reported verification passed after
+restarting the shell and explicitly accepted this slice. See
+[`observer live bridge closeout`](../../../spikes/observer-live-bridge/README.md)
+for the supplied setup evidence location, unknown observer-run evidence path,
+and setup hardening follow-up. This is not independent per-case verification.
 
 **PROTOTYPE — NOT PRODUCTION.** This is a human-only procedure for the
 observation-only bridge. It is not an automated recipe and it does not install
@@ -220,7 +226,7 @@ reconciliation. Never guess a path or use recursive deletion.
 
 A successful run of the currently documented checks would establish only the
 bounded live observer transport and publication behavior above. The standalone
-observer-panel lifecycle remains fake-proven until a separate explicit visual
-check is performed. This procedure would not establish production support,
+observer-panel verification has now received operator-reported PASS and slice
+acceptance; individual manual cases were not independently audited. This procedure would not establish production support,
 Adoption, remote execution, reboot recovery, PTY guarantees for an adopted
 session, or broader Pi compatibility.

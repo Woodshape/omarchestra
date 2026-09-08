@@ -187,7 +187,8 @@ protocol, privacy, registry, same-process acknowledgement, transaction,
 Companion projection, cleanup, transport, gateway, and launcher audits. It
 does not establish live evidence. The human-only procedure is
 [`observer-adoption-live-validation.md`](../../prototypes/first-vertical-slice/docs/observer-adoption-live-validation.md)
-and has not been run. Bridge automation uses only the dedicated fake-only
+and received operator-reported observation PASS and explicit slice acceptance
+(closeout recorded 2026-09-08). Bridge automation uses only the dedicated fake-only
 `prototype-live-observer-check` recipe and never reaches live Pi, Omarchy shell,
 installed Companion, or Adoption state. Automation performed no live run, and
 no live Adoption claim is made.
@@ -201,7 +202,9 @@ Agents` panel, then clears only observer state. It does not use managed summon,
 populate managed cards or cursor state, or create a Projection Session, Team
 Goal, Agent Run, Role, Assignment, or managed authority. Observer update and
 clear preserve an already open managed panel. This is prototype evidence only;
-no live observer-panel run or live Adoption validation has occurred.
+live observation is accepted based on the operator's report; live Adoption
+validation remains unrun. See the [closeout](../../spikes/observer-live-bridge/README.md)
+for evidence limits and the shell-reload setup finding.
 
 Pi 0.84.4 exposes no complete content-free start/end lifecycle for
 slash-command and `user_bash` execution; the current bounded contract accepts
@@ -559,7 +562,7 @@ Status: **MVP product scope and the local/remote feasibility classifications are
 
 Before delegating broad implementation to Fusion Harness, the project still needs:
 
-1. preserve the fake-only observer/Adoption evidence while validating opt-in ordinary-terminal Pi observation and exact acknowledged Adoption without granting premature authority; the current contract accepts the documented activity limitation as bounded risk and live validation remains unrun;
+1. preserve the fake-only observer/Adoption evidence while validating opt-in ordinary-terminal Pi observation and exact acknowledged Adoption without granting premature authority; the current contract accepts the documented activity limitation as bounded risk and human observation verification is accepted, while live Adoption remains unrun;
 2. resolve the product policy or runtime capability for Boomux's generic exact-Run presentation race;
 3. define production runner/bridge/observer snapshot, event, intent, SSH trust, deployment, and persistence contracts;
 4. convert validated prototype slices into milestone-sized production implementation slices with executable acceptance gates.

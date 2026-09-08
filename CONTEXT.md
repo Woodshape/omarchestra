@@ -3,7 +3,7 @@
 ## Current prototype boundary
 
 The observer/Adoption terms below are implemented only in the removable
-fake-only prototype under `prototypes/first-vertical-slice/`. Its automated
+prototype under `prototypes/first-vertical-slice/`. Its automated
 protocol, privacy, registry, projection, and transaction gates are green, but
 that evidence is not live feasibility or production code. R1 is an accepted
 bounded risk for the current prototype contract: Pi 0.84.4 does not expose a
@@ -12,9 +12,10 @@ execution, so the adapter uses `ctx.isIdle()` plus its existing guards as
 best-effort and records the limitation for later hardening without inspecting
 content. The observer bridge has fake-only transport, gateway, Companion 0.3.0,
 launcher, and reachability evidence. Its `--check` path is no-resource and its
-live procedure requires a human TTY. Automation performed no live run. No live
-observer-panel or Adoption validation has been run, and no live Adoption claim
-is made. Companion 0.3.0's explicit sessionless `openObservedAgents`,
+live procedure requires a human TTY. Automation performed no live run. The
+operator reported live observation verification PASS and accepted the slice
+(closeout recorded 2026-09-08). Live Adoption remains unrun; no live Adoption
+claim is made. Companion 0.3.0's explicit sessionless `openObservedAgents`,
 `applyObservedAgents`, and `clearObservedAgents` lifecycle is fake-proven. It
 opens and updates only `Unassigned Agents` state and clears it without
 fabricating a Projection Session, managed cards, managed cursor, Team Goal,

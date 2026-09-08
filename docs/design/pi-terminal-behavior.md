@@ -1,6 +1,6 @@
 # Pi terminal behavior
 
-Status: **MVP behavior locked; bounded fake-only observer prototype green; R1 accepted as bounded risk; live validation not run.**
+Status: **MVP behavior locked; bounded fake-only observer prototype green; R1 accepted as bounded risk; human observation PASS accepted; live Adoption not run.**
 
 This document specializes the authoritative MVP design for visible Pi terminals. It does not grant QML, the observer, or the terminal runtime additional domain authority.
 
@@ -64,8 +64,9 @@ shows that it opens and updates a standalone `Unassigned Agents` panel and
 clears only observer state. It does not use managed summon, fabricate a managed
 projection, populate the managed cursor, or create a Projection Session. If a
 managed panel is open, observer update and clear leave its identity, cards, and
-visibility unchanged. No live observer-panel run or live Adoption validation
-has been performed.
+visibility unchanged. The operator reported live observation verification PASS
+and accepted the slice (closeout recorded 2026-09-08). Live Adoption remains
+unrun; detailed evidence limits are recorded in the observer live bridge spike.
 
 The Pi 0.84.4 public surface lacks a complete content-free start/end lifecycle
 for slash-command and `user_bash` execution. The current bounded contract
@@ -109,4 +110,4 @@ Observer and Companion Plugin installation, compatibility verification, update, 
 
 The Companion prototype fake-proves this split through injected ports: one authorized installation remains enabled across two Team Goals, while open, reconnect, clear, hide, and cleanup leave plugin assets, receipt, and `shell.json` bytes unchanged. `just prototype-companion-check` reproduces that unattended evidence. The separate TTY- and exact-authorization-gated `just prototype-companion-setup-validation` procedure passed on 2026-09-03; its before/after installation fingerprints matched and its runtime resources reconciled absent while the plugin remained enabled.
 
-Ordinary-terminal observation and Adoption were not implemented by the Companion milestone; they now have a bounded fake-only prototype with protocol, privacy, registry, acknowledgement, reconciliation, projection, transaction, and standalone observer-panel lifecycle evidence. Companion 0.2.0 remains the immutable historical managed default, while observer-capable 0.3.0 is selected explicitly. Observer installation lifecycle, production persistence and socket trust, and human live validation remain open. The proposed human-only procedure is recorded in [`observer-adoption-live-validation.md`](../../prototypes/first-vertical-slice/docs/observer-adoption-live-validation.md) and has not been run.
+Ordinary-terminal observation and Adoption were not implemented by the Companion milestone; they now have a bounded fake-only prototype with protocol, privacy, registry, acknowledgement, reconciliation, projection, transaction, and standalone observer-panel lifecycle evidence. Companion 0.2.0 remains the immutable historical managed default, while observer-capable 0.3.0 is selected explicitly. Observer installation lifecycle, production persistence and socket trust, and human live validation remain open. The proposed human-only procedure is recorded in [`observer-adoption-live-validation.md`](../../prototypes/first-vertical-slice/docs/observer-adoption-live-validation.md) and has received operator-reported observation PASS; live Adoption remains unrun.

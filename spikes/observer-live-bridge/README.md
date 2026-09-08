@@ -1,6 +1,6 @@
 # Observer live bridge spike
 
-Status: **fake-only contract green; live validation not run**
+Status: **automated gates green; human-reported observation PASS accepted; live Adoption not run**
 
 **PROTOTYPE — NOT PRODUCTION.** This spike records the bounded observer bridge
 path. It does not promote the prototype into production and does not authorize
@@ -31,7 +31,7 @@ The fake-only gate must prove:
   work, content-bearing Pi hooks, or process/desktop controls; and
 - a human launcher whose `--check` branch creates no user or live state.
 
-A future human gate may additionally test the local socket with an ordinary Pi.
+The operator has reported PASS for the human observation verification and accepted this slice.
 It may not claim live Adoption or stronger Pi activity attestation.
 
 ## Setup
@@ -116,9 +116,10 @@ the managed cursor, and observer clear cannot clear or hide an active managed
 panel. The bridge does not use managed summon as a workaround and creates no
 Team Goal, Agent Run, Role, Assignment, or Adoption authority.
 
-This is fake and static evidence only. No operator has run the standalone panel
-path against a live Companion 0.3.0 installation, so no live observer-panel
-visual result or live Adoption evidence exists.
+The operator reported successful live verification after restarting the Omarchy
+shell and explicitly accepted the observation slice. This is human-reported
+acceptance, not an independently audited per-case live test transcript. No live
+Adoption evidence exists.
 
 ## R1 and live boundary
 
@@ -137,12 +138,28 @@ any human run.
 
 Automation performed no live observer run. No live Adoption claim is made.
 
+## Human acceptance closeout (recorded 2026-09-08)
+
+- Operator reported verification passed and explicitly accepted this slice.
+- Companion 0.3.0 setup evidence location supplied by the operator:
+  `/home/woodshape/.local/state/omarchestra/manual-gates/companion-setup-19926-MvBcBM`.
+  This is setup evidence, not the observer-run evidence directory; the latter
+  was not supplied and is not guessed. Private evidence was not copied to Git.
+- Initial gateway startup returned `unknown` for `openObservedAgents` despite
+  matching installed assets. Verification passed after a shell restart. Stale
+  loaded QML is the likely explanation, not a proven root cause.
+- Follow-up setup hardening: verify the actual observer-panel method surface,
+  not just version `0.3.0` and `session.observer`; avoid ambiguous same-version
+  asset updates. This does not reopen accepted observation or R1.
+- No live Adoption, managed dispatch, or PTY persistence claim is made.
+
 ## Conclusion
 
 The observation-only bridge and standalone observer-panel lifecycle are
-supported by fake and static evidence. Live feasibility remains unproven. The
-result does not establish Adoption, managed work, installed-plugin safety on a
-live machine, or a live visible observer-panel result.
+supported with constraints by automated evidence and accepted human-reported
+live observation verification. The result does not establish Adoption, managed
+work, production installation safety, or independently verified coverage of
+every manual failure case.
 
 ## Design impact
 
