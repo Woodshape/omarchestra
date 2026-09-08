@@ -71,6 +71,32 @@ function release(version: string = PLUGIN_VERSION, changes: Record<string, strin
   }
 }
 
+test('historical receipt device numbers do not prevent update or uninstall after remount', async () => {
+  for (const operation of ['update', 'uninstall'] as const) {
+    const { fake, installer } = await harness()
+    const initial = await planFor(installer, 'install', RELEASE_V1)
+    await installer.execute(initial, authorize(fake, initial))
+    fake.receipts.mutate((receipt: any) => {
+      for (const asset of receipt.assets) asset.device += 100
+    })
+    const plan = await planFor(installer, operation, operation === 'update' ? RELEASE_V2 : undefined)
+    await installer.execute(plan, authorize(fake, plan))
+  }
+})
+
+test('device drift after plan inspection still rejects execution without writes', async () => {
+  const { fake, installer } = await harness()
+  const initial = await planFor(installer, 'install', RELEASE_V1)
+  await installer.execute(initial, authorize(fake, initial))
+  const plan = await planFor(installer, 'update', RELEASE_V2)
+  const inspect = fake.filesystem.inspectNoFollow.bind(fake.filesystem)
+  fake.filesystem.inspectNoFollow = (path: string) => {
+    const identity = inspect(path)
+    return identity.device === null ? identity : { ...identity, device: identity.device + 100 }
+  }
+  await assertRejectedWithoutWrites(fake, installer.execute(plan, authorize(fake, plan)), /stale/)
+})
+
 const RELEASE_V1 = release()
 const RELEASE_V2 = release('0.2.1', {
   'AgentConsole.qml': 'import QtQuick\nItem { property string release: "0.2.1" }\n',

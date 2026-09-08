@@ -145,6 +145,8 @@ Inspection performs no mutation and returns an immutable plan containing:
 
 Any host, plugin-tree, receipt, or configuration change after inspection makes the plan stale. Execution rechecks every precondition before mutation.
 
+Interactive Companion setup displays the plan and asks `Install <version>? [y/N]`. Only `y` or `yes` (case-insensitive, surrounding whitespace ignored) confirms; empty input and all other answers decline. A TTY remains required and confirmation grants authority only for the displayed plan. This replaces the typed installation authorization sentence; the separate observer live-gate confirmation is unchanged.
+
 ### Authorization
 
 Authorization includes the exact operation, plan digest, authorization ID, and an issuer-verifiable token. It is valid for one exact immutable plan. Missing, forged, cross-operation, or different-plan authorization fails before writes.
@@ -159,6 +161,8 @@ A successful install writes an owner-only receipt with:
 - plan digest and installation timestamp;
 - exact asset relative paths, absolute paths, SHA-256 values, owner, mode, device, and inode identities;
 - exact `shell.json` preimage/postimage bytes and hashes.
+
+Historical receipt device numbers are diagnostic: `st_dev` can change across reboot or remount. Receipt validation still requires matching content hashes, inode, owner, mode, paths, and inventory. The fresh inspection plan binds the current device/inode values; drift after inspection still invalidates authorization, and deletion uses that fresh exact identity rather than the historical device number.
 
 The receipt is evidence for update, rollback, and uninstall. It is not accepted when absent, malformed, symlinked, foreign-owned, mode-unsafe, internally inconsistent, or inconsistent with the current installation. A pre-existing target without a verified receipt is foreign and is never adopted.
 

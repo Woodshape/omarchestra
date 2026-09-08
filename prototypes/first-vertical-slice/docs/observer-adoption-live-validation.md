@@ -7,6 +7,22 @@ observation-only bridge. It is not an automated recipe and it does not install
 the Companion, create a Team Goal, perform Adoption, or claim production
 support.
 
+## Standalone panel position
+
+The standalone panel defaults to the left screen edge and reserves space for
+itself, moving tiled terminals aside. Side panels are 360 theme-scaled pixels
+wide; top/bottom panels are 280 theme-scaled pixels high. After installing the
+updated Companion, select an edge with:
+
+```bash
+omarchy-shell shell call omarchestra.agent-console setPanelEdge '{"edge":"right"}'
+```
+
+Accepted edges: `left`, `right`, `top`, `bottom`. This preference lasts for the
+plugin instance (reload restores left); changing it does not change observation
+or management authority. Closing the standalone panel releases reserved space.
+Managed presentation retains its existing layout.
+
 ## Scope and stop rules
 
 This procedure validates only:

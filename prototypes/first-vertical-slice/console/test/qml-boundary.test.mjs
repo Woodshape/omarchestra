@@ -269,6 +269,18 @@ test('the observer-capable immutable release packages canonical QML bytes while 
   }
 })
 
+test('standalone observer panel docks on a configurable edge and reserves tiled space', () => {
+  const qml = source(CONSOLE_QML)
+  assert.match(qml, /property string edgeOverride: "left"/)
+  assert.match(qml, /function setPanelEdge\(value\)/)
+  assert.ok(qml.includes('["left", "right", "top", "bottom"].indexOf(edge) < 0'))
+  assert.match(qml, /standaloneDock: observerOpened && !opened/)
+  assert.match(qml, /exclusionMode: root.standaloneDock \? ExclusionMode.Auto : ExclusionMode.Ignore/)
+  for (const [anchor, opposite] of [['top', 'bottom'], ['bottom', 'top'], ['left', 'right'], ['right', 'left']]) {
+    assert.ok(qml.includes(`${anchor}: !root.standaloneDock || root.panelEdge !== "${opposite}"`))
+  }
+})
+
 test('QML syntax and lint pass through qmllint without launching a UI', () => {
   const files = [CONSOLE_QML, CARDS_QML, UNASSIGNED_QML]
   for (const path of files) source(path)

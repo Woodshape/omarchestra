@@ -27,6 +27,19 @@ import qs.Ui
 Item {
     id: root
 
+    // Presentation-only edge preference, configurable through shell call.
+    property string edgeOverride: "left"
+    readonly property string panelEdge: edgeOverride
+    readonly property bool standaloneDock: observerOpened && !opened
+
+    function setPanelEdge(value) {
+        var parsed = parsePayload(value)
+        var edge = parsed && parsed.edge
+        if (["left", "right", "top", "bottom"].indexOf(edge) < 0) return false
+        edgeOverride = edge
+        return true
+    }
+
     property var shell: null
     property var manifest: null
     property bool opened: false
@@ -306,22 +319,24 @@ Item {
         id: panel
         visible: root.opened || root.observerOpened
         anchors {
-            top: true
-            bottom: true
-            left: true
-            right: true
+            top: !root.standaloneDock || root.panelEdge !== "bottom"
+            bottom: !root.standaloneDock || root.panelEdge !== "top"
+            left: !root.standaloneDock || root.panelEdge !== "right"
+            right: !root.standaloneDock || root.panelEdge !== "left"
         }
+        implicitWidth: Style.space(360)
+        implicitHeight: Style.space(280)
         color: "transparent"
         WlrLayershell.namespace: "omarchestra-agent-console"
-        WlrLayershell.layer: WlrLayer.Overlay
+        WlrLayershell.layer: root.standaloneDock ? WlrLayer.Top : WlrLayer.Overlay
         WlrLayershell.keyboardFocus: WlrKeyboardFocus.None
-        exclusionMode: ExclusionMode.Ignore
+        exclusionMode: root.standaloneDock ? ExclusionMode.Auto : ExclusionMode.Ignore
         mask: Region { item: surface }
 
         BorderSurface {
             id: surface
-            width: Math.min(parent.width - Style.space(48), Style.space(900))
-            height: consoleColumn.implicitHeight + Style.space(36)
+            width: root.standaloneDock ? parent.width : Math.min(parent.width - Style.space(48), Style.space(900))
+            height: root.standaloneDock ? parent.height : consoleColumn.implicitHeight + Style.space(36)
             anchors.centerIn: parent
             color: Color.popups.background
             borderSpec: Border.surfaceSpec(

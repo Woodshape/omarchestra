@@ -25,6 +25,15 @@ For each managed Agent Run:
 
 Boomux owns managed PTYs, process attachment, detach/reconnect, and resize. Omarchestra references those capabilities through opaque Runtime Bindings.
 
+## Standalone observer panel placement
+
+The user-selected standalone observer surface docks to a configurable screen edge
+(left by default; right, top, and bottom also supported). It reserves compositor
+space so tiled terminals move aside, rather than covering them with a centered
+overlay. Closing the observer surface releases that space. This is presentation
+only and grants no terminal or process authority. Managed-panel behavior is
+unchanged.
+
 ## Ordinary terminals
 
 Product setup may install one opt-in global Omarchestra Pi observer extension. This allows a Pi started normally in a terminal opened through `Leader+Enter` to announce itself to the local owner-only Agent Registry without changing how the user launched or controls Pi.

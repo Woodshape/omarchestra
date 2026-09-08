@@ -153,6 +153,17 @@ test('the replacement --check path is the real fake-only invocation', () => {
   }
 })
 
+test('installation confirmation defaults to no and accepts only y or yes', async () => {
+  const { acceptsInstallationConfirmation } = await import('../live-companion-omarchy.ts')
+  for (const answer of ['', ' ', 'n', 'N', 'no', 'anything', 'y extra']) {
+    assert.equal(acceptsInstallationConfirmation(answer), false)
+  }
+  for (const answer of ['y', 'Y', 'yes', 'YES', ' Yes ']) {
+    assert.equal(acceptsInstallationConfirmation(answer), true)
+  }
+  assert.ok(read(ADAPTER).includes('Install ${release.version}? [y/N]'))
+})
+
 test('the live adapter formats authorization for the selected Companion release', async () => {
   const { liveAuthorizationPhrase } = await import('../live-companion-omarchy.ts')
   assert.equal(liveAuthorizationPhrase({ version: '0.2.0' }),

@@ -934,10 +934,19 @@ export function captureLiveInstallationFingerprint(ports: LiveCompanionPorts): s
   })
 }
 
+export function acceptsInstallationConfirmation(answer: string): boolean {
+  return /^(y|yes)$/i.test(answer.trim())
+}
+
 async function promptExactAuthorization(release: CompanionRelease = COMPANION_RELEASE): Promise<string> {
   const prompt = readline.createInterface({ input: process.stdin, output: process.stdout })
   try {
-    return await prompt.question(`Type exactly ${liveAuthorizationPhrase(release)}\n> `)
+    const answer = await prompt.question(`Install ${release.version}? [y/N] `)
+    if (!acceptsInstallationConfirmation(answer)) {
+      throw new CompanionInstallationError('authorization_required', 'installation declined')
+    }
+    // The internal grant remains bound to the exact displayed plan.
+    return liveAuthorizationPhrase(release)
   } finally {
     prompt.close()
   }

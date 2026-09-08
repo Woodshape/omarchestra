@@ -404,8 +404,10 @@ function asError(error: unknown): Error {
 const invokedPath = process.argv[1] === undefined ? null : path.resolve(process.argv[1])
 const modulePath = path.resolve(fileURLToPath(import.meta.url))
 if (invokedPath === modulePath) {
-  main().catch(() => {
-    console.error('observer gateway failed')
+  main().catch((error) => {
+    // Operator-local diagnostic only: do not persist raw errors in evidence.
+    const detail = asError(error).message.replace(/[\u0000-\u001f\u007f]/g, ' ').slice(0, 1024)
+    console.error(`observer gateway failed: ${detail}`)
     process.exitCode = 1
   })
 }

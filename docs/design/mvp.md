@@ -616,6 +616,8 @@ These are specification/spike outputs rather than product-feature choices, but e
 
 ## Decision log
 
+- Standalone observer panel placement: user selected a configurable edge (left by default, also right/top/bottom), reserving compositor space so tiled terminals move aside instead of a centered overlay. Managed-panel behavior remains unchanged.
+
 - 2026-08-30: Native Omarchy/Hyprland terminal windows selected over an integrated split-pane renderer.
 - 2026-08-30: All working agents must be visible interactive processes; hidden Pi JSON workers rejected.
 - 2026-08-30: Own QML plugin and Team Runner selected; giant QML implementation rejected.

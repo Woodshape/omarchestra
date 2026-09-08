@@ -771,7 +771,9 @@ export class CompanionInstallation {
       if (receiptAsset === undefined) throw new CompanionInstallationError('invalid_receipt', `receipt lacks ${relativePath}`)
       if (entry.identity.owner !== receiptAsset.owner
         || entry.identity.mode !== receiptAsset.mode
-        || entry.identity.device !== receiptAsset.device
+        // st_dev can change across remount/reboot. The historical receipt
+        // records it for diagnostics, not persistent installation authority.
+        // Fresh plan snapshots and exact mutations still compare device IDs.
         || entry.identity.inode !== receiptAsset.inode
         || this.ports.digest.sha256(entry.bytes) !== receiptAsset.sha256) {
         throw new CompanionInstallationError('foreign_installation', `owned asset identity or bytes changed at ${relativePath}`)
@@ -1088,7 +1090,8 @@ export class CompanionInstallation {
         kind: 'file',
         owner: asset.owner,
         mode: asset.mode,
-        device: asset.device,
+        // Use this operation's validated snapshot, not a prior mount's ID.
+        device: entry.identity.device,
         inode: asset.inode,
         size: entry.identity.size,
       })) {
