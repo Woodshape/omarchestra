@@ -139,6 +139,8 @@ export class LiveAdoptionRunner {
   private readonly leaseDurationMs: number
   private readonly recoveryTtlMs: number
   private readonly recoveryChallengeFactory: () => string
+  private readonly presentation: AdoptionPresentationPort
+  private revision = 0
   private commitCountValue = 0
   private managedBridgeEnabledValue = false
   private dispatchCountValue = 0
@@ -153,8 +155,9 @@ export class LiveAdoptionRunner {
     this.teamGoalId = requireId(options.teamGoalId, 'teamGoalId')
     this.roles = requireRoles(options.roles)
     this.managedBridge = options.managedBridge ?? { enable: () => {}, disable: () => {} }
+    this.presentation = options.presentation ?? { applyCommitted: () => {} }
     this.choiceResolver = options.choiceResolver ?? defaultChoiceResolver(this.teamGoalId)
-    this.clock = options.clock ?? { now: () => 0 }
+    this.clock = options.clock ?? { now: () => Math.floor(performance.now()) }
     this.authorizer = options.authorizer ?? { verify: () => true }
     this.dispatch = options.dispatch
     this.proposalIdFactory = options.proposalIdFactory
@@ -169,12 +172,15 @@ export class LiveAdoptionRunner {
     if (record === null || typeof record !== 'object') {
       throw new TypeError('observed record must be a plain object')
     }
+    if (this.store.transaction(tx => tx.isBindingCommitted(bindingOfRecord(record)))) {
+      throw new ObserverError('already_managed', 'committed binding requires challenged recovery')
+    }
     const transport = connection ?? { id: DEFAULT_TRANSPORT_ID }
     const observerConnection: AdoptionObserverConnection = {
       id: (transport as { id?: unknown }).id ?? DEFAULT_TRANSPORT_ID,
       send: (type, messageId, body) => {
         const sender = (transport as { send?: (t: string, m: string, b: Record<string, unknown>) => void }).send
-        if (typeof sender === 'function') sender(type, messageId, body)
+        if (typeof sender === 'function') return sender.call(transport, type, messageId, body)
       },
     }
     const entry: ObservedEntry = {
@@ -185,6 +191,7 @@ export class LiveAdoptionRunner {
       leaseUntil: this.clock.now() + this.leaseDurationMs,
     }
     this.observed.set(record.observedSessionId, entry)
+    this.revision += 1
   }
 
   /** Update an existing observed record in place (heartbeat/lifecycle). */
@@ -193,6 +200,18 @@ export class LiveAdoptionRunner {
     if (entry !== undefined) {
       entry.record = cloneRecord(record)
       entry.leaseUntil = this.clock.now() + this.leaseDurationMs
+      this.revision += 1
+    }
+  }
+
+  /** Retire expired authority before publishing or receiving more frames. */
+  expire(): void {
+    for (const [id, entry] of this.observed) {
+      if (this.clock.now() >= entry.leaseUntil) {
+        this.onConnectionLost(entry.connection)
+        this.observed.delete(id)
+        this.revision += 1
+      }
     }
   }
 
@@ -236,12 +255,9 @@ export class LiveAdoptionRunner {
       commitAdoption: (input) => this.commitAdoption(input),
     }
 
-    const presentation: AdoptionPresentationPort = {
-      applyCommitted: (update) => {
-        this.managedBridge.enable(cloneRecord(update))
-        this.managedBridgeEnabledValue = true
-      },
-    }
+    // Presentation is not readiness. Only a later same-Pi readiness proof may
+    // activate dispatch; this commit-only slice creates no Assignment.
+    const presentation = this.presentation
 
     return new AdoptionCoordinator({
       clock: this.clock,
@@ -275,6 +291,7 @@ export class LiveAdoptionRunner {
     })
     this.commitContexts.delete(proposalId)
     this.commitCountValue += 1
+    this.revision += 1
     const { committedAt: _committedAt, ...result } = committed
     return result
   }
@@ -316,8 +333,20 @@ export class LiveAdoptionRunner {
     if (record.health !== 'healthy') throw new ObserverError('session_unavailable', 'the observed session health is degraded')
     if (record.piStatus !== OBSERVER_PI_STATUS_LOCAL) throw new ObserverError('already_managed', 'the observed session is no longer unassigned')
     const proposal = requirePlainRecord(input.proposal, 'proposal')
+    for (const field of ['observedSessionId', 'executionNodeId', 'processIncarnationId', 'piSessionId', 'extensionInstanceId', 'connectionId', 'connectionChallenge', 'registryRevision'] as const) {
+      if (record[field] !== proposal[field]) throw new ObserverError('identity_drift', `current ${field} changed before commit`)
+    }
+    if (acknowledgement.sourceSequence <= record.acceptedSourceSequence) {
+      throw new ObserverError('invalid_sequence', 'acknowledgement is older than the current lifecycle')
+    }
     const role = requireRole(proposal.targetRole, 'targetRole')
     const teamGoalId = requireId(proposal.targetTeamGoalId, 'targetTeamGoalId')
+    if (record.executionNodeId !== this.executionNodeId || proposal.targetExecutionNodeId !== this.executionNodeId) {
+      throw new ObserverError('node_mismatch', 'commit must remain on the configured local Node')
+    }
+    if (teamGoalId !== this.teamGoalId || !this.roles.includes(role)) {
+      throw new ObserverError('remote_team_goal', 'commit target is not owned by this runner')
+    }
     if (tx.isRoleOccupied(teamGoalId, role)) throw new ObserverError('role_occupied', 'the target Role is already occupied')
     if (tx.isBindingCommitted(bindingOfRecord(record))) {
       throw new ObserverError('already_managed', 'the observed session already has a managed Agent Run')
@@ -371,16 +400,21 @@ export class LiveAdoptionRunner {
       authorizationId: `authorization-${proposalId}`,
       token: 'fake-user-confirmation-token',
     }
-    const requestAck = await entry.coordinator.authorizeProposal(proposalId, authorization)
-    // Retain the acknowledgement deadline so the synchronous commit port can
-    // re-check it without relying on the coordinator's private deadline.
-    this.commitContexts.set(proposalId, {
+    // Capture before delivery: a fast same-process response must not race
+    // context installation, and asynchronous authorization cannot extend it.
+    if (!this.commitContexts.has(proposalId)) this.commitContexts.set(proposalId, {
       connection: entry.connection,
       observedSessionId: entry.record.observedSessionId,
       acknowledgementDeadline: this.clock.now() + ADOPTION_ACK_TIMEOUT_MS,
       expiresMonotonic: Number(proposal.expiresMonotonic),
     })
-    return { ...cloneRecord(requestAck), phase: 'authorized' }
+    try {
+      const requestAck = await entry.coordinator.authorizeProposal(proposalId, authorization)
+      return { ...cloneRecord(requestAck), phase: 'authorized' }
+    } catch (error) {
+      this.commitContexts.delete(proposalId)
+      throw error
+    }
   }
 
   /**
@@ -506,11 +540,18 @@ export class LiveAdoptionRunner {
         observedSessionId: entry.record.observedSessionId,
         piStatus: entry.record.piStatus,
         lifecycle: entry.record.lifecycle,
+        activity: entry.record.activity,
         availability: entry.record.availability,
         health: entry.record.health,
-        choices: [],
+        choices: this.roles.filter(role => !store.committedRuns.some(run => run.targetRole === role)).map(role => ({
+          choiceId: role === 'builder' ? 'adoption-choice-1' : role === 'coordinator' ? 'adoption-choice-2' : 'adoption-choice-3',
+          label: `Adopt into ${this.teamGoalId} · ${role}`,
+          enabled: entry.record.availability === 'available' && entry.record.activity === 'idle'
+            && entry.record.lifecycle === 'running' && entry.record.health === 'healthy'
+            && this.clock.now() < entry.leaseUntil,
+        })),
       }))
-    return { observerRevision: store.cursor, agents }
+    return { observerRevision: this.revision + store.cursor, agents }
   }
 
   /** Managed cards from the durable store, separate from the observer projection. */
@@ -556,6 +597,7 @@ export class LiveAdoptionRunner {
       }
     }
     entry.record = { ...entry.record, availability: 'unavailable' }
+    this.revision += 1
     entry.coordinator.reconstruct()
   }
 
@@ -586,7 +628,8 @@ function defaultRecoveryChallengeFactory(): string {
 function choiceIdToRole(choiceId: string): Role {
   if (choiceId === 'adoption-choice-2') return 'coordinator'
   if (choiceId === 'adoption-choice-3') return 'reviewer'
-  return 'builder'
+  if (choiceId === 'adoption-choice-1') return 'builder'
+  throw new ObserverError('invalid_envelope', 'unknown Adoption choice')
 }
 
 function bindingOfRecord(record: ObservedRecord): BindingIdentity {

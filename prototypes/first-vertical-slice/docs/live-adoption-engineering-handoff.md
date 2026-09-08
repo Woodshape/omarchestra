@@ -10,6 +10,39 @@ Companion-to-same-Pi integration absent. These are blockers, not accepted scope
 reductions. No installation, live validation, commit or push was performed
 during this correction.
 
+## Post-checkpoint implementation progress
+
+The partial work was checkpointed as `add63d8`. Subsequent single-writer fixes
+have **58/58** dedicated fake tests passing, without live resources or installed
+configuration changes. This is progress, not independent acceptance of F12–F18.
+
+- Added six authority-boundary tests. The initial three failed for unbound
+  transport methods, missing actionable choices, and unknown-choice fallback.
+- Preserve transport method receivers; reject unknown choices; publish vacant
+  local Roles and advance observer revisions on registration/loss/expiry.
+- Propagate expiry to runner authority; use a real monotonic default clock;
+  revalidate binding, revision, sequence, Node and target inside the synchronous
+  commit transaction. Capture commit context before acknowledgement delivery.
+- Remove the manual gateway's duplicate registry/router and route every frame
+  and disconnect through one gateway session with a shared clock.
+- Exercise Companion controller confirmation through framed transport and the
+  actual observer adapter into SQLite, then verify the same fake Pi's footer,
+  observer removal, managed card and persisted state through a second DB open.
+  This still does not exercise installed Companion IPC or the manual extension.
+- Do not enable runner dispatch from presentation delivery. There is still no
+  implemented same-Pi readiness handshake; runner readiness stays false.
+- Reject durable-store Promise transactions and close SQLite on startup failure.
+  Committed binding tombstones now also reject direct re-registration.
+
+Validation: `prototype-live-adoption-check` 58/58, `prototype-live-observer-check`
+69/69, `prototype-observer-adoption-check` 137/137, `prototype-companion-check`
+87/87, `prototype-live-agent-console-check` 78/78, and
+`prototype-vertical-slice-manual-check` 6/6. All commands used `just`, with
+`QMLLINT_BIN=/usr/lib/qt6/bin/qmllint`; `git diff --check` passed.
+`just prototype-vertical-slice` also passed default and WAL scenarios; its
+nondeterministic generated evidence was restored to the checkpoint version.
+No live Adoption readiness, independent review, or full completion is claimed.
+
 ## Evidence qualification
 
 The writer reports 52 passing live-Adoption tests, including 13 tests in the
@@ -50,31 +83,32 @@ not the earlier collaboration that created the initial sibling implementation.
   `LiveAdoptionCompanion`, `LiveCompanionProjection`, `ProjectionSessionManager`,
   capability discovery, installation fingerprinting, or intent routing. The
   companion and projection units are isolated scaffolding, not the actual
-  Adoption path. Runner observer agents expose `choices: []`.
-- **F13 Authority — BLOCKED.** The manual gateway uses its own registry,
-  separate from `LiveAdoptionGatewayCore`'s registry. `registry.recordFor()`
-  omits connection identity and accepted source sequence. The close path does
-  not revoke runner authority. `LiveAdoptionGatewayCore.sweep()` does not notify
-  the runner. The runner's synchronous boundary is not coupled to the
-  authoritative manual registry state.
+  Adoption path. Runner observer agents now expose vacant local Role choices,
+  but those choices are not yet wired to installed Companion IPC.
+- **F13 Authority — PARTIAL, awaiting independent review.** Duplicate manual
+  registry routing is removed; connection metadata is preserved by the core;
+  disconnect and sweep revoke runner authority. Fake busy/disconnect/expiry
+  races during asynchronous acknowledgement reject commit. Final synchronous
+  binding checks are stronger. This does not establish complete live authority
+  lifecycle acceptance or managed-connection recovery.
 - **F14 Recovery — BLOCKED.** Recovery primitives exist in the gateway core, but
-  the manual gateway registration path never invokes `committedByBinding()`,
-  `beginRecovery()`, or recovery proof handling. The extension has no recovery
+  manual routing now reaches the core binding lookup and recovery proof path.
+  The extension has no recovery
   challenge/proof flow. Composed tests call runner recovery methods directly;
   they do not test manual restart, transport reconnect, extension recovery, or
   bridge restoration.
 - **F15 Managed bridge — BLOCKED.** `LiveAdoptionManagedBridge.handleInput()`
   only returns a boolean and discards the input. The extension registers no
   `pi.on('input')` handler. The coordinator applies presentation before sending
-  `adoption.committed`, and the runner maps that presentation to
-  `managedBridge.enable()`. There is no real managed transport action and the
+  `adoption.committed`; the runner no longer maps that presentation to bridge
+  activation. There is no real managed transport action and the
   required post-delivery activation ordering is not established.
 - **F16 Evidence — INCOMPLETE.** The reported 13/13 and 52/52 counts are not
-  tied to an immutable snapshot. The composed harness constructs
-  `LiveAdoptionCompanion` but does not use it, uses `createObserverExtension()`
-  rather than the actual manual Adoption extension, and calls runner methods
-  directly rather than through the required Companion → transport → gateway →
-  runner → store → bridge composition.
+  tied to an immutable snapshot. The new happy-path test now uses
+  `LiveAdoptionCompanion` and SQLite with framed gateway and observer adapter,
+  but still uses `createObserverExtension()` rather than the actual manual
+  Adoption extension. Other recovery tests still bypass required components;
+  the complete installed Companion/recovery/readiness path remains unproven.
 - **F17 Cleanup/verdict — INCOMPLETE.** Exact cleanup code exists but is
   unreachable while the guards remain active. There is no
   `manual/test/live-adoption-launcher.test.mjs`. Existing source audits do not

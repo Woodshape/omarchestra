@@ -67,8 +67,13 @@ export class LiveAdoptionStore implements AdoptionStore {
       fs.mkdirSync(path.dirname(databasePath), { recursive: true, mode: 0o700 })
     }
     this.db = new DatabaseSync(databasePath)
-    this.db.exec('PRAGMA foreign_keys = ON')
-    this.migrate()
+    try {
+      this.db.exec('PRAGMA foreign_keys = ON')
+      this.migrate()
+    } catch (error) {
+      this.db.close()
+      throw error
+    }
   }
 
   private migrate(): void {
@@ -138,9 +143,13 @@ export class LiveAdoptionStore implements AdoptionStore {
   transaction<T>(operation: (tx: AdoptionTransaction) => T): T {
     if (this.inTransaction) throw new Error('nested Adoption transactions are not permitted')
     this.inTransaction = true
-    this.db.exec('BEGIN IMMEDIATE')
     try {
+      this.db.exec('BEGIN IMMEDIATE')
       const result = operation(this.buildTransaction())
+      if (result !== null && (typeof result === 'object' || typeof result === 'function')
+          && typeof (result as { then?: unknown }).then === 'function') {
+        throw new TypeError('Adoption transactions must be synchronous')
+      }
       this.db.exec('COMMIT')
       return result
     } catch (error) {

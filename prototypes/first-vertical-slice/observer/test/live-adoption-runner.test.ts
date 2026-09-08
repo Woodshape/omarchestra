@@ -150,7 +150,7 @@ test('happy path: propose -> authorize -> same-connection ack -> reconcile -> on
   assert.equal(committed.controlMode, 'managed')
   assert.equal(committed.runtimeBindingGuarantee, 'unavailable')
   assert.equal(runner.commitCount, 1)
-  assert.equal(runner.managedBridgeEnabled, true)
+  assert.equal(runner.managedBridgeEnabled, false, 'commit delivery is not same-Pi readiness')
   assert.equal(runner.dispatchCount, 0)
 })
 

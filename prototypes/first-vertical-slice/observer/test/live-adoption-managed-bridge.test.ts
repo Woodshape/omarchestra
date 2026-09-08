@@ -118,7 +118,7 @@ test('the runner activates the managed bridge only after commit and revokes it o
   await runner.authorizeAdoption(proposal.proposalId, proposal.proposalDigest)
   assert.equal(bridge.enabled, false)
 
-  // After commit the bridge activates.
+  // Commit delivery alone cannot prove same-Pi bridge readiness.
   await runner.acceptAcknowledgement(CONNECTION, {
     processIncarnationId: IDS.processIncarnationId,
     piSessionId: IDS.piSessionId,
@@ -134,8 +134,9 @@ test('the runner activates the managed bridge only after commit and revokes it o
     activity: 'idle',
     refusalCode: null,
   })
-  assert.equal(bridge.enabled, true)
-  assert.equal(runner.managedBridgeEnabled, true)
+  assert.equal(bridge.enabled, false)
+  assert.equal(runner.managedBridgeEnabled, false)
+  assert.equal(runner.dispatchCount, 0)
 
   // Runner connection loss revokes readiness and deactivates the bridge.
   runner.onConnectionLost()

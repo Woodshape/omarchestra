@@ -95,7 +95,7 @@ test('a failure result may carry nullable proposal fields (H3)', async () => {
 test('the combined projection publishes managed cards and Unassigned Agents from one snapshot', async () => {
   const companion = makeCompanion()
   const projection = companion.snapshot()
-  assert.equal(projection.observerRevision, 0)
+  assert.equal(projection.observerRevision, 1, 'registration advances the observer projection independently of durable commits')
   assert.ok(Array.isArray(projection.agents))
   const managed = companion.managedSnapshot()
   assert.ok(Array.isArray(managed.managedCards))

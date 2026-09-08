@@ -77,7 +77,7 @@ export class LiveAdoptionGatewayCore {
       throw new TypeError('LiveAdoptionGatewayCore options are required')
     }
     const roles = requireRoles(options.roles)
-    const clock = options.clock ?? { now: () => 0 }
+    const clock = options.clock ?? { now: () => Math.floor(performance.now()) }
     this.executionNodeId = options.executionNodeId
     this.registry = new AgentRegistry({
       clock,
@@ -135,7 +135,7 @@ export class LiveAdoptionGatewayCore {
       connectionChallenge: null,
       acceptedSourceSequence: 0,
     }
-    this.sessions.set(transport, session)
+    if (!this.sessions.has(transport)) this.sessions.set(transport, session)
     return {
       handleFrame: (frame) => this.handleFrame(transport, frame),
       transportClosed: (error) => this.transportClosed(transport, error),
@@ -145,6 +145,7 @@ export class LiveAdoptionGatewayCore {
   /** Expire sessions whose lease has elapsed under the injected clock. */
   sweep(): void {
     this.registry.expire()
+    this.runner.expire()
   }
 
   get commitCount(): number {
@@ -162,6 +163,7 @@ export class LiveAdoptionGatewayCore {
     const session = this.sessions.get(connection)
     if (session === undefined) return undefined
     try {
+      this.sweep()
       return await this.dispatch(connection, session, frame)
     } catch (error) {
       this.reject(connection, frame, error)
@@ -203,6 +205,7 @@ export class LiveAdoptionGatewayCore {
     session: GatewaySessionState,
     frame: { type: string; messageId: string; body: Record<string, unknown> },
   ): void {
+    if (session.registered) throw new ObserverError('connection_not_current', 'transport is already registered')
     const body = validateObserverBodyForType(frame.type, frame.body)
     // Check the durable binding first. A committed binding must recover
     // through a fresh challenge rather than ordinary registration.
@@ -341,7 +344,7 @@ export class LiveAdoptionGatewayCore {
           this.lastCommittedFrameValue = { type, body: cloneRecord(body) }
         }
         const sender = (connection as { send?: (t: string, m: string, b: Record<string, unknown>) => void }).send
-        if (typeof sender === 'function') sender(type, messageId, body)
+        if (typeof sender === 'function') sender.call(connection, type, messageId, body)
       },
     }
     this.wrappedConnections.set(connection, wrapped)

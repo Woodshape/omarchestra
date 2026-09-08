@@ -36,7 +36,7 @@ import { FakeCapabilityIssuer, FakeMonotonicClock } from '../fakes.ts'
 import { LiveFrameChannel, type DuplexStream } from '../live-frame-channel.ts'
 import { LiveAdoptionGatewayCore } from '../live-adoption-gateway-core.ts'
 import { LiveAdoptionRunner } from '../live-adoption-runner.ts'
-import { createInMemoryAdoptionStore } from '../live-adoption-store.ts'
+import { createInMemoryAdoptionStore, type AdoptionStore } from '../live-adoption-store.ts'
 import { LiveAdoptionCompanion } from '../live-adoption-companion.ts'
 import { LiveAdoptionManagedBridge } from '../../manual/live-adoption-extension.ts'
 import { LiveAdoptionStore } from '../../manual/live-adoption-store.ts'
@@ -329,10 +329,10 @@ async function prepareProposal(gateway: LiveAdoptionGatewayCore, conn: Recording
 // Extension harness (full pipeline through the Pi extension)
 // ---------------------------------------------------------------------------
 
-function createExtensionHarness() {
+function createExtensionHarness(durableStore?: AdoptionStore) {
   const clock = new FakeMonotonicClock(0)
   const capabilityIssuer = new FakeCapabilityIssuer()
-  const store = createInMemoryAdoptionStore({
+  const store = durableStore ?? createInMemoryAdoptionStore({
     executionNodeId: IDS.executionNodeId,
     teamGoalId: IDS.teamGoalId,
     roles: ['coordinator', 'builder', 'reviewer'],
@@ -396,8 +396,12 @@ function tempDbPath(): string {
 // Tests
 // ---------------------------------------------------------------------------
 
-test('full composed path: extension -> transport -> gateway/registry -> runner registers an observed session', async () => {
-  const harness = createExtensionHarness()
+test('same fake Pi: Companion confirmation -> framed gateway -> extension acknowledgement -> SQLite commit -> footer', async (t) => {
+  const databasePath = tempDbPath()
+  const config = { databasePath, executionNodeId: IDS.executionNodeId, teamGoalId: IDS.teamGoalId, roles: ['coordinator', 'builder', 'reviewer'] }
+  const durableStore = new LiveAdoptionStore(config)
+  t.after(() => { durableStore.close(); fs.rmSync(path.dirname(databasePath), { recursive: true, force: true }) })
+  const harness = createExtensionHarness(durableStore)
   const host = harness.host
 
   await host.startSession()
@@ -406,6 +410,28 @@ test('full composed path: extension -> transport -> gateway/registry -> runner r
   assert.equal(host.status('omarchestra-observer-status'), 'Unassigned · observed')
   assert.equal(harness.store.snapshot().committedRuns.length, 0)
   assert.equal(harness.runner.commitCount, 0)
+  const companion = new LiveAdoptionCompanion({
+    runner: harness.runner, executionNodeId: IDS.executionNodeId,
+    teamGoalId: IDS.teamGoalId, roles: ['coordinator', 'builder', 'reviewer'],
+  })
+  const agent = companion.snapshot().agents[0] as { observedSessionId: string }
+  const proposal = await companion.requestAdoption({ intentId: 'request-1', observedSessionId: agent.observedSessionId, choiceId: 'adoption-choice-1' })
+  assert.equal(proposal.phase, 'proposal')
+  assert.equal(harness.store.snapshot().committedRuns.length, 0)
+  const confirmation = await companion.authorizeAdoption({ intentId: 'confirm-1', proposalId: proposal.proposalId!, proposalDigest: proposal.proposalDigest! })
+  assert.equal(confirmation.phase, 'authorized')
+  await settle()
+  assert.equal(harness.store.snapshot().committedRuns.length, 1)
+  assert.equal(harness.runner.commitCount, 1)
+  assert.equal(companion.snapshot().agents.length, 0)
+  assert.equal(companion.managedSnapshot().managedCards.length, 1)
+  assert.equal(harness.runner.managedBridgeEnabled, false, 'Pi footer delivery is not runner dispatch readiness')
+  assert.equal(harness.bridge.enabled, true, 'the extension activates its own bridge only after commit delivery')
+  assert.equal(host.status('omarchestra-observer-status'), 'Builder · managed')
+  const reopened = new LiveAdoptionStore(config)
+  try {
+    assert.deepEqual(reopened.snapshot(), durableStore.snapshot(), 'commit and event survive an independent SQLite open')
+  } finally { reopened.close() }
 })
 
 test('V1: synchronous lease revalidation inside the commit boundary rejects an expired lease', async () => {
@@ -655,6 +681,13 @@ test('V7b: a duplicate role commit rolls back atomically against the durable ada
   }
   store.transaction((tx) => tx.commitAdoption(input))
   assert.equal(store.snapshot().committedRuns.length, 1)
+  // Promise-returning callbacks must roll back before any COMMIT, just like
+  // the in-memory adapter; allowing them would break the final authority fence.
+  assert.throws(() => store.transaction(tx => {
+    tx.currentCursor()
+    return Promise.resolve('not synchronous')
+  }), /synchronous/)
+  assert.equal(store.snapshot().events.length, 1)
   // A second commit for the same role must roll back without partial state.
   assert.throws(
     () => store.transaction((tx) => tx.commitAdoption({

@@ -17,10 +17,10 @@ import type { Readable, Writable } from 'node:stream'
 
 import {
   LiveAdoptionGatewayCore,
+  type GatewaySession,
 } from '../observer/live-adoption-gateway-core.ts'
 import {
   LiveAdoptionRunner,
-  type ObservedRecord,
 } from '../observer/live-adoption-runner.ts'
 import { LiveAdoptionStore } from './live-adoption-store.ts'
 import {
@@ -32,12 +32,6 @@ import {
 } from './live-observer-transport.ts'
 import { ROLES, type Role } from '../src/protocol.ts'
 import type { AdoptionClock } from '../observer/adoption.ts'
-import {
-  AgentRegistry,
-  type RegistryCapabilityIssuer,
-  type RegistryClock,
-  type RegistryPersistence,
-} from '../observer/registry.ts'
 
 const MAX_CONTROL_LINE_CHARACTERS = 64
 const DEFAULT_EXECUTION_NODE_ID = 'adoption-gateway-local'
@@ -90,32 +84,29 @@ export async function runLiveAdoptionGateway(options: LiveAdoptionGatewayRunOpti
     roles,
   })
   const databasePath = path.join(path.dirname(options.socketPath), 'adoption.sqlite')
+  const clock = new ProcessMonotonicAdoptionClock()
   const runner = new LiveAdoptionRunner({
     store,
     executionNodeId,
     teamGoalId,
     roles,
-    clock: new ProcessMonotonicAdoptionClock(),
-  })
-  const registry = new AgentRegistry({
-    clock: new ProcessMonotonicAdoptionClock(),
-    persistence: new InMemoryPersistence(),
-    capabilityIssuer: defaultCapabilityIssuer(),
-    executionNodeId,
+    clock,
   })
   const gateway = new LiveAdoptionGatewayCore({
     executionNodeId,
     teamGoalId,
     roles,
     runner,
+    clock,
   })
 
   const server = new ObserverUnixSocketServer(options.socketPath, (socket) => {
+    let session: GatewaySession
     const channel = new LiveFrameChannel(socket as unknown as DuplexStream, {
-      onFrame: (frame) => handleFrame(gateway, runner, registry, channel, frame),
-      onClose: () => {},
+      onFrame: (frame) => { void session.handleFrame(frame).catch(() => channel.close()) },
+      onClose: (error) => session?.transportClosed(error ?? null),
     })
-    void channel
+    session = gateway.accept(channel)
   })
 
   try {
@@ -173,99 +164,6 @@ export async function runLiveAdoptionGateway(options: LiveAdoptionGatewayRunOpti
     }
   }
   if (cleanupError !== null) throw cleanupError
-}
-
-function handleFrame(
-  gateway: LiveAdoptionGatewayCore,
-  runner: LiveAdoptionRunner,
-  registry: AgentRegistry,
-  channel: LiveFrameChannel,
-  frame: { type: string; messageId: string; body: Record<string, unknown> },
-): void {
-  if (frame.type === 'observer.register') {
-    const envelope = registry.register(channel, frame.body)
-    const body = frame.body as Record<string, unknown>
-    const record: ObservedRecord = {
-      observedSessionId: String(envelope.observedSessionId),
-      executionNodeId: String(envelope.executionNodeId),
-      processIncarnationId: String(body.processIncarnationId),
-      piSessionId: String(body.piSessionId),
-      extensionInstanceId: String(body.extensionInstanceId),
-      connectionId: String(envelope.connectionId),
-      connectionChallenge: String(envelope.connectionChallenge),
-      registryRevision: Number(envelope.registryRevision),
-      lifecycle: 'running',
-      activity: 'idle',
-      availability: 'available',
-      health: 'healthy',
-      piStatus: 'Unassigned · observed',
-      acceptedSourceSequence: Number(envelope.acceptedSourceSequence),
-    }
-    runner.registerObserved(record, channel)
-    channel.send('observer.registered', `gateway-${nextMessageId()}`, envelope)
-    return
-  }
-  if (frame.type === 'observer.heartbeat' || frame.type === 'observer.lifecycle') {
-    const record = registry.heartbeat(channel, frame.body)
-    runner.updateObserved(recordToObserved(record))
-    return
-  }
-  if (frame.type === 'observer.close') {
-    const record = registry.close(channel, frame.body)
-    if (record !== null) runner.updateObserved(recordToObserved(record))
-    return
-  }
-  if (frame.type === 'adoption.ack') {
-    void gateway.accept(channel).handleFrame(frame).catch(() => {
-      // A rejected acknowledgement leaves the session observed/unassigned.
-    })
-    return
-  }
-}
-
-function recordToObserved(record: Record<string, unknown>): ObservedRecord {
-  return {
-    observedSessionId: String(record.observedSessionId),
-    executionNodeId: String(record.executionNodeId),
-    processIncarnationId: String(record.processIncarnationId),
-    piSessionId: String(record.piSessionId),
-    extensionInstanceId: String(record.extensionInstanceId),
-    connectionId: String(record.connectionId),
-    connectionChallenge: String(record.connectionChallenge),
-    registryRevision: Number(record.registryRevision),
-    lifecycle: String(record.lifecycle) as ObservedRecord['lifecycle'],
-    activity: String(record.activity) as ObservedRecord['activity'],
-    availability: String(record.availability) as ObservedRecord['availability'],
-    health: String(record.health) as ObservedRecord['health'],
-    piStatus: 'Unassigned · observed',
-    acceptedSourceSequence: Number(record.acceptedSourceSequence ?? record.lastSourceSequence ?? 0),
-  }
-}
-
-class InMemoryPersistence implements RegistryPersistence {
-  private state: unknown | null = null
-  load(): unknown | null {
-    return this.state
-  }
-  save(value: unknown): void {
-    this.state = value
-  }
-}
-
-function defaultCapabilityIssuer(): RegistryCapabilityIssuer {
-  return {
-    issue(purpose: 'observed' | 'connection' | 'challenge'): string {
-      return `${purpose}-${cryptoRandomId()}`
-    },
-  }
-}
-
-function cryptoRandomId(): string {
-  const bytes = new Uint8Array(12)
-  globalThis.crypto.getRandomValues(bytes)
-  let out = ''
-  for (const byte of bytes) out += byte.toString(16).padStart(2, '0')
-  return out
 }
 
 function status(
@@ -470,12 +368,6 @@ async function main(): Promise<void> {
 
 function asError(error: unknown): Error {
   return error instanceof Error ? error : new Error(String(error))
-}
-
-let messageCounter = 0
-function nextMessageId(): string {
-  messageCounter += 1
-  return `gateway-${messageCounter.toString(16).padStart(32, '0')}`
 }
 
 const invokedPath = process.argv[1] === undefined ? null : path.resolve(process.argv[1])
