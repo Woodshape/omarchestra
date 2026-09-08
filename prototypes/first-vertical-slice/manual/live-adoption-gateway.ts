@@ -23,6 +23,10 @@ import {
   LiveAdoptionRunner,
 } from '../observer/live-adoption-runner.ts'
 import { LiveAdoptionStore } from './live-adoption-store.ts'
+import { AdoptionRuntimeOwnership } from './adoption-owned-database.ts'
+import { LiveAdoptionPresentation } from '../observer/live-adoption-presentation.ts'
+import { ADOPTION_COMPANION_RELEASE } from '../companion/releases.ts'
+import { createLiveCompanionPorts, captureLiveInstallationFingerprint, DirectLiveCommandPort } from './live-companion-omarchy.ts'
 import {
   LiveFrameChannel,
   type DuplexStream,
@@ -39,6 +43,7 @@ const DEFAULT_TEAM_GOAL_ID = 'adoption-team-goal-local'
 export const ADOPTION_LIVE_AUTHORIZATION_PHRASE = 'I AUTHORIZE OMARCHESTRA ADOPTION LIVE BRIDGE'
 
 export interface LiveAdoptionGatewayRunOptions {
+  resume?: boolean
   socketPath: string
   socketIdentityFile?: string
   databaseIdentityFile?: string
@@ -70,20 +75,31 @@ export class ProcessMonotonicAdoptionClock implements AdoptionClock {
  * wrapper below enforces the interactive TTY and exact authorization phrase.
  */
 export async function runLiveAdoptionGateway(options: LiveAdoptionGatewayRunOptions): Promise<void> {
-  // Independent closure review found missing authority and recovery wiring.
-  // Keep this resource boundary closed until the required fake integration passes.
-  throw new Error('live_adoption_incomplete: Companion, lifecycle, recovery and managed bridge integration remain blocked')
+  assertInteractiveTTY()
+  await requestAuthorization()
   const executionNodeId = options.executionNodeId ?? DEFAULT_EXECUTION_NODE_ID
   const teamGoalId = options.teamGoalId ?? DEFAULT_TEAM_GOAL_ID
   const roles = options.roles ?? (['coordinator', 'builder', 'reviewer'] as Role[])
 
-  const store = new LiveAdoptionStore({
-    databasePath: path.join(path.dirname(options.socketPath), 'adoption.sqlite'),
+  const databasePath = path.join(path.dirname(options.socketPath), 'adoption.sqlite')
+  if (options.resume && (!options.databaseIdentityFile || !options.socketIdentityFile)) throw new Error('resume requires the original ownership evidence files')
+  const ownedDatabase = new AdoptionRuntimeOwnership(databasePath,
+    options.resume ? readOwnedEvidence(options.databaseIdentityFile!) : undefined)
+  let store: LiveAdoptionStore | undefined
+  let presentation: LiveAdoptionPresentation | undefined
+  let server: ObserverUnixSocketServer | undefined
+  let released = false
+  try {
+  if (options.resume) removeRecoveredSocket(options.socketPath, readOwnedEvidence(options.socketIdentityFile!))
+  if (options.databaseIdentityFile !== undefined && !options.resume) {
+    writeOwnedEvidence(options.databaseIdentityFile, ownedDatabase.manifest())
+  }
+  store = new LiveAdoptionStore({
+    databasePath,
     executionNodeId,
     teamGoalId,
     roles,
   })
-  const databasePath = path.join(path.dirname(options.socketPath), 'adoption.sqlite')
   const clock = new ProcessMonotonicAdoptionClock()
   const runner = new LiveAdoptionRunner({
     store,
@@ -100,7 +116,21 @@ export async function runLiveAdoptionGateway(options: LiveAdoptionGatewayRunOpti
     clock,
   })
 
-  const server = new ObserverUnixSocketServer(options.socketPath, (socket) => {
+  const command = new DirectLiveCommandPort()
+  const ports = createLiveCompanionPorts({ command, release: ADOPTION_COMPANION_RELEASE })
+  ports.shell.capabilities(ADOPTION_COMPANION_RELEASE.pluginId)
+  presentation = new LiveAdoptionPresentation({ runner, executionNodeId, teamGoalId, roles,
+    shell: {
+      async fingerprint() { return captureLiveInstallationFingerprint(ports) },
+      async call(method, payload) {
+        const response = command.run(['omarchy-shell', 'shell', 'call', ADOPTION_COMPANION_RELEASE.pluginId, method, payload])
+        if (response.status !== 0) throw new Error('Companion Adoption IPC failed')
+        return response.stdout.trim()
+      },
+    },
+  })
+  await presentation.open()
+  server = new ObserverUnixSocketServer(options.socketPath, (socket) => {
     let session: GatewaySession
     const channel = new LiveFrameChannel(socket as unknown as DuplexStream, {
       onFrame: (frame) => { void session.handleFrame(frame).catch(() => channel.close()) },
@@ -125,9 +155,21 @@ export async function runLiveAdoptionGateway(options: LiveAdoptionGatewayRunOpti
     throw error
   }
 
+  let polling: Promise<void> | null = null
+  let presentationError: unknown = null
+  const timer = setInterval(() => {
+    gateway.sweep()
+    if (polling || presentationError) return
+    polling = presentation.poll().catch(error => {
+      presentationError = error
+      runner.onConnectionLost()
+      void server!.close().catch(() => {})
+    }).finally(() => { polling = null })
+  }, 250)
   const input = options.input ?? process.stdin
   const output = options.output ?? process.stdout
   let cleanupError: Error | null = null
+  let acceptanceVerified = false
   try {
     writeControl(output, `Adoption gateway listening on ${server.path}`)
     writeControl(output, 'controls: status | quit')
@@ -142,28 +184,48 @@ export async function runLiveAdoptionGateway(options: LiveAdoptionGatewayRunOpti
         continue
       }
       if (line === 'quit') {
+        const facts = runner.acceptanceFacts()
+        acceptanceVerified = Object.values(facts).every(value => value === true)
+        writeControl(output, JSON.stringify({ acceptanceFacts: facts }))
         writeControl(output, JSON.stringify({ ...status(gateway, runner), state: 'stopping' }))
         break
       }
       writeControl(output, 'control rejected: use status or quit')
     }
   } finally {
+    released = true
+    clearInterval(timer)
+    await polling
+    try { await presentation.close() } catch (error) { cleanupError = asError(error) }
     try {
       await server.close()
     } catch (error) {
       cleanupError = asError(error)
     }
-    store.close()
-    // Capture and verify the exact owned database/sidecar identities, then
+    try { store.close() } catch (error) { cleanupError = asError(error) }
+    // Verify the database identity captured at creation, then
     // remove only those exact files. A substituted file or symlink is never
     // removed and is reported as a cleanup failure.
     try {
-      removeDatabaseExact(databasePath, options.databaseIdentityFile)
+      ownedDatabase.remove()
     } catch (error) {
       cleanupError = asError(error)
     }
   }
+  if (presentationError !== null) throw asError(presentationError)
   if (cleanupError !== null) throw cleanupError
+  if (!acceptanceVerified) throw new Error('Adoption acceptance incomplete: commit, readiness, takeover and pre-cleanup disconnect are required')
+  } catch (error) {
+    const failures: unknown[] = [error]
+    if (!released) {
+      for (const cleanup of [() => server?.close(), () => presentation?.close(),
+        () => store?.close(), () => options.resume ? ownedDatabase.close() : ownedDatabase.remove()]) {
+        try { await cleanup() } catch (failure) { failures.push(failure) }
+      }
+    }
+    if (failures.length > 1) throw new AggregateError(failures, 'Adoption failed and exact cleanup was incomplete')
+    throw error
+  }
 }
 
 function status(
@@ -225,45 +287,40 @@ function writeControl(output: Writable, line: string): void {
 function writeSocketIdentity(filePath: string, identity: { device: bigint; inode: bigint }): void {
   const encoded = `${identity.device.toString()}:${identity.inode.toString()}\n`
   if (Buffer.byteLength(encoded, 'utf8') > 128) throw new Error('Adoption socket identity exceeded its bound')
-  fs.writeFileSync(filePath, encoded, { encoding: 'utf8', mode: 0o600 })
-  fs.chmodSync(filePath, 0o600)
+  writeOwnedEvidence(filePath, encoded)
 }
 
-/**
- * Capture the exact owned database/sidecar identities, write them to the
- * identity evidence file (one `path device:inode` line per file), then remove
- * only those exact files. A substituted file, symlink, or unrelated resource
- * is never removed and is reported as a cleanup failure.
- */
-function removeDatabaseExact(databasePath: string, identityFile: string | undefined): void {
-  const owned: Array<{ path: string; identity: string }> = []
-  for (const suffix of ['', '-wal', '-shm', '-journal']) {
-    const candidate = databasePath + suffix
-    try {
-      const stat = fs.lstatSync(candidate, { bigint: true })
-      if (stat.isFile() && !stat.isSymbolicLink()) {
-        owned.push({ path: candidate, identity: `${stat.dev}:${stat.ino}` })
-      }
-    } catch (error) {
-      if ((error as NodeJS.ErrnoException).code !== 'ENOENT') throw error
-    }
+function evidenceDescriptor(file: string, writable: boolean): number {
+  const parent = fs.lstatSync(path.dirname(file))
+  if (!parent.isDirectory() || parent.isSymbolicLink() || parent.uid !== process.getuid!()
+      || (parent.mode & 0o077) !== 0 || fs.realpathSync(path.dirname(file)) !== path.dirname(file)) throw new Error('unsafe evidence directory')
+  const fd = fs.openSync(file, fs.constants.O_NOFOLLOW | (writable ? fs.constants.O_RDWR : fs.constants.O_RDONLY))
+  const stat = fs.fstatSync(fd)
+  if (!stat.isFile() || stat.nlink !== 1 || stat.uid !== process.getuid!() || (stat.mode & 0o077) !== 0 || stat.size > 4096) {
+    fs.closeSync(fd)
+    throw new Error('unsafe ownership evidence file')
   }
-  if (identityFile !== undefined) {
-    const lines = owned.map((entry) => `${entry.path} ${entry.identity}`).join('\n')
-    if (Buffer.byteLength(lines, 'utf8') > 4096) throw new Error('Adoption database identity exceeded its bound')
-    fs.writeFileSync(identityFile, lines, { encoding: 'utf8', mode: 0o600 })
-    fs.chmodSync(identityFile, 0o600)
-  }
-  for (const entry of owned) {
-    const stat = fs.lstatSync(entry.path, { bigint: true })
-    if (!stat.isFile() || stat.isSymbolicLink()) {
-      throw new Error(`refusing to remove substituted Adoption database file: ${entry.path}`)
-    }
-    if (`${stat.dev}:${stat.ino}` !== entry.identity) {
-      throw new Error(`refusing to remove substituted Adoption database file: ${entry.path}`)
-    }
-    fs.unlinkSync(entry.path)
-  }
+  return fd
+}
+
+function readOwnedEvidence(file: string): string {
+  const fd = evidenceDescriptor(file, false)
+  try { return fs.readFileSync(fd, 'utf8') } finally { fs.closeSync(fd) }
+}
+
+function writeOwnedEvidence(file: string, value: string): void {
+  if (Buffer.byteLength(value) > 4096) throw new Error('ownership evidence exceeds bound')
+  const fd = evidenceDescriptor(file, true)
+  try { fs.ftruncateSync(fd); fs.writeFileSync(fd, value); fs.fsyncSync(fd) } finally { fs.closeSync(fd) }
+}
+
+function removeRecoveredSocket(socket: string, expected: string): void {
+  if (!/^[0-9]+:[0-9]+$/.test(expected.trim())) throw new Error('invalid original socket identity')
+  let stat: fs.BigIntStats
+  try { stat = fs.lstatSync(socket, { bigint:true }) }
+  catch (error) { if ((error as NodeJS.ErrnoException).code === 'ENOENT') return; throw error }
+  if (!stat.isSocket() || stat.isSymbolicLink() || `${stat.dev}:${stat.ino}` !== expected.trim()) throw new Error('recovery socket identity changed')
+  fs.unlinkSync(socket)
 }
 
 function assertInteractiveTTY(): void {
@@ -273,6 +330,7 @@ function assertInteractiveTTY(): void {
 }
 
 interface CliOptions {
+  resume: boolean
   live: boolean
   socketPath: string
   socketIdentityFile?: string
@@ -283,6 +341,7 @@ interface CliOptions {
 
 function parseCliOptions(args: readonly string[]): CliOptions {
   let live = false
+  let resume = false
   let socketPath: string | undefined
   let socketIdentityFile: string | undefined
   let databaseIdentityFile: string | undefined
@@ -290,6 +349,7 @@ function parseCliOptions(args: readonly string[]): CliOptions {
   let teamGoalId = DEFAULT_TEAM_GOAL_ID
   for (let index = 0; index < args.length; index += 1) {
     const argument = args[index]
+    if (argument === '--resume') { resume = true; continue }
     if (argument === '--live') {
       live = true
       continue
@@ -332,7 +392,7 @@ function parseCliOptions(args: readonly string[]): CliOptions {
   if (!/^[A-Za-z0-9][A-Za-z0-9._:-]{0,127}$/.test(teamGoalId)) {
     throw new Error('--team-goal-id must be a bounded ASCII identity')
   }
-  return { live, socketPath, socketIdentityFile, databaseIdentityFile, executionNodeId, teamGoalId }
+  return { resume, live, socketPath, socketIdentityFile, databaseIdentityFile, executionNodeId, teamGoalId }
 }
 
 async function requestAuthorization(): Promise<void> {
@@ -356,8 +416,8 @@ async function main(): Promise<void> {
   }
   assertInteractiveTTY()
   const options = parseCliOptions(args)
-  await requestAuthorization()
   await runLiveAdoptionGateway({
+    resume: options.resume,
     socketPath: options.socketPath,
     socketIdentityFile: options.socketIdentityFile,
     databaseIdentityFile: options.databaseIdentityFile,

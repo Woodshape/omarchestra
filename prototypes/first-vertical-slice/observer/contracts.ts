@@ -263,6 +263,8 @@ export const OBSERVER_CLIENT_FRAME_TYPES = Object.freeze([
   'observer.close',
   'adoption.ack',
   'adoption.recovery_proof',
+  'adoption.ready',
+  'adoption.takeover',
 ] as const)
 export type ObserverClientFrameType = (typeof OBSERVER_CLIENT_FRAME_TYPES)[number]
 
@@ -273,6 +275,7 @@ export const OBSERVER_RUNNER_FRAME_TYPES = Object.freeze([
   'adoption.committed',
   'adoption.failed',
   'adoption.recovery_challenge',
+  'adoption.control',
 ] as const)
 export type ObserverRunnerFrameType = (typeof OBSERVER_RUNNER_FRAME_TYPES)[number]
 
@@ -537,6 +540,13 @@ export function validateObserverBodyForType(type: string, body: unknown): Record
     case 'adoption.failed': return validateAdoptionFailed(body) as unknown as Record<string, unknown>
     case 'adoption.recovery_challenge': return validateAdoptionRecoveryChallenge(body) as unknown as Record<string, unknown>
     case 'adoption.recovery_proof': return validateAdoptionRecoveryProof(body) as unknown as Record<string, unknown>
+    case 'adoption.ready':
+    case 'adoption.takeover': return validateAdoptionCommitted(body) as unknown as Record<string, unknown>
+    case 'adoption.control': {
+      if (!body || typeof body !== 'object' || body.controlMode !== 'manual_takeover') throw new ObserverProtocolError('invalid_envelope', 'invalid managed control state')
+      const validated = validateAdoptionCommitted({ ...body, controlMode: 'managed' })
+      return { ...validated, controlMode: 'manual_takeover' }
+    }
     default: throw new ObserverProtocolError('invalid_envelope', 'observer frame type is not recognized')
   }
 }

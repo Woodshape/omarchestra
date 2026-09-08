@@ -211,6 +211,15 @@ slash-command and `user_bash` execution; the current bounded contract accepts
 `ctx.isIdle()` plus its existing guards as best-effort and records this as a
 future hardening item without inspecting content.
 
+The separate live-Adoption integration now has bounded fake engineering
+acceptance and independent read-only review. Companion 0.4.0 adds an Adoption
+session without changing historical 0.2.0/0.3.0 artifacts. The composed path
+includes exact acknowledgement, SQLite commit, same-Pi readiness, durable
+manual takeover, surviving-extension recovery and exact cleanup ownership.
+This creates no Assignment and makes no production, PTY or live-validation
+claim. Installation and human live Adoption validation remain unrun; see the
+[engineering handoff](../../prototypes/first-vertical-slice/docs/live-adoption-engineering-handoff.md).
+
 ## Domain model
 
 ### Execution Node

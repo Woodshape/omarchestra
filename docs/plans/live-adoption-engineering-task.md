@@ -1,6 +1,10 @@
 # Engineering task: bounded live Adoption bridge
 
-Status: ready for engineering; observation slice accepted by the operator.
+Status: bounded engineering implementation complete; fake gates green and
+independent read-only review PASS. Observation remains operator-accepted;
+Adoption installation and live validation remain unrun. This task is retained
+as the original requirements; implementation/evidence are recorded in
+[`live-adoption-engineering-handoff.md`](../../prototypes/first-vertical-slice/docs/live-adoption-engineering-handoff.md).
 
 ## Objective
 

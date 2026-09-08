@@ -99,6 +99,8 @@ export interface AdoptionTransaction {
 }
 
 export interface AdoptionStore {
+  recordManualTakeover?(agentRunId: string): void
+  isManualTakeover?(agentRunId: string): boolean
   transaction<T>(operation: (tx: AdoptionTransaction) => T): T
   snapshot(): DurableAdoptionState
   close(): void
@@ -314,7 +316,13 @@ export function createInMemoryAdoptionStore(options: {
     },
   }
 
+  const takeovers = new Set<string>()
   return {
+    recordManualTakeover: id => {
+      if (!committed.some(run => run.agentRunId === id)) throw new Error('unknown Agent Run')
+      takeovers.add(id)
+    },
+    isManualTakeover: id => takeovers.has(id),
     transaction: (operation) => {
       const committedSnapshot = committed.map((run) => ({ ...run }))
       const cursorSnapshot = cursor

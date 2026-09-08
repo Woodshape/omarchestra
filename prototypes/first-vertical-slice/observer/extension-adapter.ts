@@ -110,6 +110,8 @@ export interface ObserverExtensionOptions {
   hostPidFactory?: () => number
   connect?: (handler: ObserverFrameHandler) => MaybePromise<ObserverConnection>
   managedBridge?: ManagedBridgePort
+  /** Opt-in Adoption entrypoint only; observation-only transport stays unchanged. */
+  managedRecovery?: boolean
   scheduleHeartbeat?: HeartbeatScheduler
   cancelHeartbeat?: HeartbeatCanceller
   scheduleReconnect?: ReconnectScheduler
@@ -131,6 +133,7 @@ interface SessionState {
   readonly piSessionId: string
   readonly extensionInstanceId: string
   readonly hostPid: number
+  lastAcknowledgement?: AdoptionRequestAckBody
   sourceSequence: number
   reconnectHandle: ReconnectHandle | null
   reconnectAttempts: number
@@ -389,8 +392,7 @@ export function createObserverExtension(options: ObserverExtensionOptions = {}) 
     if (current === null || current.closed) return
     const session = current.session
     const canRetry = retry
-      && !current.managed
-      && current.committed === null
+      && (options.managedRecovery === true || (!current.managed && current.committed === null))
       && isSessionCurrent(session)
     await retireConnection(current, close)
     if (canRetry) scheduleReconnect(session)
@@ -527,7 +529,10 @@ export function createObserverExtension(options: ObserverExtensionOptions = {}) 
       refusalCode,
     })
     await sendFrame(current, 'adoption.ack', acknowledgement as unknown as Record<string, unknown>)
-    if (decision === 'acknowledged') current.lastAcknowledgement = request
+    if (decision === 'acknowledged') {
+      current.lastAcknowledgement = request
+      current.session.lastAcknowledgement = request
+    }
   }
 
   const enableManagedBridge = async (
@@ -546,7 +551,8 @@ export function createObserverExtension(options: ObserverExtensionOptions = {}) 
     current: AdapterState,
     committed: AdoptionCommittedBody,
   ): Promise<void> => {
-    if (current.registered === null || current.closed || current.shuttingDown) return
+    if ((current.registered === null && !(options.managedRecovery && current.lastAcknowledgement))
+        || current.closed || current.shuttingDown) return
     if (current.managed) {
       if (current.committed?.proposalId === committed.proposalId
           && current.committed.proposalDigest === committed.proposalDigest) return
@@ -578,6 +584,15 @@ export function createObserverExtension(options: ObserverExtensionOptions = {}) 
       }
       try {
         await enableManagedBridge(current, committed)
+        if (options.managedRecovery && !current.closed && !current.shuttingDown) {
+          await sendFrame(current, 'adoption.ready', committed as unknown as Record<string, unknown>)
+          current.session.reconnectAttempts = 0
+          current.heartbeat = (options.scheduleHeartbeat ?? defaultScheduleHeartbeat)(() => {
+            void sendFrame(current, 'adoption.ready', committed as unknown as Record<string, unknown>)
+              .catch(() => { void failOpen(current, true) })
+          }, DEFAULT_HEARTBEAT_INTERVAL_MS)
+          current.heartbeat.unref?.()
+        }
       } catch {
         return
       }
@@ -658,6 +673,26 @@ export function createObserverExtension(options: ObserverExtensionOptions = {}) 
     if (frame.type === 'adoption.request_ack') {
       if (current.registered === null) return
       await sendAcknowledgement(current, validateAdoptionRequestAck(body))
+      return
+    }
+    if (frame.type === 'adoption.control' && options.managedRecovery) {
+      if (!current.managed || !current.committed || body.agentRunId !== current.committed.agentRunId
+          || body.proposalId !== current.committed.proposalId || body.proposalDigest !== current.committed.proposalDigest) {
+        throw new Error('control does not match committed Adoption')
+      }
+      current.context.ui?.setStatus?.(OBSERVER_STATUS_KEY, String(body.piStatus))
+      current.context.ui?.setTitle?.(String(body.terminalTitleMetadata))
+      return
+    }
+    if (frame.type === 'adoption.recovery_challenge' && options.managedRecovery) {
+      const recovery = body as { challenge: string; committed: AdoptionCommittedBody }
+      const acknowledged = current.session.lastAcknowledgement
+      if (!acknowledged || acknowledged.proposalId !== recovery.committed.proposalId
+          || acknowledged.proposalDigest !== recovery.committed.proposalDigest) {
+        throw new Error('recovery does not match this surviving Pi acknowledgement')
+      }
+      current.lastAcknowledgement = acknowledged
+      await sendFrame(current, 'adoption.recovery_proof', recovery as unknown as Record<string, unknown>)
       return
     }
     if (frame.type === 'adoption.committed') {

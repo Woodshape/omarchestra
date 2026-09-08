@@ -6,6 +6,8 @@
  * is performed while importing this module.
  */
 
+import { ADOPTION_PANEL_QML, ADOPTION_ROOT_MEMBERS } from '../console/adoption-panel-source.ts'
+
 import {
   COMPANION_PLUGIN_ID,
   COMPANION_PLUGIN_VERSION,
@@ -761,9 +763,21 @@ export const OBSERVER_COMPANION_RELEASE: CompanionRelease = freezeCompanionRelea
   },
 })
 
+export const ADOPTION_COMPANION_RELEASE: CompanionRelease = freezeCompanionRelease({
+  ...OBSERVER_COMPANION_RELEASE,
+  version: '0.4.0',
+  assets: {
+    ...OBSERVER_COMPANION_RELEASE.assets,
+    'manifest.json': OBSERVER_MANIFEST.replace('"0.3.0"', '"0.4.0"'),
+    'AgentConsole.qml': OBSERVER_AGENT_CONSOLE_QML.replace('    property var shell: null', ADOPTION_ROOT_MEMBERS + '\n    property var shell: null'),
+    'AdoptionPanel.qml': ADOPTION_PANEL_QML,
+  },
+})
+
 export const RELEASE_CATALOG: Readonly<Record<string, CompanionRelease>> = Object.freeze({
   [COMPANION_RELEASE.version]: COMPANION_RELEASE,
   [OBSERVER_COMPANION_RELEASE.version]: OBSERVER_COMPANION_RELEASE,
+  [ADOPTION_COMPANION_RELEASE.version]: ADOPTION_COMPANION_RELEASE,
 })
 
 export function companionRelease(version = COMPANION_PLUGIN_VERSION): CompanionRelease {

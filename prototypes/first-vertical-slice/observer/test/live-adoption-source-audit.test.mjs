@@ -169,13 +169,13 @@ test('the human-only Adoption launcher --check branch is no-resource and cannot 
   assert.doesNotMatch(branch, /\bpi\s+-e|ghostty|hyprctl|systemctl|boomux|ssh/i)
 })
 
-test('blocked manual Adoption entrypoints stop before resource creation', () => {
+test('manual Adoption entrypoints require TTY and exact authorization before authority resources', () => {
   const gateway = read(path.join(MANUAL_ROOT, 'live-adoption-gateway.ts'))
   const run = gateway.slice(gateway.indexOf('export async function runLiveAdoptionGateway'))
-  assert.ok(run.indexOf("throw new Error('live_adoption_incomplete") >= 0)
-  assert.ok(run.indexOf("throw new Error('live_adoption_incomplete") < run.indexOf('new LiveAdoptionStore'))
+  assert.ok(run.indexOf('assertInteractiveTTY()') >= 0)
+  assert.ok(run.indexOf('await requestAuthorization()') < run.indexOf('new AdoptionRuntimeOwnership'))
   const launcher = read(path.join(MANUAL_ROOT, 'run-live-adoption-bridge.sh'))
-  const stop = launcher.indexOf('live_adoption_incomplete:')
+  const stop = launcher.indexOf('if [[ ! -t 0 || ! -t 1 ]]')
   assert.ok(stop > launcher.indexOf('if [[ "${1:-}" == "--check" ]]'))
   assert.ok(stop < launcher.indexOf('EVIDENCE_DIR=$(mktemp'))
   assert.match(launcher.slice(stop, stop + 250), /exit 2/)
@@ -198,9 +198,9 @@ test('the launcher verifies exact database/sidecar identities and never infers P
     'PASS must be written only after verified gateway success and cleanup')
 })
 
-test('the gateway writes and verifies exact database/sidecar identities', () => {
+test('the gateway uses creation-time database ownership rather than cleanup-time capture', () => {
   const gateway = read(path.join(MANUAL_ROOT, 'live-adoption-gateway.ts'))
-  assert.match(gateway, /removeDatabaseExact/)
+  assert.match(gateway, /new AdoptionRuntimeOwnership/)
   assert.match(gateway, /databaseIdentityFile/)
-  assert.match(gateway, /refusing to remove substituted Adoption database file/)
+  assert.match(gateway, /ownedDatabase\.remove\(\)/)
 })

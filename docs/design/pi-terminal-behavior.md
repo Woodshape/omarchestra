@@ -87,6 +87,15 @@ Adoption is an explicit user action, not a side effect of discovery or focus:
 
 Node-mismatched, unknown, stale, exited, duplicate, busy, already-managed, role-conflicting, or unacknowledged sessions fail closed. A failed attempt leaves the Pi ordinary, interactive, observed when still connected, and unassigned. Adoption does not fabricate prior work or claim Boomux PTY persistence unless a managed Runtime Binding is separately and exactly established.
 
+The bounded live-Adoption engineering integration is now fake-tested and
+independently reviewed: Companion 0.4.0 adds a separate Adoption session,
+commit delivery is followed by same-Pi readiness, and interactive input creates
+a durable takeover marker without reading content. Gateway recovery requires
+the same surviving Pi/extension, exact owned runtime evidence, and a fresh
+connection challenge. This does not add Pi-process/reload/reboot recovery or
+PTY guarantees. Installed setup and human live Adoption validation remain
+unrun; see the prototype's `live-adoption-engineering-handoff.md`.
+
 ## Human input and takeover
 
 Human input is always possible in the visible Pi terminal.

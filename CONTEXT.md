@@ -22,6 +22,13 @@ fabricating a Projection Session, managed cards, managed cursor, Team Goal,
 Role, Assignment, Agent Run, or managed authority. The immutable historical
 managed default remains Companion 0.2.0.
 
+The separate live-Adoption engineering integration is now fake-tested and
+independently reviewed, with Companion 0.4.0's additive Adoption session,
+actual same-Pi acknowledgement/readiness, durable takeover and challenged
+recovery. Historical 0.2.0/0.3.0 artifacts remain unchanged. Installation and
+human live Adoption validation are still unrun; engineering completion is not
+live evidence. Details: `prototypes/first-vertical-slice/docs/live-adoption-engineering-handoff.md`.
+
 ## Core terms
 
 ### Team Goal

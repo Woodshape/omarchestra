@@ -153,10 +153,13 @@ prototype-live-adoption-check:
         "$root/prototypes/first-vertical-slice/observer/test/live-adoption-runner.test.ts" \
         "$root/prototypes/first-vertical-slice/observer/test/live-adoption-gateway.test.ts" \
         "$root/prototypes/first-vertical-slice/observer/test/live-adoption-companion.test.ts" \
+        "$root/prototypes/first-vertical-slice/observer/test/live-adoption-presentation.test.ts" \
         "$root/prototypes/first-vertical-slice/observer/test/live-adoption-durability.test.ts" \
         "$root/prototypes/first-vertical-slice/observer/test/live-adoption-managed-bridge.test.ts" \
         "$root/prototypes/first-vertical-slice/observer/test/live-adoption-composed.test.ts" \
         "$root/prototypes/first-vertical-slice/observer/test/live-adoption-authority-boundary.test.ts" \
+        "$root/prototypes/first-vertical-slice/manual/test/adoption-owned-database.test.ts" \
+        "$root/prototypes/first-vertical-slice/manual/test/live-adoption-launcher.test.mjs" \
         "$root/prototypes/first-vertical-slice/observer/test/live-adoption-source-audit.test.mjs" \
         "$root/prototypes/first-vertical-slice/observer/test/live-gateway-core.test.ts"
     bash -n "$root/prototypes/first-vertical-slice/manual/run-live-adoption-bridge.sh"

@@ -114,6 +114,7 @@ export class LiveAdoptionStore implements AdoptionStore {
         target_role TEXT NOT NULL
       );
     `)
+    this.db.exec('CREATE TABLE IF NOT EXISTS adoption_takeovers (agent_run_id TEXT PRIMARY KEY REFERENCES adopted_runs(agent_run_id))')
     this.validateOrPersistConfiguration()
   }
 
@@ -186,6 +187,14 @@ export class LiveAdoptionStore implements AdoptionStore {
       events: events.map(rowToEvent),
     }
     return validateDurableAdoptionState(state)
+  }
+
+  recordManualTakeover(agentRunId: string): void {
+    this.db.prepare('INSERT OR IGNORE INTO adoption_takeovers (agent_run_id) VALUES (?)').run(agentRunId)
+  }
+
+  isManualTakeover(agentRunId: string): boolean {
+    return this.db.prepare('SELECT agent_run_id FROM adoption_takeovers WHERE agent_run_id = ?').get(agentRunId) !== undefined
   }
 
   close(): void {

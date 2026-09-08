@@ -1,12 +1,27 @@
 # Omarchestra first vertical-slice prototype
 
 **PROTOTYPE — NOT PRODUCTION.** Removable as one directory
-(`rm -rf prototypes/first-vertical-slice/` plus the nine `justfile` recipes
+(`rm -rf prototypes/first-vertical-slice/` plus the eleven `justfile` recipes
 listed under "Wipe instructions").
 This directory is throwaway evidence for two bounded questions; nothing here is
 production architecture and no file in it is promoted into the product. The
 Companion/managed-agent slice and the observer/Adoption slice remain removable
 prototype evidence with separate live boundaries.
+
+## Live Adoption engineering completion
+
+The bounded Adoption integration is fake-tested and independently reviewed.
+It now composes Companion intent polling, the actual manual Pi extension,
+SQLite commit, readiness, durable manual takeover, challenged recovery and
+creation-time cleanup ownership. Companion **0.4.0** adds a separate Adoption
+panel; immutable 0.2.0/0.3.0 releases and the managed default are preserved.
+No installation or live Adoption validation has been performed.
+
+Run `just prototype-live-adoption-check` for fake-only engineering acceptance.
+The human-only `just prototype-live-adoption-bridge` retains TTY/exact consent
+and requires separately installed 0.4.0. See the
+[engineering handoff](docs/live-adoption-engineering-handoff.md) and
+[human procedure](docs/live-adoption-live-validation.md).
 
 ## The question
 
@@ -383,8 +398,11 @@ rm -rf prototypes/first-vertical-slice/
 #   prototype-observer-adoption-check
 #   prototype-live-observer-check
 #   prototype-live-observer-bridge
+#   prototype-live-adoption-check
+#   prototype-live-adoption-bridge
 #   prototype-companion-setup-validation
 ```
 
-Scratch state never enters the repository: each run creates its own temporary
-directory outside Git and removes it on success or failure.
+Automated scratch state stays outside Git and is removed by each gate. Human
+Adoption evidence stays private; SIGKILL recovery deliberately preserves owned
+runtime state, and unsafe cleanup reports failure rather than deleting it.

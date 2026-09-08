@@ -1,17 +1,16 @@
 # Live Adoption integration contract
 
-Status: **BLOCKED: partial implementation, scaffold tests green, required integration acceptance incomplete**
+Status: **bounded engineering acceptance complete; independent read-only review PASS; live validation unrun**
 
-The requirements below are the intended contract, not a completion claim.
-Independent closure review found missing Companion routing, lifecycle/lease
-invalidation, atomic final revalidation, committed identity recovery, and actual
-managed bridge wiring. Manual execution is disabled before resource creation.
-See [the final handoff](live-adoption-engineering-handoff.md).
+The missing integration findings have been addressed through the actual
+Companion adapter, manual Pi extension, gateway/runner, durable store, and
+creation-time resource ownership. The hard-coded incomplete guards are removed;
+TTY and exact authorization remain. See [the final handoff](live-adoption-engineering-handoff.md)
+for implemented boundaries, independent review and evidence qualifications.
 
-**Contract distinction.** The activation, recovery, capability discovery,
-fingerprinting and cleanup requirements below are the intended contract. Only
-behavior explicitly linked to independently accepted evidence is implemented
-acceptance. Missing wiring is a blocker, not an accepted scope reduction.
+**Contract distinction.** Fake engineering acceptance is not installation,
+provider execution or live UI evidence. Human rendering and operator checklist
+acceptance remain a separate explicitly authorized procedure.
 
 **PROTOTYPE — NOT PRODUCTION.** This contract records the bounded live
 Adoption wiring for the removable first vertical slice. It does not define
@@ -38,11 +37,10 @@ Companion projection validators in `observer/companion-projection.ts` have
 changes for async intent results and nullable failure fields, so they are not
 reused unchanged. The observation-only gateway must continue to reject
 `adoption.ack` as `unsupported_protocol`. Historical Companion releases 0.2.0
-and 0.3.0 must remain immutable. Final integration compared
-`observer/live-gateway-core.ts`, `observer/adoption.ts`,
-`companion/contracts.ts` and `companion/releases.ts` against Git HEAD and found
-no differences. This comparison establishes preservation of those four paths,
-not live compatibility or acceptance.
+and 0.3.0 remain immutable. Companion 0.4.0 adds separate `adoptionOpen`,
+`adoptionApply`, `adoptionTakeIntent`, `adoptionIntentResult`, `adoptionClear`
+methods and `adoptionCapabilities` discovery. It publishes a combined snapshot
+without inventing three managed cards or mutating an existing managed panel.
 
 Automated gates are fake-only: injected clock, persistence, transport,
 authorization, Pi host, managed bridge, Companion shell, and cleanup ports.
@@ -98,7 +96,10 @@ state containing:
 - the observed-to-managed transition (a durable identity tombstone);
 - exact committed presentation and control state;
 - proposal ID/digest to committed-result mapping;
-- the Adoption event and durable cursor.
+- the Adoption event and durable cursor;
+- an idempotent supplemental manual-takeover marker, which survives reconnect
+  and prevents automatic readiness restoration. The initial commitment remains
+  immutable; subsequent control presentation derives from this durable marker.
 
 Uniqueness of both the binding identity and `(teamGoalId, role)` is enforced in
 the durable transaction. Pending proposal state remains transient and is never
@@ -175,8 +176,11 @@ durable commit returns -> validated committed frame -> exact acknowledged
 proposal check -> explicit managedBridge.enable -> verified bridge readiness
 ```
 
-Runner connection loss must immediately revoke readiness and clear queued
-dispatch. Durable `controlMode = managed` may remain, but it does not imply a
+`adoption.ready` is an exact same-connection post-activation receipt and renews
+a fifteen-second managed lease every five seconds. `adoption.takeover` carries
+only the committed binding, never input; `adoption.control` returns the durable
+manual-takeover presentation. Runner connection loss must immediately revoke
+readiness and clear queued dispatch. Durable `controlMode = managed` may remain, but it does not imply a
 connected bridge or permission to dispatch. Adoption creates no assignment.
 
 ## Presentation and intents
@@ -222,12 +226,20 @@ observed/unassigned (when still current) or exactly committed/managed:
 
 ## Fake-only acceptance
 
-The dedicated `just prototype-live-adoption-check` gate runs component,
-partial-composition, durability and source-audit tests plus no-resource
-entrypoint checks. Existing observer/Companion regression gates run separately.
-The current passing results do not establish the required composed acceptance.
-Task 1.a produced no red-test artifact, and task 2.a added tests alongside the
-partial implementation. Red-first composed-path evidence remains incomplete.
-Task 3.a was an architecture review, not an implementation task. The next
-correction must record failing behavioral assertions before implementing the
-remaining wiring and recovery. No gate authorizes live execution.
+The dedicated `just prototype-live-adoption-check` gate now exercises actual
+Companion intent polling → framed gateway → manual Pi extension acknowledgement
+→ SQLite commit → same-Pi readiness, including lost committed delivery, fresh
+transport recovery, durable takeover and reconnect. New cleanup/verdict tests
+were first run failing (six of seven initial assertions failed) before fixes.
+Packaged 0.4.0 QML functions and lint are included. Historical scaffold claims
+remain archived rather than relabelled as composed evidence. Existing observer,
+Companion and vertical-slice regressions run separately. No automated gate
+performs a live run or authorizes installation.
+
+A separate SQLite ownership DB holds an exclusive lock for the foreground
+process lifetime. Exact `--resume` requires the original ownership manifest
+and socket identity; it cannot displace an active lock holder. SIGKILL preserves
+recovery resources. Recovery requires the same surviving Pi/extension and
+bounded retry window; it does not cover Pi crash, reload or reboot. Human PASS
+requires machine facts, exact cleanup and explicit UI attestation, not gateway
+exit alone.

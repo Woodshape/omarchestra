@@ -6,11 +6,19 @@ Omarchestra coordinates teams of real interactive coding agents, each shown in i
 
 ## Status
 
-**MVP product scope locked; Companion and human-reported observation verification accepted; live Adoption is next. R1 remains accepted bounded risk.**
+**MVP scope locked; Companion and human observation accepted; Adoption engineering is fake-tested and independently reviewed. Human Adoption validation remains unrun. R1 remains accepted bounded risk.**
 
 The visible Pi bridge, local Boomux runtime adapter, and one-Node remote execution are supported with documented constraints after automated and human validation. The removable first vertical slice proves one explicitly authorized, versioned Companion Plugin installation, three real interactive Pi hosts, ephemeral Projection Sessions, committed role/state agreement, Builder-only managed work and takeover, one-minute persistence, reload reconstruction, and runtime clear/hide without changing the persistent installation. The observer/Adoption prototype now proves bounded protocol, privacy, registry, same-process acknowledgement, transactional Adoption, Companion projection, and cleanup behavior using fakes only.
 
-Human-reported live observation verification is accepted; global observer installation and live Adoption validation are not claimed. See the [closeout](spikes/observer-live-bridge/README.md) and [next engineering task](docs/plans/live-adoption-engineering-task.md). The observer bridge transport, gateway, Companion 0.3.0 seam, launcher, and reachability checks are fake-only. Its `--check` path creates no live or user state, and its human procedure prints but never launches Pi. Pi 0.84.4 lacks a complete content-free lifecycle signal for slash-command and `user_bash` execution; the current bounded contract accepts `ctx.isIdle()` plus its existing guards as best-effort and records this as follow-up hardening, without inspecting content. The separate Companion human gate passed on 2026-09-03 with private owner-only evidence.
+Human-reported live observation verification is accepted; global observer installation and live Adoption validation are not claimed. See the [closeout](spikes/observer-live-bridge/README.md) and [completed engineering task](docs/plans/live-adoption-engineering-task.md). The observer bridge transport, gateway, Companion 0.3.0 seam, launcher, and reachability checks are fake-only. Its `--check` path creates no live or user state, and its human procedure prints but never launches Pi. Pi 0.84.4 lacks a complete content-free lifecycle signal for slash-command and `user_bash` execution; the current bounded contract accepts `ctx.isIdle()` plus its existing guards as best-effort and records this as follow-up hardening, without inspecting content. The separate Companion human gate passed on 2026-09-03 with private owner-only evidence.
+
+The Adoption integration now uses the actual Companion polling/confirmation
+adapter, manual Pi extension, SQLite commit, readiness, durable takeover and
+challenged recovery. Companion **0.4.0** is additive; historical 0.2.0/0.3.0
+assets remain unchanged. `just prototype-live-adoption-check` is fake-only.
+No installed plugin or global Pi configuration was changed. See the
+[engineering closeout](prototypes/first-vertical-slice/docs/live-adoption-engineering-handoff.md)
+and separate [human procedure](prototypes/first-vertical-slice/docs/live-adoption-live-validation.md).
 
 ## Design
 

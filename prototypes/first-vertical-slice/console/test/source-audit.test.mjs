@@ -307,6 +307,7 @@ test('the live Companion adapter is reachable only from human-only paths and sea
       || base === 'companion-setup-validation.test.mjs'
       || base === 'run-live-observer-bridge.sh'
       || base === 'live-observer-gateway.ts'
+      || base === 'live-adoption-gateway.ts'
     ) continue
     const value = fs.readFileSync(file, 'utf8')
     assert.doesNotMatch(

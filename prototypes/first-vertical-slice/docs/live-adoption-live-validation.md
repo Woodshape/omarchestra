@@ -1,180 +1,119 @@
-# Live Adoption bridge live validation
+# Live Adoption human validation
 
-Status: **BLOCKED; manual execution disabled; not run**
+Status: **engineering acceptance complete; human setup and live validation unrun.**
 
-The procedure below is a future acceptance checklist, not a runnable validated
-implementation. The launcher and gateway refuse live execution before resource
-creation. Companion routing, lifecycle invalidation, transactional revalidation,
-recovery and managed input remain incomplete. Capability discovery and
-installation fingerprinting described below are requirements, not implemented
-operations. See [the final handoff](live-adoption-engineering-handoff.md).
+**PROTOTYPE — NOT PRODUCTION.** This procedure creates a disposable, locally
+owned Team Goal/Role store. It never launches Pi, installs a plugin, dispatches
+an Assignment, or grants PTY/process authority. Automated engineering gates do
+not execute this procedure.
 
-**PROTOTYPE — NOT PRODUCTION.** This is a human-only procedure for the
-disposable live Adoption bridge. It is not an automated recipe and it does not
-install the Companion, create a Team Goal, dispatch work, or claim production
-support. It validates the bounded observed-to-managed Adoption transition only.
+## Separate prerequisite
 
-## Scope and stop rules
+Explicitly install/verify the Omarchestra-owned Companion **0.4.0** through the
+existing authorized setup procedure, selecting `--release 0.4.0`. This is a
+separate human operation, not something the gateway performs. The historical
+managed default remains 0.2.0; accepted observation uses immutable 0.3.0.
+0.4.0 adds a separate Adoption session and preserves those presentation paths.
 
-This procedure validates only:
+The gateway checks the loaded method surface, generation and stable
+installation fingerprint. A stale loaded plugin is rejected rather than
+updated/reloaded automatically. No broader Pi compatibility or live rendering
+claim follows from fake-host tests.
 
-```text
-visible ordinary Pi
-  -> Adoption extension in that same Pi process
-  -> owner-only Unix NDJSON socket
-  -> disposable Adoption gateway + durable store
-  -> Companion 0.3.0 observer request/confirmation intents
-  -> one committed Agent Run with committed role/state
-  -> same-Pi managed bridge activation after commit
-```
+## Procedure
 
-Adoption grants no automatic assignment. `runtimeBinding = null` and
-`runtimeBindingGuarantee = unavailable` are preserved. The separate Pi command
-is printed for the operator and is never launched by the launcher.
+Run from the repository root in an interactive terminal:
 
-Stop without weakening the contract if any step would require terminal
-scraping, conversation inspection, input inspection, input injection, PTY
-control, a hidden Pi, a child process launched for Pi, a plugin mutation, or
-automatic work dispatch. Do not turn this procedure into a production claim.
-
-## Companion 0.3.0 prerequisite
-
-The required installed component is the Omarchestra-owned
-`omarchestra.agent-console` **0.3.0** release with additive `session.observer`.
-The catalog retains the earlier 0.2.0 managed Companion artifact as historical
-coverage. `COMPANION_PLUGIN_VERSION = 0.2.0` remains the historical default for
-the managed Projection Session path and must not be changed.
-
-The operator must complete any install or update as a separate, explicitly
-authorized setup operation before this run. A completed Adoption launcher must perform read-only capability discovery and
-before/after installation fingerprinting. The current launcher implements
-neither and is disabled. It must not install, update, rescan, enable, disable,
-unload, or rewrite the Companion.
-
-## Automated preparation
-
-The only unattended command for this bridge is the fake-only check:
-
-```bash
-just prototype-live-adoption-check
-```
-
-It runs injected in-memory transports, the durable store, the runner, the
-gateway, the Companion controller, the managed-bridge activation tests, and
-static reachability/privacy audits. It does not inspect user state, invoke
-Omarchy shell IPC, open a live socket, launch Pi, or inspect an installed
-plugin. It produces no private live evidence. Automation performed no live run.
-
-## Human setup
-
-Use one ordinary terminal and one additional interactive terminal for the
-visible Pi. Run from a checkout of the repository with:
-
-- the explicitly validated compatible Pi version (historical Pi 0.84.4
-  references and the reported installed Pi 0.85.1 version do not establish
-  compatibility or support);
-- the compatible Omarchy/Quickshell host for Companion 0.3.0;
-- a canonical existing `XDG_RUNTIME_DIR` outside the repository; and
-- an `XDG_STATE_HOME` outside the repository for private evidence.
-
-The runtime directory created by the launcher is mode `0700`. Evidence is
-created below `$XDG_STATE_HOME/omarchestra/adoption-gates`, with the evidence
-directory mode `0700` and evidence files mode `0600`. Do not point either
-location into the repository, through a symlink, or at a shared scratch tree.
-
-The launcher will print the ordinary visible Pi command before starting the
-gateway. Run that command manually through the normal terminal workflow. Do not
-start Pi through a Team Runner, a terminal runtime, a shell wrapper, or the
-launcher. Do not record prompts, responses, input, tool data, terminal output,
-repository content, credentials, cwd, title, focus, provider/model values, or
-raw errors.
-
-## Human procedure
-
-From the repository root, in the gateway terminal, run:
-
-```bash
+```sh
 just prototype-live-adoption-bridge
 ```
 
-The command requires a TTY on both stdin and stdout. It prints the exact Pi
-command, the bounded checklist, and the exact authorization phrase. Type the
-phrase exactly when prompted:
+The launcher prints, but never executes, the command for a visible ordinary Pi
+in a second terminal. Keep that **same Pi process and extension** alive.
+Before gateway startup, confirm fail-open ordinary use while its socket is
+absent. Press Enter in the gateway terminal and authorize exactly:
 
 ```text
 I AUTHORIZE OMARCHESTRA ADOPTION LIVE BRIDGE
 ```
 
-The launcher prints the Pi command, waits, and then starts one foreground
-Adoption gateway only after the operator presses Enter. It never launches the
-printed Pi command. In the other terminal, the operator runs the printed
-command manually with `OMARCHESTRA_ADOPTION_SOCKET` set to the exact displayed
-Unix-socket path.
+1. Confirm the same Pi registers as **Unassigned · observed**, without changing
+   its ordinary title or receiving work.
+2. In Companion's Adoption panel, choose the exact session and vacant local
+   Role. Confirm the exact displayed proposal. Verify one Agent Run, the same
+   Pi's committed Role/status, and no automatic Assignment.
+3. Confirm readiness becomes connected only after that Pi receives the commit.
+4. Submit ordinary interactive input in Pi. It must continue unchanged, while
+   Pi and Companion show **manual takeover** and managed readiness is revoked.
+   The bridge reads only input `source`; it never reads or records content.
+5. Close that Pi session. Confirm the managed connection is disconnected.
+6. Type `status`, then `quit` in the gateway. Gateway success requires its
+   machine-observed commit, same-Pi readiness, durable takeover and disconnect
+   **before cleanup**, and zero Assignment dispatch.
+7. Only if all UI observations actually passed, enter
+   `I VERIFIED THE ADOPTION CHECKLIST` at the launcher prompt. Otherwise leave
+   the human checklist unconfirmed. Exact cleanup must also pass.
 
-Check the following facts in order. Record only the phase labels and bounded
-status/version facts, not the session content:
+`PASS` means machine facts passed **and the operator attested to the UI**;
+it is not an independently audited UI transcript. Missing facts cannot produce
+success merely by typing the confirmation phrase. Cleanup failure is FAIL,
+missing UI attestation is INCOMPLETE, and aborted startup is ABORTED.
 
-1. **Fail-open.** While the launcher is waiting and the gateway socket is
-   absent, run the printed Pi command. Keep that same Pi process open and
-   confirm it remains interactive while observer connection attempts fail.
-2. **Registration.** Start the gateway, complete the exact authorization
-   prompt, and confirm the same visible Pi process produces one current
-   observed registration with status exactly `Unassigned · observed`.
-3. **Adoption.** From the Companion Unassigned Agents panel, request Adoption
-   for the exact current session, confirm the exact displayed proposal, and
-   confirm the same-process acknowledgement. Confirm exactly one committed
-   Agent Run with the committed role/state and **no automatic assignment**.
-4. **Managed bridge.** Confirm the committed role/state appears in the same
-   visible Pi and that managed input is handled only by the committed bridge.
-5. **Disconnect.** Close the Pi session. Confirm the managed bridge deactivates
-   and no dispatch remains enabled.
-6. **Quit and cleanup.** Use `quit`. Confirm the gateway exits and the exact
-   socket and runtime directory are absent after device/inode checks. Do not
-   recursively remove a substituted or unexpected resource.
+## Recovery boundary
 
-## R1 limitation
+Recovery covers gateway loss while the **same Pi process/extension survives**,
+not Pi crash, `/reload`, session replacement, or reboot. The manual extension
+makes up to 32 bounded reconnect attempts (roughly 143 seconds of backoff).
+Outside that retry window this procedure makes no automatic recovery promise.
 
-Pi 0.85.1 does not expose a complete content-free start/end lifecycle for
-slash-command and `user_bash` execution. The observer contract therefore accepts
-`ctx.isIdle()` plus its existing guards as best-effort reconciliation. This run
-must not inspect input or command content, wrap shell execution, scrape the
-terminal, inspect conversation state, or inject input. A passing run is not
-proof that arbitrary command activity was absent.
+If the foreground gateway is killed with SIGKILL, the launcher records
+`RECOVERY_REQUIRED` and preserves exact runtime/ownership evidence. It prints a
+`node ... live-adoption-gateway.ts --live --resume ...` command referring to the
+original socket and database identity files. Run that exact command promptly
+and authorize it. Do not reconstruct paths or identities from names/PIDs.
 
-R1 accepts best-effort activity classification only. It does not exempt
-capability discovery, installation fingerprinting, authority revalidation,
-recovery or managed bridge composition.
+The resumed gateway must acquire the separate SQLite exclusive ownership lock
+before touching the old socket; an active gateway prevents recovery. Original
+DB/owner-file inodes and the socket inode must match. The store loads before
+fresh registration; the surviving extension answers a new connection-bound
+challenge and receives the original committed result, not another Adoption.
+Durable manual takeover cannot silently return to managed readiness.
 
-## Evidence and disposition
+A successful direct resumed gateway invocation removes its owned DB/lock/socket
+resources. The printed `rmdir` command removes only the empty runtime directory;
+no recursive deletion is authorized. The original SIGKILL run remains
+`RECOVERY_REQUIRED`, not retroactively PASS. A full human PASS requires a fresh
+complete checklist or a separately recorded recovery review.
 
-The launcher retains only bounded private evidence:
+## Privacy, installation and cleanup
 
-- `procedure.md`, the fixed checklist;
-- `adoption-events.ndjson`, containing allow-listed phase names;
-- `socket-identity`, the exact socket device/inode;
-- `database-identity`, the exact database/sidecar device/inode values; and
-- `verdict.txt`.
+Private evidence stays outside Git under
+`$XDG_STATE_HOME/omarchestra/adoption-gates` (or the normal HOME fallback).
+Directories are 0700; files are 0600. Evidence contains fixed procedure text,
+allow-listed phases, exact socket/database/ownership-file identities, and a
+verdict. Do not copy conversation, input, tool data, terminal output, credentials,
+repository content, or raw errors into evidence.
 
-Evidence contains no prompts, responses, input, tool names or results, terminal
-output, repository content, credentials, environment values, cwd, title,
-focus, provider/model values, or raw errors. It must remain outside Git.
+Only the gateway holding its ownership lock removes the exact DB files. The
+launcher verifies they are absent. Replacements, symlinks, changed parent
+identity, unrelated manifest paths, or residual unowned SQLite sidecars stop
+cleanup and must be reconciled manually without guessing or recursive deletion.
 
-The launcher refuses existing runtime paths, symlink components, non-canonical
-paths, unsafe ownership/modes, socket substitution, and runtime identity drift.
-It uses exact device/inode checks and non-recursive directory removal. If a
-cleanup check fails, preserve the resource and the private evidence for manual
-reconciliation. Never guess a path or use recursive deletion.
+Runtime operations never install, update, rescan, disable, unload or remove the
+Companion. `runtimeBinding` stays null and its guarantee stays unavailable.
 
-A successful run of the currently documented checks would establish only the
-bounded live Adoption transport, one committed observed-to-managed transition,
-and same-Pi managed bridge activation. It would not establish production
-support, remote execution, reboot recovery, PTY guarantees for an adopted
-session, or broader Pi compatibility.
+## Accepted R1 limitation
 
-## Version and live-validation statement
+`ctx.isIdle()` plus existing guards remains best-effort under the accepted R1
+contract. This is not a complete slash-command/user-bash classifier. Do not
+inspect content, wrap shell commands, or inject terminal input to strengthen it.
 
-No installation or live validation was performed during this correction.
-Historical Pi 0.84.4 references and the reported installed Pi 0.85.1 version do
-not establish compatibility or support. Any future human procedure requires
-separate authorization and version-specific validation after engineering
-acceptance.
+## Automated preparation
+
+```sh
+QMLLINT_BIN=/usr/lib/qt6/bin/qmllint just prototype-live-adoption-check
+```
+
+This runs injected transports/Pi/shell, disposable SQLite fixtures, isolated QML
+functions, static lint, cleanup adversarial tests and non-TTY refusal checks.
+It never performs installation or a live Adoption run.

@@ -29,7 +29,7 @@ import {
   type AdoptionRegistryPort,
   type AdoptionTeamRunnerPort,
 } from './adoption.ts'
-import { OBSERVER_PI_STATUS_LOCAL, ObserverError } from './contracts.ts'
+import { OBSERVER_PI_STATUS_LOCAL, ObserverError, validateAdoptionCommitted } from './contracts.ts'
 import type {
   AdoptionStore,
   BindingIdentity,
@@ -140,6 +140,9 @@ export class LiveAdoptionRunner {
   private readonly recoveryTtlMs: number
   private readonly recoveryChallengeFactory: () => string
   private readonly presentation: AdoptionPresentationPort
+  private readonly managedConnections = new Map<object, { committed: CommittedAdoption; ready: boolean; leaseUntil: number }>()
+  private readonly readyObserved = new Set<string>()
+  private readonly disconnectObserved = new Set<string>()
   private revision = 0
   private commitCountValue = 0
   private managedBridgeEnabledValue = false
@@ -206,7 +209,11 @@ export class LiveAdoptionRunner {
 
   /** Retire expired authority before publishing or receiving more frames. */
   expire(): void {
+    for (const [connection, managed] of this.managedConnections) {
+      if (this.clock.now() >= managed.leaseUntil) this.onConnectionLost(connection)
+    }
     for (const [id, entry] of this.observed) {
+      if (this.managedConnections.has(entry.connection)) continue
       if (this.clock.now() >= entry.leaseUntil) {
         this.onConnectionLost(entry.connection)
         this.observed.delete(id)
@@ -289,6 +296,7 @@ export class LiveAdoptionRunner {
       this.assertSynchronousCommitValid(context, input, tx)
       return tx.commitAdoption(input)
     })
+    this.managedConnections.set(context.connection, { committed, ready: false, leaseUntil: this.clock.now() + this.leaseDurationMs })
     this.commitContexts.delete(proposalId)
     this.commitCountValue += 1
     this.revision += 1
@@ -492,6 +500,9 @@ export class LiveAdoptionRunner {
         this.recoveries.delete(existingConnection)
       }
     }
+    for (const [oldConnection, managed] of this.managedConnections) {
+      if (managed.committed.agentRunId === committed.agentRunId) this.onConnectionLost(oldConnection)
+    }
     const challenge = this.issueRecoveryChallenge()
     this.recoveries.set(connection, {
       binding: { ...binding },
@@ -527,7 +538,47 @@ export class LiveAdoptionRunner {
       throw new ObserverError('identity_drift', 'the Adoption recovery proof does not match the committed result')
     }
     this.recoveries.delete(connection)
+    this.managedConnections.set(connection, { committed: recovery.committed, ready: false, leaseUntil: this.clock.now() + this.leaseDurationMs })
     return cloneRecord(recovery.committed)
+  }
+
+  /** Same-transport post-delivery receipt, also a bounded managed lease renewal. */
+  acceptManagedReady(connection: object, body: Record<string, unknown>): Record<string, unknown> | null {
+    const current = this.managedConnections.get(connection)
+    if (!current || this.clock.now() >= current.leaseUntil) {
+      throw new ObserverError('connection_not_current', 'managed connection is not current')
+    }
+    for (const [key, value] of Object.entries(validateAdoptionCommitted(body))) {
+      if (current.committed[key] !== value) throw new ObserverError('identity_drift', 'managed receipt differs from durable commit')
+    }
+    this.readyObserved.add(current.committed.agentRunId)
+    const nextReady = !this.store.isManualTakeover?.(current.committed.agentRunId)
+    if (nextReady !== current.ready) this.revision += 1
+    current.ready = nextReady
+    current.leaseUntil = this.clock.now() + this.leaseDurationMs
+    this.managedBridgeEnabledValue = [...this.managedConnections.values()].some(value => value.ready)
+    return current.ready ? null : this.manualControl(validateAdoptionCommitted(body))
+  }
+
+  acceptManualTakeover(connection: object, body: Record<string, unknown>): Record<string, unknown> {
+    this.acceptManagedReady(connection, body)
+    if (!this.store.recordManualTakeover) {
+      this.onConnectionLost(connection)
+      throw new Error('durable takeover is unavailable')
+    }
+    this.managedConnections.get(connection)!.ready = false
+    this.managedBridgeEnabledValue = [...this.managedConnections.values()].some(value => value.ready)
+    try { this.store.recordManualTakeover(String(body.agentRunId)) }
+    catch (error) { this.onConnectionLost(connection); throw error }
+    this.revision += 1
+    return this.acceptManagedReady(connection, body)!
+  }
+
+  private manualControl(body: Record<string, unknown>): Record<string, unknown> {
+    const role = String(body.targetRole)
+    const label = role[0].toUpperCase() + role.slice(1)
+    return { ...body, controlMode: 'manual_takeover', piStatus: `${label} · manual takeover`,
+      terminalTitleMetadata: `Omarchestra — ${label} — manual takeover` }
   }
 
   /** Observer projection: managed cards are separate. */
@@ -540,7 +591,6 @@ export class LiveAdoptionRunner {
         observedSessionId: entry.record.observedSessionId,
         piStatus: entry.record.piStatus,
         lifecycle: entry.record.lifecycle,
-        activity: entry.record.activity,
         availability: entry.record.availability,
         health: entry.record.health,
         choices: this.roles.filter(role => !store.committedRuns.some(run => run.targetRole === role)).map(role => ({
@@ -554,13 +604,27 @@ export class LiveAdoptionRunner {
     return { observerRevision: this.revision + store.cursor, agents }
   }
 
+  /** Content-free machine observations; UI correctness still needs human attestation. */
+  acceptanceFacts() {
+    const runs = this.store.snapshot().committedRuns
+    const id = runs.length === 1 ? runs[0].agentRunId : null
+    return {
+      exactlyOneCommit: runs.length === 1,
+      samePiReady: id !== null && this.readyObserved.has(id),
+      manualTakeover: id !== null && this.store.isManualTakeover?.(id) === true,
+      managedDisconnected: id !== null && this.disconnectObserved.has(id),
+      noAssignment: this.dispatchCountValue === 0 && this.queuedWorkValue === 0,
+    }
+  }
+
   /** Managed cards from the durable store, separate from the observer projection. */
   managedSnapshot(): { managedCards: unknown[] } {
     const store = this.store.snapshot()
     const managedCards = store.committedRuns.map((run) => ({
       agentRunId: run.agentRunId,
       role: run.targetRole,
-      piStatus: run.piStatus,
+      piStatus: this.store.isManualTakeover?.(run.agentRunId) ? this.manualControl(run).piStatus : run.piStatus,
+      connectionStatus: [...this.managedConnections.values()].some(value => value.committed.agentRunId === run.agentRunId && this.clock.now() < value.leaseUntil) ? 'connected' : 'disconnected',
     }))
     return { managedCards }
   }
@@ -572,7 +636,13 @@ export class LiveAdoptionRunner {
    */
   onConnectionLost(connection?: object): void {
     this.managedBridge.disable()
-    this.managedBridgeEnabledValue = false
+    if (connection !== undefined) {
+      const current = this.managedConnections.get(connection)
+      if (current) this.disconnectObserved.add(current.committed.agentRunId)
+    }
+    if (connection === undefined) this.managedConnections.clear()
+    else this.managedConnections.delete(connection)
+    this.managedBridgeEnabledValue = [...this.managedConnections.values()].some(value => value.ready)
     this.queuedWorkValue = 0
     if (connection !== undefined) {
       for (const entry of this.observed.values()) {

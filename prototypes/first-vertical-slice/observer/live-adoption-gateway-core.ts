@@ -191,6 +191,16 @@ export class LiveAdoptionGatewayCore {
         return undefined
       case 'adoption.ack':
         return await this.handleAdoptionAck(connection, session, frame)
+      case 'adoption.ready': {
+        const control = this.runner.acceptManagedReady(connection, validateObserverBodyForType(frame.type, frame.body))
+        if (control) connection.send('adoption.control', this.nextMessageId(), control)
+        return undefined
+      }
+      case 'adoption.takeover': {
+        const control = this.runner.acceptManualTakeover(connection, validateObserverBodyForType(frame.type, frame.body))
+        connection.send('adoption.control', this.nextMessageId(), control)
+        return undefined
+      }
       case 'adoption.recovery_proof':
         this.handleRecoveryProof(connection, session, frame)
         return undefined

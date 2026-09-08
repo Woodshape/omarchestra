@@ -36,11 +36,6 @@ if [[ "${1:-}" != "--live" || "$#" -ne 1 ]]; then
   exit 2
 fi
 
-# Stop before creating evidence or runtime state. The implementation has not
-# passed independent acceptance review, even though its scaffold tests pass.
-printf 'live_adoption_incomplete: manual Adoption is disabled pending integration and safety fixes\n' >&2
-exit 2
-
 if [[ ! -t 0 || ! -t 1 ]]; then
   printf 'live Adoption bridge requires a TTY on stdin and stdout; use --check for fake-only validation\n' >&2
   exit 2
@@ -147,6 +142,8 @@ DATABASE_IDENTITY_FILE="$EVIDENCE_DIR/database-identity"
 DATABASE_IDENTITY_FILE_ID=""
 GATEWAY_STATUS=1
 GATEWAY_OK=0
+HUMAN_CONFIRMED=0
+PRESERVE_RECOVERY=0
 VERDICT_WRITTEN=0
 CLEANED=0
 CLEANUP_SAFE=1
@@ -251,10 +248,28 @@ remove_exact_database_file() {
 remove_exact_database() {
   local file expected
   [[ -n "$DATABASE_IDENTITY" ]] || return 0
+  for file in "$DATABASE_PATH-wal" "$DATABASE_PATH-shm" "$DATABASE_PATH-journal" \
+      "$DATABASE_PATH.owner-wal" "$DATABASE_PATH.owner-shm" "$DATABASE_PATH.owner-journal"; do
+    [[ ! -e "$file" && ! -L "$file" ]] || return 1
+  done
   while IFS=' ' read -r file expected; do
-    [[ -n "$file" && -n "$expected" ]] || continue
-    remove_exact_database_file "$file" "$expected" || return 1
+    [[ -n "$file" && "$expected" =~ ^[0-9]+:[0-9]+$ ]] || return 1
+    case "$file" in
+      "$DATABASE_PATH"|"$DATABASE_PATH.owner"|"$DATABASE_PATH-wal"|"$DATABASE_PATH-shm"|"$DATABASE_PATH-journal") ;;
+      *) printf 'refusing unrelated database manifest path\n' >&2; return 1 ;;
+    esac
+    # Only the gateway holding the SQLite ownership lock may remove databases.
+    # The launcher verifies absence; it never races a resumed gateway's writer.
+    [[ ! -e "$file" && ! -L "$file" ]] || return 1
   done <<< "$DATABASE_IDENTITY"
+}
+
+adoption_verdict() {
+  if (( $2 != 1 )); then printf 'FAIL\n'
+  elif (( $1 != 1 )); then printf 'ABORTED\n'
+  elif (( $3 != 1 )); then printf 'INCOMPLETE\n'
+  else printf 'PASS\n'
+  fi
 }
 
 cleanup() {
@@ -262,6 +277,10 @@ cleanup() {
   (( CLEANED == 0 )) || return "$exit_status"
   CLEANED=1
   set +e
+  if (( PRESERVE_RECOVERY == 1 )); then
+    write_private "$EVIDENCE_DIR/verdict.txt" 'RECOVERY_REQUIRED — gateway was killed; exact owned state retained for --resume.' || true
+    return 1
+  fi
 
   if remove_exact_socket "$SOCKET_PATH" "$SOCKET_IDENTITY"; then
     if [[ ! -e "$SOCKET_PATH" && ! -L "$SOCKET_PATH" ]]; then
@@ -288,16 +307,21 @@ cleanup() {
   # The verdict is never inferred from gateway exit alone. PASS requires both
   # a successful gateway run and verified removal of every owned resource.
   if (( VERDICT_WRITTEN == 0 )); then
-    if (( GATEWAY_OK == 0 )); then
+    local verdict
+    verdict=$(adoption_verdict "$GATEWAY_OK" "$CLEANUP_SAFE" "$HUMAN_CONFIRMED")
+    if [[ "$verdict" == FAIL ]]; then
+      write_private "$EVIDENCE_DIR/verdict.txt" 'FAIL — cleanup was incomplete.' || true
+      exit_status=1
+    elif [[ "$verdict" == ABORTED ]]; then
       record_event aborted || true
       write_private "$EVIDENCE_DIR/verdict.txt" \
         'ABORTED — the human-only Adoption procedure did not reach its final verdict.' || true
-    elif (( CLEANUP_SAFE == 1 )); then
+    elif [[ "$verdict" == PASS ]]; then
       write_private "$EVIDENCE_DIR/verdict.txt" \
-        'PASS — human-only Adoption procedure completed; no automatic assignment was dispatched.' || true
+        'PASS — human-only Adoption procedure completed; machine facts verified and UI checklist operator-confirmed; no automatic assignment was dispatched.' || true
     else
       write_private "$EVIDENCE_DIR/verdict.txt" \
-        'FAIL — cleanup was incomplete; the Adoption procedure did not complete safely.' || true
+        'INCOMPLETE — the operator did not confirm all Adoption observations.' || true
       exit_status=1
     fi
     VERDICT_WRITTEN=1
@@ -362,7 +386,9 @@ raw errors. Record only the bounded phase labels written by the launcher.
    the same-process acknowledgement. Confirm exactly one committed Agent Run
    with the committed role/state and no automatic assignment.
 4. Managed bridge: confirm the committed role/state appears in the same visible
-   Pi and that managed input is handled only by the committed bridge.
+   Pi. Submit ordinary interactive input; confirm it continues unchanged and
+   both Pi and Companion show manual takeover with readiness revoked. No input
+   content is read or recorded by Omarchestra.
 5. Disconnect: close the Pi session. Confirm the managed bridge deactivates and
    no dispatch remains enabled.
 6. Quit: type `quit` in the gateway terminal. Confirm the socket and runtime
@@ -423,8 +449,18 @@ if [[ -f "$DATABASE_IDENTITY_FILE" && ! -L "$DATABASE_IDENTITY_FILE" \
 fi
 record_event gateway_stopped
 
+if (( GATEWAY_STATUS == 137 )); then
+  PRESERVE_RECOVERY=1
+  printf '\nGateway was killed. Owned state is preserved; restart the gateway while the same Pi extension survives:\n'
+  printf '  node --experimental-strip-types %q --live --resume --socket %q --socket-identity-file %q --database-identity-file %q --execution-node-id adoption-live-local\n' "$GATEWAY" "$SOCKET_PATH" "$SOCKET_IDENTITY_FILE" "$DATABASE_IDENTITY_FILE"
+  printf 'After successful resumed cleanup, remove the empty runtime directory with rmdir -- %q\n' "$RUNTIME_DIR"
+fi
 if (( GATEWAY_STATUS == 0 )); then
   GATEWAY_OK=1
+  printf '\nConfirm every checklist observation, including same-Pi Adoption and disconnect.\n'
+  printf 'Type exactly I VERIFIED THE ADOPTION CHECKLIST (otherwise the verdict is INCOMPLETE):\n> '
+  read -r confirmation || confirmation=''
+  if [[ "$confirmation" == 'I VERIFIED THE ADOPTION CHECKLIST' ]]; then HUMAN_CONFIRMED=1; fi
 fi
 # The verdict is written by cleanup() only after verified resource removal.
 printf '\nAdoption gateway exited; verifying owned resource cleanup.\n'

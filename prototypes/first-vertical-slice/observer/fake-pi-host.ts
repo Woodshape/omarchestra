@@ -224,6 +224,7 @@ export class FakePiHost {
 
   /** Model normal user input without exposing its contents to the adapter. */
   async submitInput(_text: string, _source: string = 'interactive'): Promise<'continue'> {
+    await this.emit('input', { source: _source, get text() { throw new Error('content must not be inspected') } })
     return 'continue'
   }
 

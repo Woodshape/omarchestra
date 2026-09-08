@@ -38,7 +38,8 @@ import { LiveAdoptionGatewayCore } from '../live-adoption-gateway-core.ts'
 import { LiveAdoptionRunner } from '../live-adoption-runner.ts'
 import { createInMemoryAdoptionStore, type AdoptionStore } from '../live-adoption-store.ts'
 import { LiveAdoptionCompanion } from '../live-adoption-companion.ts'
-import { LiveAdoptionManagedBridge } from '../../manual/live-adoption-extension.ts'
+import { LiveAdoptionPresentation } from '../live-adoption-presentation.ts'
+import { LiveAdoptionManagedBridge, createLiveAdoptionExtension } from '../../manual/live-adoption-extension.ts'
 import { LiveAdoptionStore } from '../../manual/live-adoption-store.ts'
 
 const IDS = Object.freeze({
@@ -81,6 +82,7 @@ class FakeDuplex implements DuplexStream {
   }
 
   destroy(): void {
+    if (this.destroyed) return
     this.destroyed = true
     this.onDestroy?.()
   }
@@ -191,6 +193,13 @@ class FakeTimerController {
 
   cancel(handle: unknown): void {
     ;(handle as { __cancel?: () => void }).__cancel?.()
+  }
+
+  fire(): void {
+    const entry = this.entries.find(value => !value.cancelled)
+    assert.ok(entry, 'expected a scheduled retry')
+    entry.cancelled = true
+    entry.callback()
   }
 
   get length(): number {
@@ -329,7 +338,7 @@ async function prepareProposal(gateway: LiveAdoptionGatewayCore, conn: Recording
 // Extension harness (full pipeline through the Pi extension)
 // ---------------------------------------------------------------------------
 
-function createExtensionHarness(durableStore?: AdoptionStore) {
+function createExtensionHarness(durableStore?: AdoptionStore, loseCommittedDelivery = false) {
   const clock = new FakeMonotonicClock(0)
   const capabilityIssuer = new FakeCapabilityIssuer()
   const store = durableStore ?? createInMemoryAdoptionStore({
@@ -356,13 +365,8 @@ function createExtensionHarness(durableStore?: AdoptionStore) {
     clock,
     capabilityIssuer,
   })
-  const { client, server } = createDuplexPair()
-  let session!: ReturnType<LiveAdoptionGatewayCore['accept']>
-  const serverChannel = new LiveFrameChannel(server, {
-    onFrame: (incoming) => session?.handleFrame(incoming),
-    onClose: (error) => session?.transportClosed(error),
-  })
-  session = gateway.accept(serverChannel)
+  let targetGateway = gateway
+  let serverChannel: LiveFrameChannel
 
   const host = new FakePiHost({
     sessionId: IDS.piSessionId,
@@ -371,9 +375,26 @@ function createExtensionHarness(durableStore?: AdoptionStore) {
   })
   const heartbeatCtrl = new FakeTimerController()
   const reconnectCtrl = new FakeTimerController()
-  const extension = createObserverExtension({
+  const extension = createLiveAdoptionExtension({
     observerVersion: '0.1.0',
-    connect: (receive) => Promise.resolve(new FakeExtensionConnection(client, receive)),
+    connect: (receive) => {
+      const { client, server } = createDuplexPair()
+      const deliver = server.onWrite!
+      server.onWrite = data => {
+        if (loseCommittedDelivery && JSON.parse(data).type === 'adoption.committed') {
+          loseCommittedDelivery = false
+          return
+        }
+        deliver(data)
+      }
+      let session!: ReturnType<LiveAdoptionGatewayCore['accept']>
+      serverChannel = new LiveFrameChannel(server, {
+        onFrame: incoming => session.handleFrame(incoming),
+        onClose: error => session.transportClosed(error),
+      })
+      session = targetGateway.accept(serverChannel)
+      return Promise.resolve(new FakeExtensionConnection(client, receive))
+    },
     managedBridge: bridge,
     scheduleHeartbeat: (callback) => heartbeatCtrl.schedule(callback),
     cancelHeartbeat: (handle) => heartbeatCtrl.cancel(handle),
@@ -382,7 +403,22 @@ function createExtensionHarness(durableStore?: AdoptionStore) {
   })
   extension(host.api)
 
-  return { clock, store, runner, gateway, bridge, host, heartbeatCtrl, reconnectCtrl }
+  return { clock, store, runner, gateway, bridge, host, heartbeatCtrl, reconnectCtrl,
+    async restart(reopened: AdoptionStore, whileDisconnected?: () => Promise<unknown>) {
+      const recovered = new LiveAdoptionRunner({ store: reopened, executionNodeId: IDS.executionNodeId,
+        teamGoalId: IDS.teamGoalId, roles: ['coordinator','builder','reviewer'], clock })
+      targetGateway = new LiveAdoptionGatewayCore({ runner: recovered, executionNodeId: IDS.executionNodeId,
+        teamGoalId: IDS.teamGoalId, roles: ['coordinator','builder','reviewer'], clock })
+      serverChannel.close()
+      await settle()
+      assert.equal(bridge.enabled, false)
+      await whileDisconnected?.()
+      reconnectCtrl.fire()
+      await settle()
+      await settle()
+      return recovered
+    },
+  }
 }
 
 const settle = (): Promise<void> => new Promise<void>((resolve) => setTimeout(resolve, 0))
@@ -396,41 +432,93 @@ function tempDbPath(): string {
 // Tests
 // ---------------------------------------------------------------------------
 
-test('same fake Pi: Companion confirmation -> framed gateway -> extension acknowledgement -> SQLite commit -> footer', async (t) => {
+for (const offlineInput of [false, true]) for (const loseDelivery of [false, true]) test(`same fake Pi: confirmation, commit and recovery; lost=${loseDelivery}, offline input=${offlineInput}`, async (t) => {
   const databasePath = tempDbPath()
   const config = { databasePath, executionNodeId: IDS.executionNodeId, teamGoalId: IDS.teamGoalId, roles: ['coordinator', 'builder', 'reviewer'] }
   const durableStore = new LiveAdoptionStore(config)
   t.after(() => { durableStore.close(); fs.rmSync(path.dirname(databasePath), { recursive: true, force: true }) })
-  const harness = createExtensionHarness(durableStore)
+  const harness = createExtensionHarness(durableStore, loseDelivery)
   const host = harness.host
 
   await host.startSession()
   await settle()
   assert.equal(harness.runner.snapshot().agents.length, 1, 'registration must create one observed session')
   assert.equal(host.status('omarchestra-observer-status'), 'Unassigned · observed')
+  assert.equal(await host.submitInput('ordinary content is not exposed'), 'continue')
   assert.equal(harness.store.snapshot().committedRuns.length, 0)
   assert.equal(harness.runner.commitCount, 0)
   const companion = new LiveAdoptionCompanion({
     runner: harness.runner, executionNodeId: IDS.executionNodeId,
     teamGoalId: IDS.teamGoalId, roles: ['coordinator', 'builder', 'reviewer'],
   })
-  const agent = companion.snapshot().agents[0] as { observedSessionId: string }
-  const proposal = await companion.requestAdoption({ intentId: 'request-1', observedSessionId: agent.observedSessionId, choiceId: 'adoption-choice-1' })
+  let published: any
+  let result: any
+  const intents: unknown[] = []
+  const presentation = new LiveAdoptionPresentation({ runner:harness.runner,
+    executionNodeId:IDS.executionNodeId, teamGoalId:IDS.teamGoalId, roles:['coordinator','builder','reviewer'],
+    shell: {
+      async fingerprint() { return 'unchanged-installation' },
+      async call(method, raw) {
+        const value = JSON.parse(raw)
+        if (method === 'adoptionCapabilities') return JSON.stringify({ version:'0.4.0', pluginGeneration:7,
+          methods:['adoptionOpen','adoptionApply','adoptionTakeIntent','adoptionIntentResult','adoptionClear'] })
+        if (method === 'adoptionOpen' || method === 'adoptionApply') published = value
+        if (method === 'adoptionIntentResult') result = value.result
+        if (method === 'adoptionTakeIntent') return intents.length ? JSON.stringify({session:published.session,intent:intents.shift()}) : ''
+        return 'true'
+      },
+    },
+  })
+  await presentation.open()
+  const agent = published.observerProjection.agents[0]
+  intents.push({kind:'request_adoption', intentId:'request-1', observedSessionId:agent.observedSessionId, choiceId:'adoption-choice-1'})
+  await presentation.poll()
+  const proposal = result
   assert.equal(proposal.phase, 'proposal')
   assert.equal(harness.store.snapshot().committedRuns.length, 0)
-  const confirmation = await companion.authorizeAdoption({ intentId: 'confirm-1', proposalId: proposal.proposalId!, proposalDigest: proposal.proposalDigest! })
+  intents.push({kind:'authorize_adoption', intentId:'confirm-1', proposalId:proposal.proposalId, proposalDigest:proposal.proposalDigest})
+  await presentation.poll()
+  const confirmation = result
   assert.equal(confirmation.phase, 'authorized')
   await settle()
   assert.equal(harness.store.snapshot().committedRuns.length, 1)
   assert.equal(harness.runner.commitCount, 1)
   assert.equal(companion.snapshot().agents.length, 0)
   assert.equal(companion.managedSnapshot().managedCards.length, 1)
-  assert.equal(harness.runner.managedBridgeEnabled, false, 'Pi footer delivery is not runner dispatch readiness')
-  assert.equal(harness.bridge.enabled, true, 'the extension activates its own bridge only after commit delivery')
-  assert.equal(host.status('omarchestra-observer-status'), 'Builder · managed')
+  await presentation.poll()
+  assert.equal(published.observerProjection.agents.length, 0)
+  assert.equal(published.managedCards.length, 1)
+  await presentation.close()
+  assert.equal(harness.runner.managedBridgeEnabled, !loseDelivery, 'readiness requires post-delivery receipt')
+  assert.equal(harness.bridge.enabled, !loseDelivery, 'extension activates only after commit delivery')
+  assert.equal(host.status('omarchestra-observer-status'), loseDelivery ? 'Unassigned · observed' : 'Builder · managed')
   const reopened = new LiveAdoptionStore(config)
   try {
     assert.deepEqual(reopened.snapshot(), durableStore.snapshot(), 'commit and event survive an independent SQLite open')
+    const recovered = await harness.restart(reopened, offlineInput ? () => host.submitInput('not exposed', 'interactive') : undefined)
+    assert.equal(recovered.commitCount, 0)
+    assert.equal(recovered.snapshot().agents.length, 0)
+    assert.equal(recovered.managedBridgeEnabled, !offlineInput, 'offline interactive input must reconcile as takeover before readiness')
+    assert.equal(harness.bridge.enabled, true)
+    assert.equal(host.status('omarchestra-observer-status'), offlineInput ? 'Builder · manual takeover' : 'Builder · managed')
+    assert.equal(reopened.snapshot().events.length, 1)
+    assert.equal(await host.submitInput('not exposed', 'extension'), 'continue')
+    assert.equal(recovered.managedBridgeEnabled, !offlineInput)
+    assert.equal(await host.submitInput('not exposed', 'interactive'), 'continue')
+    await settle()
+    assert.equal(recovered.managedBridgeEnabled, false)
+    assert.equal(host.status('omarchestra-observer-status'), 'Builder · manual takeover')
+    const again = new LiveAdoptionStore(config)
+    try {
+      assert.equal(again.isManualTakeover(reopened.snapshot().committedRuns[0].agentRunId), true)
+      const afterTakeover = await harness.restart(again)
+      assert.equal(afterTakeover.managedBridgeEnabled, false, 'reconnect cannot silently resume manual takeover')
+      assert.equal(host.status('omarchestra-observer-status'), 'Builder · manual takeover')
+      assert.equal(afterTakeover.acceptanceFacts().managedDisconnected, false)
+      await host.shutdownSession()
+      await settle()
+      assert.ok(Object.values(afterTakeover.acceptanceFacts()).every(value => value === true), 'success requires all observed facts before gateway cleanup')
+    } finally { again.close() }
   } finally { reopened.close() }
 })
 

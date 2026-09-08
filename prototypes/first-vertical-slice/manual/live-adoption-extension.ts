@@ -10,18 +10,23 @@
  */
 
 import path from 'node:path'
+import { randomUUID } from 'node:crypto'
 
 import {
   createObserverExtension,
   type HeartbeatCanceller,
   type HeartbeatScheduler,
   type PiExtensionAPI,
+  type ObserverExtensionOptions,
+  type ObserverConnection,
+  type ObserverFrameHandler,
   type ReconnectCanceller,
   type ReconnectScheduler,
 } from '../observer/extension-adapter.ts'
 import { connectObserverSocket } from './live-observer-transport.ts'
 
 export interface LiveAdoptionExtensionOptions {
+  connect?: ObserverExtensionOptions['connect']
   socketPath?: string
   observerVersion?: string
   processIncarnationId?: string
@@ -55,8 +60,8 @@ export interface CommittedAdoptionView {
 /**
  * The committed managed bridge for an adopted ordinary Pi. It is inert until
  * `enable(committed)` is called after a durable commit, and it owns managed
- * input handling exclusively. `handleInput` returns `true` when it consumed
- * the input as managed and `false` to let ordinary interactivity continue.
+ * source-only input observation exclusively. `handleInput` reports whether a
+ * durable takeover notification is needed; Pi always receives input unchanged.
  */
 export class LiveAdoptionManagedBridge {
   private enabledValue = false
@@ -96,9 +101,8 @@ export class LiveAdoptionManagedBridge {
   }
 
   /**
-   * Managed input handling lives exclusively here. When disabled, input is
-   * ordinary and untouched. When enabled, only the committed bridge consumes
-   * managed input; the observer collector never does.
+   * Detect interactive input only after commit. Content is never inspected or
+   * consumed; the manual factory sends a content-free takeover notification.
    */
   handleInput(_text: string, source: unknown): boolean {
     if (!this.enabledValue) return false
@@ -114,7 +118,18 @@ export class LiveAdoptionManagedBridge {
  */
 export function createLiveAdoptionExtension(options: LiveAdoptionExtensionOptions = {}) {
   const managedBridge = options.managedBridge ?? new LiveAdoptionManagedBridge()
-  return createObserverExtension({
+  let connection: ObserverConnection | null = null
+  let lastCommitted: Record<string, unknown> | null = null
+  let pendingTakeover = false
+  let candidateProposalId: string | null = null
+  const notifyTakeover = async () => {
+    const current = connection
+    if (!lastCommitted || !current?.send || current.closed || current.isClosed) return
+    try { await current.send('adoption.takeover', `takeover-${randomUUID()}`, lastCommitted) }
+    catch { managedBridge.disable(); await current.close?.() }
+  }
+  const observe = createObserverExtension({
+    managedRecovery: true,
     observerVersion: options.observerVersion,
     processIncarnationId: options.processIncarnationId,
     processIncarnationIdFactory: options.processIncarnationIdFactory,
@@ -125,16 +140,54 @@ export function createLiveAdoptionExtension(options: LiveAdoptionExtensionOption
     cancelHeartbeat: options.cancelHeartbeat,
     scheduleReconnect: options.scheduleReconnect,
     cancelReconnect: options.cancelReconnect,
-    maxReconnectAttempts: options.maxReconnectAttempts,
+    maxReconnectAttempts: options.maxReconnectAttempts ?? 32,
     reconnectInitialDelayMs: options.reconnectInitialDelayMs,
     reconnectMaxDelayMs: options.reconnectMaxDelayMs,
     randomIdFactory: options.randomIdFactory,
     managedBridge: {
-      enable: (committed) => managedBridge.enable(committed),
+      enable: async (committed) => {
+        lastCommitted = structuredClone(committed)
+        managedBridge.enable(committed)
+        // Input during gateway loss still belongs to this committed Agent Run.
+        // Reconcile its source-only takeover before sending a readiness receipt.
+        if (pendingTakeover) await notifyTakeover()
+      },
       disable: () => managedBridge.disable(),
     },
-    connect: (handler) => connectObserverSocket(resolveSocketPath(options.socketPath), handler),
+    connect: async handler => {
+      const receive: ObserverFrameHandler = frame => {
+        const value = frame as { type?: unknown; body?: { proposalId?: unknown } } | null
+        if (!lastCommitted && value?.type === 'adoption.request_ack'
+            && typeof value.body?.proposalId === 'string' && value.body.proposalId !== candidateProposalId) {
+          candidateProposalId = value.body.proposalId
+          pendingTakeover = false
+        }
+        handler(frame)
+      }
+      const opened = await (options.connect ?? (receiver => connectObserverSocket(resolveSocketPath(options.socketPath), receiver)))(receive)
+      connection = opened
+      await opened.onClose?.(() => { if (connection === opened) connection = null })
+      return opened
+    },
   })
+  return (pi: PiExtensionAPI) => {
+    observe(pi)
+    pi.on('input', async event => {
+      // Content is never read, forwarded, persisted, transformed, or consumed.
+      const source = event && typeof event === 'object' ? (event as { source?: unknown }).source : undefined
+      if ((lastCommitted !== null || candidateProposalId !== null) && source === 'interactive') {
+        pendingTakeover = true
+        await notifyTakeover()
+      }
+      return { action: 'continue' }
+    })
+    pi.on('session_shutdown', () => {
+      lastCommitted = null
+      candidateProposalId = null
+      pendingTakeover = false
+      connection = null
+    })
+  }
 }
 
 /** Pi loads this function in the ordinary visible process. */
