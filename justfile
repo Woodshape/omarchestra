@@ -137,12 +137,43 @@ prototype-live-observer-check:
         shellcheck "$root/prototypes/first-vertical-slice/manual/run-live-observer-bridge.sh"
     fi
 
+# PROTOTYPE — NOT PRODUCTION: dedicated fake-only live-Adoption gate. It runs
+# the live-Adoption red tests (runner, gateway, Companion controller) plus the
+# observation-only gateway regression. It never opens a socket, launches Pi, a
+# provider, a desktop, SSH, Boomux, systemd, or mutates an installation.
+prototype-live-adoption-check:
+    #!/usr/bin/env bash
+    set -euo pipefail
+    root='{{justfile_directory()}}'
+    flags=()
+    if node --help | grep -qE '(^|[[:space:]])--experimental-strip-types([[:space:]]|$)'; then
+        flags+=(--experimental-strip-types)
+    fi
+    node "${flags[@]}" --test \
+        "$root/prototypes/first-vertical-slice/observer/test/live-adoption-runner.test.ts" \
+        "$root/prototypes/first-vertical-slice/observer/test/live-adoption-gateway.test.ts" \
+        "$root/prototypes/first-vertical-slice/observer/test/live-adoption-companion.test.ts" \
+        "$root/prototypes/first-vertical-slice/observer/test/live-adoption-durability.test.ts" \
+        "$root/prototypes/first-vertical-slice/observer/test/live-adoption-managed-bridge.test.ts" \
+        "$root/prototypes/first-vertical-slice/observer/test/live-adoption-composed.test.ts" \
+        "$root/prototypes/first-vertical-slice/observer/test/live-adoption-source-audit.test.mjs" \
+        "$root/prototypes/first-vertical-slice/observer/test/live-gateway-core.test.ts"
+    bash -n "$root/prototypes/first-vertical-slice/manual/run-live-adoption-bridge.sh"
+    bash "$root/prototypes/first-vertical-slice/manual/run-live-adoption-bridge.sh" --check
+
 # HUMAN-AUTHORIZED LIVE GATE: runs the disposable observer-only bridge after
 # the operator has verified the pinned Companion 0.3.0 release and is using an
 # interactive TTY. It prints the separate Pi command but never launches Pi.
 # Never invoke from automated recipes.
 prototype-live-observer-bridge:
     bash '{{justfile_directory()}}/prototypes/first-vertical-slice/manual/run-live-observer-bridge.sh' --live
+
+# HUMAN-AUTHORIZED LIVE GATE: runs the disposable live Adoption bridge after
+# the operator has verified the pinned Companion 0.3.0 release and is using an
+# interactive TTY. It prints the separate Pi command but never launches Pi and
+# never dispatches work. Never invoke from automated recipes.
+prototype-live-adoption-bridge:
+    bash '{{justfile_directory()}}/prototypes/first-vertical-slice/manual/run-live-adoption-bridge.sh' --live
 
 # PROTOTYPE — NOT PRODUCTION: complete unattended fake-only Companion check.
 # It never invokes the human setup path except through --check.

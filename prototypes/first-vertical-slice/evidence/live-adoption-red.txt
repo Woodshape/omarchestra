@@ -1,0 +1,23 @@
+# Live Adoption gate evidence (task 6.a final)
+# PROTOTYPE — NOT PRODUCTION. Fake-only gate plus launcher --check.
+# Gate: just prototype-live-adoption-check
+
+## Result
+ℹ tests 36
+ℹ pass 36
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+
+## Launcher --check
+Adoption gateway entrypoint check: PASS (no live resources opened)
+live Adoption bridge launcher: PASS (fake-only)
+
+## Review resolutions (5.a/5.b)
+- F3/F10 same-connection proof: runner tracks per-connection transport; A/B rejection
+- F7 Companion contract: phase 'proposal', session identity, observer projection + managedSnapshot
+- F9/F17 cleanup: gateway removes SQLite + sidecars; launcher FAIL verdict on cleanup failure
+- F10 source audit: managed-bridge test entrypoint audited
+- F1/F11 registration: manual gateway uses AgentRegistry for server-assigned identity
+- F4/F13 expiry: manual gateway provides a monotonic clock

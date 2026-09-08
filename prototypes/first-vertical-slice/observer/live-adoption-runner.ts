@@ -1,0 +1,657 @@
+/**
+ * PROTOTYPE — NOT PRODUCTION.
+ *
+ * live-adoption-runner.ts — the sole Adoption authority for the live slice.
+ * It composes the pure AdoptionCoordinator with the durable AdoptionStore,
+ * owns local Team Goal/Role checks, exact per-connection tracking, final
+ * synchronous revalidation, recovery, and dispatch readiness.
+ *
+ * The runner performs no I/O and imports neither QML nor SQLite. All ports are
+ * injected; the durable store adapter is supplied by the caller (see
+ * manual/live-adoption-store.ts). It never opens a socket, launches Pi, or
+ * starts a provider.
+ *
+ * Authority boundary: the coordinator performs asynchronous eligibility checks
+ * before calling the runner's commit port. The runner repeats every
+ * authoritative check synchronously inside the durable store transaction, so
+ * no async yield, publication, or transport callback can occur between the
+ * final checks and the durable mutation.
+ */
+
+import {
+  ADOPTION_ACK_TIMEOUT_MS,
+  AdoptionCoordinator,
+  type AdoptionAuthorizationPort,
+  type AdoptionClock,
+  type AdoptionDispatchPort,
+  type AdoptionObserverConnection,
+  type AdoptionPresentationPort,
+  type AdoptionRegistryPort,
+  type AdoptionTeamRunnerPort,
+} from './adoption.ts'
+import { OBSERVER_PI_STATUS_LOCAL, ObserverError } from './contracts.ts'
+import type {
+  AdoptionStore,
+  BindingIdentity,
+  CommittedAdoption,
+} from './live-adoption-store.ts'
+import { ROLES, type Role } from '../src/protocol.ts'
+
+export interface LiveAdoptionRunnerOptions {
+  store: AdoptionStore
+  executionNodeId: string
+  teamGoalId: string
+  roles: Role[]
+  clock?: AdoptionClock
+  authorizer?: AdoptionAuthorizationPort
+  presentation?: AdoptionPresentationPort
+  dispatch?: AdoptionDispatchPort
+  managedBridge?: { enable(committed: Record<string, unknown>): void; disable(): void }
+  proposalIdFactory?: () => string
+  acknowledgementNonceFactory?: () => string
+  choiceResolver?: (choiceId: string) => { teamGoalId: string; role: Role }
+  leaseDurationMs?: number
+  recoveryTtlMs?: number
+  recoveryChallengeFactory?: () => string
+}
+
+export interface ObservedRecord {
+  observedSessionId: string
+  executionNodeId: string
+  processIncarnationId: string
+  piSessionId: string
+  extensionInstanceId: string
+  connectionId: string
+  connectionChallenge: string
+  registryRevision: number
+  lifecycle: 'running' | 'exited'
+  activity: 'idle' | 'busy' | 'waiting_for_user' | 'unknown'
+  availability: 'available' | 'unavailable'
+  health: 'healthy' | 'degraded'
+  piStatus: string
+  acceptedSourceSequence: number
+}
+
+export interface RecoveryState {
+  committedRuns: CommittedAdoption[]
+  observedSessions: string[]
+  commitCount: number
+}
+
+export interface RecoveryChallenge {
+  challenge: string
+  committed: CommittedAdoption
+}
+
+export interface RecoveryProof {
+  challenge: string
+  committed: Record<string, unknown>
+}
+
+const DEFAULT_TRANSPORT_ID = 'transport-1'
+const DEFAULT_LEASE_DURATION_MS = 15_000
+const DEFAULT_RECOVERY_TTL_MS = 30_000
+
+interface ObservedEntry {
+  record: ObservedRecord
+  connection: object
+  observerConnection: AdoptionObserverConnection
+  coordinator: AdoptionCoordinator
+  leaseUntil: number
+}
+
+interface CommitContext {
+  connection: object
+  observedSessionId: string
+  acknowledgementDeadline: number
+  expiresMonotonic: number
+}
+
+interface RecoveryEntry {
+  binding: BindingIdentity
+  challenge: string
+  expiresAt: number
+  committed: CommittedAdoption
+}
+
+/**
+ * Compose the AdoptionCoordinator with the durable store and the same-Pi
+ * managed bridge. The runner owns the observed-session registry, the exact
+ * per-connection observer transport, and the final synchronous revalidation
+ * boundary. Each observed session gets its own coordinator bound to its exact
+ * connection, so an acknowledgement over any other connection is rejected.
+ */
+export class LiveAdoptionRunner {
+  private readonly store: AdoptionStore
+  private readonly executionNodeId: string
+  private readonly teamGoalId: string
+  private readonly roles: Role[]
+  private readonly observed = new Map<string, ObservedEntry>()
+  private readonly commitContexts = new Map<string, CommitContext>()
+  private readonly recoveries = new Map<object, RecoveryEntry>()
+  private readonly managedBridge: { enable(committed: Record<string, unknown>): void; disable(): void }
+  private readonly choiceResolver: (choiceId: string) => { teamGoalId: string; role: Role }
+  private readonly clock: AdoptionClock
+  private readonly authorizer: AdoptionAuthorizationPort
+  private readonly dispatch: AdoptionDispatchPort | undefined
+  private readonly proposalIdFactory: (() => string) | undefined
+  private readonly acknowledgementNonceFactory: (() => string) | undefined
+  private readonly leaseDurationMs: number
+  private readonly recoveryTtlMs: number
+  private readonly recoveryChallengeFactory: () => string
+  private commitCountValue = 0
+  private managedBridgeEnabledValue = false
+  private dispatchCountValue = 0
+  private queuedWorkValue = 0
+
+  constructor(options: LiveAdoptionRunnerOptions) {
+    if (options === null || typeof options !== 'object') {
+      throw new TypeError('LiveAdoptionRunner options are required')
+    }
+    this.store = requirePort(options.store, 'store')
+    this.executionNodeId = requireId(options.executionNodeId, 'executionNodeId')
+    this.teamGoalId = requireId(options.teamGoalId, 'teamGoalId')
+    this.roles = requireRoles(options.roles)
+    this.managedBridge = options.managedBridge ?? { enable: () => {}, disable: () => {} }
+    this.choiceResolver = options.choiceResolver ?? defaultChoiceResolver(this.teamGoalId)
+    this.clock = options.clock ?? { now: () => 0 }
+    this.authorizer = options.authorizer ?? { verify: () => true }
+    this.dispatch = options.dispatch
+    this.proposalIdFactory = options.proposalIdFactory
+    this.acknowledgementNonceFactory = options.acknowledgementNonceFactory
+    this.leaseDurationMs = requireNonNegativeInt(options.leaseDurationMs ?? DEFAULT_LEASE_DURATION_MS, 'leaseDurationMs')
+    this.recoveryTtlMs = requireNonNegativeInt(options.recoveryTtlMs ?? DEFAULT_RECOVERY_TTL_MS, 'recoveryTtlMs')
+    this.recoveryChallengeFactory = options.recoveryChallengeFactory ?? defaultRecoveryChallengeFactory
+  }
+
+  /** Register a current observed session on a specific transport connection. */
+  registerObserved(record: ObservedRecord, connection?: object): void {
+    if (record === null || typeof record !== 'object') {
+      throw new TypeError('observed record must be a plain object')
+    }
+    const transport = connection ?? { id: DEFAULT_TRANSPORT_ID }
+    const observerConnection: AdoptionObserverConnection = {
+      id: (transport as { id?: unknown }).id ?? DEFAULT_TRANSPORT_ID,
+      send: (type, messageId, body) => {
+        const sender = (transport as { send?: (t: string, m: string, b: Record<string, unknown>) => void }).send
+        if (typeof sender === 'function') sender(type, messageId, body)
+      },
+    }
+    const entry: ObservedEntry = {
+      record: cloneRecord(record),
+      connection: transport,
+      observerConnection,
+      coordinator: this.buildCoordinator(observerConnection),
+      leaseUntil: this.clock.now() + this.leaseDurationMs,
+    }
+    this.observed.set(record.observedSessionId, entry)
+  }
+
+  /** Update an existing observed record in place (heartbeat/lifecycle). */
+  updateObserved(record: ObservedRecord): void {
+    const entry = this.observed.get(record.observedSessionId)
+    if (entry !== undefined) {
+      entry.record = cloneRecord(record)
+      entry.leaseUntil = this.clock.now() + this.leaseDurationMs
+    }
+  }
+
+  private buildCoordinator(observerConnection: AdoptionObserverConnection): AdoptionCoordinator {
+    const registry: AdoptionRegistryPort = {
+      getObserved: (observedSessionId) => {
+        const entry = this.observed.get(observedSessionId)
+        return entry === undefined ? null : cloneRecord(entry.record)
+      },
+      isLocalTeamGoal: (teamGoalId, executionNodeId) => (
+        teamGoalId === this.teamGoalId && executionNodeId === this.executionNodeId
+      ),
+      isRoleOccupied: (teamGoalId, role) => this.store.transaction(
+        (tx) => tx.isRoleOccupied(teamGoalId, role),
+      ),
+      isAlreadyManaged: (observedSessionId) => {
+        const entry = this.observed.get(observedSessionId)
+        if (entry === undefined) return false
+        return this.store.transaction((tx) => tx.isBindingCommitted(bindingOfRecord(entry.record)))
+      },
+      isCurrentConnection: (connection, connectionId, connectionChallenge) => {
+        for (const entry of this.observed.values()) {
+          if (entry.observerConnection === connection
+              && entry.record.connectionId === connectionId
+              && entry.record.connectionChallenge === connectionChallenge) {
+            return true
+          }
+        }
+        return false
+      },
+      currentRevision: () => {
+        let max = 0
+        for (const entry of this.observed.values()) {
+          max = Math.max(max, entry.record.registryRevision)
+        }
+        return max
+      },
+    }
+
+    const teamRunner: AdoptionTeamRunnerPort = {
+      commitAdoption: (input) => this.commitAdoption(input),
+    }
+
+    const presentation: AdoptionPresentationPort = {
+      applyCommitted: (update) => {
+        this.managedBridge.enable(cloneRecord(update))
+        this.managedBridgeEnabledValue = true
+      },
+    }
+
+    return new AdoptionCoordinator({
+      clock: this.clock,
+      registry,
+      authorizer: this.authorizer,
+      teamRunner,
+      presentation,
+      observerConnection,
+      dispatch: this.dispatch,
+      proposalIdFactory: this.proposalIdFactory,
+      acknowledgementNonceFactory: this.acknowledgementNonceFactory,
+    })
+  }
+
+  /**
+   * The synchronous commit port. The coordinator has already performed
+   * asynchronous eligibility checks; this port repeats every authoritative
+   * check synchronously inside the durable store transaction so no async
+   * yield can occur between the final checks and the durable mutation.
+   */
+  private commitAdoption(input: Record<string, unknown>): Record<string, unknown> {
+    const proposal = requirePlainRecord(input.proposal, 'proposal')
+    const proposalId = requireId(proposal.proposalId, 'proposalId')
+    const context = this.commitContexts.get(proposalId)
+    if (context === undefined) {
+      throw new ObserverError('proposal_not_found', 'no synchronous commit context for this proposal')
+    }
+    const committed = this.store.transaction((tx) => {
+      this.assertSynchronousCommitValid(context, input, tx)
+      return tx.commitAdoption(input)
+    })
+    this.commitContexts.delete(proposalId)
+    this.commitCountValue += 1
+    const { committedAt: _committedAt, ...result } = committed
+    return result
+  }
+
+  private assertSynchronousCommitValid(
+    context: CommitContext,
+    input: Record<string, unknown>,
+    tx: { isRoleOccupied(teamGoalId: string, role: Role): boolean; isBindingCommitted(binding: BindingIdentity): boolean },
+  ): void {
+    const entry = this.observed.get(context.observedSessionId)
+    if (entry === undefined) {
+      throw new ObserverError('session_unknown', 'the observed session is not current')
+    }
+    if (entry.connection !== context.connection) {
+      throw new ObserverError('connection_not_current', 'the observer connection changed during Adoption')
+    }
+    const acknowledgement = requirePlainRecord(input.acknowledgement, 'acknowledgement')
+    if (entry.record.connectionId !== acknowledgement.connectionId
+        || entry.record.connectionChallenge !== acknowledgement.connectionChallenge) {
+      throw new ObserverError('connection_not_current', 'the observer connection identity is not current')
+    }
+    const now = this.clock.now()
+    if (now >= context.expiresMonotonic) {
+      throw new ObserverError('proposal_expired', 'the Adoption proposal expired before commit')
+    }
+    if (now >= context.acknowledgementDeadline) {
+      throw new ObserverError('ack_timeout', 'the Adoption acknowledgement window expired before commit')
+    }
+    if (now >= entry.leaseUntil) {
+      throw new ObserverError('session_expired', 'the observed session lease expired before commit')
+    }
+    const record = entry.record
+    if (record.lifecycle === 'exited') throw new ObserverError('session_exited', 'the observed Pi session has exited')
+    if (record.availability !== 'available') throw new ObserverError('session_unavailable', 'the observed Pi session is unavailable')
+    if (record.activity !== 'idle') {
+      if (record.activity === 'unknown') throw new ObserverError('session_unknown', 'the observer cannot establish an idle session')
+      throw new ObserverError('session_busy', 'the observed Pi session is not idle')
+    }
+    if (record.health !== 'healthy') throw new ObserverError('session_unavailable', 'the observed session health is degraded')
+    if (record.piStatus !== OBSERVER_PI_STATUS_LOCAL) throw new ObserverError('already_managed', 'the observed session is no longer unassigned')
+    const proposal = requirePlainRecord(input.proposal, 'proposal')
+    const role = requireRole(proposal.targetRole, 'targetRole')
+    const teamGoalId = requireId(proposal.targetTeamGoalId, 'targetTeamGoalId')
+    if (tx.isRoleOccupied(teamGoalId, role)) throw new ObserverError('role_occupied', 'the target Role is already occupied')
+    if (tx.isBindingCommitted(bindingOfRecord(record))) {
+      throw new ObserverError('already_managed', 'the observed session already has a managed Agent Run')
+    }
+  }
+
+  /** Request an immutable Adoption proposal for an observed session. */
+  async requestAdoption(observedSessionId: string, choiceId: string): Promise<Record<string, unknown>> {
+    const entry = this.observed.get(observedSessionId)
+    if (entry === undefined) {
+      throw new ObserverError('session_unknown', 'the observed session is not current')
+    }
+    const target = this.choiceResolver(choiceId)
+    const request = {
+      observedSessionId,
+      observedIdentity: {
+        observedSessionId,
+        executionNodeId: entry.record.executionNodeId,
+        processIncarnationId: entry.record.processIncarnationId,
+        piSessionId: entry.record.piSessionId,
+        extensionInstanceId: entry.record.extensionInstanceId,
+        connectionId: entry.record.connectionId,
+        connectionChallenge: entry.record.connectionChallenge,
+      },
+      connection: {
+        id: entry.observerConnection.id ?? DEFAULT_TRANSPORT_ID,
+        connectionId: entry.record.connectionId,
+        connectionChallenge: entry.record.connectionChallenge,
+      },
+      target: {
+        teamGoalId: target.teamGoalId,
+        executionNodeId: this.executionNodeId,
+        role: target.role,
+      },
+    }
+    return await entry.coordinator.createProposal(request)
+  }
+
+  /** Confirm the exact displayed proposal. */
+  async authorizeAdoption(proposalId: string, proposalDigest: string): Promise<Record<string, unknown>> {
+    const entry = this.entryForProposal(proposalId)
+    const proposal = entry.coordinator.getProposal(proposalId)
+    if (proposal === null) {
+      throw new ObserverError('proposal_not_found', 'the Adoption proposal is not current')
+    }
+    const authorization = {
+      proposalId,
+      proposalDigest,
+      targetTeamGoalId: proposal.targetTeamGoalId,
+      targetRole: proposal.targetRole,
+      authorizationId: `authorization-${proposalId}`,
+      token: 'fake-user-confirmation-token',
+    }
+    const requestAck = await entry.coordinator.authorizeProposal(proposalId, authorization)
+    // Retain the acknowledgement deadline so the synchronous commit port can
+    // re-check it without relying on the coordinator's private deadline.
+    this.commitContexts.set(proposalId, {
+      connection: entry.connection,
+      observedSessionId: entry.record.observedSessionId,
+      acknowledgementDeadline: this.clock.now() + ADOPTION_ACK_TIMEOUT_MS,
+      expiresMonotonic: Number(proposal.expiresMonotonic),
+    })
+    return { ...cloneRecord(requestAck), phase: 'authorized' }
+  }
+
+  /**
+   * Accept the same-process acknowledgement and commit once. The supplied
+   * transport must be the exact connection that registered the observed
+   * session; an acknowledgement over any other connection is rejected.
+   */
+  async acceptAcknowledgement(
+    transport: object,
+    acknowledgement: Record<string, unknown>,
+  ): Promise<Record<string, unknown>> {
+    const proposalId = requireId(acknowledgement.proposalId, 'proposalId')
+    const entry = this.entryForProposal(proposalId)
+    if (transport !== entry.connection) {
+      throw new ObserverError('connection_not_current', 'the acknowledgement came from a different observer connection')
+    }
+    return await entry.coordinator.acceptAcknowledgement(entry.observerConnection, acknowledgement)
+  }
+
+  private entryForProposal(proposalId: string): ObservedEntry {
+    for (const entry of this.observed.values()) {
+      if (entry.coordinator.getProposal(proposalId) !== null) return entry
+    }
+    throw new ObserverError('proposal_not_found', 'the Adoption proposal is not current')
+  }
+
+  get commitCount(): number {
+    return this.commitCountValue
+  }
+
+  get managedBridgeEnabled(): boolean {
+    return this.managedBridgeEnabledValue
+  }
+
+  get dispatchCount(): number {
+    return this.dispatchCountValue
+  }
+
+  get queuedWork(): number {
+    return this.queuedWorkValue
+  }
+
+  /** Reconstruct authoritative state from the durable store after a restart. */
+  recover(): RecoveryState {
+    const snapshot = this.store.snapshot()
+    const committedIds = new Set(snapshot.committedRuns.map((run) => run.observedSessionId))
+    const observedSessions = [...this.observed.keys()].filter((id) => !committedIds.has(id))
+    return {
+      committedRuns: snapshot.committedRuns.map((run) => ({ ...run })),
+      observedSessions,
+      commitCount: snapshot.committedRuns.length,
+    }
+  }
+
+  /** Look up a committed binding independent of any observed ID. */
+  committedByBinding(binding: BindingIdentity): CommittedAdoption | null {
+    return this.store.transaction((tx) => tx.committedByBinding(binding))
+  }
+
+  /**
+   * Begin a fresh challenged managed-recovery handshake for an exact
+   * committed binding. It issues a fresh unpredictable challenge with a
+   * monotonic expiry and binds transient recovery state to the exact new
+   * transport. It never creates an observed record or a second commitment.
+   */
+  beginRecovery(connection: object, binding: BindingIdentity): RecoveryChallenge {
+    const committed = this.store.transaction((tx) => tx.committedByBinding(binding))
+    if (committed === null) {
+      throw new ObserverError('proposal_not_found', 'no committed Adoption binding for recovery')
+    }
+    // A replacement connection supersedes any older recovery for the same
+    // binding, so a superseded connection can no longer complete recovery.
+    for (const [existingConnection, existing] of this.recoveries) {
+      if (sameBindingIdentity(existing.binding, binding)) {
+        this.recoveries.delete(existingConnection)
+      }
+    }
+    const challenge = this.issueRecoveryChallenge()
+    this.recoveries.set(connection, {
+      binding: { ...binding },
+      challenge,
+      expiresAt: this.clock.now() + this.recoveryTtlMs,
+      committed: cloneRecord(committed),
+    })
+    return { challenge, committed: cloneRecord(committed) }
+  }
+
+  /**
+   * Complete a challenged managed-recovery handshake. It requires the exact
+   * fresh challenge and the exact committed identity/result reference over
+   * the same transport, then returns the original persisted commitment
+   * without creating another run, event, or occupancy claim.
+   */
+  completeRecovery(connection: object, proof: RecoveryProof): CommittedAdoption {
+    const recovery = this.recoveries.get(connection)
+    if (recovery === undefined) {
+      throw new ObserverError('proposal_not_found', 'no pending Adoption recovery for this connection')
+    }
+    if (this.clock.now() >= recovery.expiresAt) {
+      this.recoveries.delete(connection)
+      throw new ObserverError('proposal_expired', 'the Adoption recovery challenge expired')
+    }
+    if (proof.challenge !== recovery.challenge) {
+      throw new ObserverError('connection_not_current', 'the Adoption recovery challenge does not match')
+    }
+    const committed = requirePlainRecord(proof.committed, 'recovery committed')
+    if (committed.proposalId !== recovery.committed.proposalId
+        || committed.proposalDigest !== recovery.committed.proposalDigest
+        || committed.agentRunId !== recovery.committed.agentRunId) {
+      throw new ObserverError('identity_drift', 'the Adoption recovery proof does not match the committed result')
+    }
+    this.recoveries.delete(connection)
+    return cloneRecord(recovery.committed)
+  }
+
+  /** Observer projection: managed cards are separate. */
+  snapshot(): { observerRevision: number; agents: unknown[] } {
+    const store = this.store.snapshot()
+    const committedIds = new Set(store.committedRuns.map((run) => run.observedSessionId))
+    const agents = [...this.observed.values()]
+      .filter((entry) => !committedIds.has(entry.record.observedSessionId))
+      .map((entry) => ({
+        observedSessionId: entry.record.observedSessionId,
+        piStatus: entry.record.piStatus,
+        lifecycle: entry.record.lifecycle,
+        availability: entry.record.availability,
+        health: entry.record.health,
+        choices: [],
+      }))
+    return { observerRevision: store.cursor, agents }
+  }
+
+  /** Managed cards from the durable store, separate from the observer projection. */
+  managedSnapshot(): { managedCards: unknown[] } {
+    const store = this.store.snapshot()
+    const managedCards = store.committedRuns.map((run) => ({
+      agentRunId: run.agentRunId,
+      role: run.targetRole,
+      piStatus: run.piStatus,
+    }))
+    return { managedCards }
+  }
+
+  /**
+   * Revoke dispatch readiness, clear queued work, and invalidate pending
+   * authority on runner connection loss. When a connection is supplied, only
+   * that connection's pending proposals and recovery state are invalidated.
+   */
+  onConnectionLost(connection?: object): void {
+    this.managedBridge.disable()
+    this.managedBridgeEnabledValue = false
+    this.queuedWorkValue = 0
+    if (connection !== undefined) {
+      for (const entry of this.observed.values()) {
+        if (entry.connection === connection) this.invalidateEntry(entry)
+      }
+      this.recoveries.delete(connection)
+    } else {
+      for (const entry of this.observed.values()) this.invalidateEntry(entry)
+      this.recoveries.clear()
+    }
+  }
+
+  /**
+   * Synchronously invalidate one observed entry on connection loss: remove its
+   * commit contexts, make its observed authority unavailable, and reconstruct
+   * its coordinator so no pending proposal can authorize or commit afterward.
+   */
+  private invalidateEntry(entry: ObservedEntry): void {
+    for (const [proposalId, context] of this.commitContexts) {
+      if (context.observedSessionId === entry.record.observedSessionId) {
+        this.commitContexts.delete(proposalId)
+      }
+    }
+    entry.record = { ...entry.record, availability: 'unavailable' }
+    entry.coordinator.reconstruct()
+  }
+
+  private issueRecoveryChallenge(): string {
+    const value = this.recoveryChallengeFactory()
+    if (typeof value !== 'string' || !/^[A-Za-z0-9][A-Za-z0-9._:-]{0,127}$/.test(value)) {
+      throw new ObserverError('invalid_identity', 'recovery challenge issuer returned an invalid identity')
+    }
+    return value
+  }
+}
+
+function defaultChoiceResolver(teamGoalId: string): (choiceId: string) => { teamGoalId: string; role: Role } {
+  return (choiceId) => {
+    const role = choiceIdToRole(choiceId)
+    return { teamGoalId, role }
+  }
+}
+
+function defaultRecoveryChallengeFactory(): string {
+  const bytes = new Uint8Array(16)
+  globalThis.crypto.getRandomValues(bytes)
+  let out = ''
+  for (const byte of bytes) out += byte.toString(16).padStart(2, '0')
+  return `recovery-${out}`
+}
+
+function choiceIdToRole(choiceId: string): Role {
+  if (choiceId === 'adoption-choice-2') return 'coordinator'
+  if (choiceId === 'adoption-choice-3') return 'reviewer'
+  return 'builder'
+}
+
+function bindingOfRecord(record: ObservedRecord): BindingIdentity {
+  return {
+    executionNodeId: record.executionNodeId,
+    processIncarnationId: record.processIncarnationId,
+    piSessionId: record.piSessionId,
+    extensionInstanceId: record.extensionInstanceId,
+  }
+}
+
+function sameBindingIdentity(left: BindingIdentity, right: BindingIdentity): boolean {
+  return left.executionNodeId === right.executionNodeId
+    && left.processIncarnationId === right.processIncarnationId
+    && left.piSessionId === right.piSessionId
+    && left.extensionInstanceId === right.extensionInstanceId
+}
+
+function requirePort<T>(value: T | undefined, name: string): T {
+  if (value === undefined || value === null || typeof value !== 'object') {
+    throw new TypeError(`${name} port is required`)
+  }
+  return value
+}
+
+function requireId(input: unknown, where: string): string {
+  if (typeof input !== 'string' || !/^[A-Za-z0-9][A-Za-z0-9._:-]{0,127}$/.test(input)) {
+    throw new TypeError(`${where} must be a bounded identity`)
+  }
+  return input
+}
+
+function requireRole(input: unknown, where: string): Role {
+  if (typeof input !== 'string' || !(ROLES as readonly string[]).includes(input)) {
+    throw new TypeError(`${where} must be an allowed Role`)
+  }
+  return input as Role
+}
+
+function requireRoles(input: unknown): Role[] {
+  if (!Array.isArray(input) || input.length === 0 || input.length > 3) {
+    throw new TypeError('roles must be a bounded non-empty array')
+  }
+  for (const role of input) {
+    if (typeof role !== 'string' || !(ROLES as readonly string[]).includes(role)) {
+      throw new TypeError('roles must contain only allowed Roles')
+    }
+  }
+  return [...input] as Role[]
+}
+
+function requireNonNegativeInt(input: unknown, where: string): number {
+  if (typeof input !== 'number' || !Number.isSafeInteger(input) || input < 0) {
+    throw new TypeError(`${where} must be a non-negative safe integer`)
+  }
+  return input
+}
+
+function requirePlainRecord(input: unknown, where: string): Record<string, unknown> {
+  if (input === null || typeof input !== 'object' || Array.isArray(input)) {
+    throw new TypeError(`${where} must be a plain object`)
+  }
+  return input as Record<string, unknown>
+}
+
+function cloneRecord<T>(value: T): T {
+  return structuredClone(value)
+}

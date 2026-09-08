@@ -1,0 +1,36 @@
+# Live Adoption F16 composed-path evidence (task 5.a)
+# PROTOTYPE — NOT PRODUCTION. Fake-only composed tests plus full gate.
+# Gate: just prototype-live-adoption-check
+
+## Composed-path tests (observer/test/live-adoption-composed.test.ts)
+ℹ tests 13
+ℹ pass 13
+ℹ fail 0
+
+### F13–F14 authority/recovery
+- full composed path: extension -> transport -> gateway/registry -> runner registers an observed session
+- V1: synchronous lease revalidation inside the commit boundary rejects an expired lease
+- V2: identical acknowledgement bytes replay over a second connection is rejected
+- V3: crash after durable commit, reopen, and recover through a fresh challenge without a second commit
+- V4: a fresh observed ID cannot evade the committed binding tombstone
+- V7: reopening with a mismatching Node/goal/Roles configuration is rejected
+- V7b: a duplicate role commit rolls back atomically against the durable adapter
+
+### Authority/recovery review regressions
+- AR2: disconnect invalidates the exact connection and blocks a later acknowledgement
+- AR5: a replacement recovery supersedes an older recovery for the same binding
+- AR7: the in-memory store rolls back a failed transaction and rejects promise callbacks
+
+### F16 evidence
+- F16 race: concurrent acknowledgements commit exactly once
+- F16 lifecycle-loss: connection loss revokes readiness and clears queued dispatch
+- F16 crash-stage: committed delivery loss recovers through gateway recovery frames
+
+## Full gate
+ℹ tests 52
+ℹ pass 52
+ℹ fail 0
+
+## Launcher --check
+Adoption gateway entrypoint check: PASS (no live resources opened)
+live Adoption bridge launcher: PASS (fake-only)

@@ -52,10 +52,10 @@ export interface ObserverIntentResult {
   phase: string
   code: string
   detail: string
-  proposalId: string
-  proposalDigest: string
+  proposalId: string | null
+  proposalDigest: string | null
   remainingMs: number | null
-  displayLabel: string
+  displayLabel: string | null
 }
 
 export interface ObserverPort {
@@ -157,10 +157,10 @@ export function validateObserverIntentResult(input: unknown): ObserverIntentResu
     phase: requireBoundedText(value.phase, 'phase', 64),
     code: requireBoundedText(value.code, 'code', 64),
     detail: requireBoundedText(value.detail, 'detail', OBSERVER_INTENT_DETAIL_MAX),
-    proposalId: requireId(value.proposalId, 'proposalId'),
-    proposalDigest: requireDigest(value.proposalDigest),
+    proposalId: value.proposalId === null ? null : requireId(value.proposalId, 'proposalId'),
+    proposalDigest: value.proposalDigest === null ? null : requireDigest(value.proposalDigest),
     remainingMs,
-    displayLabel: requireBoundedText(value.displayLabel, 'displayLabel', OBSERVER_INTENT_LABEL_MAX),
+    displayLabel: value.displayLabel === null ? null : requireBoundedText(value.displayLabel, 'displayLabel', OBSERVER_INTENT_LABEL_MAX),
   }
 }
 
@@ -230,7 +230,11 @@ export class CompanionObserverProjectionAdapter {
   async submitIntent(session: unknown, intent: unknown): Promise<ObserverIntentResult> {
     this.assertSessionCurrent(session)
     const forwarded = validateObserverIntent(intent)
-    const result = validateObserverIntentResult(this.observer.submitIntent(forwarded))
+    // The observer port may return an asynchronous coordinator result; await it
+    // before validating so a live Adoption controller is not rejected as an
+    // invalid envelope (H2).
+    const raw = await this.observer.submitIntent(forwarded)
+    const result = validateObserverIntentResult(raw)
     this.resultSink?.(clone(result))
     return clone(result)
   }

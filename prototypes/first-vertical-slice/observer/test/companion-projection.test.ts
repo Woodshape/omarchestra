@@ -353,3 +353,50 @@ test('stop clears only ephemeral observer presentation and unsubscribes once', a
   assert.equal(observer.unsubscribed, 1)
   assert.deepEqual(observer.submitted, [])
 })
+
+test('submitIntent awaits an asynchronous observer result (H2)', async () => {
+  const module = await loadProjection()
+  const submitted: Array<Record<string, unknown>> = []
+  const asyncObserver = {
+    snapshot: () => observerSnapshot(),
+    subscribe: () => () => {},
+    submitIntent: async (intent: Record<string, unknown>) => {
+      submitted.push(clone(intent))
+      return proposalResult()
+    },
+  }
+  const adapter = new module.CompanionObserverProjectionAdapter({
+    session: clone(SESSION),
+    observer: asyncObserver,
+  })
+  await adapter.start()
+  const result = await adapter.submitIntent(clone(SESSION), {
+    intentId: 'observer-intent-request-1',
+    kind: 'request_adoption',
+    observedSessionId: 'observed-session-1',
+    choiceId: 'adoption-choice-1',
+  })
+  assert.deepEqual(result, proposalResult())
+  assert.deepEqual(submitted, [{
+    intentId: 'observer-intent-request-1',
+    kind: 'request_adoption',
+    observedSessionId: 'observed-session-1',
+    choiceId: 'adoption-choice-1',
+  }])
+})
+
+test('a failure intent result may carry nullable proposal fields (H3)', async () => {
+  const module = await loadProjection()
+  const failure = {
+    session: clone(SESSION),
+    intentId: 'observer-intent-fail-1',
+    phase: 'failed',
+    code: 'session_unknown',
+    detail: 'the observed session is not current',
+    proposalId: null,
+    proposalDigest: null,
+    remainingMs: null,
+    displayLabel: null,
+  }
+  assert.deepEqual(module.validateObserverIntentResult(failure), failure)
+})

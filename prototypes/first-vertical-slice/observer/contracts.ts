@@ -242,6 +242,16 @@ export interface AdoptionFailedBody {
   detail: string
 }
 
+export interface AdoptionRecoveryChallengeBody {
+  challenge: string
+  committed: AdoptionCommittedBody
+}
+
+export interface AdoptionRecoveryProofBody {
+  challenge: string
+  committed: AdoptionCommittedBody
+}
+
 // ---------------------------------------------------------------------------
 // Frame types and codec types
 // ---------------------------------------------------------------------------
@@ -252,6 +262,7 @@ export const OBSERVER_CLIENT_FRAME_TYPES = Object.freeze([
   'observer.lifecycle',
   'observer.close',
   'adoption.ack',
+  'adoption.recovery_proof',
 ] as const)
 export type ObserverClientFrameType = (typeof OBSERVER_CLIENT_FRAME_TYPES)[number]
 
@@ -261,6 +272,7 @@ export const OBSERVER_RUNNER_FRAME_TYPES = Object.freeze([
   'adoption.request_ack',
   'adoption.committed',
   'adoption.failed',
+  'adoption.recovery_challenge',
 ] as const)
 export type ObserverRunnerFrameType = (typeof OBSERVER_RUNNER_FRAME_TYPES)[number]
 
@@ -491,6 +503,26 @@ export function validateAdoptionFailed(input: unknown): AdoptionFailedBody {
   return result
 }
 
+export function validateAdoptionRecoveryChallenge(input: unknown): AdoptionRecoveryChallengeBody {
+  const value = exactObject(input, ['challenge', 'committed'], 'adoption.recovery_challenge')
+  const result: AdoptionRecoveryChallengeBody = {
+    challenge: requireId(value.challenge, 'challenge'),
+    committed: validateAdoptionCommitted(value.committed),
+  }
+  assertBounded(result, 'adoption.recovery_challenge')
+  return result
+}
+
+export function validateAdoptionRecoveryProof(input: unknown): AdoptionRecoveryProofBody {
+  const value = exactObject(input, ['challenge', 'committed'], 'adoption.recovery_proof')
+  const result: AdoptionRecoveryProofBody = {
+    challenge: requireId(value.challenge, 'challenge'),
+    committed: validateAdoptionCommitted(value.committed),
+  }
+  assertBounded(result, 'adoption.recovery_proof')
+  return result
+}
+
 export function validateObserverBodyForType(type: string, body: unknown): Record<string, unknown> {
   switch (type) {
     case 'observer.register': return validateObserverRegister(body) as unknown as Record<string, unknown>
@@ -503,6 +535,8 @@ export function validateObserverBodyForType(type: string, body: unknown): Record
     case 'adoption.request_ack': return validateAdoptionRequestAck(body) as unknown as Record<string, unknown>
     case 'adoption.committed': return validateAdoptionCommitted(body) as unknown as Record<string, unknown>
     case 'adoption.failed': return validateAdoptionFailed(body) as unknown as Record<string, unknown>
+    case 'adoption.recovery_challenge': return validateAdoptionRecoveryChallenge(body) as unknown as Record<string, unknown>
+    case 'adoption.recovery_proof': return validateAdoptionRecoveryProof(body) as unknown as Record<string, unknown>
     default: throw new ObserverProtocolError('invalid_envelope', 'observer frame type is not recognized')
   }
 }
