@@ -12,6 +12,7 @@ const CONSOLE_PLUGIN_ROOT = join(PROTOTYPE_ROOT, 'console', 'plugin')
 const CONSOLE_QML = join(CONSOLE_PLUGIN_ROOT, 'AgentConsole.qml')
 const CARDS_QML = join(CONSOLE_PLUGIN_ROOT, 'AgentConsoleCards.qml')
 const UNASSIGNED_QML = join(CONSOLE_PLUGIN_ROOT, 'UnassignedAgents.qml')
+const RETIRED_QML = join(CONSOLE_PLUGIN_ROOT, 'RetiredAgentCards.qml')
 const MANIFEST = join(CONSOLE_PLUGIN_ROOT, 'manifest.json')
 
 const REQUIRED_STATUSES = ['ready', 'reconnecting', 'gap']
@@ -282,7 +283,7 @@ test('standalone observer panel docks on a configurable edge and reserves tiled 
 })
 
 test('QML syntax and lint pass through qmllint without launching a UI', () => {
-  const files = [CONSOLE_QML, CARDS_QML, UNASSIGNED_QML]
+  const files = [CONSOLE_QML, CARDS_QML, UNASSIGNED_QML, RETIRED_QML]
   for (const path of files) source(path)
 
   const executable = process.env.QMLLINT_BIN || 'qmllint'
@@ -448,4 +449,27 @@ test('panel visibility is derived from managed OR observer flags and managed con
   const observerStart = consoleSource.indexOf('id: unassignedAgents')
   assert.ok(observerStart >= 0)
   assert.match(consoleSource.slice(observerStart), /visible:\s*root\.opened\s*\|\|\s*root\.observerOpened/)
+})
+
+test('RetiredAgentCards.qml is presentation-only and reuses the same opaque committed fields', () => {
+  const retired = source(RETIRED_QML)
+  // The component must surface exactly the fields the durable retirement
+  // port records — no authority, no intent types, no ID generation.
+  for (const forbidden of [
+    /request[A-Z_]/,
+    /authorize[A-Z_]/,
+    /acknowledg/i,
+    /sign\(/,
+    /digest/,
+    /intent/,
+    /proposal/i,
+    /spawn/,
+    /exec/,
+    /filesystem/,
+    /cursor\.(write|read|exec)/,
+  ]) {
+    assert.doesNotMatch(retired, forbidden)
+  }
+  assert.match(retired, /property var cards: \[\]/)
+  assert.match(retired, /piStatus/)
 })

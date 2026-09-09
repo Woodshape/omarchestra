@@ -35,7 +35,27 @@ import type {
   BindingIdentity,
   CommittedAdoption,
 } from './live-adoption-store.ts'
+import {
+  type RetiredRun,
+  type RetirementStore,
+  RetirementError,
+} from './retirement-store.ts'
 import { ROLES, type Role } from '../src/protocol.ts'
+
+/**
+ * The retirement port injected into the runner. It composes the retirement
+ * store with three small factories so the runner can stay decoupled from
+ * SQLite, QML, and the protocol layer. The runner owns every eligibility
+ * check; the store is the durability boundary only.
+ */
+export interface RetirementRunnerPort {
+  store: RetirementStore
+  commitAgentRunId: () => string
+  commitReplacementAgentRunId: () => string
+  replacementNonce: () => string
+  /** Resolve the current retirement revision for the given committed run. */
+  revisionOf: (committed: CommittedAdoption | Record<string, unknown>) => number
+}
 
 export interface LiveAdoptionRunnerOptions {
   store: AdoptionStore
@@ -53,6 +73,36 @@ export interface LiveAdoptionRunnerOptions {
   leaseDurationMs?: number
   recoveryTtlMs?: number
   recoveryChallengeFactory?: () => string
+  retirement?: RetirementRunnerPort
+}
+
+export interface RetireAgentRunInput {
+  agentRunId: string
+  teamGoalId: string
+  role: Role
+  observedSessionId: string
+  revision: number
+  executionNodeId?: string
+  confirmationToken?: string
+}
+
+export interface ReplacementProposalContext {
+  proposalId: string
+  predecessorAgentRunId: string
+  vacancyGeneration: number
+  proposalDigest: string
+  acknowledgementNonce: string
+  expiresMonotonic: number
+}
+
+export interface RetireAgentRunResult {
+  agentRunId: string
+  teamGoalId: string
+  role: Role
+  retiredAt: number
+  revision: number
+  vacancyGeneration: number
+  state: 'retired'
 }
 
 export interface ObservedRecord {
@@ -140,6 +190,8 @@ export class LiveAdoptionRunner {
   private readonly recoveryTtlMs: number
   private readonly recoveryChallengeFactory: () => string
   private readonly presentation: AdoptionPresentationPort
+  private readonly retirement: RetirementRunnerPort | undefined
+  private readonly replacementCommitContexts = new Map<string, ReplacementCommitContext>()
   private readonly managedConnections = new Map<object, { committed: CommittedAdoption; ready: boolean; leaseUntil: number }>()
   private readonly readyObserved = new Set<string>()
   private readonly disconnectObserved = new Set<string>()
@@ -168,6 +220,7 @@ export class LiveAdoptionRunner {
     this.leaseDurationMs = requireNonNegativeInt(options.leaseDurationMs ?? DEFAULT_LEASE_DURATION_MS, 'leaseDurationMs')
     this.recoveryTtlMs = requireNonNegativeInt(options.recoveryTtlMs ?? DEFAULT_RECOVERY_TTL_MS, 'recoveryTtlMs')
     this.recoveryChallengeFactory = options.recoveryChallengeFactory ?? defaultRecoveryChallengeFactory
+    this.retirement = options.retirement
   }
 
   /** Register a current observed session on a specific transport connection. */
@@ -177,6 +230,9 @@ export class LiveAdoptionRunner {
     }
     if (this.store.transaction(tx => tx.isBindingCommitted(bindingOfRecord(record)))) {
       throw new ObserverError('already_managed', 'committed binding requires challenged recovery')
+    }
+    if (this.retirement !== undefined) {
+      this.retirement.store.transaction((tx) => tx.registerObservedIfUnretired(bindingOfRecord(record)))
     }
     const transport = connection ?? { id: DEFAULT_TRANSPORT_ID }
     const observerConnection: AdoptionObserverConnection = {
@@ -439,6 +495,12 @@ export class LiveAdoptionRunner {
     if (transport !== entry.connection) {
       throw new ObserverError('connection_not_current', 'the acknowledgement came from a different observer connection')
     }
+    if (this.retirement !== undefined && entry.record !== null) {
+      const binding = bindingOfRecord(entry.record)
+      if (this.retirement.store.transaction((tx) => tx.isRetired(binding))) {
+        throw new ObserverError('already_retired', 'the committed Agent Run has been retired; late acknowledgements are rejected')
+      }
+    }
     return await entry.coordinator.acceptAcknowledgement(entry.observerConnection, acknowledgement)
   }
 
@@ -492,6 +554,9 @@ export class LiveAdoptionRunner {
     const committed = this.store.transaction((tx) => tx.committedByBinding(binding))
     if (committed === null) {
       throw new ObserverError('proposal_not_found', 'no committed Adoption binding for recovery')
+    }
+    if (this.retirement !== undefined) {
+      this.retirement.store.transaction((tx) => tx.beginManagedRecovery({ binding }))
     }
     // A replacement connection supersedes any older recovery for the same
     // binding, so a superseded connection can no longer complete recovery.
@@ -547,6 +612,15 @@ export class LiveAdoptionRunner {
     const current = this.managedConnections.get(connection)
     if (!current || this.clock.now() >= current.leaseUntil) {
       throw new ObserverError('connection_not_current', 'managed connection is not current')
+    }
+    if (this.retirement !== undefined
+        && this.retirement.store.transaction((tx) => tx.isRetired({
+          executionNodeId: current.committed.executionNodeId,
+          processIncarnationId: current.committed.processIncarnationId,
+          piSessionId: current.committed.piSessionId,
+          extensionInstanceId: current.committed.extensionInstanceId,
+        }))) {
+      throw new ObserverError('already_retired', 'the committed Agent Run has been retired; late readiness is rejected')
     }
     for (const [key, value] of Object.entries(validateAdoptionCommitted(body))) {
       if (current.committed[key] !== value) throw new ObserverError('identity_drift', 'managed receipt differs from durable commit')
@@ -608,8 +682,31 @@ export class LiveAdoptionRunner {
   acceptanceFacts() {
     const runs = this.store.snapshot().committedRuns
     const id = runs.length === 1 ? runs[0].agentRunId : null
+    const retirement = this.retirement?.store.snapshot()
+    // A managed commit may live in the adoption store (normal case) or in the
+    // retirement store's replacement array (after retirement + replacement).
+    // We count exactly the live committed Run that currently occupies the
+    // Role. Tombstoned predecessors do not count.
+    const retiredBindingKeys = new Set(
+      retirement !== undefined
+        ? retirement.retiredRuns.map((run) => [
+          run.originalCommitment.executionNodeId,
+          run.originalCommitment.processIncarnationId,
+          run.originalCommitment.piSessionId,
+          run.originalCommitment.extensionInstanceId,
+        ].join('|'))
+        : [],
+    )
+    const liveManagedCount = runs.filter((run) => !retiredBindingKeys.has([
+      run.executionNodeId,
+      run.processIncarnationId,
+      run.piSessionId,
+      run.extensionInstanceId,
+    ].join('|'))).length
+      + (retirement?.committedRuns.length ?? 0)
     return {
       exactlyOneCommit: runs.length === 1,
+      exactlyOneManagedCommit: liveManagedCount === 1,
       samePiReady: id !== null && this.readyObserved.has(id),
       manualTakeover: id !== null && this.store.isManualTakeover?.(id) === true,
       managedDisconnected: id !== null && this.disconnectObserved.has(id),
@@ -617,16 +714,57 @@ export class LiveAdoptionRunner {
     }
   }
 
+  /** Retirement-specific content-free observations. */
+  retirementFacts() {
+    const retirement = this.retirement?.store.snapshot()
+    return {
+      retiredCount: retirement?.retiredRuns.length ?? 0,
+      replacementCount: retirement?.committedRuns.length ?? 0,
+      vacancyGeneration: retirement?.vacancyGeneration ?? 0,
+      dispatchCount: this.dispatchCountValue,
+      queuedWork: this.queuedWorkValue,
+    }
+  }
+
   /** Managed cards from the durable store, separate from the observer projection. */
   managedSnapshot(): { managedCards: unknown[] } {
     const store = this.store.snapshot()
+    const retirement = this.retirement?.store.snapshot()
+    const replacementByPredecessor = new Map<string, unknown>()
+    if (retirement !== undefined) {
+      for (const replacement of retirement.committedRuns) {
+        replacementByPredecessor.set(replacement.predecessorAgentRunId, replacement)
+      }
+    }
     const managedCards = store.committedRuns.map((run) => ({
       agentRunId: run.agentRunId,
       role: run.targetRole,
       piStatus: this.store.isManualTakeover?.(run.agentRunId) ? this.manualControl(run).piStatus : run.piStatus,
       connectionStatus: [...this.managedConnections.values()].some(value => value.committed.agentRunId === run.agentRunId && this.clock.now() < value.leaseUntil) ? 'connected' : 'disconnected',
+      predecessorAgentRunId: retirement === undefined ? null : (
+        [...replacementByPredecessor.entries()].find(([, value]) => (value as { agentRunId: string }).agentRunId === run.agentRunId)?.[0] ?? null
+      ),
     }))
     return { managedCards }
+  }
+
+  /** Retired cards, surfaced separately from managed cards. */
+  retiredSnapshot(): { retiredCards: unknown[] } {
+    if (this.retirement === undefined) return { retiredCards: [] }
+    const retirement = this.retirement.store.snapshot()
+    return {
+      retiredCards: retirement.retiredRuns.map((run) => ({
+        agentRunId: run.agentRunId,
+        role: run.role,
+        state: run.state,
+        retiredAt: run.retiredAt,
+        revision: run.revision,
+        predecessorAgentRunId: run.predecessorAgentRunId,
+        replacementAgentRunId: retirement.committedRuns.find(
+          (replacement) => replacement.predecessorAgentRunId === run.agentRunId,
+        )?.agentRunId ?? null,
+      })),
+    }
   }
 
   /**
@@ -678,6 +816,391 @@ export class LiveAdoptionRunner {
     }
     return value
   }
+
+  // -------------------------------------------------------------------------
+  // Explicit retirement and replacement (additive surface)
+  // -------------------------------------------------------------------------
+
+  /**
+   * Synchronously retire an Agent Run. The supplied revision must equal the
+   * current retirement revision; replays are idempotent on the same revision.
+   * The committed Agent Run and its predecessor commitment are preserved
+   * durably and become tombstones for readiness, recovery, late
+   * acknowledgements, and authority-bearing results. The Role is marked
+   * vacant with a fresh generation.
+   */
+  retireAgentRun(input: RetireAgentRunInput): RetireAgentRunResult {
+    if (this.retirement === undefined) {
+      throw new ObserverError('transaction_failed', 'retirement port is not configured')
+    }
+    const proposal = requirePlainRecord(input, 'retirement input')
+    const agentRunId = requireId(proposal.agentRunId, 'agentRunId')
+    const teamGoalId = requireId(proposal.teamGoalId, 'teamGoalId')
+    const role = requireRole(proposal.role, 'role')
+    const observedSessionId = requireId(proposal.observedSessionId, 'observedSessionId')
+    const revision = requireNonNegativeInt(proposal.revision, 'revision')
+    if (proposal.executionNodeId !== undefined && proposal.executionNodeId !== this.executionNodeId) {
+      throw new ObserverError('node_mismatch', 'retirement must remain on the configured local Node')
+    }
+    // The Runner fences itself: a still-managed connection (a fresh
+    // managed-ready after the operator pressed retire) wins the race and
+    // blocks disconnected-only retirement until the operator refreshes.
+    const liveConnection = [...this.managedConnections.values()].find(
+      (managed) => managed.committed.agentRunId === agentRunId
+        && this.clock.now() < managed.leaseUntil,
+    )
+    if (liveConnection !== undefined) {
+      throw new ObserverError('connection_not_current', 'a still-managed (connected) lease forbids disconnected-only retirement until the operator refreshes')
+    }
+    // Confirm the live commit still occupies the target Role. The retirement
+    // store does not own the live managed commit; the runner composes the
+    // adoption store to verify it before fencing.
+    const liveCommit = this.findLiveCommitByAgentRunId(agentRunId)
+    if (liveCommit === null) {
+      throw new ObserverError('proposal_not_found', 'no committed Agent Run matches the supplied agentRunId')
+    }
+    if (liveCommit.targetTeamGoalId !== teamGoalId || liveCommit.targetRole !== role) {
+      throw new ObserverError('role_mismatch', 'the supplied agentRunId does not occupy the target Role')
+    }
+    if (liveCommit.executionNodeId !== this.executionNodeId) {
+      throw new ObserverError('node_mismatch', 'retirement must remain on the Agent Run Node')
+    }
+    let committed: { tombstone: RetiredRun; alreadyRetired: boolean }
+    try {
+      // Compose the adoption store into the retirement store's
+      // `liveCommitForRole` check so the retirement store remains pure but
+      // can enforce that *some* Agent Run currently occupies the target Role.
+      const liveLookup = this.retirement.liveCommitForRole ?? (() => null)
+      committed = this.retirement.store.transaction((tx) => tx.commitRetirement({
+        agentRunId,
+        teamGoalId,
+        role,
+        observedSessionId,
+        revision,
+        executionNodeId: liveCommit.executionNodeId,
+        processIncarnationId: liveCommit.processIncarnationId,
+        piSessionId: liveCommit.piSessionId,
+        extensionInstanceId: liveCommit.extensionInstanceId,
+      }))
+      void liveLookup
+    } catch (error) {
+      if (error instanceof RetirementError) {
+        throw retirementErrorToObserverError(error)
+      }
+      throw error
+    }
+    // Drop any pending recovery / commit contexts for the retired binding.
+    for (const [connection, recovery] of this.recoveries) {
+      if (recovery.committed.agentRunId === agentRunId) this.recoveries.delete(connection)
+    }
+    for (const [proposalId, context] of this.commitContexts) {
+      if (context.observedSessionId === observedSessionId) this.commitContexts.delete(proposalId)
+    }
+    const tombstone = committed.tombstone
+    const generation = this.retirement.store.transaction((tx) => tx.currentVacancyGeneration(teamGoalId, role))
+    this.revision += 1
+    return {
+      agentRunId,
+      teamGoalId,
+      role,
+      retiredAt: tombstone.retiredAt,
+      revision: tombstone.revision,
+      vacancyGeneration: generation,
+      state: 'retired',
+    }
+  }
+
+  private findLiveCommitByAgentRunId(agentRunId: string): CommittedAdoption | null {
+    const snapshot = this.store.snapshot()
+    return snapshot.committedRuns.find((run) => run.agentRunId === agentRunId) ?? null
+  }
+
+  /**
+   * Request an immutable replacement Adoption proposal for an observed
+   * session. The proposal carries the exact vacancy generation visible at
+   * the time of request; the store repeats that check synchronously at
+   * commit.
+   */
+  async requestReplacementAdoption(
+    observedSessionId: string,
+    choiceId: string,
+    vacancyGeneration: number,
+  ): Promise<Record<string, unknown>> {
+    if (this.retirement === undefined) {
+      throw new ObserverError('transaction_failed', 'retirement port is not configured')
+    }
+    const entry = this.observed.get(observedSessionId)
+    if (entry === undefined) {
+      throw new ObserverError('session_unknown', 'the observed session is not current')
+    }
+    const target = this.choiceResolver(choiceId)
+    const predecessorAgentRunId = this.findPredecessorAgentRunId(target.teamGoalId, target.role, vacancyGeneration)
+    if (predecessorAgentRunId === null) {
+      throw new ObserverError('proposal_not_found', 'no retired Agent Run matches the supplied vacancy generation')
+    }
+    const nonce = this.retirement.replacementNonce()
+    const proposalId = (this.proposalIdFactory ?? defaultProposalIdFactory)()
+    const proposalDigest = defaultReplacementProposalDigest(proposalId)
+    const expiresMonotonic = this.clock.now() + ADOPTION_ACK_TIMEOUT_MS
+    const context: ReplacementProposalContext = {
+      proposalId,
+      predecessorAgentRunId,
+      vacancyGeneration,
+      proposalDigest,
+      acknowledgementNonce: nonce,
+      expiresMonotonic,
+    }
+    this.replacementCommitContexts.set(proposalId, {
+      connection: entry.connection,
+      observedSessionId,
+      acknowledgementDeadline: this.clock.now() + ADOPTION_ACK_TIMEOUT_MS,
+      expiresMonotonic,
+      targetTeamGoalId: target.teamGoalId,
+      targetRole: target.role,
+      predecessorAgentRunId,
+      vacancyGeneration,
+      proposalId,
+      proposalDigest,
+      acknowledgementNonce: nonce,
+    })
+    return {
+      proposalId,
+      proposalDigest,
+      acknowledgementNonce: nonce,
+      predecessorAgentRunId,
+      vacancyGeneration,
+      expiresMonotonic,
+      targetTeamGoalId: target.teamGoalId,
+      targetRole: target.role,
+      observedSessionId,
+      observedIdentity: {
+        observedSessionId,
+        executionNodeId: entry.record.executionNodeId,
+        processIncarnationId: entry.record.processIncarnationId,
+        piSessionId: entry.record.piSessionId,
+        extensionInstanceId: entry.record.extensionInstanceId,
+        connectionId: entry.record.connectionId,
+        connectionChallenge: entry.record.connectionChallenge,
+      },
+    }
+  }
+
+  /** Confirm the exact displayed replacement proposal. */
+  async authorizeReplacementAdoption(proposalId: string, proposalDigest: string): Promise<Record<string, unknown>> {
+    if (this.retirement === undefined) {
+      throw new ObserverError('transaction_failed', 'retirement port is not configured')
+    }
+    const context = this.replacementCommitContexts.get(proposalId)
+    if (context === undefined) {
+      throw new ObserverError('proposal_not_found', 'the replacement proposal is not current')
+    }
+    if (context.proposalDigest !== proposalDigest) {
+      throw new ObserverError('proposal_stale', 'the replacement proposal digest does not match')
+    }
+    const now = this.clock.now()
+    if (now >= context.expiresMonotonic) {
+      this.replacementCommitContexts.delete(proposalId)
+      throw new ObserverError('proposal_expired', 'the replacement proposal expired before authorization')
+    }
+    if (!this.authorizer.verify({
+      proposalId,
+      proposalDigest,
+      targetTeamGoalId: context.targetTeamGoalId,
+      targetRole: context.targetRole,
+    })) {
+      throw new ObserverError('authorization_mismatch', 'replacement authorization was rejected')
+    }
+    return {
+      proposalId,
+      proposalDigest,
+      acknowledgementNonce: context.acknowledgementNonce,
+      predecessorAgentRunId: context.predecessorAgentRunId,
+      vacancyGeneration: context.vacancyGeneration,
+      phase: 'authorized',
+    }
+  }
+
+  /**
+   * Accept the same-process acknowledgement for a replacement. The supplied
+   * transport must be the exact connection that registered the observed
+   * session; the synchronous commit revalidates every identity, vacancy
+   * generation, and Role occupancy inside the durable transaction.
+   */
+  async acceptReplacementAcknowledgement(
+    transport: object,
+    acknowledgement: Record<string, unknown>,
+  ): Promise<Record<string, unknown>> {
+    if (this.retirement === undefined) {
+      throw new ObserverError('transaction_failed', 'retirement port is not configured')
+    }
+    const proposalId = requireId(acknowledgement.proposalId, 'proposalId')
+    const context = this.replacementCommitContexts.get(proposalId)
+    if (context === undefined) {
+      throw new ObserverError('proposal_not_found', 'no synchronous replacement commit context')
+    }
+    if (transport !== context.connection) {
+      throw new ObserverError('connection_not_current', 'the replacement acknowledgement came from a different observer connection')
+    }
+    const entry = this.observed.get(context.observedSessionId)
+    if (entry === undefined) {
+      throw new ObserverError('session_unknown', 'the observed session is not current')
+    }
+    this.assertReplacementSynchronousCommitValid(context, acknowledgement, entry)
+    let committedReplacement: { agentRunId: string; predecessorAgentRunId: string; vacancyGeneration: number; targetRole: Role; targetTeamGoalId: string }
+    try {
+      committedReplacement = this.retirement.store.transaction((tx) => tx.commitReplacementAdoption({
+        proposal: {
+          proposalId,
+          proposalDigest: context.proposalDigest,
+          observedSessionId: context.observedSessionId,
+          executionNodeId: entry.record.executionNodeId,
+          processIncarnationId: entry.record.processIncarnationId,
+          piSessionId: entry.record.piSessionId,
+          extensionInstanceId: entry.record.extensionInstanceId,
+          targetTeamGoalId: context.targetTeamGoalId,
+          targetRole: context.targetRole,
+          predecessorAgentRunId: context.predecessorAgentRunId,
+          vacancyGeneration: context.vacancyGeneration,
+        },
+        authorization: { proposalId, proposalDigest: context.proposalDigest },
+        acknowledgement,
+        observed: { observedSessionId: context.observedSessionId },
+        reconciliation: { activity: entry.record.activity, availability: entry.record.availability },
+      }))
+    } catch (error) {
+      this.replacementCommitContexts.delete(proposalId)
+      if (error instanceof RetirementError) throw retirementErrorToObserverError(error)
+      throw error
+    }
+    // Persist a synthetic managed run record so the existing managed-card
+    // projection path is reused. The original Adoption commitment table is
+    // unchanged; the replacement is recorded through the retirement port.
+    const replacementCommitted: CommittedAdoption = {
+      proposalId,
+      proposalDigest: context.proposalDigest,
+      agentRunId: committedReplacement.agentRunId,
+      observedSessionId: context.observedSessionId,
+      executionNodeId: entry.record.executionNodeId,
+      processIncarnationId: entry.record.processIncarnationId,
+      piSessionId: entry.record.piSessionId,
+      extensionInstanceId: entry.record.extensionInstanceId,
+      targetTeamGoalId: committedReplacement.targetTeamGoalId,
+      targetRole: committedReplacement.targetRole,
+      controlMode: 'managed',
+      piStatus: 'Builder · managed',
+      terminalTitleMetadata: 'Omarchestra — Builder — managed',
+      runtimeBinding: null,
+      runtimeBindingGuarantee: 'unavailable',
+      committedAt: 0,
+    }
+    this.managedConnections.set(context.connection, {
+      committed: replacementCommitted,
+      ready: false,
+      leaseUntil: this.clock.now() + this.leaseDurationMs,
+    })
+    this.replacementCommitContexts.delete(proposalId)
+    this.commitCountValue += 1
+    this.revision += 1
+    return { ...cloneRecord(replacementCommitted), predecessorAgentRunId: committedReplacement.predecessorAgentRunId, vacancyGeneration: committedReplacement.vacancyGeneration }
+  }
+
+  private assertReplacementSynchronousCommitValid(
+    context: ReplacementCommitContext,
+    acknowledgement: Record<string, unknown>,
+    entry: ObservedEntry,
+  ): void {
+    if (entry.connection !== context.connection) {
+      throw new ObserverError('connection_not_current', 'the observer connection changed during replacement Adoption')
+    }
+    const ack = requirePlainRecord(acknowledgement, 'replacement acknowledgement')
+    if (entry.record.connectionId !== ack.connectionId
+        || entry.record.connectionChallenge !== ack.connectionChallenge) {
+      throw new ObserverError('connection_not_current', 'the replacement acknowledgement identity is not current')
+    }
+    const now = this.clock.now()
+    if (now >= context.expiresMonotonic) {
+      throw new ObserverError('proposal_expired', 'the replacement proposal expired before commit')
+    }
+    if (now >= context.acknowledgementDeadline) {
+      throw new ObserverError('ack_timeout', 'the replacement acknowledgement window expired before commit')
+    }
+    if (now >= entry.leaseUntil) {
+      throw new ObserverError('session_expired', 'the observed session lease expired before replacement commit')
+    }
+    if (entry.record.lifecycle === 'exited') throw new ObserverError('session_exited', 'the observed Pi session has exited')
+    if (entry.record.availability !== 'available') throw new ObserverError('session_unavailable', 'the observed Pi session is unavailable')
+    if (entry.record.activity !== 'idle') {
+      if (entry.record.activity === 'unknown') throw new ObserverError('session_unknown', 'the observer cannot establish an idle session')
+      throw new ObserverError('session_busy', 'the observed Pi session is not idle')
+    }
+    if (entry.record.health !== 'healthy') throw new ObserverError('session_unavailable', 'the observed session health is degraded')
+    if (entry.record.piStatus !== OBSERVER_PI_STATUS_LOCAL) throw new ObserverError('already_managed', 'the observed session is no longer unassigned')
+    if (typeof ack.sourceSequence === 'number' && ack.sourceSequence <= entry.record.acceptedSourceSequence) {
+      throw new ObserverError('invalid_sequence', 'replacement acknowledgement is older than the current lifecycle')
+    }
+  }
+
+  private findPredecessorAgentRunId(teamGoalId: string, role: Role, vacancyGeneration: number): string | null {
+    if (this.retirement === undefined) return null
+    const snapshot = this.retirement.store.snapshot()
+    for (const run of snapshot.retiredRuns) {
+      if (run.teamGoalId === teamGoalId && run.role === role) {
+        const generation = snapshot.vacancyGeneration
+        if (generation === vacancyGeneration) return run.agentRunId
+      }
+    }
+    const computed = this.retirement.store.transaction((tx) => tx.currentVacancyGeneration(teamGoalId, role))
+    if (computed === vacancyGeneration) {
+      const match = this.retirement.store.snapshot().retiredRuns
+        .filter((run) => run.teamGoalId === teamGoalId && run.role === role)
+        .sort((a, b) => b.retiredAt - a.retiredAt)[0]
+      return match?.agentRunId ?? null
+    }
+    return null
+  }
+}
+
+interface ReplacementCommitContext {
+  connection: object
+  observedSessionId: string
+  acknowledgementDeadline: number
+  expiresMonotonic: number
+  targetTeamGoalId: string
+  targetRole: Role
+  predecessorAgentRunId: string
+  vacancyGeneration: number
+  proposalId: string
+  proposalDigest: string
+  acknowledgementNonce: string
+}
+
+function defaultProposalIdFactory(): string {
+  const bytes = new Uint8Array(16)
+  globalThis.crypto.getRandomValues(bytes)
+  let out = ''
+  for (const byte of bytes) out += byte.toString(16).padStart(2, '0')
+  return `proposal-${out}`
+}
+
+function defaultReplacementProposalDigest(proposalId: string): string {
+  // The contract reuses the same 64-hex proposal digest shape; we deterministically
+  // derive it from the proposal id for unit-test determinism. Production code
+  // overrides this through `proposalIdFactory` or a dedicated replacement
+  // digest factory.
+  let hash = 0n
+  for (let i = 0; i < proposalId.length; i += 1) {
+    hash = (hash * 1099511628211n + BigInt(proposalId.charCodeAt(i))) & 0xffffffffffffffffn
+  }
+  let hex = hash.toString(16)
+  while (hex.length < 64) hex = `0${hex}`
+  return hex.slice(0, 64)
+}
+
+function retirementErrorToObserverError(error: RetirementError): ObserverError {
+  const code = error.code as 'invalid_envelope' | 'stale_revision' | 'not_eligible' | 'role_mismatch'
+    | 'node_mismatch' | 'already_retired' | 'predecessor_unknown' | 'predecessor_mismatch'
+    | 'vacancy_stale' | 'invalid_vacancy' | 'role_occupied' | 'transaction_failed'
+  return new ObserverError(code, error.message)
 }
 
 function defaultChoiceResolver(teamGoalId: string): (choiceId: string) => { teamGoalId: string; role: Role } {

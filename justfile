@@ -137,6 +137,45 @@ prototype-live-observer-check:
         shellcheck "$root/prototypes/first-vertical-slice/manual/run-live-observer-bridge.sh"
     fi
 
+# PROTOTYPE — NOT PRODUCTION: dedicated fake-only retirement/replacement gate
+# layered on top of live Adoption. It runs the retirement/red tests, the
+# retirement presentation test, the durable SQLite retirement store tests,
+# the QML boundary tests for the additive RetiredAgentCards component, and
+# the existing live-Adoption source audit. It never opens a socket, launches
+# Pi, a provider, a desktop, SSH, Boomux, systemd, or mutates an installation.
+prototype-retirement-replacement-check:
+    #!/usr/bin/env bash
+    set -euo pipefail
+    root='{{justfile_directory()}}'
+    flags=()
+    if node --help | grep -qE '(^|[[:space:]])--experimental-sqlite([[:space:]]|$)'; then
+        flags+=(--experimental-sqlite)
+    fi
+    if node --help | grep -qE '(^|[[:space:]])--experimental-strip-types([[:space:]]|$)'; then
+        flags+=(--experimental-strip-types)
+    fi
+    node "${flags[@]}" --test \
+        "$root/prototypes/first-vertical-slice/observer/test/retirement-replacement-red.test.ts" \
+        "$root/prototypes/first-vertical-slice/observer/test/retirement-replacement-presentation.test.ts" \
+        "$root/prototypes/first-vertical-slice/manual/test/live-retirement-store.test.ts" \
+        "$root/prototypes/first-vertical-slice/console/test/qml-boundary.test.mjs" \
+        "$root/prototypes/first-vertical-slice/observer/test/source-audit.test.mjs"
+    mkdir -p "$root/prototypes/first-vertical-slice/evidence"
+    {
+        printf '# retirement/replacement automated gate\n'
+        printf 'red-gate suites: retirement-replacement-red, retirement-replacement-presentation\n'
+        printf 'durable store suites: manual/test/live-retirement-store\n'
+        printf 'qml boundary suites: console/test/qml-boundary\n'
+        printf 'source audit: observer/test/source-audit\n'
+    } > "$root/prototypes/first-vertical-slice/evidence/retirement-replacement-automated.txt"
+
+# HUMAN-AUTHORIZED LIVE GATE: explicit human-validated retirement/replacement
+# flow against the persistent live Adoption bridge. The operator must already
+# have launched `just prototype-live-adoption-bridge --live` and confirmed the
+# disconnected Agent Run to retire. Never invoke from automated recipes.
+prototype-retirement-replacement-gate:
+    bash '{{justfile_directory()}}/prototypes/first-vertical-slice/manual/run-retirement-replacement-gate.sh' --live
+
 # PROTOTYPE — NOT PRODUCTION: dedicated fake-only live-Adoption gate. It runs
 # the live-Adoption red tests (runner, gateway, Companion controller) plus the
 # observation-only gateway regression. It never opens a socket, launches Pi, a

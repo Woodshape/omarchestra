@@ -72,6 +72,12 @@ export const OBSERVER_ERROR_CODES = Object.freeze([
   'reconciliation_failed',
   'transaction_failed',
   'postcommit_delivery_failed',
+  'already_retired',
+  'role_mismatch',
+  'stale_revision',
+  'not_eligible',
+  'vacancy_stale',
+  'not_vacant',
 ] as const)
 export type ObserverErrorCode = (typeof OBSERVER_ERROR_CODES)[number]
 

@@ -26,6 +26,7 @@ const EXPECTED_MODULES = [
   'fake-pi-host.ts',
   'companion-projection.ts',
   'acceptance.ts',
+  'retirement-store.ts',
 ]
 
 function stripComments(source) {

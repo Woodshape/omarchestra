@@ -113,6 +113,50 @@ export class LiveAdoptionStore implements AdoptionStore {
         target_team_goal_id TEXT NOT NULL,
         target_role TEXT NOT NULL
       );
+      CREATE TABLE IF NOT EXISTS retired_runs (
+        agent_run_id TEXT PRIMARY KEY,
+        team_goal_id TEXT NOT NULL,
+        role TEXT NOT NULL CHECK (role IN ('coordinator','builder','reviewer')),
+        observed_session_id TEXT NOT NULL,
+        execution_node_id TEXT NOT NULL,
+        process_incarnation_id TEXT NOT NULL,
+        pi_session_id TEXT NOT NULL,
+        extension_instance_id TEXT NOT NULL,
+        retired_at INTEGER NOT NULL,
+        revision INTEGER NOT NULL,
+        predecessor_agent_run_id TEXT,
+        UNIQUE (execution_node_id, process_incarnation_id, pi_session_id, extension_instance_id)
+      );
+      CREATE TABLE IF NOT EXISTS retirement_replacements (
+        proposal_id TEXT PRIMARY KEY,
+        proposal_digest TEXT NOT NULL,
+        agent_run_id TEXT NOT NULL UNIQUE,
+        observed_session_id TEXT NOT NULL,
+        execution_node_id TEXT NOT NULL,
+        process_incarnation_id TEXT NOT NULL,
+        pi_session_id TEXT NOT NULL,
+        extension_instance_id TEXT NOT NULL,
+        target_team_goal_id TEXT NOT NULL,
+        target_role TEXT NOT NULL CHECK (target_role IN ('coordinator','builder','reviewer')),
+        control_mode TEXT NOT NULL CHECK (control_mode = 'managed'),
+        pi_status TEXT NOT NULL,
+        terminal_title_metadata TEXT NOT NULL,
+        runtime_binding TEXT,
+        runtime_binding_guarantee TEXT NOT NULL CHECK (runtime_binding_guarantee = 'unavailable'),
+        committed_at INTEGER NOT NULL,
+        predecessor_agent_run_id TEXT NOT NULL REFERENCES retired_runs(agent_run_id),
+        vacancy_generation INTEGER NOT NULL,
+        UNIQUE (target_team_goal_id, target_role)
+      );
+      CREATE TABLE IF NOT EXISTS retirement_events (
+        sequence INTEGER PRIMARY KEY AUTOINCREMENT,
+        type TEXT NOT NULL CHECK (type IN ('retired','replaced')),
+        agent_run_id TEXT NOT NULL,
+        team_goal_id TEXT NOT NULL,
+        role TEXT NOT NULL,
+        predecessor_agent_run_id TEXT,
+        vacancy_generation INTEGER NOT NULL
+      );
     `)
     this.db.exec('CREATE TABLE IF NOT EXISTS adoption_takeovers (agent_run_id TEXT PRIMARY KEY REFERENCES adopted_runs(agent_run_id))')
     this.validateOrPersistConfiguration()

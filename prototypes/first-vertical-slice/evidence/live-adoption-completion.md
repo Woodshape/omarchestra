@@ -1,6 +1,20 @@
 # Live Adoption engineering completion evidence
 
-**PROTOTYPE — NOT PRODUCTION. No installation or live Adoption validation.**
+**PROTOTYPE — NOT PRODUCTION. Engineering evidence below is fake-only.**
+
+## Subsequent human validation
+
+The operator reported that adoption → manual takeover → disconnect passed,
+then confirmed the human checklist. The private launcher's final verdict was
+read back as PASS, including machine facts and cleanup. This is operator-attested
+UI evidence plus launcher verification, not an independently audited live UI
+transcript. Private evidence remains outside Git.
+
+Two limitations were observed and remain explicit: restarting/resuming Pi does
+not recover the original process/extension identity; the disconnected Builder
+binding remains occupied in that disposable Team Goal because no replacement
+or Role-release action exists. Neither replacement policy nor implementation
+has been approved by this validation. Gateway-crash recovery was not human-tested.
 
 Baseline: `7d7a314` after checkpoint `add63d8`.
 

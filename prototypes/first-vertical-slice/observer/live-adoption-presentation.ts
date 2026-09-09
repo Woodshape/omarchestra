@@ -40,7 +40,8 @@ export class LiveAdoptionPresentation {
     const observed = validateObserverProjectionSnapshot(this.runner.snapshot())
     return { session:this.session, revision:observed.observerRevision,
       observerProjection: observed,
-      managedCards: this.runner.managedSnapshot().managedCards }
+      managedCards: this.runner.managedSnapshot().managedCards,
+      retiredCards: this.runner.retiredSnapshot().retiredCards }
   }
   private async call(method: string, value: unknown) {
     const result = await this.shell.call(method,JSON.stringify(value))

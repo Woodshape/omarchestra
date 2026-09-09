@@ -517,7 +517,8 @@ for (const offlineInput of [false, true]) for (const loseDelivery of [false, tru
       assert.equal(afterTakeover.acceptanceFacts().managedDisconnected, false)
       await host.shutdownSession()
       await settle()
-      assert.ok(Object.values(afterTakeover.acceptanceFacts()).every(value => value === true), 'success requires all observed facts before gateway cleanup')
+      const factsAfterShutdown = afterTakeover.acceptanceFacts()
+      assert.ok(Object.values(factsAfterShutdown).every(value => value === true), 'success requires all observed facts before gateway cleanup')
     } finally { again.close() }
   } finally { reopened.close() }
 })
