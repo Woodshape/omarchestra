@@ -140,6 +140,25 @@ function replacementAckBody(proposal: Record<string, unknown>, overrides: Record
   }
 }
 
+function normalReplacementAckBody(proposal: Record<string, unknown>, overrides: Record<string, unknown> = {}) {
+  return {
+    processIncarnationId: IDS.processIncarnationIdR,
+    piSessionId: IDS.piSessionIdR,
+    extensionInstanceId: IDS.extensionInstanceIdR,
+    connectionId: IDS.connectionIdR,
+    connectionChallenge: IDS.connectionChallengeR,
+    proposalId: proposal.proposalId,
+    proposalDigest: proposal.proposalDigest,
+    acknowledgementNonce: proposal.acknowledgementNonce,
+    registryRevision: 7,
+    sourceSequence: 2,
+    decision: 'acknowledged',
+    activity: 'idle',
+    refusalCode: null,
+    ...overrides,
+  }
+}
+
 test('presentation exposes retired cards additively without changing managed cards', async () => {
   const { runner, retirementStore } = buildRunner()
   const connection = { id: IDS.connectionId }
@@ -195,4 +214,126 @@ test('presentation exposes retired cards additively without changing managed car
   })
   await presentation.open()
   void presentation
+})
+
+test('presentation dispatches a request_retirement intent and moves the card to retiredCards', async () => {
+  const { runner, retirementStore } = buildRunner()
+  const connection = { id: IDS.connectionId }
+  runner.registerObserved(buildObservedRecord(), connection)
+  const proposal1 = await runner.requestAdoption(IDS.observedSessionId, 'adoption-choice-1')
+  await runner.authorizeAdoption(proposal1.proposalId, proposal1.proposalDigest)
+  await runner.acceptAcknowledgement(connection, ackBody(proposal1))
+  runner.onConnectionLost()
+
+  const applied: unknown[] = []
+  let pendingIntent: unknown = null
+  const presentation = new LiveAdoptionPresentation({
+    runner,
+    executionNodeId: IDS.executionNodeId,
+    teamGoalId: IDS.teamGoalId,
+    roles: [...ROLES],
+    shell: {
+      async fingerprint() { return 'unchanged-installation' },
+      async call(method, payload) {
+        if (method === 'adoptionCapabilities') {
+          return JSON.stringify({ version: '0.4.0', pluginGeneration: 7, methods: [
+            'adoptionOpen', 'adoptionApply', 'adoptionTakeIntent', 'adoptionIntentResult', 'adoptionClear',
+          ] })
+        }
+        if (method === 'adoptionApply') {
+          applied.push(JSON.parse(payload))
+          return 'true'
+        }
+        if (method === 'adoptionTakeIntent') {
+          const intent = pendingIntent
+          pendingIntent = null
+          return intent === null ? '' : JSON.stringify({
+            session: (JSON.parse(payload) as { session: unknown }).session,
+            intent,
+          })
+        }
+        return 'true'
+      },
+    },
+  })
+  await presentation.open()
+  await presentation.poll()
+  assert.equal(applied.length, 1)
+  const before = applied[0] as { managedCards: Array<{ agentRunId: string; connectionStatus: string }>; retiredCards: unknown[] }
+  assert.equal(before.managedCards.length, 1)
+  assert.equal(before.managedCards[0].agentRunId, IDS.agentRunId)
+  assert.equal(before.managedCards[0].connectionStatus, 'disconnected')
+  assert.equal(before.retiredCards.length, 0)
+
+  pendingIntent = { intentId: 'retire-intent-1', kind: 'request_retirement', agentRunId: IDS.agentRunId }
+  await presentation.poll()
+  assert.equal(applied.length, 2)
+  const after = applied[1] as { managedCards: unknown[]; retiredCards: Array<{ agentRunId: string; piStatus: string }> }
+  assert.equal(after.managedCards.length, 0, 'the retired run leaves the managed cards')
+  assert.equal(after.retiredCards.length, 1, 'the retired run appears exactly once as a retired card')
+  assert.equal(after.retiredCards[0].agentRunId, IDS.agentRunId)
+  assert.equal(typeof after.retiredCards[0].piStatus, 'string')
+  void retirementStore
+})
+
+test('ordinary Adoption choices reopen a retired Role and persist predecessor linkage', async () => {
+  const { runner, retirementStore } = buildRunner()
+  const connection = { id: IDS.connectionId }
+  const connectionR = { id: IDS.connectionIdR }
+  runner.registerObserved(buildObservedRecord(), connection)
+  const proposal1 = await runner.requestAdoption(IDS.observedSessionId, 'adoption-choice-2')
+  await runner.authorizeAdoption(proposal1.proposalId, proposal1.proposalDigest)
+  await runner.acceptAcknowledgement(connection, ackBody(proposal1))
+  runner.onConnectionLost()
+  runner.retireAgentRun({
+    agentRunId: IDS.agentRunId,
+    teamGoalId: IDS.teamGoalId,
+    role: 'coordinator',
+    observedSessionId: IDS.observedSessionId,
+    revision: 1,
+  })
+
+  runner.registerObserved(buildObservedRecord({
+    observedSessionId: IDS.observedSessionIdR,
+    executionNodeId: IDS.executionNodeId,
+    processIncarnationId: IDS.processIncarnationIdR,
+    piSessionId: IDS.piSessionIdR,
+    extensionInstanceId: IDS.extensionInstanceIdR,
+    connectionId: IDS.connectionIdR,
+    connectionChallenge: IDS.connectionChallengeR,
+    registryRevision: 5,
+  }), connectionR)
+  const projected = runner.snapshot().agents[0] as {
+    choices: Array<{ choiceId: string; enabled: boolean }>
+  }
+  assert.ok(projected.choices.some((choice) => choice.choiceId === 'adoption-choice-2'))
+  const replacementProposal = await runner.requestAdoption(IDS.observedSessionIdR, 'adoption-choice-2')
+  await runner.authorizeAdoption(replacementProposal.proposalId, replacementProposal.proposalDigest)
+  const committed = await runner.acceptAcknowledgement(
+    connectionR,
+    normalReplacementAckBody(replacementProposal),
+  )
+
+  assert.equal(committed.targetRole, 'coordinator')
+  const managed = runner.managedSnapshot().managedCards as Array<Record<string, unknown>>
+  assert.equal(managed.length, 1)
+  assert.equal(managed[0].role, 'coordinator')
+  assert.notEqual(managed[0].agentRunId, IDS.agentRunId)
+  assert.equal(managed[0].predecessorAgentRunId, IDS.agentRunId)
+  assert.equal(retirementStore.snapshot().committedRuns.length, 1)
+  assert.equal(retirementStore.snapshot().committedRuns[0].predecessorAgentRunId, IDS.agentRunId)
+
+  // A replacement is itself a managed Agent Run and may later be retired.
+  const replacementAgentRunId = String(committed.agentRunId)
+  runner.onConnectionLost(connectionR)
+  const retiredReplacement = runner.retireAgentRun({
+    agentRunId: replacementAgentRunId,
+    teamGoalId: IDS.teamGoalId,
+    role: 'coordinator',
+    observedSessionId: IDS.observedSessionIdR,
+    revision: 1,
+  })
+  assert.equal(retiredReplacement.agentRunId, replacementAgentRunId)
+  assert.equal(runner.managedSnapshot().managedCards.length, 0)
+  assert.equal(runner.retiredSnapshot().retiredCards.length, 2)
 })

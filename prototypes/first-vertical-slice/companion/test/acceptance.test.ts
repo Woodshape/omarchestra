@@ -22,7 +22,7 @@ const PLUGIN_ROOT = path.join(CONSOLE_ROOT, 'plugin')
 const PLUGIN_ID = 'omarchestra.agent-console'
 const PLUGIN_VERSION = '0.2.0'
 const COMPANION_PROTOCOL = 'omarchestra.companion/v1'
-const COMPATIBILITY = { omarchy: '4.0.2-1', quickshell: '0.3.1-1' }
+const COMPATIBILITY = { omarchy: '4.0.3-1', quickshell: '0.3.1-1' }
 const REQUIRED_CAPABILITIES = [
   'session.open',
   'session.update',

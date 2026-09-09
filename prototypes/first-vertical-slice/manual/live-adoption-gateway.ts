@@ -40,7 +40,8 @@ import type { AdoptionClock } from '../observer/adoption.ts'
 const MAX_CONTROL_LINE_CHARACTERS = 64
 const DEFAULT_EXECUTION_NODE_ID = 'adoption-gateway-local'
 const DEFAULT_TEAM_GOAL_ID = 'adoption-team-goal-local'
-export const ADOPTION_LIVE_AUTHORIZATION_PHRASE = 'I AUTHORIZE OMARCHESTRA ADOPTION LIVE BRIDGE'
+export const ADOPTION_LIVE_AUTHORIZATION_PROMPT = 'Run Omarchestra Live Adoption Bridge? y/N'
+export const ADOPTION_LIVE_AUTHORIZATION_PHRASE = ADOPTION_LIVE_AUTHORIZATION_PROMPT
 
 export interface LiveAdoptionGatewayRunOptions {
   resume?: boolean
@@ -100,6 +101,7 @@ export async function runLiveAdoptionGateway(options: LiveAdoptionGatewayRunOpti
     teamGoalId,
     roles,
   })
+  const retirementStore = store.retirementStore()
   const clock = new ProcessMonotonicAdoptionClock()
   const runner = new LiveAdoptionRunner({
     store,
@@ -107,6 +109,13 @@ export async function runLiveAdoptionGateway(options: LiveAdoptionGatewayRunOpti
     teamGoalId,
     roles,
     clock,
+    retirement: {
+      store: retirementStore,
+      commitAgentRunId: () => `agent-run-${cryptoRandomId()}`,
+      commitReplacementAgentRunId: () => `agent-run-${cryptoRandomId()}`,
+      replacementNonce: () => cryptoRandomId(),
+      revisionOf: () => 1,
+    },
   })
   const gateway = new LiveAdoptionGatewayCore({
     executionNodeId,
@@ -398,9 +407,9 @@ function parseCliOptions(args: readonly string[]): CliOptions {
 async function requestAuthorization(): Promise<void> {
   const prompt = readline.createInterface({ input: process.stdin, output: process.stdout })
   try {
-    const answer = await prompt.question(`Type exactly ${ADOPTION_LIVE_AUTHORIZATION_PHRASE}\n> `)
-    if (answer !== ADOPTION_LIVE_AUTHORIZATION_PHRASE) {
-      throw new Error('Adoption live authorization phrase did not match exactly')
+    const answer = await prompt.question(`${ADOPTION_LIVE_AUTHORIZATION_PROMPT} (N is the default)\n> `)
+    if (answer !== 'y' && answer !== 'Y') {
+      throw new Error('Adoption live authorization not granted; refusing to start the live bridge')
     }
   } finally {
     prompt.close()
@@ -428,6 +437,14 @@ async function main(): Promise<void> {
 
 function asError(error: unknown): Error {
   return error instanceof Error ? error : new Error(String(error))
+}
+
+function cryptoRandomId(): string {
+  const bytes = new Uint8Array(12)
+  globalThis.crypto.getRandomValues(bytes)
+  let out = ''
+  for (const byte of bytes) out += byte.toString(16).padStart(2, '0')
+  return out
 }
 
 const invokedPath = process.argv[1] === undefined ? null : path.resolve(process.argv[1])

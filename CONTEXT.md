@@ -47,6 +47,14 @@ A visible interactive Pi session that reports structured lifecycle facts to Omar
 
 The explicit transition that binds one exact Observed Pi Session to a Team Goal on the same Execution Node and to one Role as an Agent Run. Adoption requires current-session identity, same-process acknowledgement, user confirmation, and reconciliation; discovery alone never adopts a session.
 
+### Retirement
+
+An explicit, durable, irreversible removal of a disconnected or exited Agent Run's orchestration authority. It releases Role occupancy but preserves historical records and identity tombstones. It neither terminates the process nor proves checkout writer safety. Approved policy; implementation pending.
+
+### Replacement
+
+Fresh Adoption of a new visible Pi process into a retired Run's vacated Role, linked to its predecessor. The user may manually resume Pi conversation history, but history does not restore Agent Run identity or automatically resume Assignments. Approved policy; implementation pending.
+
 ### Role
 
 A declared responsibility within a Team Goal, such as Coordinator, Builder, or Reviewer.

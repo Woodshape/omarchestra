@@ -42,7 +42,8 @@ const MAX_CONTROL_LINE_CHARACTERS = 64
 const MIN_SWEEP_INTERVAL_MS = 100
 const MAX_SWEEP_INTERVAL_MS = 60_000
 const DEFAULT_EXECUTION_NODE_ID = 'observer-gateway-local'
-export const OBSERVER_LIVE_AUTHORIZATION_PHRASE = 'I AUTHORIZE OMARCHESTRA OBSERVER LIVE BRIDGE'
+export const OBSERVER_LIVE_AUTHORIZATION_PROMPT = 'Run Omarchestra Live Observer Bridge? y/N'
+export const OBSERVER_LIVE_AUTHORIZATION_PHRASE = OBSERVER_LIVE_AUTHORIZATION_PROMPT
 
 export interface MonotonicObserverClock extends RegistryClock {}
 
@@ -371,9 +372,9 @@ function writeSocketIdentity(filePath: string, identity: { device: bigint; inode
 async function requestAuthorization(): Promise<void> {
   const prompt = readline.createInterface({ input: process.stdin, output: process.stdout })
   try {
-    const answer = await prompt.question(`Type exactly ${OBSERVER_LIVE_AUTHORIZATION_PHRASE}\n> `)
-    if (answer !== OBSERVER_LIVE_AUTHORIZATION_PHRASE) {
-      throw new Error('observer live authorization phrase did not match exactly')
+    const answer = await prompt.question(`${OBSERVER_LIVE_AUTHORIZATION_PROMPT} (N is the default)\n> `)
+    if (answer !== 'y' && answer !== 'Y') {
+      throw new Error('observer live authorization not granted; refusing to start the live bridge')
     }
   } finally {
     prompt.close()

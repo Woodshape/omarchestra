@@ -28,6 +28,7 @@ import {
   validateDurableAdoptionState,
 } from '../observer/live-adoption-store.ts'
 import { ROLES, type Role } from '../src/protocol.ts'
+import { LiveRetirementStore } from './live-retirement-store.ts'
 
 export interface LiveAdoptionStoreOptions {
   databasePath: string
@@ -183,6 +184,11 @@ export class LiveAdoptionStore implements AdoptionStore {
         || JSON.stringify(JSON.parse(String(config.roles))) !== rolesJson) {
       throw new Error('adoption configuration mismatch on reopen')
     }
+  }
+
+  /** Shared-database retirement store for the same durable seam. */
+  retirementStore(): LiveRetirementStore {
+    return new LiveRetirementStore({ database: this.db })
   }
 
   transaction<T>(operation: (tx: AdoptionTransaction) => T): T {

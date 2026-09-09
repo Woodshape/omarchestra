@@ -195,9 +195,14 @@ export function createInMemoryRetirementStore(options: InMemoryRetirementStoreOp
       && run.originalCommitment.piSessionId === binding.piSessionId
       && run.originalCommitment.extensionInstanceId === binding.extensionInstanceId
     )),
-    isRoleVacant: (teamGoalId, role) => !committed.some(
-      (run) => run.targetTeamGoalId === teamGoalId && run.targetRole === role,
-    ),
+    isRoleVacant: (teamGoalId, role) => {
+      const retiredAgentRunIds = new Set(retired.map((run) => run.agentRunId))
+      return !committed.some(
+        (run) => run.targetTeamGoalId === teamGoalId
+          && run.targetRole === role
+          && !retiredAgentRunIds.has(run.agentRunId),
+      )
+    },
     currentVacancyGeneration: (teamGoalId, role) => {
       let generation = 0
       for (const run of retired) {
@@ -251,7 +256,15 @@ export function createInMemoryRetirementStore(options: InMemoryRetirementStoreOp
         return { tombstone: cloneRetired(existing), alreadyRetired: true }
       }
       if (liveCommitForRole !== undefined) {
-        const live = liveCommitForRole(input.teamGoalId, input.role)
+        const retiredAgentRunIds = new Set(retired.map((item) => item.agentRunId))
+        const activeReplacement = committed.find((run) => (
+          run.targetTeamGoalId === input.teamGoalId
+            && run.targetRole === input.role
+            && !retiredAgentRunIds.has(run.agentRunId)
+        ))
+        const live = activeReplacement === undefined
+          ? liveCommitForRole(input.teamGoalId, input.role)
+          : { agentRunId: activeReplacement.agentRunId }
         if (live === null) {
           throw new RetirementError('not_eligible', 'no managed Agent Run occupies this Role to retire')
         }
@@ -316,7 +329,10 @@ export function createInMemoryRetirementStore(options: InMemoryRetirementStoreOp
       if (generation !== currentGeneration) {
         throw new RetirementError('vacancy_stale', 'the replacement proposal carries a stale vacancy generation')
       }
-      if (committed.some((run) => run.targetTeamGoalId === teamGoalId && run.targetRole === role)) {
+      const retiredAgentRunIds = new Set(retired.map((run) => run.agentRunId))
+      if (committed.some((run) => run.targetTeamGoalId === teamGoalId
+          && run.targetRole === role
+          && !retiredAgentRunIds.has(run.agentRunId))) {
         throw new RetirementError('role_occupied', 'the target Role is not vacant')
       }
       const roleLabel = role.slice(0, 1).toUpperCase() + role.slice(1)

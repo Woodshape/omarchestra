@@ -113,6 +113,14 @@ A registry/runner restart reconstructs observed and managed presentation from fr
 
 When an ordinary Pi exits or its observer disconnects beyond the bounded expiry contract, its Observed Pi Session becomes unavailable and then disappears or is retained only as explicitly stale history. It cannot be adopted or assigned while stale. Managed Agent Run exit follows the Team Runner's failure and recovery policy instead.
 
+### Explicit retirement and replacement
+
+The user may explicitly retire a disconnected or exited Agent Run, then adopt a new observed Pi into the vacated Role. Retirement permanently fences the old Run's orchestration authority and preserves its history; it does not kill Pi or delete its session file. A reconnecting retired extension cannot reclaim the Role.
+
+The user launches the replacement in a visible terminal and may manually resume their saved Pi conversation. That process remains Unassigned until fresh confirmation, exact same-process acknowledgement, reconciliation, and Adoption commit create a new Agent Run linked to its predecessor. Failed Adoption leaves the Role vacant, not rebound to the retired Run. No Assignment is automatically resumed or transferred. Possible surviving tools and uncertain checkout effects require separate reconciliation before conflicting work.
+
+This is approved behavior, not current prototype functionality. See the authoritative [retirement policy](mvp.md#explicit-retirement-and-replacement) and [implementation task](../plans/explicit-retirement-replacement.md).
+
 ## Installation boundary
 
 Observer and Companion Plugin installation, compatibility verification, update, rollback, and uninstall are explicit product-management operations. Starting or cleaning a Team Goal never installs, updates, disables, or removes either component and never writes Omarchy or Pi global configuration.

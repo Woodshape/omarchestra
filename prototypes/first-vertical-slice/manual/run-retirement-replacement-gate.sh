@@ -212,12 +212,13 @@ bounded phase labels below.
 8. Persistence: close the Companion and re-open it. Confirm the retired card
    and the new managed Run both survive, with the predecessor link intact.
 
-When every observation above is confirmed, type exactly:
+When every observation above is confirmed, the script asks:
 
-  I VERIFIED THE RETIREMENT CHECKLIST
+  Run Omarchestra Retirement/Replacement gate? y/N    (N is the default)
 
-Any other input records the verdict as INCOMPLETE. The launcher never launches
-Pi or dispatches work. It writes only the bounded phase labels above.
+Type y or Y to mark the verdict PASS. Anything else is INCOMPLETE. The launcher
+never launches Pi or dispatches work. It writes only the bounded phase labels
+above.
 EOF
 )
 write_private "$EVIDENCE_DIR/procedure.md" "$PROCEDURE_TEXT"
@@ -227,9 +228,9 @@ printf '\nHuman-only retirement/replacement procedure\n'
 printf '%s\n' "$PROCEDURE_TEXT"
 
 printf '\nConfirm every checklist observation above (steps 1-8).\n'
-printf 'Type exactly I VERIFIED THE RETIREMENT CHECKLIST (otherwise the verdict is INCOMPLETE):\n> '
+printf 'Run Omarchestra Retirement/Replacement gate? y/N (N is the default):\n> '
 read -r confirmation || confirmation=''
-if [[ "$confirmation" == 'I VERIFIED THE RETIREMENT CHECKLIST' ]]; then
+if [[ "$confirmation" == 'y' || "$confirmation" == 'Y' ]]; then
   HUMAN_CONFIRMED=1
   append_private "$EVIDENCE_DIR/retirement-events.ndjson" '{"phase":"operator_confirmed"}'
 fi

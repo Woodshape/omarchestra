@@ -651,9 +651,12 @@ export class CompanionInstallation {
     if (!sameCompatibility(compatibility, release.compatibility)) {
       throw new CompanionInstallationError('invalid_receipt', 'receipt compatibility differs from its release')
     }
-    if (!sameCompatibility(compatibility, state.compatibility)) {
-      throw new CompanionInstallationError('stale_precondition', 'receipt compatibility differs from current host')
-    }
+    // The receipt compatibility is a historical record validated against the
+    // accepted set above; the CURRENT host is separately asserted against the
+    // plan's release compatibility in inspect(). Comparing the receipt's
+    // recorded host to the live host here would make every operation —
+    // including the very update that adopts a new host version — impossible
+    // after a host bump.
     const planDigest = assertSha256(requireString(value.planDigest, 'receipt plan digest'), 'receipt plan digest')
     const installedAt = requireString(value.installedAt, 'receipt installedAt')
     const shellJsonValue = requireObject(value.shellJson, 'receipt shellJson must be an object', 'invalid_receipt')

@@ -27,7 +27,7 @@ const PLUGIN_ID = 'omarchestra.agent-console'
 const PLUGIN_VERSION = '0.2.0'
 const PROTOCOL_ID = 'omarchestra.companion/v1'
 const COMPATIBILITY = {
-  omarchy: '4.0.2-1',
+  omarchy: '4.0.3-1',
   quickshell: '0.3.1-1',
 }
 
@@ -82,6 +82,24 @@ test('historical receipt device numbers do not prevent update or uninstall after
     const plan = await planFor(installer, operation, operation === 'update' ? RELEASE_V2 : undefined)
     await installer.execute(plan, authorize(fake, plan))
   }
+})
+
+test('a receipt written under the previous host pin still validates so update adopts the bumped host', async () => {
+  const { FakeOmarchy, CompanionInstallation } = await modules()
+  const fake = new FakeOmarchy({ compatibility: { omarchy: '4.0.2-1', quickshell: '0.3.1-1' } })
+  const installer = new CompanionInstallation(fake.ports())
+  // Install under the previous pin: the release carries the matching compatibility.
+  const previousRelease = { ...RELEASE_V1, compatibility: { omarchy: '4.0.2-1', quickshell: '0.3.1-1' } }
+  const initial = await planFor(installer, 'install', previousRelease)
+  await installer.execute(initial, authorize(fake, initial))
+  // The host package bumps to the currently supported pin.
+  fake.host.setCompatibility({ ...COMPATIBILITY })
+  // The update to a release pinning the new host succeeds across the bump.
+  const plan = await planFor(installer, 'update', RELEASE_V2)
+  await installer.execute(plan, authorize(fake, plan))
+  const receipt = fake.receipts.inspectNoFollow(PLUGIN_ID)
+  const parsed = JSON.parse(receipt.bytes)
+  assert.deepEqual(parsed.compatibility, COMPATIBILITY)
 })
 
 test('device drift after plan inspection still rejects execution without writes', async () => {

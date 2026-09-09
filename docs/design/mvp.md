@@ -6,6 +6,10 @@ Related research: [`foundation-assessment.md`](../research/foundation-assessment
 
 This document is the authoritative record of the MVP scope. It supersedes earlier architectural recommendations where they conflict with decisions recorded here.
 
+## Approved coordination amendment
+
+The user-approved [agent coordination direction](agent-coordination.md) is authoritative for management terminology, role-independent gate-only acceptance, orchestration stopping, and the Project Message Board → Channel → Thread → Message hierarchy. It supersedes this document's earlier mandatory Reviewer acceptance, `review_only`/`review_and_command` exclusivity, and Reviewed/Verified completion requirements. Those earlier descriptions and decision-log entries below are historical baseline behavior, not current requirements. The three-role workflow remains a prototype/default, not a restriction on acceptance-gate Roles. Single-writer coordination remains; fine-grained isolation and rollback are deferred. Implementation and executable technical contracts for the amendment remain pending.
+
 Decision labels:
 
 - **Locked** — agreed; do not reopen without new evidence.
@@ -480,6 +484,19 @@ An Observed Pi Session displays `Unassigned · observed` in Omarchestra's named 
 - A remote Team Runner retains goals, events, artifacts, writer authority, and agent bridges when local terminal windows or SSH presentation disconnect.
 - SSH loss marks the remote Node and affected Agent Runs disconnected or stale; reconnection uses identity verification, a durable snapshot, and retained ordered events or an explicit history gap.
 
+### Explicit retirement and replacement
+
+**Locked by explicit user agreement.** A user may explicitly retire a disconnected or exited Agent Run and replace its Role occupant through fresh Adoption. Disconnection alone never releases a Role.
+
+- Retirement is a durable, irreversible orchestration transition, not deletion of a Pi conversation or termination of its process. Preserve the old Run, events, artifacts, and binding tombstones; reject its future readiness, recovery, Assignment results, and authority-bearing messages.
+- Confirmation targets the exact Team Goal, Role, Agent Run, and current revision. The Team Runner atomically fences the old Run and releases its Role occupancy. Replays are idempotent; stale actions cannot retire a replacement.
+- The user starts the replacement Pi themselves in a visible terminal, optionally resuming a saved Pi conversation. Omarchestra neither selects nor reads the conversation to establish identity. Saved history grants no orchestration authority.
+- The replacement is a new Agent Run with fresh connection-bound identity, confirmation, same-process acknowledgement, reconciliation, and durable Adoption. Record its predecessor explicitly. Failed replacement Adoption leaves the old Run retired and the Role vacant; it never resurrects the old binding.
+- Retirement does not prove process death or stop already-running tools. Uncertain prior work remains `needs_reconciliation`; Role vacancy is not checkout write clearance. No automatic Assignment transfer, retry, or dispatch follows replacement, and conflicting work remains blocked until writer safety and prior effects are reconciled.
+- Same-surviving-process reconnect remains distinct and is allowed only before retirement. Pi restart, session-file resume, extension reload, and reboot do not restore the retired Run's identity.
+
+This policy is approved but not implemented or live-validated. The bounded implementation task is [explicit retirement/replacement](../plans/explicit-retirement-replacement.md).
+
 ### Proposed degraded recovery rule
 
 If the Team Runner restarts during an in-flight assignment, it does not guess whether an unrecorded step completed. The Team Goal enters `needs_attention` until the visible agent reconnects and the user or workflow explicitly resumes/retries.
@@ -620,13 +637,17 @@ These are specification/spike outputs rather than product-feature choices, but e
 6. **Checkout safety:** dirty-checkout policy, concurrent Team Goals for one Project, strength of read-only enforcement, writer lease scope, and Builder commit policy.
 7. **Cancellation and failure:** interruption behavior, process termination policy, timeouts, bounded retries, preservation of terminals, and separation of process and assignment failure.
 8. **Artifact acceptance:** schemas for plan, implementation, review, corrections, validation, and integrated result; acceptance authority for each artifact.
-9. **Recovery actions:** definition and idempotency of resume/retry, plus how a reconnected visible agent proves the status of uncertain work.
+9. **Recovery actions:** explicit retirement/replacement policy is locked above; durable fencing, Role-occupancy transitions, stale/replayed intents, predecessor linkage, and uncertain-writer reconciliation require the bounded implementation gate. Definition and idempotency of Assignment resume/retry, plus proof of uncertain work status, remain technical-contract work.
 
 ### Closed prototype technical milestone
 
 - **Companion Plugin packaging and Projection Sessions:** the bounded prototype now covers explicit plan-bound setup/update/rollback/uninstall, owned-asset and configuration validation, exact compatibility negotiation, incomplete recovery, persistent installation across Team Goals, stale-generation rejection, authoritative reconstruction, acknowledged intents, and byte-identical runtime cleanup. The separate human gate proved live rendering on the pinned host; production packaging and broader compatibility remain separate from this closed prototype milestone.
 
 ## Decision log
+
+- Following explicit retirement/replacement approval, the user approved the [agent coordination amendment](agent-coordination.md): gate-only task acceptance independent of Roles, no mandatory Reviewer veto, no OS-level Pi kill, and a Project-scoped Board/Channel/Thread/Message model with selective context delivery. Research/planning gates may check artifact existence and content without claiming semantic correctness. Retain single-writer coordination; defer isolation and rollback. This supersedes the older mandatory-review policy recorded below.
+
+- Explicit user agreement following the human Adoption gate: approve irreversible retirement of a disconnected/exited Agent Run and fresh acknowledged Adoption into its vacated Role. The user may manually resume Pi history; replacement never restores old Run identity, deletes history, automatically resumes work, or proves the old process stopped. Implementation and validation remain pending.
 
 - Standalone observer panel placement: user selected a configurable edge (left by default, also right/top/bottom), reserving compositor space so tiled terminals move aside instead of a centered overlay. Managed-panel behavior remains unchanged.
 

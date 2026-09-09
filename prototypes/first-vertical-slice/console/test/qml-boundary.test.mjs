@@ -473,3 +473,15 @@ test('RetiredAgentCards.qml is presentation-only and reuses the same opaque comm
   assert.match(retired, /property var cards: \[\]/)
   assert.match(retired, /piStatus/)
 })
+
+test('the 0.4.0 adoption release packages RetiredAgentCards.qml byte-identical to the plugin source and renders it additively', async () => {
+  const { ADOPTION_COMPANION_RELEASE } = await import('../../companion/releases.ts')
+  const packaged = ADOPTION_COMPANION_RELEASE.assets['RetiredAgentCards.qml']
+  assert.equal(
+    packaged,
+    source(RETIRED_QML),
+    'RetiredAgentCards.qml must be byte-identical between the plugin source and the packaged 0.4.0 release',
+  )
+  const panel = await import('../../console/adoption-panel-source.ts')
+  assert.match(panel.ADOPTION_PANEL_QML, /RetiredAgentCards/)
+})

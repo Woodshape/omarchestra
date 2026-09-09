@@ -34,7 +34,7 @@ Before gateway startup, confirm fail-open ordinary use while its socket is
 absent. Press Enter in the gateway terminal and authorize exactly:
 
 ```text
-I AUTHORIZE OMARCHESTRA ADOPTION LIVE BRIDGE
+Run Omarchestra Live Adoption Bridge? y/N    (N is the default; type y or Y to authorize)
 ```
 
 1. Confirm the same Pi registers as **Unassigned · observed**, without changing

@@ -43,7 +43,7 @@ const DEFAULT_DIRECTORY_MODE = 0o755
 const RECEIPT_MODE = 0o600
 
 const DEFAULT_COMPATIBILITY: CompanionCompatibility = {
-  omarchy: '4.0.2-1',
+  omarchy: '4.0.3-1',
   quickshell: '0.3.1-1',
 }
 
@@ -633,6 +633,11 @@ class FakeHost implements CompanionHostPort {
 
   compatibility(): CompanionCompatibility {
     return clone(this.currentCompatibility)
+  }
+
+  /** Test-only hook: simulate a host package bump between operations. */
+  setCompatibility(compatibility: CompanionCompatibility): void {
+    this.currentCompatibility = clone(compatibility)
   }
 
   currentOwner(): string {

@@ -315,3 +315,143 @@ All four conditions are satisfied as of the closeout run. Independent
 review (Phase 8 review step) is intentionally deferred until the diff is
 frozen; the plan's bounded prototype-scope rules do not require a frozen
 diff before the next user-driven iteration.
+
+## Phase 10 — live gateway wiring (follow-up)
+
+The initial closeout wired the durable store and tests but left the live
+Adoption gateway without the retirement port, so no live human test could
+exercise retirement. The follow-up closed the remaining seams:
+
+- `manual/live-adoption-store.ts` gains `retirementStore()`, a factory
+  returning a `LiveRetirementStore` sharing the same `DatabaseSync`.
+- `manual/live-adoption-gateway.ts` constructs the shared retirement
+  store and passes the `RetirementRunnerPort` (random replacement ids
+  and nonces) into `LiveAdoptionRunner`.
+- `RetirementRunnerPort` now declares the optional `liveCommitForRole`
+  hook the runner already consulted, so the composition is typed.
+- `RetiredAgentCards.qml` bytes are packaged into the 0.4.0 adoption
+  release (`companion/releases.ts`), byte-identical to
+  `console/plugin/RetiredAgentCards.qml` (enforced by a new
+  `qml-boundary` assertion).
+- `console/adoption-panel-source.ts` renders `RetiredAgentCards` under
+  the managed cards, defaulting to an empty list when the payload
+  carries no `retiredCards` (older payloads keep working).
+
+Automated result after the follow-up: 441/442 (the single failure is the
+pre-existing missing-`qmllint`-binary environment condition),
+`prototype-live-adoption-check` 78/78 green, `--check` paths of all three
+live-gate launchers green.
+
+## Phase 11 — retirement intent path (user-facing flow)
+
+The live gateway wiring alone still left the plan's User-flow step 1
+("select the disconnected Run and explicitly confirm Retire Agent Run")
+unreachable: the intent chain only knew `request_adoption` and
+`authorize_adoption`, and the panel's managed cards were display-only.
+The following closes the user-facing seam:
+
+- `LiveAdoptionRunner.retirementInputFor(agentRunId)` resolves the exact
+  Team Goal, Role, observed session, and revision from the runner's own
+  committed store — UI payloads supply only the `agentRunId`.
+- `RetireAgentRunResult` now carries `alreadyRetired` so idempotent
+  exact-replays are distinguishable in intent results.
+- `LiveAdoptionCompanion.requestRetirement(intent)` consumes a
+  `request_retirement` intent and commits through `retireAgentRun`.
+- `LiveAdoptionPresentation` accepts the third intent kind with exact
+  keys `agentRunId,intentId,kind` and dispatches it.
+- The 0.4.0 Adoption panel renders a `Retire Agent Run · <Role>` button
+  on disconnected managed cards (enabled only while the session is
+  fresh), with the plan's process-stop warning caption. `retiredCards`
+  render beneath the managed cards.
+- `managedSnapshot()` now (a) excludes tombstoned runs from the managed
+  cards so a retired card is distinct from a merely disconnected one, and
+  (b) surfaces replacement commits recorded through the retirement port
+  as managed cards carrying their predecessor link.
+- `retiredSnapshot()` derives the opaque committed `piStatus` label from
+  the preserved original commitment instead of rendering `undefined`.
+
+A new presentation test drives the full path: open → apply (disconnected
+managed card, no retired cards) → takeIntent consumes
+`request_retirement` → apply (zero managed cards, exactly one retired
+card carrying the original piStatus label). Suite result after this
+phase: 442/443 (the single failure remains the pre-existing
+missing-`qmllint`-binary environment condition).
+
+## Phase 12 — host compatibility bump
+
+The live setup path rejected the updated host with
+`unsupported host compatibility Omarchy 4.0.3-1 … this prototype
+supports exactly Omarchy 4.0.2-1`. The host had moved from 4.0.2-1 to
+4.0.3-1 between prototype validations. The accepted host pair is
+bumped from `Omarchy 4.0.2-1` to `Omarchy 4.0.3-1` (Quickshell
+unchanged at `0.3.1-1`) across `companion/contracts.ts`
+(`SUPPORTED_COMPATIBILITY`), the release catalog compatibility fields,
+the fake host fixture, and the acceptance/installation test fixtures.
+This is a routine prototype host-version bump; the exact-single-pair
+compatibility discipline itself is unchanged.
+
+A second failure followed on the update path: the existing receipt — an
+immutable historical record written when the accepted pin was
+`4.0.2-1` — no longer validated, so the very update meant to adopt the
+new host was impossible. Receipt compatibility is now validated against
+`ACCEPTED_COMPATIBILITIES` (the current pair plus its immediate
+predecessor) instead of only the current pair, and
+`validateReceipt` no longer compares the receipt's recorded host to the
+live host (`stale_precondition` removal): the current host is
+re-asserted against the plan's release compatibility in `inspect()`, so
+host drift is still caught before any mutation. A regression test
+installs under `4.0.2-1`, bumps the fake host to `4.0.3-1`, and proves
+the update succeeds and rewrites the receipt with the current pin.
+Suite result: 443/444 (the single failure remains the pre-existing
+missing-`qmllint`-binary environment condition).
+
+## Phase 13 — reopened Role in ordinary Adoption flow
+
+Live validation exposed one remaining integration defect: the observer
+projection computed Role choices and the synchronous Adoption transaction
+from the historical `adopted_runs` rows only. Retirement correctly kept
+those rows immutable, but the old row therefore continued to make the
+Role appear occupied. A fresh Unassigned Pi could not choose the retired
+Role.
+
+The runner now composes active Role occupancy from both stores:
+
+- historical Adoption rows are ignored for occupancy once their Agent Run
+  has a retirement tombstone;
+- durable retirement replacement commits remain occupied;
+- the observer projection exposes the retired Role choice again only while
+  it is vacant;
+- the synchronous Adoption commit routes an ordinary confirmed/acknowledged
+  Adoption for that reopened Role through `commitReplacementAdoption`,
+  preserving the predecessor link and the original Adoption row;
+- replacement observed sessions are included in the managed/observer
+  projections.
+
+The presentation test now covers the exact live shape: retire the original
+Coordinator, register a fresh local Unassigned Pi, assert that
+`adoption-choice-2` is visible, then use the ordinary `requestAdoption` →
+authorize → normal acknowledgement path and verify one new Coordinator
+managed card with the predecessor Agent Run id. This is the path the live
+Companion UI uses; no replacement-only hidden action is required.
+
+## Phase 14 — retiring a replacement Agent Run
+
+Live testing then exposed a second lifecycle edge: after the first
+Coordinator was retired and replaced, the new disconnected Coordinator
+card still offered Retire Agent Run, but the runner searched only the
+historical Adoption store. It therefore returned `proposal_not_found` for
+the replacement identity.
+
+The runner now resolves active commits from both stores. Replacement
+commits are filtered out of active managed cards once their own tombstone
+exists, remain eligible for retirement while active, and their preserved
+`piStatus` is used for the retired historical card. Role occupancy and
+vacancy calculations likewise ignore retired replacement commits while
+continuing to treat active replacements as occupied. The in-memory and
+SQLite retirement stores use the same active-replacement rule for vacancy
+checks.
+
+The presentation test now retires the replacement itself and verifies the
+managed surface becomes empty while both historical tombstones remain.
+Automated result: 444/445; the only failure remains the environment's
+pre-existing missing `qmllint` binary.

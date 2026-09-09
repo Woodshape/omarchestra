@@ -13,6 +13,11 @@ Item {
     property var adoptionState: null
     property var intents: []
     property bool fresh: false
+    property int intentCounter: 0
+    function nextIntentId(kind) {
+        root.intentCounter += 1
+        return "adoption-" + kind + "-" + String(root.intentCounter)
+    }
     Timer {
         id: freshness
         interval: 2000
@@ -79,13 +84,40 @@ Item {
                 Text { text: root.fresh ? "Adoption" : "Adoption · disconnected"; color: Color.popups.text }
                 Repeater {
                     model: root.adoptionState ? root.adoptionState.managedCards : []
-                    delegate: Text {
+                    delegate: ColumnLayout {
                         required property var modelData
                         Layout.fillWidth: true
-                        text: modelData.piStatus + " · " + modelData.connectionStatus
-                        color: Color.popups.text
-                        wrapMode: Text.Wrap
+                        spacing: Style.space(4)
+                        Text {
+                            Layout.fillWidth: true
+                            text: modelData.piStatus + " · " + modelData.connectionStatus
+                            color: Color.popups.text
+                            wrapMode: Text.Wrap
+                        }
+                        Button {
+                            Layout.fillWidth: true
+                            visible: root.fresh && modelData.connectionStatus === "disconnected"
+                            text: "Retire Agent Run · " + modelData.role
+                            onClicked: root.submit({
+                                intentId: root.nextIntentId("retire"),
+                                kind: "request_retirement",
+                                agentRunId: modelData.agentRunId
+                            })
+                        }
+                        Text {
+                            Layout.fillWidth: true
+                            visible: modelData.connectionStatus === "disconnected"
+                            text: "Retirement is irreversible and does not stop the process or its tools."
+                            color: Qt.darker(Color.popups.text, 1.35)
+                            font.pixelSize: Style.font.caption
+                            wrapMode: Text.Wrap
+                        }
                     }
+                }
+                RetiredAgentCards {
+                    Layout.fillWidth: true
+                    cards: root.adoptionState && Array.isArray(root.adoptionState.retiredCards)
+                        ? root.adoptionState.retiredCards : []
                 }
                 UnassignedAgents {
                     id: agents

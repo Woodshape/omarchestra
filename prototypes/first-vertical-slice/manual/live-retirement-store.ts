@@ -174,8 +174,12 @@ export class LiveRetirementStore implements RetirementStore {
     const isRoleVacant = (teamGoalId: string, role: Role): boolean => {
       const row = store.db
         .prepare(
-          `SELECT 1 AS one FROM retirement_replacements
-           WHERE target_team_goal_id = ? AND target_role = ?`,
+          `SELECT 1 AS one FROM retirement_replacements AS replacement
+           WHERE replacement.target_team_goal_id = ? AND replacement.target_role = ?
+             AND NOT EXISTS (
+               SELECT 1 FROM retired_runs AS retired
+               WHERE retired.agent_run_id = replacement.agent_run_id
+             )`,
         )
         .get(teamGoalId, role)
       return row === undefined
@@ -321,8 +325,12 @@ export class LiveRetirementStore implements RetirementStore {
       }
       const occupiedRow = store.db
         .prepare(
-          `SELECT 1 AS one FROM retirement_replacements
-           WHERE target_team_goal_id = ? AND target_role = ?`,
+          `SELECT 1 AS one FROM retirement_replacements AS replacement
+           WHERE replacement.target_team_goal_id = ? AND replacement.target_role = ?
+             AND NOT EXISTS (
+               SELECT 1 FROM retired_runs AS retired
+               WHERE retired.agent_run_id = replacement.agent_run_id
+             )`,
         )
         .get(teamGoalId, role)
       if (occupiedRow !== undefined) {

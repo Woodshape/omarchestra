@@ -143,6 +143,35 @@ export class LiveAdoptionCompanion {
     }
   }
 
+  /** Consume a Companion request_retirement intent and return a bounded result. */
+  async requestRetirement(intent: {
+    intentId: string
+    agentRunId: string
+  }): Promise<ObserverIntentResult> {
+    const intentId = requireId(intent.intentId, 'intentId')
+    const agentRunId = requireId(intent.agentRunId, 'agentRunId')
+    try {
+      // Exact facts (Team Goal, Role, observed session, revision) are resolved
+      // from the runner's own committed store — never from UI-provided fields.
+      const retired = this.runner.retireAgentRun(this.runner.retirementInputFor(agentRunId))
+      return {
+        session: clone(this.session),
+        intentId,
+        phase: 'retired',
+        code: 'ok',
+        detail: retired.alreadyRetired === true
+          ? 'Agent Run was already retired.'
+          : 'Agent Run retired irreversibly; the Role is vacant.',
+        proposalId: null,
+        proposalDigest: null,
+        remainingMs: null,
+        displayLabel: `Retired · ${retired.role}`,
+      }
+    } catch (error) {
+      return failureResult(this.session, intentId, error)
+    }
+  }
+
   /** Observer projection from the runner snapshot. */
   snapshot(): { observerRevision: number; agents: unknown[] } {
     return this.runner.snapshot()

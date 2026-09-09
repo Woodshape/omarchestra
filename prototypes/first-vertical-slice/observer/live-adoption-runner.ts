@@ -36,6 +36,7 @@ import type {
   CommittedAdoption,
 } from './live-adoption-store.ts'
 import {
+  type ReplacementCommit,
   type RetiredRun,
   type RetirementStore,
   RetirementError,
@@ -53,6 +54,8 @@ export interface RetirementRunnerPort {
   commitAgentRunId: () => string
   commitReplacementAgentRunId: () => string
   replacementNonce: () => string
+  /** Optional synchronous hook so a pure store can verify Role occupancy. */
+  liveCommitForRole?: (teamGoalId: string, role: Role) => { agentRunId: string } | null
   /** Resolve the current retirement revision for the given committed run. */
   revisionOf: (committed: CommittedAdoption | Record<string, unknown>) => number
 }
@@ -103,6 +106,7 @@ export interface RetireAgentRunResult {
   revision: number
   vacancyGeneration: number
   state: 'retired'
+  alreadyRetired: boolean
 }
 
 export interface ObservedRecord {
@@ -287,9 +291,10 @@ export class LiveAdoptionRunner {
       isLocalTeamGoal: (teamGoalId, executionNodeId) => (
         teamGoalId === this.teamGoalId && executionNodeId === this.executionNodeId
       ),
-      isRoleOccupied: (teamGoalId, role) => this.store.transaction(
-        (tx) => tx.isRoleOccupied(teamGoalId, role),
-      ),
+      isRoleOccupied: (teamGoalId, role) => {
+        const adoptionOccupied = this.store.transaction((tx) => tx.isRoleOccupied(teamGoalId, role))
+        return this.isRoleOccupiedAfterRetirement(teamGoalId, role, adoptionOccupied)
+      },
       isAlreadyManaged: (observedSessionId) => {
         const entry = this.observed.get(observedSessionId)
         if (entry === undefined) return false
@@ -348,6 +353,10 @@ export class LiveAdoptionRunner {
     if (context === undefined) {
       throw new ObserverError('proposal_not_found', 'no synchronous commit context for this proposal')
     }
+    const teamGoalId = requireId(proposal.targetTeamGoalId, 'targetTeamGoalId')
+    const role = requireRole(proposal.targetRole, 'targetRole')
+    const vacancy = this.retirementVacancyFor(teamGoalId, role)
+    if (vacancy !== null) return this.commitNormalAdoptionAsReplacement(input, context, vacancy)
     const committed = this.store.transaction((tx) => {
       this.assertSynchronousCommitValid(context, input, tx)
       return tx.commitAdoption(input)
@@ -411,10 +420,99 @@ export class LiveAdoptionRunner {
     if (teamGoalId !== this.teamGoalId || !this.roles.includes(role)) {
       throw new ObserverError('remote_team_goal', 'commit target is not owned by this runner')
     }
-    if (tx.isRoleOccupied(teamGoalId, role)) throw new ObserverError('role_occupied', 'the target Role is already occupied')
+    if (this.isRoleOccupiedAfterRetirement(teamGoalId, role, tx.isRoleOccupied(teamGoalId, role))) {
+      throw new ObserverError('role_occupied', 'the target Role is already occupied')
+    }
     if (tx.isBindingCommitted(bindingOfRecord(record))) {
       throw new ObserverError('already_managed', 'the observed session already has a managed Agent Run')
     }
+  }
+
+  private commitNormalAdoptionAsReplacement(
+    input: Record<string, unknown>,
+    context: CommitContext,
+    vacancy: { predecessorAgentRunId: string; vacancyGeneration: number },
+  ): Record<string, unknown> {
+    if (this.retirement === undefined) {
+      throw new ObserverError('transaction_failed', 'retirement port is not configured')
+    }
+    const proposal = requirePlainRecord(input.proposal, 'proposal')
+    const proposalId = requireId(proposal.proposalId, 'proposalId')
+    const adoptionSnapshot = this.store.snapshot()
+    this.assertSynchronousCommitValid(context, input, {
+      isRoleOccupied: (teamGoalId, role) => (
+        this.isRoleOccupiedAfterRetirement(
+          teamGoalId,
+          role,
+          adoptionSnapshot.committedRuns.some(
+            (run) => run.targetTeamGoalId === teamGoalId && run.targetRole === role,
+          ),
+        )
+      ),
+      isBindingCommitted: (binding) => adoptionSnapshot.committedRuns.some((run) => (
+        run.executionNodeId === binding.executionNodeId
+        && run.processIncarnationId === binding.processIncarnationId
+        && run.piSessionId === binding.piSessionId
+        && run.extensionInstanceId === binding.extensionInstanceId
+      )),
+    })
+    const acknowledgement = requirePlainRecord(input.acknowledgement, 'acknowledgement')
+    const authorization = requirePlainRecord(input.authorization, 'authorization')
+    const observed = requirePlainRecord(input.observed, 'observed')
+    const reconciliation = requirePlainRecord(input.reconciliation, 'reconciliation')
+    let replacement
+    try {
+      replacement = this.retirement.store.transaction((tx) => tx.commitReplacementAdoption({
+        proposal: {
+          proposalId,
+          proposalDigest: requireId(proposal.proposalDigest, 'proposalDigest'),
+          observedSessionId: requireId(proposal.observedSessionId, 'observedSessionId'),
+          executionNodeId: requireId(proposal.executionNodeId, 'executionNodeId'),
+          processIncarnationId: requireId(proposal.processIncarnationId, 'processIncarnationId'),
+          piSessionId: requireId(proposal.piSessionId, 'piSessionId'),
+          extensionInstanceId: requireId(proposal.extensionInstanceId, 'extensionInstanceId'),
+          targetTeamGoalId: requireId(proposal.targetTeamGoalId, 'targetTeamGoalId'),
+          targetRole: requireRole(proposal.targetRole, 'targetRole'),
+          predecessorAgentRunId: vacancy.predecessorAgentRunId,
+          vacancyGeneration: vacancy.vacancyGeneration,
+        },
+        authorization,
+        acknowledgement,
+        observed,
+        reconciliation,
+      }))
+    } catch (error) {
+      if (error instanceof RetirementError) throw retirementErrorToObserverError(error)
+      throw error
+    }
+    const replacementCommitted: CommittedAdoption = {
+      proposalId: replacement.proposalId,
+      proposalDigest: replacement.proposalDigest,
+      agentRunId: replacement.agentRunId,
+      observedSessionId: replacement.observedSessionId,
+      executionNodeId: replacement.executionNodeId,
+      processIncarnationId: replacement.processIncarnationId,
+      piSessionId: replacement.piSessionId,
+      extensionInstanceId: replacement.extensionInstanceId,
+      targetTeamGoalId: replacement.targetTeamGoalId,
+      targetRole: replacement.targetRole,
+      controlMode: 'managed',
+      piStatus: replacement.piStatus,
+      terminalTitleMetadata: replacement.terminalTitleMetadata,
+      runtimeBinding: null,
+      runtimeBindingGuarantee: 'unavailable',
+      committedAt: replacement.committedAt,
+    }
+    this.managedConnections.set(context.connection, {
+      committed: replacementCommitted,
+      ready: false,
+      leaseUntil: this.clock.now() + this.leaseDurationMs,
+    })
+    this.commitContexts.delete(proposalId)
+    this.commitCountValue += 1
+    this.revision += 1
+    const { committedAt: _committedAt, ...result } = replacementCommitted
+    return result
   }
 
   /** Request an immutable Adoption proposal for an observed session. */
@@ -658,7 +756,20 @@ export class LiveAdoptionRunner {
   /** Observer projection: managed cards are separate. */
   snapshot(): { observerRevision: number; agents: unknown[] } {
     const store = this.store.snapshot()
-    const committedIds = new Set(store.committedRuns.map((run) => run.observedSessionId))
+    const retirement = this.retirement?.store.snapshot()
+    const retiredAgentRunIds = new Set(retirement?.retiredRuns.map((run) => run.agentRunId) ?? [])
+    const committedIds = new Set([
+      ...store.committedRuns.map((run) => run.observedSessionId),
+      ...(retirement?.committedRuns.map((run) => run.observedSessionId) ?? []),
+    ])
+    const occupiedRoles = new Set<string>([
+      ...store.committedRuns
+        .filter((run) => !retiredAgentRunIds.has(run.agentRunId))
+        .map((run) => run.targetRole),
+      ...(retirement?.committedRuns
+        .filter((run) => !retiredAgentRunIds.has(run.agentRunId))
+        .map((run) => run.targetRole) ?? []),
+    ])
     const agents = [...this.observed.values()]
       .filter((entry) => !committedIds.has(entry.record.observedSessionId))
       .map((entry) => ({
@@ -667,7 +778,7 @@ export class LiveAdoptionRunner {
         lifecycle: entry.record.lifecycle,
         availability: entry.record.availability,
         health: entry.record.health,
-        choices: this.roles.filter(role => !store.committedRuns.some(run => run.targetRole === role)).map(role => ({
+        choices: this.roles.filter(role => !occupiedRoles.has(role)).map(role => ({
           choiceId: role === 'builder' ? 'adoption-choice-1' : role === 'coordinator' ? 'adoption-choice-2' : 'adoption-choice-3',
           label: `Adopt into ${this.teamGoalId} · ${role}`,
           enabled: entry.record.availability === 'available' && entry.record.activity === 'idle'
@@ -732,11 +843,22 @@ export class LiveAdoptionRunner {
     const retirement = this.retirement?.store.snapshot()
     const replacementByPredecessor = new Map<string, unknown>()
     if (retirement !== undefined) {
+      const retiredAgentRunIds = new Set(retirement.retiredRuns.map((run) => run.agentRunId))
       for (const replacement of retirement.committedRuns) {
-        replacementByPredecessor.set(replacement.predecessorAgentRunId, replacement)
+        if (!retiredAgentRunIds.has(replacement.agentRunId)) {
+          replacementByPredecessor.set(replacement.predecessorAgentRunId, replacement)
+        }
       }
     }
-    const managedCards = store.committedRuns.map((run) => ({
+    // A retired run keeps its historical commitment but is no longer a
+    // current managed occupant: its card is presented under retiredCards,
+    // distinct from a merely disconnected run.
+    const retiredAgentRunIds = retirement === undefined
+      ? new Set<string>()
+      : new Set(retirement.retiredRuns.map((run) => run.agentRunId))
+    const managedCards = store.committedRuns
+      .filter((run) => !retiredAgentRunIds.has(run.agentRunId))
+      .map((run) => ({
       agentRunId: run.agentRunId,
       role: run.targetRole,
       piStatus: this.store.isManualTakeover?.(run.agentRunId) ? this.manualControl(run).piStatus : run.piStatus,
@@ -745,6 +867,27 @@ export class LiveAdoptionRunner {
         [...replacementByPredecessor.entries()].find(([, value]) => (value as { agentRunId: string }).agentRunId === run.agentRunId)?.[0] ?? null
       ),
     }))
+    // Replacement commits are recorded through the retirement port and only
+    // carried in the managed-connection lease map; surface them here so the
+    // new Role occupant appears as a managed card with its predecessor link.
+    if (retirement !== undefined) {
+      const retiredAgentRunIds = new Set(retirement.retiredRuns.map((run) => run.agentRunId))
+      for (const replacement of retirement.committedRuns) {
+        if (retiredAgentRunIds.has(replacement.agentRunId)) continue
+        const card = replacement as unknown as {
+          agentRunId: string; targetRole: Role; piStatus: string; targetTeamGoalId: string
+        }
+        managedCards.push({
+          agentRunId: card.agentRunId,
+          role: card.targetRole,
+          piStatus: card.piStatus,
+          connectionStatus: [...this.managedConnections.values()].some(
+            (value) => value.committed.agentRunId === card.agentRunId && this.clock.now() < value.leaseUntil,
+          ) ? 'connected' : 'disconnected',
+          predecessorAgentRunId: replacement.predecessorAgentRunId,
+        })
+      }
+    }
     return { managedCards }
   }
 
@@ -752,10 +895,15 @@ export class LiveAdoptionRunner {
   retiredSnapshot(): { retiredCards: unknown[] } {
     if (this.retirement === undefined) return { retiredCards: [] }
     const retirement = this.retirement.store.snapshot()
+    const originalByAgentRunId = new Map<string, { piStatus: string }>([
+      ...this.store.snapshot().committedRuns.map((run) => [run.agentRunId, run] as const),
+      ...retirement.committedRuns.map((run) => [run.agentRunId, run] as const),
+    ])
     return {
       retiredCards: retirement.retiredRuns.map((run) => ({
         agentRunId: run.agentRunId,
         role: run.role,
+        piStatus: originalByAgentRunId.get(run.agentRunId)?.piStatus ?? 'Retired',
         state: run.state,
         retiredAt: run.retiredAt,
         revision: run.revision,
@@ -764,6 +912,24 @@ export class LiveAdoptionRunner {
           (replacement) => replacement.predecessorAgentRunId === run.agentRunId,
         )?.agentRunId ?? null,
       })),
+    }
+  }
+
+  /** Resolve the exact retirement facts for a committed Agent Run. */
+  retirementInputFor(agentRunId: string): RetireAgentRunInput {
+    if (this.retirement === undefined) {
+      throw new ObserverError('transaction_failed', 'retirement port is not configured')
+    }
+    const liveCommit = this.findLiveCommitByAgentRunId(agentRunId)
+    if (liveCommit === null) {
+      throw new ObserverError('proposal_not_found', 'no committed Agent Run matches the supplied agentRunId')
+    }
+    return {
+      agentRunId,
+      teamGoalId: liveCommit.targetTeamGoalId,
+      role: liveCommit.targetRole,
+      observedSessionId: liveCommit.observedSessionId,
+      revision: this.retirement.revisionOf(liveCommit),
     }
   }
 
@@ -907,12 +1073,64 @@ export class LiveAdoptionRunner {
       revision: tombstone.revision,
       vacancyGeneration: generation,
       state: 'retired',
+      alreadyRetired: committed.alreadyRetired,
     }
   }
 
-  private findLiveCommitByAgentRunId(agentRunId: string): CommittedAdoption | null {
+  private findLiveCommitByAgentRunId(agentRunId: string): CommittedAdoption | ReplacementCommit | null {
     const snapshot = this.store.snapshot()
-    return snapshot.committedRuns.find((run) => run.agentRunId === agentRunId) ?? null
+    const adoptionCommit = snapshot.committedRuns.find((run) => run.agentRunId === agentRunId)
+    if (adoptionCommit !== undefined) return adoptionCommit
+    const retirement = this.retirement?.store.snapshot()
+    if (retirement === undefined) return null
+    const retiredAgentRunIds = new Set(retirement.retiredRuns.map((run) => run.agentRunId))
+    return retirement.committedRuns.find(
+      (run) => run.agentRunId === agentRunId && !retiredAgentRunIds.has(run.agentRunId),
+    ) ?? null
+  }
+
+  private isRoleOccupiedAfterRetirement(
+    teamGoalId: string,
+    role: Role,
+    adoptionOccupied: boolean,
+  ): boolean {
+    if (this.retirement === undefined) return adoptionOccupied
+    const retirement = this.retirement.store.snapshot()
+    const retiredAgentRunIds = new Set(retirement.retiredRuns.map((run) => run.agentRunId))
+    if (retirement.committedRuns.some(
+      (run) => run.targetTeamGoalId === teamGoalId
+        && run.targetRole === role
+        && !retiredAgentRunIds.has(run.agentRunId),
+    )) return true
+    if (retirement.retiredRuns.some(
+      (run) => run.teamGoalId === teamGoalId && run.role === role,
+    )) return false
+    return adoptionOccupied
+  }
+
+  private retirementVacancyFor(
+    teamGoalId: string,
+    role: Role,
+  ): { predecessorAgentRunId: string; vacancyGeneration: number } | null {
+    if (this.retirement === undefined) return null
+    const retirement = this.retirement.store.snapshot()
+    const retiredAgentRunIds = new Set(retirement.retiredRuns.map((run) => run.agentRunId))
+    if (retirement.committedRuns.some(
+      (run) => run.targetTeamGoalId === teamGoalId
+        && run.targetRole === role
+        && !retiredAgentRunIds.has(run.agentRunId),
+    )) return null
+    const retired = retirement.retiredRuns.filter(
+      (run) => run.teamGoalId === teamGoalId && run.role === role,
+    )
+    if (retired.length === 0) return null
+    const vacancyGeneration = this.retirement.store.transaction(
+      (tx) => tx.currentVacancyGeneration(teamGoalId, role),
+    )
+    return {
+      predecessorAgentRunId: retired[retired.length - 1].agentRunId,
+      vacancyGeneration,
+    }
   }
 
   /**

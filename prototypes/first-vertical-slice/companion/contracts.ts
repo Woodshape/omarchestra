@@ -26,9 +26,20 @@ export const COMPANION_PLUGIN_VERSION = '0.2.0'
 export const COMPANION_PROTOCOL_ID = 'omarchestra.companion/v1'
 
 export const SUPPORTED_COMPATIBILITY = Object.freeze({
-  omarchy: '4.0.2-1',
+  omarchy: '4.0.3-1',
   quickshell: '0.3.1-1',
 } as const)
+
+/**
+ * Host pairs accepted in receipts and historical release records: the
+ * currently supported pair plus its immediate prototype predecessor.
+ * Receipts are immutable historical records, so a host bump must not
+ * invalidate receipts written under the prior pin.
+ */
+export const ACCEPTED_COMPATIBILITIES = Object.freeze([
+  SUPPORTED_COMPATIBILITY,
+  Object.freeze({ omarchy: '4.0.2-1', quickshell: '0.3.1-1' } as const),
+])
 
 export interface CompanionCompatibility {
   omarchy: string
@@ -317,13 +328,15 @@ export interface CompanionShellPort {
 }
 
 export function assertSupportedCompatibility(value: CompanionCompatibility): void {
-  if (
-    value.omarchy !== SUPPORTED_COMPATIBILITY.omarchy ||
-    value.quickshell !== SUPPORTED_COMPATIBILITY.quickshell
-  ) {
+  const accepted = ACCEPTED_COMPATIBILITIES.some(
+    (pair) => pair.omarchy === value.omarchy && pair.quickshell === value.quickshell,
+  )
+  if (!accepted) {
     throw new CompanionCompatibilityError(
       `unsupported host compatibility Omarchy ${String(value.omarchy)}, Quickshell ${String(value.quickshell)}; ` +
-      `this prototype supports exactly Omarchy ${SUPPORTED_COMPATIBILITY.omarchy} and Quickshell ${SUPPORTED_COMPATIBILITY.quickshell}`,
+      `this prototype accepts exactly ${ACCEPTED_COMPATIBILITIES.map(
+        (pair) => `Omarchy ${pair.omarchy} and Quickshell ${pair.quickshell}`,
+      ).join(' or ')}`,
     )
   }
 }
