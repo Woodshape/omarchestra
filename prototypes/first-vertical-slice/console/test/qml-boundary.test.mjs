@@ -451,17 +451,15 @@ test('panel visibility is derived from managed OR observer flags and managed con
   assert.match(consoleSource.slice(observerStart), /visible:\s*root\.opened\s*\|\|\s*root\.observerOpened/)
 })
 
-test('RetiredAgentCards.qml is presentation-only and reuses the same opaque committed fields', () => {
+test('RetiredAgentCards.qml is presentation-only and exposes only purge intent', () => {
   const retired = source(RETIRED_QML)
-  // The component must surface exactly the fields the durable retirement
-  // port records — no authority, no intent types, no ID generation.
+  // The component may emit the one exact purge intent, but owns no authority,
+  // proposal confirmation, identity digest, or runtime action.
   for (const forbidden of [
-    /request[A-Z_]/,
     /authorize[A-Z_]/,
     /acknowledg/i,
     /sign\(/,
     /digest/,
-    /intent/,
     /proposal/i,
     /spawn/,
     /exec/,
@@ -471,6 +469,8 @@ test('RetiredAgentCards.qml is presentation-only and reuses the same opaque comm
     assert.doesNotMatch(retired, forbidden)
   }
   assert.match(retired, /property var cards: \[\]/)
+  assert.match(retired, /signal requestPurge\(var payload\)/)
+  assert.match(retired, /kind: "purge_retired"/)
   assert.match(retired, /piStatus/)
 })
 

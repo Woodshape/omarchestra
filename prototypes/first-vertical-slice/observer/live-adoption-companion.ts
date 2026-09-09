@@ -172,6 +172,31 @@ export class LiveAdoptionCompanion {
     }
   }
 
+  /** Consume a Companion purge_retired intent and return a bounded result. */
+  async purgeRetired(intent: {
+    intentId: string
+    agentRunId: string
+  }): Promise<ObserverIntentResult> {
+    const intentId = requireId(intent.intentId, 'intentId')
+    const agentRunId = requireId(intent.agentRunId, 'agentRunId')
+    try {
+      this.runner.purgeRetiredAgentRun(agentRunId)
+      return {
+        session: clone(this.session),
+        intentId,
+        phase: 'purged',
+        code: 'ok',
+        detail: 'Retired history was permanently deleted from Omarchestra.',
+        proposalId: null,
+        proposalDigest: null,
+        remainingMs: null,
+        displayLabel: 'Retired history deleted',
+      }
+    } catch (error) {
+      return failureResult(this.session, intentId, error)
+    }
+  }
+
   /** Observer projection from the runner snapshot. */
   snapshot(): { observerRevision: number; agents: unknown[] } {
     return this.runner.snapshot()

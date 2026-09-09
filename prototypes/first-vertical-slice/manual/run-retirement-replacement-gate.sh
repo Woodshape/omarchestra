@@ -143,7 +143,7 @@ cleanup() {
   if (( VERDICT_WRITTEN == 0 )); then
     if (( CLEANUP_SAFE == 1 )) && (( HUMAN_CONFIRMED == 1 )); then
       write_private "$EVIDENCE_DIR/verdict.txt" \
-        'PASS — human-only retirement/replacement checklist completed; predecessor tombstone persisted, replacement commitment owned, no automatic assignment dispatched.' || true
+        'PASS — human-only retirement/replacement and terminal-history purge checklist completed; lineage cleanup confirmed, no automatic assignment dispatched.' || true
     elif (( CLEANUP_SAFE == 0 )); then
       write_private "$EVIDENCE_DIR/verdict.txt" 'FAIL — evidence directory cleanup was incomplete.' || true
       exit_status=1
@@ -209,8 +209,13 @@ bounded phase labels below.
 7. No dispatch: confirm Omarchestra dispatched zero Assignments in this flow.
    The visible Pi process remains the only source of work; the new Run owns
    the same Project as the predecessor only by explicit confirm-and-ack.
-8. Persistence: close the Companion and re-open it. Confirm the retired card
-   and the new managed Run both survive, with the predecessor link intact.
+8. Terminal purge: after the replacement is disconnected, retire it. Confirm
+   the predecessor card explains that its successor must be deleted first.
+   Delete the retired successor, then delete the predecessor. Confirm both
+   retired cards disappear, the Role remains vacant, and the visible Pi
+   sessions/processes are unchanged.
+9. Persistence: close the Companion and re-open it. Confirm the purged cards
+   remain absent and no stale replacement proposal can recreate the lineage.
 
 When every observation above is confirmed, the script asks:
 
@@ -227,7 +232,7 @@ append_private "$EVIDENCE_DIR/retirement-events.ndjson" '{"phase":"procedure_rea
 printf '\nHuman-only retirement/replacement procedure\n'
 printf '%s\n' "$PROCEDURE_TEXT"
 
-printf '\nConfirm every checklist observation above (steps 1-8).\n'
+printf '\nConfirm every checklist observation above (steps 1-9).\n'
 printf 'Run Omarchestra Retirement/Replacement gate? y/N (N is the default):\n> '
 read -r confirmation || confirmation=''
 if [[ "$confirmation" == 'y' || "$confirmation" == 'Y' ]]; then

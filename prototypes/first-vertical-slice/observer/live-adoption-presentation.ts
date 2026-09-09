@@ -69,7 +69,7 @@ export class LiveAdoptionPresentation {
         const keys = Object.keys(intent).sort().join(',')
         if (intent.kind === 'request_adoption' ? keys !== 'choiceId,intentId,kind,observedSessionId'
           : intent.kind === 'authorize_adoption' ? keys !== 'intentId,kind,proposalDigest,proposalId'
-          : intent.kind === 'request_retirement' ? keys !== 'agentRunId,intentId,kind' : true) throw new Error('invalid Adoption intent fields')
+          : intent.kind === 'request_retirement' || intent.kind === 'purge_retired' ? keys !== 'agentRunId,intentId,kind' : true) throw new Error('invalid Adoption intent fields')
         const bytes = JSON.stringify(intent)
         let prior = this.seen.get(intent.intentId)
         if (prior && prior.bytes !== bytes) throw new Error('conflicting Adoption intent replay')
@@ -79,7 +79,9 @@ export class LiveAdoptionPresentation {
             ? await this.companion.requestAdoption(intent)
             : intent.kind === 'authorize_adoption'
               ? await this.companion.authorizeAdoption(intent)
-              : await this.companion.requestRetirement(intent)
+              : intent.kind === 'request_retirement'
+                ? await this.companion.requestRetirement(intent)
+                : await this.companion.purgeRetired(intent)
           // Only this live adapter's random session is an IPC identity. Do not
           // publish the controller's legacy test-facing session placeholder.
           const { session: _legacySession, ...result } = controllerResult

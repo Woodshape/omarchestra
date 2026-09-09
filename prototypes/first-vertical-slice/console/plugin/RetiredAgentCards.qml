@@ -1,10 +1,8 @@
 // PROTOTYPE — NOT PRODUCTION.
 //
 // Additive retirement surface for the Agent Console. Renders exactly one card
-// per retired Agent Run with a `Retired · <Role>` label and the same opaque
-// committed presentation strings used elsewhere. The component deliberately
-// does not generate IDs, does not own authority, and exposes no actionable
-// actions — the user can only observe the historical state.
+// per retired Agent Run and exposes only the explicit terminal-history purge
+// intent. The component does not own authority or durable state.
 
 import QtQuick
 import QtQuick.Controls
@@ -16,11 +14,27 @@ Item {
     id: root
 
     property var cards: []
+    property string pendingAgentRunId: ""
+    property int intentCounter: 0
     readonly property color cardText: Color.popups.text
     readonly property color cardMutedText: Qt.darker(root.cardText, 1.45)
 
+    signal requestPurge(var payload)
+
     implicitWidth: retiredColumn.implicitWidth
     implicitHeight: retiredColumn.implicitHeight
+
+    onCardsChanged: {
+        if (root.pendingAgentRunId !== ""
+                && !root.cards.some(function(card) { return card.agentRunId === root.pendingAgentRunId })) {
+            root.pendingAgentRunId = ""
+        }
+    }
+
+    function nextIntentId() {
+        root.intentCounter += 1
+        return "retired-purge-" + root.intentCounter
+    }
 
     ColumnLayout {
         id: retiredColumn
@@ -77,6 +91,47 @@ Item {
                         font.family: Style.font.family
                         font.pixelSize: Style.font.caption
                         elide: Text.ElideRight
+                    }
+
+                    Text {
+                        Layout.fillWidth: true
+                        visible: !modelData.canPurge
+                        text: modelData.purgeBlockedReason || "Successor history must be deleted first."
+                        color: root.cardMutedText
+                        font.family: Style.font.family
+                        font.pixelSize: Style.font.caption
+                        wrapMode: Text.Wrap
+                    }
+
+                    Button {
+                        Layout.fillWidth: true
+                        visible: modelData.canPurge || root.pendingAgentRunId === modelData.agentRunId
+                        enabled: modelData.canPurge
+                        text: root.pendingAgentRunId === modelData.agentRunId
+                            ? "Confirm permanent delete"
+                            : "Delete retired history"
+                        onClicked: {
+                            if (root.pendingAgentRunId !== modelData.agentRunId) {
+                                root.pendingAgentRunId = modelData.agentRunId
+                                return
+                            }
+                            root.requestPurge({
+                                intentId: root.nextIntentId(),
+                                kind: "purge_retired",
+                                agentRunId: modelData.agentRunId
+                            })
+                            root.pendingAgentRunId = ""
+                        }
+                    }
+
+                    Text {
+                        Layout.fillWidth: true
+                        visible: root.pendingAgentRunId === modelData.agentRunId
+                        text: "This permanently deletes Omarchestra history. Pi conversations, session files, processes, tools, and external artifacts are not changed."
+                        color: root.cardMutedText
+                        font.family: Style.font.family
+                        font.pixelSize: Style.font.caption
+                        wrapMode: Text.Wrap
                     }
                 }
             }

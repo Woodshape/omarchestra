@@ -118,6 +118,7 @@ Item {
                     Layout.fillWidth: true
                     cards: root.adoptionState && Array.isArray(root.adoptionState.retiredCards)
                         ? root.adoptionState.retiredCards : []
+                    onRequestPurge: payload => root.submit(payload)
                 }
                 UnassignedAgents {
                     id: agents

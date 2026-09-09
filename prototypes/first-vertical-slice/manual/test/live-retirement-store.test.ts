@@ -331,3 +331,124 @@ test('durable retirement transaction rollback does not leave a tombstone', () =>
     fs.rmSync(path.dirname(databasePath), { recursive: true, force: true })
   }
 })
+
+test('durable purge removes terminal history and Adoption records but preserves cursors and generation high-water', () => {
+  const databasePath = tempDbPath()
+  const stores = buildStores(databasePath, () => IDS.agentRunId)
+  try {
+    stores.adoption.transaction((tx) => tx.commitAdoption({
+      proposal: {
+        proposalId: IDS.proposalId,
+        proposalDigest: IDS.digest,
+        observedSessionId: IDS.observedSessionId,
+        executionNodeId: IDS.executionNodeId,
+        processIncarnationId: IDS.processIncarnationId,
+        piSessionId: IDS.piSessionId,
+        extensionInstanceId: IDS.extensionInstanceId,
+        targetTeamGoalId: IDS.teamGoalId,
+        targetRole: 'builder',
+      },
+      authorization: {},
+      acknowledgement: {},
+      observed: {},
+      reconciliation: {},
+    }))
+    stores.retirement.transaction((tx) => tx.commitRetirement({
+      agentRunId: IDS.agentRunId,
+      teamGoalId: IDS.teamGoalId,
+      role: 'builder',
+      observedSessionId: IDS.observedSessionId,
+      revision: IDS.retiredRevision,
+      executionNodeId: IDS.executionNodeId,
+      processIncarnationId: IDS.processIncarnationId,
+      piSessionId: IDS.piSessionId,
+      extensionInstanceId: IDS.extensionInstanceId,
+    }))
+    stores.retirement.purgeRetiredRun(IDS.agentRunId)
+    assert.equal(stores.adoption.snapshot().committedRuns.length, 0)
+    assert.equal(stores.adoption.snapshot().events.length, 0)
+    assert.equal(stores.adoption.snapshot().cursor, 1)
+    assert.equal(stores.retirement.snapshot().retiredRuns.length, 0)
+    assert.equal(stores.retirement.snapshot().events.length, 0)
+    assert.equal(stores.retirement.snapshot().cursor, 1)
+    assert.equal(stores.retirement.snapshot().vacancyGeneration, 1)
+
+    stores.adoption.close()
+    const reopened = buildStores(databasePath, () => IDS.agentRunIdR)
+    try {
+      assert.equal(reopened.adoption.snapshot().committedRuns.length, 0)
+      assert.equal(reopened.adoption.snapshot().cursor, 1)
+      assert.equal(reopened.retirement.snapshot().retiredRuns.length, 0)
+      assert.equal(reopened.retirement.snapshot().cursor, 1)
+      assert.equal(reopened.retirement.snapshot().vacancyGeneration, 1)
+    } finally {
+      reopened.adoption.close()
+    }
+  } finally {
+    fs.rmSync(path.dirname(databasePath), { recursive: true, force: true })
+  }
+})
+
+test('durable purge blocks a predecessor until its retired replacement successor is purged first', () => {
+  const databasePath = tempDbPath()
+  const stores = buildStores(databasePath, () => IDS.agentRunIdR)
+  try {
+    stores.retirement.transaction((tx) => tx.commitRetirement({
+      agentRunId: IDS.agentRunId,
+      teamGoalId: IDS.teamGoalId,
+      role: 'builder',
+      observedSessionId: IDS.observedSessionId,
+      revision: IDS.retiredRevision,
+      executionNodeId: IDS.executionNodeId,
+      processIncarnationId: IDS.processIncarnationId,
+      piSessionId: IDS.piSessionId,
+      extensionInstanceId: IDS.extensionInstanceId,
+    }))
+    const generation = stores.retirement.snapshot().vacancyGeneration
+    stores.retirement.transaction((tx) => tx.commitReplacementAdoption({
+      proposal: {
+        proposalId: IDS.proposalIdR,
+        proposalDigest: IDS.replacementDigest,
+        observedSessionId: IDS.observedSessionIdR,
+        executionNodeId: IDS.executionNodeIdR,
+        processIncarnationId: IDS.processIncarnationIdR,
+        piSessionId: IDS.piSessionIdR,
+        extensionInstanceId: IDS.extensionInstanceIdR,
+        targetTeamGoalId: IDS.teamGoalId,
+        targetRole: 'builder',
+        predecessorAgentRunId: IDS.agentRunId,
+        vacancyGeneration: generation,
+      },
+      authorization: {},
+      acknowledgement: {},
+      observed: {},
+      reconciliation: {},
+    }))
+    stores.retirement.transaction((tx) => tx.commitRetirement({
+      agentRunId: IDS.agentRunIdR,
+      teamGoalId: IDS.teamGoalId,
+      role: 'builder',
+      observedSessionId: IDS.observedSessionIdR,
+      revision: IDS.retiredRevision + 1,
+      executionNodeId: IDS.executionNodeIdR,
+      processIncarnationId: IDS.processIncarnationIdR,
+      piSessionId: IDS.piSessionIdR,
+      extensionInstanceId: IDS.extensionInstanceIdR,
+    }))
+    assert.throws(
+      () => stores.retirement.purgeRetiredRun(IDS.agentRunId),
+      /successor|purge_blocked/i,
+    )
+    stores.retirement.purgeRetiredRun(IDS.agentRunIdR)
+    stores.retirement.purgeRetiredRun(IDS.agentRunId)
+    const snapshot = stores.retirement.snapshot()
+    assert.equal(snapshot.retiredRuns.length, 0)
+    assert.equal(snapshot.committedRuns.length, 0)
+    assert.equal(snapshot.events.length, 0)
+    assert.equal(snapshot.vacancyGeneration, 2)
+    assert.equal(snapshot.cursor, 3)
+  } finally {
+    stores.adoption.close()
+    fs.rmSync(path.dirname(databasePath), { recursive: true, force: true })
+  }
+})

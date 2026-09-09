@@ -96,11 +96,13 @@ export interface AdoptionTransaction {
   currentCursor(): number
   eventsAfter(cursor: number): AdoptionEvent[]
   commitAdoption(input: CommitAdoptionInput): CommittedAdoption
+  purgeCommittedRun(agentRunId: string): void
 }
 
 export interface AdoptionStore {
   recordManualTakeover?(agentRunId: string): void
   isManualTakeover?(agentRunId: string): boolean
+  purgeCommittedRun?(agentRunId: string): void
   transaction<T>(operation: (tx: AdoptionTransaction) => T): T
   snapshot(): DurableAdoptionState
   close(): void
@@ -253,6 +255,7 @@ export function createInMemoryAdoptionStore(options: {
   let events: AdoptionEvent[] = []
   const agentRunIdFactory = options.agentRunIdFactory
     ?? (() => `agent-run-${randomBytes(16).toString('hex')}`)
+  const takeovers = new Set<string>()
 
   const tx: AdoptionTransaction = {
     committedByIdentity: (identity) => committed.find((run) => sameIdentity(run, identity)) ?? null,
@@ -314,25 +317,35 @@ export function createInMemoryAdoptionStore(options: {
       })
       return run
     },
+    purgeCommittedRun: (agentRunId) => {
+      committed = committed.filter((run) => run.agentRunId !== agentRunId)
+      events = events.filter((event) => event.agentRunId !== agentRunId)
+      takeovers.delete(agentRunId)
+    },
   }
 
-  const takeovers = new Set<string>()
   return {
     recordManualTakeover: id => {
       if (!committed.some(run => run.agentRunId === id)) throw new Error('unknown Agent Run')
       takeovers.add(id)
     },
     isManualTakeover: id => takeovers.has(id),
+    purgeCommittedRun: (agentRunId) => {
+      tx.purgeCommittedRun(agentRunId)
+    },
     transaction: (operation) => {
       const committedSnapshot = committed.map((run) => ({ ...run }))
       const cursorSnapshot = cursor
       const eventsSnapshot = events.map((event) => ({ ...event }))
+      const takeoversSnapshot = new Set(takeovers)
       try {
         const result = operation(tx)
         if (result !== null && typeof result === 'object' && typeof (result as Promise<unknown>).then === 'function') {
           committed = committedSnapshot
           cursor = cursorSnapshot
           events = eventsSnapshot
+          takeovers.clear()
+          for (const agentRunId of takeoversSnapshot) takeovers.add(agentRunId)
           throw new TypeError('Adoption transaction callbacks must be synchronous')
         }
         return result
@@ -340,6 +353,8 @@ export function createInMemoryAdoptionStore(options: {
         committed = committedSnapshot
         cursor = cursorSnapshot
         events = eventsSnapshot
+        takeovers.clear()
+        for (const agentRunId of takeoversSnapshot) takeovers.add(agentRunId)
         throw error
       }
     },
@@ -354,6 +369,7 @@ export function createInMemoryAdoptionStore(options: {
     close: () => {
       committed = []
       events = []
+      takeovers.clear()
       cursor = 0
     },
   }

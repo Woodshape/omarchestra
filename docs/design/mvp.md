@@ -488,14 +488,15 @@ An Observed Pi Session displays `Unassigned · observed` in Omarchestra's named 
 
 **Locked by explicit user agreement.** A user may explicitly retire a disconnected or exited Agent Run and replace its Role occupant through fresh Adoption. Disconnection alone never releases a Role.
 
-- Retirement is a durable, irreversible orchestration transition, not deletion of a Pi conversation or termination of its process. Preserve the old Run, events, artifacts, and binding tombstones; reject its future readiness, recovery, Assignment results, and authority-bearing messages.
+- Retirement is a durable, irreversible orchestration transition, not deletion of a Pi conversation or termination of its process. Preserve the old Run, events, artifacts, and binding tombstones while the retired history is retained; reject its future readiness, recovery, Assignment results, and authority-bearing messages.
+- An explicit **Delete Retired History** action may permanently remove the selected terminal retired Run from Omarchestra's durable records and presentation. It never deletes Pi conversations, session files, processes, tools, or external artifacts. A retired Run with a replacement descendant is blocked until the successor is deleted first; deletion proceeds newest-to-oldest so predecessor linkage remains valid while retained. Vacancy-generation high-water marks survive purge so stale replacement intents never become valid again.
 - Confirmation targets the exact Team Goal, Role, Agent Run, and current revision. The Team Runner atomically fences the old Run and releases its Role occupancy. Replays are idempotent; stale actions cannot retire a replacement.
 - The user starts the replacement Pi themselves in a visible terminal, optionally resuming a saved Pi conversation. Omarchestra neither selects nor reads the conversation to establish identity. Saved history grants no orchestration authority.
 - The replacement is a new Agent Run with fresh connection-bound identity, confirmation, same-process acknowledgement, reconciliation, and durable Adoption. Record its predecessor explicitly. Failed replacement Adoption leaves the old Run retired and the Role vacant; it never resurrects the old binding.
 - Retirement does not prove process death or stop already-running tools. Uncertain prior work remains `needs_reconciliation`; Role vacancy is not checkout write clearance. No automatic Assignment transfer, retry, or dispatch follows replacement, and conflicting work remains blocked until writer safety and prior effects are reconciled.
 - Same-surviving-process reconnect remains distinct and is allowed only before retirement. Pi restart, session-file resume, extension reload, and reboot do not restore the retired Run's identity.
 
-This policy is approved but not implemented or live-validated. The bounded implementation task is [explicit retirement/replacement](../plans/explicit-retirement-replacement.md).
+This policy and its explicit purge amendment are approved; the bounded implementation task is [explicit retirement/replacement](../plans/explicit-retirement-replacement.md) and the purge decision is recorded in [ADR 0004](../adr/0004-explicit-purge-of-terminal-retired-history.md).
 
 ### Proposed degraded recovery rule
 

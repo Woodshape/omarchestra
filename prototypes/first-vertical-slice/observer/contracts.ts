@@ -78,6 +78,8 @@ export const OBSERVER_ERROR_CODES = Object.freeze([
   'not_eligible',
   'vacancy_stale',
   'not_vacant',
+  'not_retired',
+  'purge_blocked',
 ] as const)
 export type ObserverErrorCode = (typeof OBSERVER_ERROR_CODES)[number]
 

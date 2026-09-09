@@ -114,6 +114,10 @@ export class LiveAdoptionStore implements AdoptionStore {
         target_team_goal_id TEXT NOT NULL,
         target_role TEXT NOT NULL
       );
+      CREATE TABLE IF NOT EXISTS adoption_cursor (
+        id INTEGER PRIMARY KEY CHECK (id = 1),
+        cursor INTEGER NOT NULL CHECK (cursor >= 0)
+      );
       CREATE TABLE IF NOT EXISTS retired_runs (
         agent_run_id TEXT PRIMARY KEY,
         team_goal_id TEXT NOT NULL,
@@ -158,8 +162,29 @@ export class LiveAdoptionStore implements AdoptionStore {
         predecessor_agent_run_id TEXT,
         vacancy_generation INTEGER NOT NULL
       );
+      CREATE TABLE IF NOT EXISTS retirement_cursor (
+        id INTEGER PRIMARY KEY CHECK (id = 1),
+        cursor INTEGER NOT NULL CHECK (cursor >= 0)
+      );
+      CREATE TABLE IF NOT EXISTS retirement_vacancies (
+        team_goal_id TEXT NOT NULL,
+        role TEXT NOT NULL CHECK (role IN ('coordinator','builder','reviewer')),
+        generation INTEGER NOT NULL CHECK (generation >= 0),
+        PRIMARY KEY (team_goal_id, role)
+      );
     `)
     this.db.exec('CREATE TABLE IF NOT EXISTS adoption_takeovers (agent_run_id TEXT PRIMARY KEY REFERENCES adopted_runs(agent_run_id))')
+    this.db.exec(`
+      INSERT OR IGNORE INTO adoption_cursor (id, cursor)
+      SELECT 1, COALESCE(MAX(sequence), 0) FROM adoption_events;
+      INSERT OR IGNORE INTO retirement_cursor (id, cursor)
+      SELECT 1, COALESCE(MAX(sequence), 0) FROM retirement_events;
+      INSERT OR IGNORE INTO retirement_vacancies (team_goal_id, role, generation)
+      SELECT team_goal_id, role,
+             SUM(CASE WHEN predecessor_agent_run_id IS NULL THEN 1 ELSE 2 END)
+      FROM retired_runs
+      GROUP BY team_goal_id, role
+    `)
     this.validateOrPersistConfiguration()
   }
 
@@ -215,6 +240,10 @@ export class LiveAdoptionStore implements AdoptionStore {
     }
   }
 
+  purgeCommittedRun(agentRunId: string): void {
+    this.transaction((tx) => tx.purgeCommittedRun(agentRunId))
+  }
+
   snapshot(): DurableAdoptionState {
     const committedRuns = this.db
       .prepare('SELECT * FROM adopted_runs ORDER BY committed_at ASC')
@@ -223,8 +252,8 @@ export class LiveAdoptionStore implements AdoptionStore {
       .prepare('SELECT * FROM adoption_events ORDER BY sequence ASC')
       .all() as Record<string, unknown>[]
     const cursorRow = this.db
-      .prepare('SELECT COALESCE(MAX(sequence), 0) AS cursor FROM adoption_events')
-      .get() as { cursor: number }
+      .prepare('SELECT cursor FROM adoption_cursor WHERE id = 1')
+      .get() as { cursor: number } | undefined
     const config = this.db
       .prepare('SELECT * FROM adoption_config WHERE id = 1')
       .get() as Record<string, unknown>
@@ -233,7 +262,7 @@ export class LiveAdoptionStore implements AdoptionStore {
       teamGoalId: String(config.team_goal_id),
       roles: JSON.parse(String(config.roles)) as Role[],
       committedRuns: committedRuns.map(rowToCommitted),
-      cursor: Number(cursorRow.cursor),
+      cursor: cursorRow === undefined ? 0 : Number(cursorRow.cursor),
       events: events.map(rowToEvent),
     }
     return validateDurableAdoptionState(state)
@@ -328,15 +357,20 @@ export class LiveAdoptionStore implements AdoptionStore {
       },
       currentCursor: () => {
         const row = store.db
-          .prepare('SELECT COALESCE(MAX(sequence), 0) AS cursor FROM adoption_events')
-          .get() as { cursor: number }
-        return Number(row.cursor)
+          .prepare('SELECT cursor FROM adoption_cursor WHERE id = 1')
+          .get() as { cursor: number } | undefined
+        return row === undefined ? 0 : Number(row.cursor)
       },
       eventsAfter: (after) => {
         const rows = store.db
           .prepare('SELECT * FROM adoption_events WHERE sequence > ? ORDER BY sequence ASC')
           .all(after) as Record<string, unknown>[]
         return rows.map(rowToEvent)
+      },
+      purgeCommittedRun: (agentRunId) => {
+        store.db.prepare('DELETE FROM adoption_takeovers WHERE agent_run_id = ?').run(agentRunId)
+        store.db.prepare('DELETE FROM adoption_events WHERE agent_run_id = ?').run(agentRunId)
+        store.db.prepare('DELETE FROM adopted_runs WHERE agent_run_id = ?').run(agentRunId)
       },
       commitAdoption: (input) => {
         const proposal = requirePlainRecord(input.proposal, 'Adoption proposal')
@@ -390,6 +424,9 @@ export class LiveAdoptionStore implements AdoptionStore {
             role,
           )
         const sequence = Number(info.lastInsertRowid)
+        store.db
+          .prepare('UPDATE adoption_cursor SET cursor = MAX(cursor, ?) WHERE id = 1')
+          .run(sequence)
         const committed: CommittedAdoption = {
           proposalId: requireId(proposal.proposalId, 'proposalId'),
           proposalDigest: requireDigest(proposal.proposalDigest),

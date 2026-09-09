@@ -41,7 +41,7 @@ import {
   type RetirementStore,
   RetirementError,
 } from './retirement-store.ts'
-import { ROLES, type Role } from '../src/protocol.ts'
+import { ROLES, isBoundedId, type Role } from '../src/protocol.ts'
 
 /**
  * The retirement port injected into the runner. It composes the retirement
@@ -911,6 +911,12 @@ export class LiveAdoptionRunner {
         replacementAgentRunId: retirement.committedRuns.find(
           (replacement) => replacement.predecessorAgentRunId === run.agentRunId,
         )?.agentRunId ?? null,
+        canPurge: !retirement.committedRuns.some(
+          (replacement) => replacement.predecessorAgentRunId === run.agentRunId,
+        ),
+        purgeBlockedReason: retirement.committedRuns.some(
+          (replacement) => replacement.predecessorAgentRunId === run.agentRunId,
+        ) ? 'Delete the replacement successor first to preserve predecessor linkage.' : null,
       })),
     }
   }
@@ -1075,6 +1081,41 @@ export class LiveAdoptionRunner {
       state: 'retired',
       alreadyRetired: committed.alreadyRetired,
     }
+  }
+
+  /** Permanently remove one terminal retired Run from Omarchestra history. */
+  purgeRetiredAgentRun(agentRunId: string): { agentRunId: string; state: 'purged' } {
+    if (this.retirement === undefined) {
+      throw new ObserverError('transaction_failed', 'retirement port is not configured')
+    }
+    if (!isBoundedId(agentRunId)) {
+      throw new ObserverError('invalid_envelope', 'agentRunId must be a bounded identity')
+    }
+    const retirementSnapshot = this.retirement.store.snapshot()
+    const retired = retirementSnapshot.retiredRuns.find((run) => run.agentRunId === agentRunId)
+    if (retired === undefined) {
+      throw new ObserverError('not_retired', 'the Agent Run is not retained as retired history')
+    }
+    const successor = retirementSnapshot.committedRuns.find(
+      (replacement) => replacement.predecessorAgentRunId === agentRunId,
+    )
+    if (successor !== undefined) {
+      throw new ObserverError('purge_blocked', 'delete the replacement successor before deleting this predecessor')
+    }
+    try {
+      // The durable SQLite implementation performs both table families in
+      // one transaction. The in-memory adapter composes the same mutations
+      // through the two injected stores for fake-only tests.
+      this.retirement.store.purgeRetiredRun(agentRunId)
+      this.store.transaction((tx) => tx.purgeCommittedRun(agentRunId))
+    } catch (error) {
+      if (error instanceof RetirementError) {
+        throw retirementErrorToObserverError(error)
+      }
+      throw error
+    }
+    this.revision += 1
+    return { agentRunId, state: 'purged' }
   }
 
   private findLiveCommitByAgentRunId(agentRunId: string): CommittedAdoption | ReplacementCommit | null {
@@ -1360,21 +1401,12 @@ export class LiveAdoptionRunner {
 
   private findPredecessorAgentRunId(teamGoalId: string, role: Role, vacancyGeneration: number): string | null {
     if (this.retirement === undefined) return null
-    const snapshot = this.retirement.store.snapshot()
-    for (const run of snapshot.retiredRuns) {
-      if (run.teamGoalId === teamGoalId && run.role === role) {
-        const generation = snapshot.vacancyGeneration
-        if (generation === vacancyGeneration) return run.agentRunId
-      }
-    }
     const computed = this.retirement.store.transaction((tx) => tx.currentVacancyGeneration(teamGoalId, role))
-    if (computed === vacancyGeneration) {
-      const match = this.retirement.store.snapshot().retiredRuns
-        .filter((run) => run.teamGoalId === teamGoalId && run.role === role)
-        .sort((a, b) => b.retiredAt - a.retiredAt)[0]
-      return match?.agentRunId ?? null
-    }
-    return null
+    if (computed !== vacancyGeneration) return null
+    const match = this.retirement.store.snapshot().retiredRuns
+      .filter((run) => run.teamGoalId === teamGoalId && run.role === role)
+      .sort((a, b) => b.retiredAt - a.retiredAt)[0]
+    return match?.agentRunId ?? null
   }
 }
 
@@ -1418,6 +1450,7 @@ function retirementErrorToObserverError(error: RetirementError): ObserverError {
   const code = error.code as 'invalid_envelope' | 'stale_revision' | 'not_eligible' | 'role_mismatch'
     | 'node_mismatch' | 'already_retired' | 'predecessor_unknown' | 'predecessor_mismatch'
     | 'vacancy_stale' | 'invalid_vacancy' | 'role_occupied' | 'transaction_failed'
+    | 'not_retired' | 'purge_blocked'
   return new ObserverError(code, error.message)
 }
 

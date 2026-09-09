@@ -194,6 +194,8 @@ test('presentation exposes retired cards additively without changing managed car
   assert.equal(managed.managedCards.length, 1, 'managedCards remains exactly the live replacement')
   const retired = runner.retiredSnapshot()
   assert.equal(retired.retiredCards.length, 1, 'retiredCards contains exactly one tombstone')
+  assert.equal((retired.retiredCards[0] as { canPurge: boolean }).canPurge, false)
+  assert.match(String((retired.retiredCards[0] as { purgeBlockedReason: string }).purgeBlockedReason), /successor/i)
 
   const presentation = new LiveAdoptionPresentation({
     runner,
@@ -273,7 +275,20 @@ test('presentation dispatches a request_retirement intent and moves the card to 
   assert.equal(after.retiredCards.length, 1, 'the retired run appears exactly once as a retired card')
   assert.equal(after.retiredCards[0].agentRunId, IDS.agentRunId)
   assert.equal(typeof after.retiredCards[0].piStatus, 'string')
-  void retirementStore
+  assert.equal((after.retiredCards[0] as { canPurge: boolean }).canPurge, true)
+
+  pendingIntent = { intentId: 'purge-intent-1', kind: 'purge_retired', agentRunId: IDS.agentRunId }
+  await presentation.poll()
+  assert.equal(applied.length, 3)
+  const purged = applied[2] as { managedCards: unknown[]; retiredCards: unknown[] }
+  assert.equal(purged.managedCards.length, 0)
+  assert.equal(purged.retiredCards.length, 0)
+  assert.equal(runner.retiredSnapshot().retiredCards.length, 0)
+  assert.equal(retirementStore.snapshot().vacancyGeneration, 1)
+  assert.throws(
+    () => runner.purgeRetiredAgentRun(IDS.agentRunId),
+    /not retained|not_retired/i,
+  )
 })
 
 test('ordinary Adoption choices reopen a retired Role and persist predecessor linkage', async () => {
@@ -336,4 +351,13 @@ test('ordinary Adoption choices reopen a retired Role and persist predecessor li
   assert.equal(retiredReplacement.agentRunId, replacementAgentRunId)
   assert.equal(runner.managedSnapshot().managedCards.length, 0)
   assert.equal(runner.retiredSnapshot().retiredCards.length, 2)
+  assert.throws(
+    () => runner.purgeRetiredAgentRun(IDS.agentRunId),
+    /successor|purge_blocked/i,
+  )
+  runner.purgeRetiredAgentRun(replacementAgentRunId)
+  runner.purgeRetiredAgentRun(IDS.agentRunId)
+  assert.equal(runner.retiredSnapshot().retiredCards.length, 0)
+  assert.equal(retirementStore.snapshot().committedRuns.length, 0)
+  assert.equal(retirementStore.snapshot().vacancyGeneration, 2)
 })

@@ -130,21 +130,55 @@ export class LiveRetirementStore implements RetirementStore {
       .prepare('SELECT * FROM retirement_events ORDER BY sequence ASC')
       .all() as Record<string, unknown>[]
     const cursorRow = this.db
-      .prepare('SELECT COALESCE(MAX(sequence), 0) AS cursor FROM retirement_events')
-      .get() as { cursor: number }
+      .prepare('SELECT cursor FROM retirement_cursor WHERE id = 1')
+      .get() as { cursor: number } | undefined
     const retiredRuns = retiredRows.map(rowToRetired)
     const committedRuns = replacementRows.map(rowToReplacement)
     const events = eventRows.map(rowToEvent)
+    const generationRows = this.db
+      .prepare('SELECT team_goal_id, role, generation FROM retirement_vacancies')
+      .all() as Array<{ team_goal_id: string; role: string; generation: number }>
+    const generationRow = generationRows.reduce(
+      (maximum, row) => Math.max(maximum, Number(row.generation)),
+      0,
+    )
+    const vacancyGenerations = Object.fromEntries(
+      generationRows.map((row) => [`${row.team_goal_id}|${row.role}`, Number(row.generation)]),
+    )
     const last = retiredRuns[retiredRuns.length - 1]
-    const vacancyGeneration = last === undefined
-      ? 0
-      : currentVacancyGenerationStatic(retiredRuns, last.teamGoalId, last.role)
+    const vacancyGeneration = Math.max(
+      Number(generationRow),
+      last === undefined ? 0 : currentVacancyGenerationStatic(retiredRuns, last.teamGoalId, last.role),
+    )
     return {
       retiredRuns,
       committedRuns,
       events,
       vacancyGeneration,
-      cursor: Number(cursorRow.cursor),
+      vacancyGenerations,
+      cursor: cursorRow === undefined ? 0 : Number(cursorRow.cursor),
+    }
+  }
+
+  purgeRetiredRun(agentRunId: string): void {
+    if (this.inTransaction) throw new Error('nested Retirement transactions are not permitted')
+    this.inTransaction = true
+    try {
+      this.db.exec('BEGIN IMMEDIATE')
+      this.buildTransaction().purgeRetiredRun(agentRunId)
+      this.db.prepare('DELETE FROM adoption_takeovers WHERE agent_run_id = ?').run(agentRunId)
+      this.db.prepare('DELETE FROM adoption_events WHERE agent_run_id = ?').run(agentRunId)
+      this.db.prepare('DELETE FROM adopted_runs WHERE agent_run_id = ?').run(agentRunId)
+      this.db.exec('COMMIT')
+    } catch (error) {
+      try {
+        this.db.exec('ROLLBACK')
+      } catch {
+        // best-effort rollback
+      }
+      throw error
+    } finally {
+      this.inTransaction = false
     }
   }
 
@@ -186,17 +220,20 @@ export class LiveRetirementStore implements RetirementStore {
     }
 
     const currentVacancyGeneration = (teamGoalId: string, role: Role): number => {
+      const counter = store.db
+        .prepare('SELECT generation FROM retirement_vacancies WHERE team_goal_id = ? AND role = ?')
+        .get(teamGoalId, role) as { generation: number } | undefined
       const rows = store.db
         .prepare(
           `SELECT predecessor_agent_run_id FROM retired_runs
            WHERE team_goal_id = ? AND role = ? ORDER BY retired_at ASC`,
         )
         .all(teamGoalId, role) as Array<{ predecessor_agent_run_id: string | null }>
-      let generation = 0
+      let computed = 0
       for (const row of rows) {
-        generation += row.predecessor_agent_run_id === null ? 1 : 2
+        computed += row.predecessor_agent_run_id === null ? 1 : 2
       }
-      return generation
+      return Math.max(counter === undefined ? 0 : Number(counter.generation), computed)
     }
 
     const retriedByBinding = (binding: BindingIdentity): RetiredRun | null => {
@@ -243,6 +280,7 @@ export class LiveRetirementStore implements RetirementStore {
       const processIncarnationId = input.processIncarnationId ?? ''
       const piSessionId = input.piSessionId ?? ''
       const extensionInstanceId = input.extensionInstanceId ?? ''
+      const previousGeneration = currentVacancyGeneration(input.teamGoalId, input.role)
       const retiredAt = Date.now()
       store.db
         .prepare(
@@ -264,7 +302,14 @@ export class LiveRetirementStore implements RetirementStore {
           retiredAt,
           input.revision,
         )
-      const newGeneration = currentVacancyGeneration(input.teamGoalId, input.role)
+      const newGeneration = previousGeneration + 1
+      store.db
+        .prepare(
+          `INSERT INTO retirement_vacancies (team_goal_id, role, generation)
+           VALUES (?, ?, ?)
+           ON CONFLICT(team_goal_id, role) DO UPDATE SET generation = excluded.generation`,
+        )
+        .run(input.teamGoalId, input.role, newGeneration)
       const info = store.db
         .prepare(
           `INSERT INTO retirement_events
@@ -278,6 +323,10 @@ export class LiveRetirementStore implements RetirementStore {
           newGeneration,
         )
       void info
+      const sequence = Number(info.lastInsertRowid)
+      store.db
+        .prepare('UPDATE retirement_cursor SET cursor = MAX(cursor, ?) WHERE id = 1')
+        .run(sequence)
       const tombstone: RetiredRun = {
         agentRunId: input.agentRunId,
         teamGoalId: input.teamGoalId,
@@ -386,6 +435,10 @@ export class LiveRetirementStore implements RetirementStore {
           currentGeneration,
         )
       void info
+      const sequence = Number(info.lastInsertRowid)
+      store.db
+        .prepare('UPDATE retirement_cursor SET cursor = MAX(cursor, ?) WHERE id = 1')
+        .run(sequence)
       const replacement: ReplacementCommit = {
         proposalId,
         proposalDigest,
@@ -428,6 +481,24 @@ export class LiveRetirementStore implements RetirementStore {
       throw new RetirementError('transaction_failed', 'retirement is irreversible; revert is not permitted')
     }
 
+    const purgeRetiredRun = (agentRunId: string): void => {
+      const retired = store.db
+        .prepare('SELECT 1 AS one FROM retired_runs WHERE agent_run_id = ?')
+        .get(agentRunId)
+      if (retired === undefined) {
+        throw new RetirementError('not_retired', 'the Agent Run is not retained as retired history')
+      }
+      const successor = store.db
+        .prepare('SELECT 1 AS one FROM retirement_replacements WHERE predecessor_agent_run_id = ?')
+        .get(agentRunId)
+      if (successor !== undefined) {
+        throw new RetirementError('purge_blocked', 'delete the replacement successor before deleting this predecessor')
+      }
+      store.db.prepare('DELETE FROM retirement_events WHERE agent_run_id = ?').run(agentRunId)
+      store.db.prepare('DELETE FROM retirement_replacements WHERE agent_run_id = ?').run(agentRunId)
+      store.db.prepare('DELETE FROM retired_runs WHERE agent_run_id = ?').run(agentRunId)
+    }
+
     return {
       isRetired,
       isRoleVacant,
@@ -439,6 +510,7 @@ export class LiveRetirementStore implements RetirementStore {
       registerObservedIfUnretired,
       beginManagedRecovery,
       revertRetirement,
+      purgeRetiredRun,
     }
   }
 }

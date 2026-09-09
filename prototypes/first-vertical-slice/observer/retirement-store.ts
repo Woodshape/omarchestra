@@ -68,6 +68,8 @@ export interface RetirementStoreSnapshot {
   retiredRuns: RetiredRun[]
   committedRuns: ReplacementCommit[]
   vacancyGeneration: number
+  /** Optional per-(Team Goal, Role) high-water marks for restart reconstruction. */
+  vacancyGenerations?: Record<string, number>
   events: RetirementEvent[]
   cursor: number
 }
@@ -140,12 +142,14 @@ export interface RetirementTransaction {
   registerObservedIfUnretired(input: BindingIdentity & { observedSessionId: string }): void
   beginManagedRecovery(input: { binding: BindingIdentity }): void
   revertRetirement(input: { agentRunId: string; revision: number }): void
+  purgeRetiredRun(agentRunId: string): void
 }
 
 export interface RetirementStore {
   transaction<T>(operation: (tx: RetirementTransaction) => T): T
   snapshot(): RetirementStoreSnapshot
   close(): void
+  purgeRetiredRun(agentRunId: string): void
 }
 
 export interface InMemoryRetirementStoreOptions {
@@ -172,7 +176,8 @@ export interface InMemoryRetirementStoreOptions {
  * - vacancy generation is bumped on retirement and on re-retirement of a
  *   replacement;
  * - replacement proposals must carry the exact current generation;
- * - retired bindings remain tombstones forever.
+ * - retired bindings remain tombstones until the explicit terminal-history
+ *   purge contract removes a leaf and its associated durable history.
  */
 export function createInMemoryRetirementStore(options: InMemoryRetirementStoreOptions = {}): RetirementStore {
   const initial = options.initialState
@@ -180,6 +185,19 @@ export function createInMemoryRetirementStore(options: InMemoryRetirementStoreOp
   let committed: ReplacementCommit[] = initial ? initial.committedRuns.map(cloneReplacement) : []
   let events: RetirementEvent[] = initial ? initial.events.map(cloneEvent) : []
   let cursor = initial ? initial.cursor : 0
+  const vacancyHighWater = new Map<string, number>()
+  const vacancyKey = (teamGoalId: string, role: Role): string => `${teamGoalId}|${role}`
+  if (initial?.vacancyGenerations !== undefined) {
+    for (const [key, value] of Object.entries(initial.vacancyGenerations)) {
+      if (Number.isSafeInteger(value) && value >= 0) vacancyHighWater.set(key, value)
+    }
+  } else {
+    for (const run of retired) {
+      const key = vacancyKey(run.teamGoalId, run.role)
+      const next = (vacancyHighWater.get(key) ?? 0) + (run.predecessorAgentRunId === null ? 1 : 2)
+      vacancyHighWater.set(key, next)
+    }
+  }
   const agentRunIdFactory = options.agentRunIdFactory
     ?? (() => `agent-run-${randomBytes(16).toString('hex')}`)
   const liveCommitForRole = options.liveCommitForRole
@@ -204,11 +222,11 @@ export function createInMemoryRetirementStore(options: InMemoryRetirementStoreOp
       )
     },
     currentVacancyGeneration: (teamGoalId, role) => {
-      let generation = 0
+      let generation = vacancyHighWater.get(vacancyKey(teamGoalId, role)) ?? 0
       for (const run of retired) {
         if (run.teamGoalId !== teamGoalId || run.role !== role) continue
-        if (run.predecessorAgentRunId === null) generation += 1
-        else generation += 2
+        if (run.predecessorAgentRunId === null) generation = Math.max(generation, 1)
+        else generation = Math.max(generation, 2)
       }
       return generation
     },
@@ -297,6 +315,11 @@ export function createInMemoryRetirementStore(options: InMemoryRetirementStoreOp
         state: 'retired',
       }
       retired.push(tombstone)
+      const generationKey = vacancyKey(tombstone.teamGoalId, tombstone.role)
+      vacancyHighWater.set(
+        generationKey,
+        (vacancyHighWater.get(generationKey) ?? 0) + 1,
+      )
       cursor += 1
       events.push({
         sequence: cursor,
@@ -382,46 +405,67 @@ export function createInMemoryRetirementStore(options: InMemoryRetirementStoreOp
     revertRetirement: (input) => {
       throw new RetirementError('transaction_failed', 'retirement is irreversible; revert is not permitted')
     },
+    purgeRetiredRun: (agentRunId) => {
+      if (!retired.some((run) => run.agentRunId === agentRunId)) {
+        throw new RetirementError('not_retired', 'the Agent Run is not retained as retired history')
+      }
+      if (committed.some((run) => run.predecessorAgentRunId === agentRunId)) {
+        throw new RetirementError('purge_blocked', 'delete the replacement successor before deleting this predecessor')
+      }
+      retired = retired.filter((run) => run.agentRunId !== agentRunId)
+      committed = committed.filter((run) => run.agentRunId !== agentRunId)
+      events = events.filter((event) => event.agentRunId !== agentRunId)
+    },
   }
 
-  return {
-    transaction: (operation) => {
-      const retiredSnapshot = retired.map(cloneRetired)
-      const committedSnapshot = committed.map(cloneReplacement)
-      const eventsSnapshot = events.map(cloneEvent)
-      const cursorSnapshot = cursor
-      try {
-        const result = operation(tx)
-        if (result !== null && typeof result === 'object'
-            && typeof (result as Promise<unknown>).then === 'function') {
-          retired = retiredSnapshot
-          committed = committedSnapshot
-          events = eventsSnapshot
-          cursor = cursorSnapshot
-          throw new TypeError('Retirement transaction callbacks must be synchronous')
-        }
-        return result
-      } catch (error) {
+  const transaction = <T>(operation: (retirementTx: RetirementTransaction) => T): T => {
+    const retiredSnapshot = retired.map(cloneRetired)
+    const committedSnapshot = committed.map(cloneReplacement)
+    const eventsSnapshot = events.map(cloneEvent)
+    const cursorSnapshot = cursor
+    const highWaterSnapshot = new Map(vacancyHighWater)
+    try {
+      const result = operation(tx)
+      if (result !== null && typeof result === 'object'
+          && typeof (result as Promise<unknown>).then === 'function') {
         retired = retiredSnapshot
         committed = committedSnapshot
         events = eventsSnapshot
         cursor = cursorSnapshot
-        throw error
+        vacancyHighWater.clear()
+        for (const [key, value] of highWaterSnapshot) vacancyHighWater.set(key, value)
+        throw new TypeError('Retirement transaction callbacks must be synchronous')
       }
-    },
+      return result
+    } catch (error) {
+      retired = retiredSnapshot
+      committed = committedSnapshot
+      events = eventsSnapshot
+      cursor = cursorSnapshot
+      vacancyHighWater.clear()
+      for (const [key, value] of highWaterSnapshot) vacancyHighWater.set(key, value)
+      throw error
+    }
+  }
+
+  return {
+    transaction,
     snapshot: () => ({
       retiredRuns: retired.map(cloneRetired),
       committedRuns: committed.map(cloneReplacement),
       events: events.map(cloneEvent),
-      vacancyGeneration: retired.length === 0
-        ? 0
-        : tx.currentVacancyGeneration(retired[retired.length - 1].teamGoalId, retired[retired.length - 1].role),
+      vacancyGeneration: vacancyHighWater.size === 0 ? 0 : Math.max(...vacancyHighWater.values()),
+      vacancyGenerations: Object.fromEntries(vacancyHighWater),
       cursor,
     }),
+    purgeRetiredRun: (agentRunId) => {
+      transaction((retirementTx) => retirementTx.purgeRetiredRun(agentRunId))
+    },
     close: () => {
       retired = []
       committed = []
       events = []
+      vacancyHighWater.clear()
       cursor = 0
     },
   }
@@ -489,6 +533,8 @@ export const RETIREMENT_ERROR_CODES = Object.freeze([
   'invalid_vacancy',
   'role_occupied',
   'transaction_failed',
+  'not_retired',
+  'purge_blocked',
 ] as const)
 
 export type RetirementErrorCode = (typeof RETIREMENT_ERROR_CODES)[number]
