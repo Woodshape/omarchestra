@@ -1083,7 +1083,7 @@ export class LiveAdoptionRunner {
     }
   }
 
-  /** Permanently remove one terminal retired Run from Omarchestra history. */
+  /** Permanently remove one terminal retired Run's presented history. */
   purgeRetiredAgentRun(agentRunId: string): { agentRunId: string; state: 'purged' } {
     if (this.retirement === undefined) {
       throw new ObserverError('transaction_failed', 'retirement port is not configured')
@@ -1114,6 +1114,23 @@ export class LiveAdoptionRunner {
       }
       throw error
     }
+    // Purge is also an explicit presentation boundary. Do not wait for the
+    // observer lease/close frame to expire before removing the old session;
+    // otherwise deleting its managed records briefly reclassifies the stale
+    // entry as an Unassigned Agent.
+    this.observed.delete(retired.observedSessionId)
+    for (const [proposalId, context] of this.commitContexts) {
+      if (context.observedSessionId === retired.observedSessionId) this.commitContexts.delete(proposalId)
+    }
+    for (const [connection, recovery] of this.recoveries) {
+      if (recovery.committed.agentRunId === agentRunId) this.recoveries.delete(connection)
+    }
+    for (const [connection, managed] of this.managedConnections) {
+      if (managed.committed.agentRunId === agentRunId) this.managedConnections.delete(connection)
+    }
+    this.readyObserved.delete(agentRunId)
+    this.disconnectObserved.delete(agentRunId)
+    this.managedBridgeEnabledValue = [...this.managedConnections.values()].some(value => value.ready)
     this.revision += 1
     return { agentRunId, state: 'purged' }
   }

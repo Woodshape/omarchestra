@@ -284,6 +284,7 @@ test('presentation dispatches a request_retirement intent and moves the card to 
   assert.equal(purged.managedCards.length, 0)
   assert.equal(purged.retiredCards.length, 0)
   assert.equal(runner.retiredSnapshot().retiredCards.length, 0)
+  assert.equal(runner.snapshot().agents.length, 0, 'purge must not reclassify the stale observed session as Unassigned')
   assert.equal(retirementStore.snapshot().vacancyGeneration, 1)
   assert.throws(
     () => runner.purgeRetiredAgentRun(IDS.agentRunId),

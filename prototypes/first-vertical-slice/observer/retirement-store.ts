@@ -10,10 +10,10 @@
  *
  * Contract invariants (from docs/plans/explicit-retirement-replacement.md):
  *
- * - Retired commitment identities are tombstones. They remain durably
- *   recorded as `retired` and continue to forbid registration, readiness,
- *   recovery, late acknowledgements, and authority-bearing results even when
- *   the same process/session/extension binding returns with a fresh
+ * - Retired commitment identities are tombstones while history is retained.
+ *   After explicit purge, a minimal exact-binding fence remains and continues
+ *   to forbid registration, readiness, recovery, late acknowledgements, and
+ *   authority-bearing results even when the same binding returns with a fresh
  *   observed session id.
  * - Each Role carries an independent vacancy generation. A replacement
  *   proposal must carry the exact generation visible at proposal time. The
@@ -67,6 +67,8 @@ export interface ReplacementCommit extends CommittedAdoption {
 export interface RetirementStoreSnapshot {
   retiredRuns: RetiredRun[]
   committedRuns: ReplacementCommit[]
+  /** Minimal non-presented fences retained after history purge. */
+  purgedBindings?: BindingIdentity[]
   vacancyGeneration: number
   /** Optional per-(Team Goal, Role) high-water marks for restart reconstruction. */
   vacancyGenerations?: Record<string, number>
@@ -176,13 +178,14 @@ export interface InMemoryRetirementStoreOptions {
  * - vacancy generation is bumped on retirement and on re-retirement of a
  *   replacement;
  * - replacement proposals must carry the exact current generation;
- * - retired bindings remain tombstones until the explicit terminal-history
- *   purge contract removes a leaf and its associated durable history.
+ * - retired history may be purged only for a leaf; its exact binding fence
+ *   remains outside the presented historical records.
  */
 export function createInMemoryRetirementStore(options: InMemoryRetirementStoreOptions = {}): RetirementStore {
   const initial = options.initialState
   let retired: RetiredRun[] = initial ? initial.retiredRuns.map(cloneRetired) : []
   let committed: ReplacementCommit[] = initial ? initial.committedRuns.map(cloneReplacement) : []
+  let purgedBindings: BindingIdentity[] = initial?.purgedBindings?.map(cloneBinding) ?? []
   let events: RetirementEvent[] = initial ? initial.events.map(cloneEvent) : []
   let cursor = initial ? initial.cursor : 0
   const vacancyHighWater = new Map<string, number>()
@@ -212,7 +215,7 @@ export function createInMemoryRetirementStore(options: InMemoryRetirementStoreOp
       && run.originalCommitment.processIncarnationId === binding.processIncarnationId
       && run.originalCommitment.piSessionId === binding.piSessionId
       && run.originalCommitment.extensionInstanceId === binding.extensionInstanceId
-    )),
+    )) || purgedBindings.some((fence) => bindingKey(fence) === bindingKey(binding)),
     isRoleVacant: (teamGoalId, role) => {
       const retiredAgentRunIds = new Set(retired.map((run) => run.agentRunId))
       return !committed.some(
@@ -406,12 +409,14 @@ export function createInMemoryRetirementStore(options: InMemoryRetirementStoreOp
       throw new RetirementError('transaction_failed', 'retirement is irreversible; revert is not permitted')
     },
     purgeRetiredRun: (agentRunId) => {
-      if (!retired.some((run) => run.agentRunId === agentRunId)) {
+      const target = retired.find((run) => run.agentRunId === agentRunId)
+      if (target === undefined) {
         throw new RetirementError('not_retired', 'the Agent Run is not retained as retired history')
       }
       if (committed.some((run) => run.predecessorAgentRunId === agentRunId)) {
         throw new RetirementError('purge_blocked', 'delete the replacement successor before deleting this predecessor')
       }
+      purgedBindings.push(cloneBinding(target.originalCommitment))
       retired = retired.filter((run) => run.agentRunId !== agentRunId)
       committed = committed.filter((run) => run.agentRunId !== agentRunId)
       events = events.filter((event) => event.agentRunId !== agentRunId)
@@ -422,6 +427,7 @@ export function createInMemoryRetirementStore(options: InMemoryRetirementStoreOp
     const retiredSnapshot = retired.map(cloneRetired)
     const committedSnapshot = committed.map(cloneReplacement)
     const eventsSnapshot = events.map(cloneEvent)
+    const purgedBindingsSnapshot = purgedBindings.map(cloneBinding)
     const cursorSnapshot = cursor
     const highWaterSnapshot = new Map(vacancyHighWater)
     try {
@@ -431,6 +437,7 @@ export function createInMemoryRetirementStore(options: InMemoryRetirementStoreOp
         retired = retiredSnapshot
         committed = committedSnapshot
         events = eventsSnapshot
+        purgedBindings = purgedBindingsSnapshot
         cursor = cursorSnapshot
         vacancyHighWater.clear()
         for (const [key, value] of highWaterSnapshot) vacancyHighWater.set(key, value)
@@ -441,6 +448,7 @@ export function createInMemoryRetirementStore(options: InMemoryRetirementStoreOp
       retired = retiredSnapshot
       committed = committedSnapshot
       events = eventsSnapshot
+      purgedBindings = purgedBindingsSnapshot
       cursor = cursorSnapshot
       vacancyHighWater.clear()
       for (const [key, value] of highWaterSnapshot) vacancyHighWater.set(key, value)
@@ -453,6 +461,7 @@ export function createInMemoryRetirementStore(options: InMemoryRetirementStoreOp
     snapshot: () => ({
       retiredRuns: retired.map(cloneRetired),
       committedRuns: committed.map(cloneReplacement),
+      purgedBindings: purgedBindings.map(cloneBinding),
       events: events.map(cloneEvent),
       vacancyGeneration: vacancyHighWater.size === 0 ? 0 : Math.max(...vacancyHighWater.values()),
       vacancyGenerations: Object.fromEntries(vacancyHighWater),
@@ -464,6 +473,7 @@ export function createInMemoryRetirementStore(options: InMemoryRetirementStoreOp
     close: () => {
       retired = []
       committed = []
+      purgedBindings = []
       events = []
       vacancyHighWater.clear()
       cursor = 0
@@ -486,6 +496,10 @@ function cloneRetired(run: RetiredRun): RetiredRun {
 
 function cloneReplacement(run: ReplacementCommit): ReplacementCommit {
   return { ...run }
+}
+
+function cloneBinding(binding: BindingIdentity): BindingIdentity {
+  return { ...binding }
 }
 
 function cloneEvent(event: RetirementEvent): RetirementEvent {

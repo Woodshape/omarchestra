@@ -172,6 +172,14 @@ export class LiveAdoptionStore implements AdoptionStore {
         generation INTEGER NOT NULL CHECK (generation >= 0),
         PRIMARY KEY (team_goal_id, role)
       );
+      CREATE TABLE IF NOT EXISTS purged_bindings (
+        execution_node_id TEXT NOT NULL,
+        process_incarnation_id TEXT NOT NULL,
+        pi_session_id TEXT NOT NULL,
+        extension_instance_id TEXT NOT NULL,
+        purged_at INTEGER NOT NULL,
+        PRIMARY KEY (execution_node_id, process_incarnation_id, pi_session_id, extension_instance_id)
+      );
     `)
     this.db.exec('CREATE TABLE IF NOT EXISTS adoption_takeovers (agent_run_id TEXT PRIMARY KEY REFERENCES adopted_runs(agent_run_id))')
     this.db.exec(`

@@ -370,8 +370,19 @@ test('durable purge removes terminal history and Adoption records but preserves 
     assert.equal(stores.adoption.snapshot().cursor, 1)
     assert.equal(stores.retirement.snapshot().retiredRuns.length, 0)
     assert.equal(stores.retirement.snapshot().events.length, 0)
+    assert.equal(stores.retirement.snapshot().purgedBindings?.length, 1)
     assert.equal(stores.retirement.snapshot().cursor, 1)
     assert.equal(stores.retirement.snapshot().vacancyGeneration, 1)
+    assert.throws(
+      () => stores.retirement.transaction((tx) => tx.registerObservedIfUnretired({
+        observedSessionId: IDS.observedSessionId,
+        executionNodeId: IDS.executionNodeId,
+        processIncarnationId: IDS.processIncarnationId,
+        piSessionId: IDS.piSessionId,
+        extensionInstanceId: IDS.extensionInstanceId,
+      })),
+      /retired|already_retired/i,
+    )
 
     stores.adoption.close()
     const reopened = buildStores(databasePath, () => IDS.agentRunIdR)
@@ -379,6 +390,7 @@ test('durable purge removes terminal history and Adoption records but preserves 
       assert.equal(reopened.adoption.snapshot().committedRuns.length, 0)
       assert.equal(reopened.adoption.snapshot().cursor, 1)
       assert.equal(reopened.retirement.snapshot().retiredRuns.length, 0)
+      assert.equal(reopened.retirement.snapshot().purgedBindings?.length, 1)
       assert.equal(reopened.retirement.snapshot().cursor, 1)
       assert.equal(reopened.retirement.snapshot().vacancyGeneration, 1)
     } finally {

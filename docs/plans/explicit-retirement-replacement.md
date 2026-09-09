@@ -8,7 +8,7 @@ Authority: [MVP design](../design/mvp.md#explicit-retirement-and-replacement), [
 
 1. Select the disconnected/exited Run and explicitly confirm **Retire Agent Run**, naming its Team Goal and Role and warning that retirement does not stop its process/tools.
 2. Commit irreversible retirement and Role release; retain the historical card as retired, distinct from disconnected. Do not automatically retire on lease expiry.
-3. Optionally select **Delete Retired History** on a terminal retired card. The action is explicit and irreversible, deletes only Omarchestra's durable Run/retirement records, is blocked while a replacement descendant remains, and never deletes Pi history, session files, processes, tools, or external artifacts. Purge newest-to-oldest preserves predecessor linkage while retained.
+3. Optionally select **Delete Retired History** on a terminal retired card. The action is explicit and irreversible, deletes the selected Omarchestra Run/retirement history and card while retaining only a minimal non-presented identity fence, is blocked while a replacement descendant remains, and never deletes Pi history, session files, processes, tools, or external artifacts. Purge newest-to-oldest preserves predecessor linkage while retained.
 4. User starts visible Pi themselves, optionally resuming saved history. No automatic Pi launch, history inspection, or session-file identity correlation.
 5. Select that Unassigned Pi and the vacant Role, then use the existing exact confirmed/acknowledged Adoption flow. Persist a predecessor link and a new Agent Run identity.
 6. Keep uncertain old work blocked for reconciliation. This bounded prototype dispatches zero Assignments.
@@ -17,7 +17,7 @@ Authority: [MVP design](../design/mvp.md#explicit-retirement-and-replacement), [
 
 - Extend the existing single runner/store authority, not a parallel registry or UI-owned state machine.
 - Persist retirement and Role vacancy atomically with expected Run/revision guards. Preserve original Adoption commitments, takeover records, and binding tombstones while retained; only the separately confirmed terminal purge may delete those selected historical records. Historical commitments must no longer imply current Role occupancy.
-- Persist a Role vacancy generation/predecessor so stale replacements cannot claim a subsequently occupied or re-retired Role. Check it again in the synchronous Adoption transaction. Explicit purge preserves a monotonic vacancy-generation high-water mark.
+- Persist a Role vacancy generation/predecessor so stale replacements cannot claim a subsequently occupied or re-retired Role. Check it again in the synchronous Adoption transaction. Explicit purge preserves a monotonic vacancy-generation high-water mark and a minimal exact-binding fence.
 - Make exact repeated retirement idempotent; reject conflicting or stale intents. If reconnect/readiness wins the race before retirement, reject a disconnected-only retirement until the operator refreshes and reconfirms an eligible state.
 - Reject retired recovery proofs, readiness/lease renewal, late acknowledgements, takeover updates, and authority-bearing results before mutation. A retired identity cannot bypass fencing by registering another observed ID.
 - Successful replacement never mutates the predecessor's original commitment. Failed acknowledgement, disconnect, expiry, or transaction failure cannot resurrect it or leave partial replacement state.

@@ -54,6 +54,13 @@
  *     predecessor_agent_run_id TEXT,
  *     vacancy_generation INTEGER NOT NULL
  *   )
+ *   purged_bindings (
+ *     execution_node_id TEXT NOT NULL,
+ *     process_incarnation_id TEXT NOT NULL,
+ *     pi_session_id TEXT NOT NULL,
+ *     extension_instance_id TEXT NOT NULL,
+ *     purged_at INTEGER NOT NULL
+ *   )
  */
 
 import { DatabaseSync } from 'node:sqlite'
@@ -123,6 +130,9 @@ export class LiveRetirementStore implements RetirementStore {
     const retiredRows = this.db
       .prepare('SELECT * FROM retired_runs ORDER BY retired_at ASC')
       .all() as Record<string, unknown>[]
+    const purgedBindingRows = this.db
+      .prepare('SELECT * FROM purged_bindings ORDER BY purged_at ASC')
+      .all() as Record<string, unknown>[]
     const replacementRows = this.db
       .prepare('SELECT * FROM retirement_replacements ORDER BY committed_at ASC')
       .all() as Record<string, unknown>[]
@@ -133,6 +143,7 @@ export class LiveRetirementStore implements RetirementStore {
       .prepare('SELECT cursor FROM retirement_cursor WHERE id = 1')
       .get() as { cursor: number } | undefined
     const retiredRuns = retiredRows.map(rowToRetired)
+    const purgedBindings = purgedBindingRows.map(rowToBinding)
     const committedRuns = replacementRows.map(rowToReplacement)
     const events = eventRows.map(rowToEvent)
     const generationRows = this.db
@@ -153,6 +164,7 @@ export class LiveRetirementStore implements RetirementStore {
     return {
       retiredRuns,
       committedRuns,
+      purgedBindings,
       events,
       vacancyGeneration,
       vacancyGenerations,
@@ -194,9 +206,18 @@ export class LiveRetirementStore implements RetirementStore {
         .prepare(
           `SELECT 1 AS one FROM retired_runs
            WHERE execution_node_id = ? AND process_incarnation_id = ?
-             AND pi_session_id = ? AND extension_instance_id = ?`,
+             AND pi_session_id = ? AND extension_instance_id = ?
+           UNION ALL
+           SELECT 1 AS one FROM purged_bindings
+           WHERE execution_node_id = ? AND process_incarnation_id = ?
+             AND pi_session_id = ? AND extension_instance_id = ?
+           LIMIT 1`,
         )
         .get(
+          binding.executionNodeId,
+          binding.processIncarnationId,
+          binding.piSessionId,
+          binding.extensionInstanceId,
           binding.executionNodeId,
           binding.processIncarnationId,
           binding.piSessionId,
@@ -494,6 +515,28 @@ export class LiveRetirementStore implements RetirementStore {
       if (successor !== undefined) {
         throw new RetirementError('purge_blocked', 'delete the replacement successor before deleting this predecessor')
       }
+      const binding = store.db
+        .prepare(
+          `SELECT execution_node_id, process_incarnation_id, pi_session_id, extension_instance_id
+           FROM retired_runs WHERE agent_run_id = ?`,
+        )
+        .get(agentRunId) as Record<string, unknown> | undefined
+      if (binding === undefined) {
+        throw new RetirementError('not_retired', 'the Agent Run is not retained as retired history')
+      }
+      store.db
+        .prepare(
+          `INSERT OR IGNORE INTO purged_bindings
+           (execution_node_id, process_incarnation_id, pi_session_id, extension_instance_id, purged_at)
+           VALUES (?, ?, ?, ?, ?)`,
+        )
+        .run(
+          String(binding.execution_node_id),
+          String(binding.process_incarnation_id),
+          String(binding.pi_session_id),
+          String(binding.extension_instance_id),
+          Date.now(),
+        )
       store.db.prepare('DELETE FROM retirement_events WHERE agent_run_id = ?').run(agentRunId)
       store.db.prepare('DELETE FROM retirement_replacements WHERE agent_run_id = ?').run(agentRunId)
       store.db.prepare('DELETE FROM retired_runs WHERE agent_run_id = ?').run(agentRunId)
@@ -526,6 +569,15 @@ function currentVacancyGenerationStatic(retired: RetiredRun[], teamGoalId: strin
     generation += run.predecessorAgentRunId === null ? 1 : 2
   }
   return generation
+}
+
+function rowToBinding(row: Record<string, unknown>): BindingIdentity {
+  return {
+    executionNodeId: String(row.execution_node_id),
+    processIncarnationId: String(row.process_incarnation_id),
+    piSessionId: String(row.pi_session_id),
+    extensionInstanceId: String(row.extension_instance_id),
+  }
 }
 
 function rowToRetired(row: Record<string, unknown>): RetiredRun {
