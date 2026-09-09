@@ -232,7 +232,7 @@ export class LiveAdoptionRunner {
     if (record === null || typeof record !== 'object') {
       throw new TypeError('observed record must be a plain object')
     }
-    if (this.store.transaction(tx => tx.isBindingCommitted(bindingOfRecord(record)))) {
+    if (this.committedByBinding(bindingOfRecord(record)) !== null) {
       throw new ObserverError('already_managed', 'committed binding requires challenged recovery')
     }
     if (this.retirement !== undefined) {
@@ -640,6 +640,8 @@ export class LiveAdoptionRunner {
   /** Look up a committed binding independent of any observed ID. */
   committedByBinding(binding: BindingIdentity): CommittedAdoption | null {
     return this.store.transaction((tx) => tx.committedByBinding(binding))
+      ?? this.retirement?.store.snapshot().committedRuns.find(run => sameBindingIdentity(run, binding))
+      ?? null
   }
 
   /**
@@ -649,7 +651,7 @@ export class LiveAdoptionRunner {
    * transport. It never creates an observed record or a second commitment.
    */
   beginRecovery(connection: object, binding: BindingIdentity): RecoveryChallenge {
-    const committed = this.store.transaction((tx) => tx.committedByBinding(binding))
+    const committed = this.committedByBinding(binding)
     if (committed === null) {
       throw new ObserverError('proposal_not_found', 'no committed Adoption binding for recovery')
     }
@@ -880,7 +882,8 @@ export class LiveAdoptionRunner {
         managedCards.push({
           agentRunId: card.agentRunId,
           role: card.targetRole,
-          piStatus: card.piStatus,
+          piStatus: this.store.isManualTakeover?.(card.agentRunId)
+            ? this.manualControl(replacement).piStatus : card.piStatus,
           connectionStatus: [...this.managedConnections.values()].some(
             (value) => value.committed.agentRunId === card.agentRunId && this.clock.now() < value.leaseUntil,
           ) ? 'connected' : 'disconnected',

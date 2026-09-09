@@ -193,6 +193,7 @@ export class LiveAdoptionStore implements AdoptionStore {
       FROM retired_runs
       GROUP BY team_goal_id, role
     `)
+    this.db.exec('CREATE TABLE IF NOT EXISTS replacement_takeovers (agent_run_id TEXT PRIMARY KEY REFERENCES retirement_replacements(agent_run_id))')
     this.validateOrPersistConfiguration()
   }
 
@@ -277,11 +278,13 @@ export class LiveAdoptionStore implements AdoptionStore {
   }
 
   recordManualTakeover(agentRunId: string): void {
-    this.db.prepare('INSERT OR IGNORE INTO adoption_takeovers (agent_run_id) VALUES (?)').run(agentRunId)
+    const replacement = this.db.prepare('SELECT 1 FROM retirement_replacements WHERE agent_run_id = ?').get(agentRunId)
+    const table = replacement ? 'replacement_takeovers' : 'adoption_takeovers'
+    this.db.prepare(`INSERT OR IGNORE INTO ${table} (agent_run_id) VALUES (?)`).run(agentRunId)
   }
 
   isManualTakeover(agentRunId: string): boolean {
-    return this.db.prepare('SELECT agent_run_id FROM adoption_takeovers WHERE agent_run_id = ?').get(agentRunId) !== undefined
+    return this.db.prepare('SELECT agent_run_id FROM adoption_takeovers WHERE agent_run_id = ? UNION ALL SELECT agent_run_id FROM replacement_takeovers WHERE agent_run_id = ?').get(agentRunId, agentRunId) !== undefined
   }
 
   close(): void {

@@ -1,6 +1,8 @@
 # Explicit retirement and replacement
 
-Status: **User-approved policy; retirement/replacement implemented; terminal-history purge implemented and targeted validation passing.**
+Status: **Prototype implemented; replacement takeover/recovery defect corrected with composed SQLite tests; operator-reported focused live replacement-takeover PASS and patch self-review complete. Independent review and live reconnect/restart validation remain pending.**
+
+See [replacement takeover correction](../../prototypes/first-vertical-slice/evidence/replacement-takeover-fix.md). The operator's earlier checklist PASS does not close acceptance: replacement takeover failed and a fresh Adoption after full purge does not exercise that path.
 
 Authority: [MVP design](../design/mvp.md#explicit-retirement-and-replacement), [terminal behavior](../design/pi-terminal-behavior.md#explicit-retirement-and-replacement), [connection-bound identity ADR](../adr/0003-use-connection-bound-observer-capabilities.md), and [terminal-history purge ADR](../adr/0004-explicit-purge-of-terminal-retired-history.md).
 

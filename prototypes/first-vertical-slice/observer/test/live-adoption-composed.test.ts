@@ -349,6 +349,7 @@ function createExtensionHarness(durableStore?: AdoptionStore, loseCommittedDeliv
   const bridge = new LiveAdoptionManagedBridge()
   const runner = new LiveAdoptionRunner({
     store,
+    retirement: retirementPort(store),
     executionNodeId: IDS.executionNodeId,
     teamGoalId: IDS.teamGoalId,
     roles: ['coordinator', 'builder', 'reviewer'],
@@ -405,7 +406,7 @@ function createExtensionHarness(durableStore?: AdoptionStore, loseCommittedDeliv
 
   return { clock, store, runner, gateway, bridge, host, heartbeatCtrl, reconnectCtrl,
     async restart(reopened: AdoptionStore, whileDisconnected?: () => Promise<unknown>) {
-      const recovered = new LiveAdoptionRunner({ store: reopened, executionNodeId: IDS.executionNodeId,
+      const recovered = new LiveAdoptionRunner({ retirement: retirementPort(reopened), store: reopened, executionNodeId: IDS.executionNodeId,
         teamGoalId: IDS.teamGoalId, roles: ['coordinator','builder','reviewer'], clock })
       targetGateway = new LiveAdoptionGatewayCore({ runner: recovered, executionNodeId: IDS.executionNodeId,
         teamGoalId: IDS.teamGoalId, roles: ['coordinator','builder','reviewer'], clock })
@@ -419,6 +420,13 @@ function createExtensionHarness(durableStore?: AdoptionStore, loseCommittedDeliv
       return recovered
     },
   }
+}
+
+function retirementPort(store: AdoptionStore) {
+  if (!(store instanceof LiveAdoptionStore)) return undefined
+  return { store: store.retirementStore(), revisionOf: () => 1,
+    commitAgentRunId: () => 'unused-original', commitReplacementAgentRunId: () => 'unused-replacement',
+    replacementNonce: () => 'unused-nonce' }
 }
 
 const settle = (): Promise<void> => new Promise<void>((resolve) => setTimeout(resolve, 0))
@@ -1050,4 +1058,48 @@ test('F16 crash-stage: committed delivery loss recovers through gateway recovery
   assert.equal(restartedStore.snapshot().events.length, 1, 'event count must be unchanged')
   restartedStore.close()
   fs.rmSync(path.dirname(dbPath), { recursive: true, force: true })
+})
+
+for (const loseDelivery of [false, true]) test(`replacement same-Pi takeover and recovery across SQLite reopen; lost=${loseDelivery}`, async () => {
+  const databasePath = tempDbPath()
+  const config = { databasePath, executionNodeId: IDS.executionNodeId, teamGoalId: IDS.teamGoalId, roles: ['coordinator', 'builder', 'reviewer'] }
+  const store = new LiveAdoptionStore(config)
+  let reopened: LiveAdoptionStore | undefined
+  try {
+    store.retirementStore().transaction(tx => tx.commitRetirement({
+      agentRunId: 'predecessor', teamGoalId: IDS.teamGoalId, role: 'builder',
+      observedSessionId: 'previous-observed', revision: 1, executionNodeId: IDS.executionNodeId,
+      processIncarnationId: 'previous-process', piSessionId: 'previous-session', extensionInstanceId: 'previous-extension',
+    }))
+    const h = createExtensionHarness(store, loseDelivery)
+    await h.host.startSession(); await settle()
+    const observed = h.runner.snapshot().agents[0] as { observedSessionId: string }
+    const proposal = await h.runner.requestAdoption(observed.observedSessionId, 'adoption-choice-1')
+    await h.runner.authorizeAdoption(String(proposal.proposalId), String(proposal.proposalDigest))
+    await settle(); await settle()
+    const replacement = store.retirementStore().snapshot().committedRuns[0]
+    assert.ok(replacement)
+    const active = loseDelivery ? await h.restart(store) : h.runner
+    assert.equal(h.host.status('omarchestra-observer-status'), 'Builder · managed')
+    assert.equal(await h.host.submitInput('not exposed', 'interactive'), 'continue')
+    await settle(); await settle()
+    assert.equal(store.isManualTakeover(replacement.agentRunId), true)
+    assert.equal(h.host.status('omarchestra-observer-status'), 'Builder · manual takeover')
+    assert.equal(active.snapshot().agents.length, 0)
+    assert.equal((active.managedSnapshot().managedCards[0] as any).piStatus, 'Builder · manual takeover')
+    reopened = new LiveAdoptionStore(config)
+    const recovered = await h.restart(reopened)
+    assert.equal(recovered.snapshot().agents.length, 0)
+    assert.equal(recovered.managedSnapshot().managedCards.length, 1)
+    assert.equal(recovered.managedBridgeEnabled, false)
+    assert.equal(h.host.status('omarchestra-observer-status'), 'Builder · manual takeover')
+    assert.equal(recovered.dispatchCount, 0)
+    assert.equal(reopened.retirementStore().snapshot().committedRuns.length, 1)
+    await h.host.shutdownSession()
+    await settle()
+    recovered.retireAgentRun(recovered.retirementInputFor(replacement.agentRunId))
+    recovered.purgeRetiredAgentRun(replacement.agentRunId)
+    assert.equal(reopened.isManualTakeover(replacement.agentRunId), false)
+    assert.equal(reopened.retirementStore().snapshot().committedRuns.length, 0)
+  } finally { reopened?.close(); store.close(); fs.rmSync(path.dirname(databasePath), { recursive: true, force: true }) }
 })

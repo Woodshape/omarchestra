@@ -538,6 +538,7 @@ export class LiveRetirementStore implements RetirementStore {
           Date.now(),
         )
       store.db.prepare('DELETE FROM retirement_events WHERE agent_run_id = ?').run(agentRunId)
+      store.db.prepare('DELETE FROM replacement_takeovers WHERE agent_run_id = ?').run(agentRunId)
       store.db.prepare('DELETE FROM retirement_replacements WHERE agent_run_id = ?').run(agentRunId)
       store.db.prepare('DELETE FROM retired_runs WHERE agent_run_id = ?').run(agentRunId)
     }
