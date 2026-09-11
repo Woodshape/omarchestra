@@ -303,3 +303,24 @@ fusion-observer-adoption:
     exec pi -e "$harness/extensions/fusion-harness/fusion-harness.ts" \
         --fh-config "$harness/.pi/fusion-harness/model-stack-fusion.yaml" \
         "/fh-collaborate Read docs/plans/observer-adoption-implementation.md completely and execute it phase by phase. Preserve every locked authority and privacy boundary, work test-first, stop before any human-only live action, and do not commit or push."
+
+# LOCAL WORKBENCH V1 — PHASE 0/1 ONLY. Run with
+# `just --no-dotenv local-workbench-v1-check` because the root justfile
+# otherwise loads the external Fusion dotenv before any recipe runs.
+# This entrypoint uses only injected fixtures, disposable state, source audits,
+# offscreen Qt components with inert host/theme ports, and static QML lint.
+# It does not install, launch Pi, access a
+# provider, open a desktop, mutate a Project, or rewrite repository evidence.
+local-workbench-v1-check:
+    #!/usr/bin/env bash
+    set -euo pipefail
+    root='{{justfile_directory()}}'
+    node_bin="$(command -v node || true)"
+    qml_lint="${QMLLINT_BIN:-$(command -v qmllint || true)}"
+    if [[ -z "$qml_lint" && -x /usr/lib/qt6/bin/qmllint ]]; then qml_lint=/usr/lib/qt6/bin/qmllint; fi
+    node_dir="$(dirname "${node_bin:-/usr/bin/node}")"
+    env -i \
+        PATH="$node_dir:/usr/bin:/bin" \
+        NODE_BIN="$node_bin" \
+        QMLLINT_BIN="$qml_lint" \
+        bash "$root/packages/local-workbench-v1/scripts/phase-gate.sh"

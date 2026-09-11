@@ -1,6 +1,13 @@
 # Local Workbench v1 implementation plan
 
-Status: **User-approved slice direction; implementation not started. Contract closure and screen design are the first implementation tasks.**
+Status: **Phase 0 contracts and Phase 1 presentation engineering delivered. The operator confirmed fixed dock behavior after shell restart, but rejected the complexity of the creation flow. The approved [task-first UX redesign](local-workbench-ux-redesign.md) is the next bounded engineering task before Phase 2 integration. Native UX acceptance remains pending; Phase 2 has not started.**
+
+Canonical collaboration result: [delivery and provenance](../design/local-workbench-v1-result.md). Latest [Phase 1 engineering closeout](../design/local-workbench-v1-phase-1-closeout.md) records the completed follow-up and evidence limits.
+
+Current evidence: [screen/state design](../design/local-workbench-v1-screens.md),
+[validation and limitations](../design/local-workbench-v1-validation.md), and
+[bounded Phase 2 handoff](local-workbench-v1-phase-2-handoff.md). No live dispatch,
+installation, or durable production management is enabled by automation. The [human layout walkthrough](../design/local-workbench-v1-human-layout.md) now provides a separately confirmed candidate setup and fixture-only native preview; the operator has exercised it and supplied the UX findings above.
 
 ## Outcome
 
@@ -89,6 +96,11 @@ Follow-on work is ordered as:
 - Transcript mirroring, token streaming, invented progress percentages or
   inferred model/cost data.
 - Fusion Harness embedded as a second scheduler, registry or durable authority.
+- A full-screen or user-resizable workspace mode for the console. The dock
+  surface has fixed geometry in v1: opening a detail changes only the content
+  inside it, because a resizing layer surface makes the shell re-reserve
+  compositor edge space and shifts neighbouring terminals. A larger workspace
+  view is worth revisiting once the console carries more than a dock can hold.
 
 ## Non-negotiable boundaries
 
@@ -117,6 +129,8 @@ Follow-on work is ordered as:
 ## Target UI/UX
 
 ### Layout
+
+The [task-first redesign](local-workbench-ux-redesign.md) supersedes the original all-controls form and appended-detail arrangement below. New Team Goal is only Project context and goal text. Add agent, Assignment preparation and reusable check configuration are separate flows; authority contracts remain unchanged.
 
 Use one native, theme-consistent console with a compact docked agent overview
 and a detail area suitable for forms and results. Phase 1 settles exact sizing,
@@ -161,6 +175,12 @@ not optional polish. Preserve form drafts across ordinary projection updates;
 never preserve a stale authority confirmation across session/identity changes.
 
 ## Phase 0 — close only the contracts this loop needs
+
+Phase 0 technical decisions are recorded in the [Local Workbench v1
+contract](../design/local-workbench-v1-contract.md) and [transition
+tables](../design/local-workbench-v1-transitions.md). These are specifications,
+not runtime implementation evidence. Phase 1 remains the executable presentation
+boundary; later-phase enforcement must pass its own composed gates.
 
 Deliver a short Local Workbench contract and transition tables under
 `docs/design/`, linked from this plan when created. Each unresolved row below

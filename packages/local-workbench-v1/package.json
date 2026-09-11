@@ -1,0 +1,9 @@
+{
+  "name": "omarchestra-local-workbench-v1",
+  "private": true,
+  "type": "module",
+  "description": "Local Workbench v1 Phase 1 presentation shell. Presentation-only: renders injected authoritative projections and emits validated intents. No durable runner, gate execution, dispatch, or live services.",
+  "engines": {
+    "node": ">=22.6.0"
+  }
+}

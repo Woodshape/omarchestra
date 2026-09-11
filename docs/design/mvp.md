@@ -417,6 +417,10 @@ For agent-owned or unknown attention, the console reports `needs_attention` and 
 
 ## Omarchy UI scope
 
+### Approved task-first workbench UX amendment
+
+Following native preview feedback, the user approved the [task-first UX redesign](../plans/local-workbench-ux-redesign.md). For the local adoption-first slice, New Team Goal contains only explicit Project context and goal text; creating it neither adopts nor dispatches. Add agent and Assignment preparation are separate contextual flows. Reusable acceptance-check configuration is separate from Goal creation; the UI selects a check, while the runner still resolves and freezes the complete gate before exact start confirmation. Compact rows, contextual secondary actions and inspectable technical details replace the all-controls fixture layout. The dock stays fixed-width; fullscreen remains deferred. This is approved presentation direction, not implementation or native UX acceptance, and does not weaken any authority or gate contract.
+
 ### Installation and runtime boundary
 
 **Locked.** Omarchestra follows Boomux's companion-plugin model. An explicitly authorized `omarchestra setup`-class workflow installs, validates, and enables one versioned Omarchestra Companion Plugin through Omarchy's supported third-party plugin mechanism and may reload the shell after showing the exact plan. A matching uninstall workflow removes only unchanged Omarchestra-owned assets and configuration entries.
@@ -645,6 +649,8 @@ These are specification/spike outputs rather than product-feature choices, but e
 - **Companion Plugin packaging and Projection Sessions:** the bounded prototype now covers explicit plan-bound setup/update/rollback/uninstall, owned-asset and configuration validation, exact compatibility negotiation, incomplete recovery, persistent installation across Team Goals, stale-generation rejection, authoritative reconstruction, acknowledged intents, and byte-identical runtime cleanup. The separate human gate proved live rendering on the pinned host; production packaging and broader compatibility remain separate from this closed prototype milestone.
 
 ## Decision log
+
+- Following the local workbench native walkthrough and Boomux UX review, approve the [task-first redesign](../plans/local-workbench-ux-redesign.md): minimal Goal creation, separate Add agent/Assignment flows, configured acceptance-check selection, contextual actions and progressive disclosure. Preserve fixed dock geometry and every execution/Adoption safety boundary; redesign presentation before Phase 2 integration.
 
 - Following explicit retirement/replacement approval, the user approved the [agent coordination amendment](agent-coordination.md): gate-only task acceptance independent of Roles, no mandatory Reviewer veto, no OS-level Pi kill, and a Project-scoped Board/Channel/Thread/Message model with selective context delivery. Research/planning gates may check artifact existence and content without claiming semantic correctness. Retain single-writer coordination; defer isolation and rollback. This supersedes the older mandatory-review policy recorded below.
 
