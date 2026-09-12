@@ -92,14 +92,25 @@ Control {
             visible: root.mode !== "activity"
             spacing: Style.space(8)
 
-            Text {
+            RowLayout {
                 Layout.fillWidth: true
-                textFormat: Text.PlainText
-                text: "Team Goals"
-                color: root.textColor
-                font.family: Style.font.family
-                font.pixelSize: Style.font.heading
-                font.bold: true
+                Text {
+                    Layout.fillWidth: true
+                    textFormat: Text.PlainText
+                    text: "Team Goals"
+                    color: root.textColor
+                    font.family: Style.font.family
+                    font.pixelSize: Style.font.caption
+                    font.bold: true
+                }
+                WorkbenchAction {
+                    id: newGoalButton
+                    objectName: "workbench-new-goal"
+                    text: "+ New Team Goal"
+                    prominent: true
+                    enabled: root.connected
+                    onClicked: root.navigate("new_goal")
+                }
             }
             Text {
                 Layout.fillWidth: true
@@ -115,7 +126,7 @@ Control {
             Repeater {
                 model: root.projection && Array.isArray(root.projection.goals)
                     ? root.projection.goals : []
-                delegate: Button {
+                delegate: WorkbenchAction {
                     required property var modelData
                     Layout.fillWidth: true
                     text: modelData.goalText + (modelData.state === "active" ? "  ·  active" : "  ·  " + modelData.state)
@@ -123,27 +134,12 @@ Control {
                     focusPolicy: Qt.StrongFocus
                     highlighted: root.projection !== null
                         && root.projection.selectedGoalId === modelData.goalId
-                    contentItem: Text {
-                        text: parent.text
-                        textFormat: Text.PlainText
-                        wrapMode: Text.WrapAnywhere
-                        color: root.textColor
-                    }
                     onClicked: root.intentRequested({
                         kind: "select_goal",
                         target: modelData.goalId,
                         payload: { goalId: modelData.goalId }
                     })
                 }
-            }
-            Button {
-                id: newGoalButton
-                objectName: "workbench-new-goal"
-                Layout.fillWidth: true
-                text: "New Team Goal"
-                enabled: root.connected
-                focusPolicy: Qt.StrongFocus
-                onClicked: root.navigate("new_goal")
             }
 
             WorkbenchCards {
@@ -159,37 +155,39 @@ Control {
             Text {
                 Layout.fillWidth: true
                 textFormat: Text.PlainText
-                text: "Assignments and checks"
+                text: "Project tools"
                 color: root.textColor
                 font.family: Style.font.family
-                font.pixelSize: Style.font.heading
+                font.pixelSize: Style.font.caption
                 font.bold: true
             }
             GridLayout {
                 Layout.fillWidth: true
                 columns: 2
-                Button {
+                rowSpacing: Style.space(2)
+                columnSpacing: Style.space(8)
+                WorkbenchAction {
                     Layout.fillWidth: true
                     text: "Add agent"
                     enabled: root.connected && root.projection !== null && root.projection.selectedGoalId !== null
                     focusPolicy: Qt.StrongFocus
                     onClicked: root.navigate("add_agent")
                 }
-                Button {
+                WorkbenchAction {
                     Layout.fillWidth: true
                     text: "Prepare assignment"
                     enabled: root.connected && root.projection !== null && root.projection.selectedGoalId !== null
                     focusPolicy: Qt.StrongFocus
                     onClicked: root.navigate("assignment")
                 }
-                Button {
+                WorkbenchAction {
                     Layout.fillWidth: true
                     text: "Checks"
                     enabled: root.connected
                     focusPolicy: Qt.StrongFocus
                     onClicked: root.navigate("checks")
                 }
-                Button {
+                WorkbenchAction {
                     objectName: "workbench-work"
                     Layout.fillWidth: true
                     text: "Work and result"
@@ -197,16 +195,15 @@ Control {
                     focusPolicy: Qt.StrongFocus
                     onClicked: root.navigate("work")
                 }
-                Button {
+                WorkbenchAction {
                     objectName: "workbench-board"
                     Layout.fillWidth: true
                     text: "Board"
                     enabled: false
                     focusPolicy: Qt.StrongFocus
-                    ToolTip.visible: hovered
-                    ToolTip.text: "Board backend not available in this slice."
+                    explanation: "Board backend not available in this slice."
                 }
-                Button {
+                WorkbenchAction {
                     Layout.fillWidth: true
                     text: "Activity"
                     enabled: root.connected

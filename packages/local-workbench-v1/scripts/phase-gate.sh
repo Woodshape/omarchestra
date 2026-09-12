@@ -82,6 +82,9 @@ env -i \
     "$root/console/plugin/WorkbenchConsole.qml" \
     "$root/console/plugin/WorkbenchHost.qml" \
     "$root/console/plugin/WorkbenchOverview.qml" \
+    "$root/console/plugin/WorkbenchAction.qml" \
+    "$root/console/plugin/WorkbenchTextArea.qml" \
+    "$root/console/plugin/WorkbenchTextField.qml" \
     "$root/console/plugin/WorkbenchGoal.qml" \
     "$root/console/plugin/WorkbenchCards.qml" \
     "$root/console/plugin/WorkbenchAssignmentForm.qml" \

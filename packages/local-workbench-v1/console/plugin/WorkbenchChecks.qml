@@ -169,22 +169,17 @@ Control {
         }
         Repeater {
             model: root.projection && Array.isArray(root.projection.checks) ? root.projection.checks : []
-            delegate: Button {
+            delegate: WorkbenchAction {
                 required property var modelData
                 Layout.fillWidth: true
                 highlighted: root.selectedCheckId === modelData.checkId
                     && root.selectedCheckVersion === modelData.version
                 enabled: root.connected
                 focusPolicy: Qt.StrongFocus
-                contentItem: Text {
-                    text: modelData.name + " · v" + modelData.version + " · " + modelData.mode + "\n"
-                        + modelData.commandSummary + "\n"
-                        + modelData.availability + " · digest " + root.shortDigest(modelData.digest)
-                        + (modelData.reason === null ? "" : " — " + modelData.reason)
-                    textFormat: Text.PlainText
-                    wrapMode: Text.WrapAnywhere
-                    color: root.textColor
-                }
+                text: modelData.name + " · v" + modelData.version
+                supportingText: modelData.mode + " · " + modelData.commandSummary + "\n"
+                    + modelData.availability + " · digest " + root.shortDigest(modelData.digest)
+                    + (modelData.reason === null ? "" : " — " + modelData.reason)
                 onClicked: root.selectCheck(modelData.checkId, modelData.version)
             }
         }
@@ -203,33 +198,40 @@ Control {
                 font.pixelSize: Style.font.title
                 font.bold: true
             }
-            TextField {
+            WorkbenchTextField {
                 objectName: "workbench-check-name"
                 Layout.fillWidth: true
                 placeholderText: "Check name"
                 text: root.draftName
                 onTextChanged: if (text !== root.draftName) root.writeDraft({ name: text })
             }
-            TextField {
+            WorkbenchTextField {
                 Layout.fillWidth: true
                 placeholderText: "What it verifies"
                 text: root.draftSummary
                 onTextChanged: if (text !== root.draftSummary) root.writeDraft({ summary: text })
             }
-            TextField {
+            WorkbenchTextField {
                 Layout.fillWidth: true
                 placeholderText: "Command summary (display only)"
                 text: root.draftCommand
                 onTextChanged: if (text !== root.draftCommand) root.writeDraft({ commandSummary: text })
             }
-            ComboBox {
+            RowLayout {
                 objectName: "workbench-check-mode"
                 Layout.fillWidth: true
-                model: root.checkModes
-                currentIndex: Math.max(0, root.checkModes.indexOf(root.draftMode))
-                onActivated: function(index) { root.writeDraft({ mode: root.checkModes[index] }) }
+                Repeater {
+                    model: root.checkModes
+                    delegate: WorkbenchAction {
+                        required property string modelData
+                        Layout.fillWidth: true
+                        text: modelData === "validator" ? "Validator" : "Artifact presence"
+                        highlighted: root.draftMode === modelData
+                        onClicked: root.writeDraft({ mode: modelData })
+                    }
+                }
             }
-            Button {
+            WorkbenchAction {
                 objectName: "workbench-check-advanced"
                 text: root.advancedOpen ? "Hide advanced definition" : "Advanced definition"
                 onClicked: root.advancedOpen = !root.advancedOpen
@@ -247,7 +249,7 @@ Control {
                             Layout.fillWidth: true
                             Layout.preferredHeight: Style.space(64)
                             clip: true
-                            TextArea {
+                            WorkbenchTextArea {
                                 objectName: "check-field-" + modelData.key
                                 Accessible.name: modelData.label
                                 textFormat: TextEdit.PlainText
@@ -286,7 +288,8 @@ Control {
                 visible: !root.editAvailable
                 text: "Editing this check is unavailable in the current projection. Your draft is retained."
             }
-            Button {
+            WorkbenchAction {
+                prominent: true
                 objectName: "workbench-save-check"
                 Layout.fillWidth: true
                 text: "Save check"

@@ -640,6 +640,32 @@ Item {
             width: Math.max(1, Math.min(parent.width - Style.space(24), Style.space(640)))
             height: Math.max(1, Math.min(parent.height - Style.space(24), implicitHeight))
             standardButtons: Dialog.Ok | Dialog.Cancel
+            padding: Style.space(12)
+            background: Rectangle {
+                color: Color.popups.background
+                radius: Style.cornerRadius
+                border.width: 1
+                border.color: Color.accent
+            }
+            header: Label {
+                text: confirmDialog.title
+                textFormat: Text.PlainText
+                wrapMode: Text.Wrap
+                padding: Style.space(12)
+                color: Color.popups.text
+                font.family: Style.font.family
+                font.pixelSize: Style.font.body
+                font.bold: true
+            }
+            footer: DialogButtonBox {
+                standardButtons: confirmDialog.standardButtons
+                padding: Style.space(8)
+                spacing: Style.space(8)
+                background: Item {}
+                delegate: WorkbenchAction {}
+                onAccepted: confirmDialog.accept()
+                onRejected: confirmDialog.reject()
+            }
             closePolicy: Popup.CloseOnEscape
             onAccepted: {
                 if (root.confirmation) root.emitIntent(root.confirmation)
@@ -659,7 +685,7 @@ Item {
                         wrapMode: Text.WrapAnywhere
                         color: Color.popups.text
                     }
-                    Button {
+                    WorkbenchAction {
                         text: root.confirmationDetailsOpen ? "Hide exact target" : "Exact target"
                         onClicked: root.confirmationDetailsOpen = !root.confirmationDetailsOpen
                     }
@@ -723,7 +749,7 @@ Item {
                         RowLayout {
                             Layout.fillWidth: true
                             spacing: Style.space(6)
-                            Button {
+                            WorkbenchAction {
                                 id: backButton
                                 objectName: "workbench-back"
                                 visible: root.destination !== "overview"
@@ -771,7 +797,7 @@ Item {
                                 font.family: Style.font.family
                                 font.pixelSize: Style.font.caption
                             }
-                            Button {
+                            WorkbenchAction {
                                 id: changeProjectButton
                                 visible: root.destination !== "new_goal"
                                 text: "Change"
@@ -798,19 +824,13 @@ Item {
                                 id: projectRepeater
                                 model: root.projection && Array.isArray(root.projection.projects)
                                     ? root.projection.projects : []
-                                delegate: Button {
+                                delegate: WorkbenchAction {
                                     required property var modelData
                                     Layout.fillWidth: true
                                     text: modelData.canonicalPath
                                     highlighted: root.projection !== null
                                         && root.projection.selectedProjectId === modelData.projectId
                                     focusPolicy: Qt.StrongFocus
-                                    contentItem: Text {
-                                        text: parent.text
-                                        textFormat: Text.PlainText
-                                        wrapMode: Text.WrapAnywhere
-                                        color: root.textColor
-                                    }
                                     onClicked: root.selectProject(modelData.projectId)
                                 }
                             }

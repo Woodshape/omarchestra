@@ -121,7 +121,7 @@ Control {
                             + " · Work time limit: " + root.startDetail.elapsedMs / 1000 + " seconds" : "")
                 color: root.textColor
             }
-            Button {
+            WorkbenchAction {
                 objectName: "workbench-technical-details"
                 visible: root.startDetail !== null
                 text: root.technicalOpen ? "Hide technical details" : "Technical details"
@@ -167,16 +167,17 @@ Control {
                 font.family: Style.font.family
                 font.pixelSize: Style.font.caption
             }
-            Button {
+            WorkbenchAction {
                 Layout.fillWidth: true
                 text: "Back to assignment"
                 focusPolicy: Qt.StrongFocus
                 onClicked: root.navigate("assignment")
             }
-            Button {
+            WorkbenchAction {
                 objectName: "workbench-confirm-start"
                 Layout.fillWidth: true
-                text: "Confirm start: runtime unavailable"
+                text: "Confirm start"
+                supportingText: "runtime unavailable"
                 enabled: false
                 focusPolicy: Qt.StrongFocus
             }
@@ -226,10 +227,8 @@ Control {
                     readonly property var rowCard: root.cardForAssignment(rowAssignment)
                     Layout.fillWidth: true
                     implicitHeight: rowColumn.implicitHeight + Style.space(20)
-                    color: Qt.rgba(root.textColor.r, root.textColor.g, root.textColor.b, 0.045)
-                    borderSpec: Border.flat(
-                        Qt.rgba(root.textColor.r, root.textColor.g, root.textColor.b, 0.16),
-                        Math.max(1, Style.spacing.hairline))
+                    color: "transparent"
+                    borderSpec: Border.flat("transparent", 0)
                     radius: Style.cornerRadius
 
                     ColumnLayout {
@@ -263,14 +262,14 @@ Control {
                         Repeater {
                             model: root.interventionActionsFor(workRow.rowCard)
 
-                            delegate: Button {
+                            delegate: WorkbenchAction {
                                 required property var modelData
                                 readonly property var requestPayload: root.interventionPayload(workRow.rowAssignment)
                                 readonly property bool available: root.actionable && modelData.enabled
                                     && requestPayload !== null
                                 Layout.fillWidth: true
-                                text: (modelData.label || modelData.kind)
-                                    + (available ? "" : ": " + (modelData.reason || "Unavailable"))
+                                text: modelData.label || modelData.kind
+                                supportingText: available ? "" : (modelData.reason || "Unavailable")
                                 enabled: available
                                 focusPolicy: Qt.StrongFocus
                                 onClicked: root.intentRequested({
@@ -303,7 +302,7 @@ Control {
                 font.family: Style.font.family
                 font.pixelSize: Style.font.caption
             }
-            Button {
+            WorkbenchAction {
                 Layout.fillWidth: true
                 text: "Back to Project"
                 focusPolicy: Qt.StrongFocus

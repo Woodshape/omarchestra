@@ -1,28 +1,11 @@
-// Local Workbench v1 — role-independent agent cards.
-//
-// Renders managed agent cards, observed sessions, and retired runs from plain
-// injected values. piStatus is an opaque committed presentation string and is
-// never rebuilt from role/control/assignment fields. Disabled actions show a
-// reason; the runner computes domain eligibility, QML only narrows for
-// stale/unsupported presentation.
+// Plain committed agent/session rows. Eligibility and identities remain runner-owned.
 import QtQuick
 import QtQuick.Layouts
-import qs.Commons
-import qs.Ui as Native
 import QtQuick.Controls
+import qs.Commons
 
 Control {
     id: root
-    palette.window: Color.popups.background
-    palette.windowText: Color.popups.text
-    palette.base: Color.popups.background
-    palette.text: Color.popups.text
-    palette.button: Qt.lighter(Color.popups.background, 1.15)
-    palette.buttonText: Color.popups.text
-    palette.highlight: Color.accent
-    palette.highlightedText: Color.popups.background
-    font.family: Style.font.family
-
     property var cards: []
     property var observed: []
     property var retired: []
@@ -30,16 +13,9 @@ Control {
     property bool historyExpanded: false
     implicitHeight: cardsColumn.implicitHeight
     signal intentRequested(var payload)
-
     readonly property color textColor: Color.popups.text
-    readonly property color mutedColor: Qt.darker(root.textColor, 1.45)
+    readonly property color mutedColor: Qt.rgba(textColor.r, textColor.g, textColor.b, 0.65)
 
-    /**
-     * Maps one committed card action onto the exact payload field the intent
-     * contract requires. Unknown kinds and actions whose identity the card
-     * cannot supply return null, which narrows the control to unavailable.
-     * This never grants availability the runner did not already commit.
-     */
     function actionPayload(kind, agentRunId, assignmentId) {
         switch (kind) {
         case "take_control":
@@ -58,244 +34,164 @@ Control {
         }
     }
 
+    component Caption: Text {
+        textFormat: Text.PlainText
+        color: root.mutedColor
+        font.family: Style.font.family
+        font.pixelSize: Style.font.caption
+        wrapMode: Text.WrapAnywhere
+    }
+    component Heading: Caption {
+        color: root.textColor
+        font.bold: true
+        topPadding: Style.space(12)
+        bottomPadding: Style.space(4)
+    }
+    component Status: Text {
+        textFormat: Text.PlainText
+        color: root.textColor
+        font.family: Style.font.family
+        font.pixelSize: Style.font.body
+        font.bold: true
+        wrapMode: Text.WrapAnywhere
+    }
 
     ColumnLayout {
         id: cardsColumn
         anchors.left: parent.left
         anchors.right: parent.right
-        spacing: Style.space(8)
+        spacing: Style.space(6)
 
-        Text {
-            Layout.fillWidth: true
-            textFormat: Text.PlainText
-            text: "Managed agents"
-            color: root.textColor
-            font.family: Style.font.family
-            font.pixelSize: Style.font.heading
-            font.bold: true
-        }
-
+        Heading { Layout.fillWidth: true; text: "Managed agents" }
+        Caption { Layout.fillWidth: true; visible: root.cards.length === 0; text: "No agents assigned yet." }
         Repeater {
             model: root.cards
-
-            delegate: Native.BorderSurface {
-                id: cardSurface
+            delegate: ColumnLayout {
+                id: cardRow
                 required property var modelData
+                property bool actionsExpanded: false
+                Keys.onEscapePressed: function(event) {
+                    if (actionsExpanded) {
+                        actionsExpanded = false
+                        agentMenu.forceActiveFocus()
+                        event.accepted = true
+                    } else event.accepted = false
+                }
                 Layout.fillWidth: true
-                implicitHeight: cardColumn.implicitHeight + Style.space(20)
-                color: Qt.rgba(root.textColor.r, root.textColor.g, root.textColor.b, 0.045)
-                borderSpec: Border.flat(
-                    Qt.rgba(root.textColor.r, root.textColor.g, root.textColor.b, 0.16),
-                    Math.max(1, Style.spacing.hairline))
-                radius: Style.cornerRadius
-
-                ColumnLayout {
-                    id: cardColumn
-                    anchors.left: parent.left
-                    anchors.right: parent.right
-                    anchors.verticalCenter: parent.verticalCenter
-                    anchors.leftMargin: Style.space(12)
-                    anchors.rightMargin: Style.space(12)
-                    spacing: Style.space(3)
-
-                    Text {
-                        Layout.fillWidth: true
-                        text: modelData.piStatus
-                        textFormat: Text.PlainText
-                        color: root.textColor
-                        font.family: Style.font.family
-                        font.pixelSize: Style.font.title
-                        font.bold: true
-                        wrapMode: Text.WrapAnywhere
+                spacing: Style.space(3)
+                RowLayout {
+                    Layout.fillWidth: true
+                    Status { Layout.fillWidth: true; text: cardRow.modelData.piStatus }
+                    WorkbenchAction {
+                        id: agentMenu
+                        objectName: "workbench-agent-actions"
+                        text: "···"
+                        Accessible.name: "Agent actions"
+                        explanation: "Agent actions"
+                        highlighted: cardRow.actionsExpanded
+                        onClicked: cardRow.actionsExpanded = !cardRow.actionsExpanded
                     }
-
-                    Text {
-                        textFormat: Text.PlainText
+                }
+                Caption {
+                    Layout.fillWidth: true
+                    text: cardRow.modelData.role + " · " + cardRow.modelData.controlMode + " · " + cardRow.modelData.connectionStatus
+                }
+                Caption {
+                    Layout.fillWidth: true
+                    visible: cardRow.modelData.assignment !== null
+                    text: cardRow.modelData.assignment === null ? "" : "Assignment: " + cardRow.modelData.assignment
+                }
+                Repeater {
+                    model: cardRow.actionsExpanded ? (cardRow.modelData.actions || []) : []
+                    delegate: ColumnLayout {
+                        id: actionRow
+                        required property var modelData
+                        readonly property var cardPayload: root.actionPayload(
+                            modelData.kind, cardRow.modelData.agentRunId, cardRow.modelData.assignment)
+                        readonly property bool available: root.actionable && modelData.enabled && cardPayload !== null
                         Layout.fillWidth: true
-                        text: modelData.role + " · " + modelData.controlMode + " · " + modelData.connectionStatus
-                        color: root.mutedColor
-                        font.family: Style.font.family
-                        font.pixelSize: Style.font.caption
-                        elide: Text.ElideRight
-                    }
-
-                    Text {
-                        Layout.fillWidth: true
-                        textFormat: Text.PlainText
-                        visible: modelData.assignment !== null
-                        text: modelData.assignment === null ? "" : "Assignment: " + modelData.assignment
-                        color: root.mutedColor
-                        font.family: Style.font.family
-                        font.pixelSize: Style.font.caption
-                        elide: Text.ElideRight
-                    }
-
-                    Repeater {
-                        model: modelData.actions || []
-
-                        delegate: Button {
-                            required property var modelData
-                            readonly property var cardPayload: root.actionPayload(
-                                modelData.kind, cardSurface.modelData.agentRunId, cardSurface.modelData.assignment)
-                            readonly property bool available: root.actionable && modelData.enabled
-                                && cardPayload !== null
+                        spacing: 0
+                        WorkbenchAction {
                             Layout.fillWidth: true
-                            text: (modelData.label || modelData.kind)
-                                + (available ? "" : ": " + (modelData.reason || "Unavailable"))
-                            enabled: available
-                            contentItem: Text {
-                                text: parent.text
-                                textFormat: Text.PlainText
-                                wrapMode: Text.WrapAnywhere
-                                color: root.textColor
-                            }
-                            focusPolicy: Qt.StrongFocus
+                            text: actionRow.modelData.label || actionRow.modelData.kind
+                            enabled: actionRow.available
+                            explanation: actionRow.available ? "" : (actionRow.modelData.reason || "Unavailable")
                             onClicked: root.intentRequested({
-                                kind: modelData.kind,
-                                target: modelData.target,
-                                payload: cardPayload
+                                kind: actionRow.modelData.kind,
+                                target: actionRow.modelData.target,
+                                payload: actionRow.cardPayload
                             })
+                        }
+                        Caption {
+                            Layout.fillWidth: true
+                            Layout.leftMargin: Style.space(8)
+                            visible: !actionRow.available
+                            text: actionRow.modelData.reason || "Unavailable"
                         }
                     }
                 }
             }
         }
 
-        Text {
-            Layout.fillWidth: true
-            textFormat: Text.PlainText
-            text: "Unassigned sessions"
-            color: root.textColor
-            font.family: Style.font.family
-            font.pixelSize: Style.font.heading
-            font.bold: true
-        }
-
+        Heading { Layout.fillWidth: true; text: "Unassigned sessions" }
+        Caption { Layout.fillWidth: true; visible: root.observed.length === 0; text: "No observed sessions." }
         Repeater {
             model: root.observed
-
-            delegate: Native.BorderSurface {
+            delegate: ColumnLayout {
+                id: observedRow
                 required property var modelData
                 Layout.fillWidth: true
-                implicitHeight: observedColumn.implicitHeight + Style.space(20)
-                color: Qt.rgba(root.textColor.r, root.textColor.g, root.textColor.b, 0.045)
-                borderSpec: Border.flat(
-                    Qt.rgba(root.textColor.r, root.textColor.g, root.textColor.b, 0.16),
-                    Math.max(1, Style.spacing.hairline))
-                radius: Style.cornerRadius
-
-                ColumnLayout {
-                    id: observedColumn
-                    anchors.left: parent.left
-                    anchors.right: parent.right
-                    anchors.verticalCenter: parent.verticalCenter
-                    anchors.leftMargin: Style.space(12)
-                    anchors.rightMargin: Style.space(12)
-                    spacing: Style.space(3)
-
-                    Text {
+                spacing: Style.space(3)
+                Status { Layout.fillWidth: true; text: observedRow.modelData.piStatus }
+                Caption {
+                    Layout.fillWidth: true
+                    text: "Observed · unmanaged · " + observedRow.modelData.availability + " · " + observedRow.modelData.lifecycle
+                }
+                Repeater {
+                    model: observedRow.modelData.choices || []
+                    delegate: WorkbenchAction {
+                        required property var modelData
                         Layout.fillWidth: true
-                        text: modelData.piStatus
-                        textFormat: Text.PlainText
-                        color: root.textColor
-                        font.family: Style.font.family
-                        font.pixelSize: Style.font.title
-                        font.bold: true
-                        wrapMode: Text.WrapAnywhere
-                    }
-
-                    Text {
-                        textFormat: Text.PlainText
-                        wrapMode: Text.WrapAnywhere
-                        Layout.fillWidth: true
-                        text: "Availability: " + modelData.availability + " · Lifecycle: " + modelData.lifecycle
-                        color: root.mutedColor
-                        font.family: Style.font.family
-                        font.pixelSize: Style.font.caption
-                    }
-
-                    Repeater {
-                        model: modelData.choices || []
-
-                        delegate: Button {
-                            required property var modelData
-                            Layout.fillWidth: true
-                            text: modelData.label
-                            contentItem: Text { text: parent.text; textFormat: Text.PlainText; wrapMode: Text.WrapAnywhere; color: root.textColor }
-                            focusPolicy: Qt.StrongFocus
-                            enabled: root.actionable && modelData.enabled
-                            onClicked: root.intentRequested({
-                                kind: "request_adoption",
-                                target: modelData.choiceId,
-                                payload: { choiceId: modelData.choiceId }
-                            })
-                        }
+                        text: modelData.label
+                        enabled: root.actionable && modelData.enabled
+                        onClicked: root.intentRequested({
+                            kind: "request_adoption",
+                            target: modelData.choiceId,
+                            payload: { choiceId: modelData.choiceId }
+                        })
                     }
                 }
             }
         }
 
-        Button {
+        WorkbenchAction {
             Layout.fillWidth: true
-            text: "Retired history (" + root.retired.length + ")"
+            text: (root.historyExpanded ? "▾ " : "▸ ") + "Retired history (" + root.retired.length + ")"
             onClicked: root.historyExpanded = !root.historyExpanded
         }
-
         Repeater {
             model: root.historyExpanded ? root.retired : []
-
-            delegate: Native.BorderSurface {
+            delegate: ColumnLayout {
+                id: retiredRow
                 required property var modelData
                 Layout.fillWidth: true
-                implicitHeight: retiredColumn.implicitHeight + Style.space(20)
-                color: Qt.rgba(root.textColor.r, root.textColor.g, root.textColor.b, 0.045)
-                borderSpec: Border.flat(
-                    Qt.rgba(root.textColor.r, root.textColor.g, root.textColor.b, 0.16),
-                    Math.max(1, Style.spacing.hairline))
-                radius: Style.cornerRadius
-
-                ColumnLayout {
-                    id: retiredColumn
-                    anchors.left: parent.left
-                    anchors.right: parent.right
-                    anchors.verticalCenter: parent.verticalCenter
-                    anchors.leftMargin: Style.space(12)
-                    anchors.rightMargin: Style.space(12)
-                    spacing: Style.space(3)
-
-                    Text {
-                        Layout.fillWidth: true
-                        text: modelData.piStatus
-                        textFormat: Text.PlainText
-                        color: root.textColor
-                        font.family: Style.font.family
-                        font.pixelSize: Style.font.title
-                        font.bold: true
-                        wrapMode: Text.WrapAnywhere
-                    }
-
-                    Text {
-                        textFormat: Text.PlainText
-                        Layout.fillWidth: true
-                        visible: !modelData.canPurge
-                        text: modelData.purgeBlockedReason || "Successor history must be deleted first."
-                        color: root.mutedColor
-                        font.family: Style.font.family
-                        font.pixelSize: Style.font.caption
-                        wrapMode: Text.Wrap
-                    }
-
-                    Button {
-                        Layout.fillWidth: true
-                        visible: modelData.canPurge
-                        enabled: root.actionable && modelData.canPurge
-                        text: "Delete retired history"
-                        onClicked: root.intentRequested({
-                            kind: "purge",
-                            target: modelData.agentRunId,
-                            payload: { agentRunId: modelData.agentRunId }
-                        })
-                    }
+                spacing: Style.space(3)
+                Status { Layout.fillWidth: true; text: retiredRow.modelData.piStatus }
+                Caption {
+                    Layout.fillWidth: true
+                    visible: !retiredRow.modelData.canPurge
+                    text: retiredRow.modelData.purgeBlockedReason || "Successor history must be deleted first."
+                }
+                WorkbenchAction {
+                    Layout.fillWidth: true
+                    visible: retiredRow.modelData.canPurge
+                    enabled: root.actionable && retiredRow.modelData.canPurge
+                    text: "Delete retired history"
+                    onClicked: root.intentRequested({
+                        kind: "purge",
+                        target: retiredRow.modelData.agentRunId,
+                        payload: { agentRunId: retiredRow.modelData.agentRunId }
+                    })
                 }
             }
         }

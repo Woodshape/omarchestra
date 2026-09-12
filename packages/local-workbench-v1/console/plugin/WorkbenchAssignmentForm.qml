@@ -118,18 +118,13 @@ Control {
             Repeater {
                 model: root.projection && Array.isArray(root.projection.observedSessions)
                     ? root.projection.observedSessions : []
-                delegate: Button {
+                delegate: WorkbenchAction {
                     required property var modelData
                     Layout.fillWidth: true
                     highlighted: root.selectedObservedSessionId === modelData.observedSessionId
                     enabled: root.connected && modelData.availability === "available"
                     focusPolicy: Qt.StrongFocus
-                    contentItem: Text {
-                        text: modelData.piStatus + "  ·  " + modelData.availability + " · " + modelData.lifecycle
-                        textFormat: Text.PlainText
-                        wrapMode: Text.WrapAnywhere
-                        color: root.textColor
-                    }
+                    text: modelData.piStatus + "  ·  " + modelData.availability + " · " + modelData.lifecycle
                     onClicked: root.selectObserved(modelData.observedSessionId)
                 }
             }
@@ -144,7 +139,7 @@ Control {
             }
             Repeater {
                 model: root.projection && Array.isArray(root.projection.roles) ? root.projection.roles : []
-                delegate: Button {
+                delegate: WorkbenchAction {
                     required property var modelData
                     Layout.fillWidth: true
                     text: String(modelData)
@@ -154,7 +149,8 @@ Control {
                     onClicked: root.selectRole(String(modelData))
                 }
             }
-            Button {
+            WorkbenchAction {
+                prominent: true
                 objectName: "workbench-add-agent-continue"
                 Layout.fillWidth: true
                 text: "Review exact binding"
@@ -216,9 +212,10 @@ Control {
                 font.family: Style.font.family
                 font.pixelSize: Style.font.caption
             }
-            Button {
+            WorkbenchAction {
                 Layout.fillWidth: true
-                text: "Authorize adoption: runtime unavailable"
+                text: "Authorize adoption"
+                supportingText: "Runtime unavailable"
                 enabled: false
                 focusPolicy: Qt.StrongFocus
             }
@@ -252,7 +249,7 @@ Control {
                 Layout.fillWidth: true
                 Layout.preferredHeight: Style.space(84)
                 clip: true
-                TextArea {
+                WorkbenchTextArea {
                     id: taskEditor
                     objectName: "workbench-assignment-task"
                     textFormat: Text.PlainText
@@ -284,18 +281,13 @@ Control {
             Repeater {
                 model: root.projection && Array.isArray(root.projection.managedAgents)
                     ? root.projection.managedAgents : []
-                delegate: Button {
+                delegate: WorkbenchAction {
                     required property var modelData
                     Layout.fillWidth: true
                     highlighted: root.selectedAgentRunId === modelData.agentRunId
                     enabled: root.connected
                     focusPolicy: Qt.StrongFocus
-                    contentItem: Text {
-                        text: modelData.role + " · " + modelData.piStatus + "  ·  " + modelData.controlMode
-                        textFormat: Text.PlainText
-                        wrapMode: Text.WrapAnywhere
-                        color: root.textColor
-                    }
+                    text: modelData.role + " · " + modelData.piStatus + "  ·  " + modelData.controlMode
                     onClicked: root.selectAgent(modelData.agentRunId)
                 }
             }
@@ -322,25 +314,20 @@ Control {
             }
             Repeater {
                 model: root.projection && Array.isArray(root.projection.checks) ? root.projection.checks : []
-                delegate: Button {
+                delegate: WorkbenchAction {
                     required property var modelData
                     Layout.fillWidth: true
                     highlighted: root.selectedCheckId === modelData.checkId
                         && root.selectedCheckVersion === modelData.version
                     enabled: root.connected && modelData.availability === "available"
                     focusPolicy: Qt.StrongFocus
-                    contentItem: Text {
-                        text: modelData.name + " · v" + modelData.version + " · " + modelData.mode
-                            + "  ·  " + modelData.availability
-                            + (modelData.reason === null ? "" : " — " + modelData.reason)
-                        textFormat: Text.PlainText
-                        wrapMode: Text.WrapAnywhere
-                        color: root.textColor
-                    }
+                    text: modelData.name + " · v" + modelData.version
+                    supportingText: modelData.mode + " · " + modelData.availability
+                        + (modelData.reason === null ? "" : " — " + modelData.reason)
                     onClicked: root.selectCheck(modelData.checkId, modelData.version)
                 }
             }
-            Button {
+            WorkbenchAction {
                 Layout.fillWidth: true
                 text: "Configure checks"
                 enabled: root.connected
@@ -357,7 +344,8 @@ Control {
                 font.family: Style.font.family
                 font.pixelSize: Style.font.caption
             }
-            Button {
+            WorkbenchAction {
+                prominent: true
                 objectName: "workbench-start-review"
                 Layout.fillWidth: true
                 text: "Start review"

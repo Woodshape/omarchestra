@@ -141,6 +141,7 @@ test('all authored text labels explicitly disable rich text', () => {
   for (const file of [
     'WorkbenchConsole.qml', 'WorkbenchOverview.qml', 'WorkbenchGoal.qml', 'WorkbenchCards.qml',
     'WorkbenchAssignmentForm.qml', 'WorkbenchChecks.qml', 'WorkbenchReview.qml', 'WorkbenchBoard.qml',
+    'WorkbenchAction.qml', 'WorkbenchTextArea.qml', 'WorkbenchTextField.qml',
   ]) {
     const source = readFileSync(new URL(`../console/plugin/${file}`, import.meta.url), 'utf8')
     assert.doesNotMatch(source, /^import qs.Ui$/m)
@@ -151,6 +152,15 @@ test('all authored text labels explicitly disable rich text', () => {
     }
     // TextArea also accepts the shared Text.PlainText enum value.
     for (const match of source.matchAll(/\bTextArea\s*\{([^}]+)\}/g)) assert.match(match[1], /textFormat:\s*(?:Text|TextEdit)\.PlainText/, file)
+  }
+})
+
+test('every destination uses the shared action and input paint rather than platform defaults', () => {
+  for (const file of ['WorkbenchConsole', 'WorkbenchOverview', 'WorkbenchGoal', 'WorkbenchCards',
+    'WorkbenchAssignmentForm', 'WorkbenchChecks', 'WorkbenchReview', 'WorkbenchBoard']) {
+    const source = readFileSync(new URL(`../console/plugin/${file}.qml`, import.meta.url), 'utf8')
+    assert.doesNotMatch(source, /\b(?:Button|TextField|TextArea|ComboBox)\s*\{/, file)
+    assert.doesNotMatch(source, /contentItem:\s*Text\s*\{/, `${file}: keep shared action typography`)
   }
 })
 

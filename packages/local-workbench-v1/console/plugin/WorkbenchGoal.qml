@@ -120,7 +120,7 @@ Control {
                 font.family: Style.font.family
                 font.pixelSize: Style.font.caption
             }
-            Button {
+            WorkbenchAction {
                 id: goalProjectButton
                 Layout.fillWidth: true
                 text: "Change Project"
@@ -141,7 +141,7 @@ Control {
                 Layout.fillWidth: true
                 Layout.preferredHeight: Style.space(96)
                 clip: true
-                TextArea {
+                WorkbenchTextArea {
                     id: goalEditor
                     objectName: "workbench-goal-text"
                     textFormat: Text.PlainText
@@ -171,13 +171,14 @@ Control {
             RowLayout {
                 Layout.fillWidth: true
                 spacing: Style.space(6)
-                Button {
+                WorkbenchAction {
                     Layout.fillWidth: true
                     text: "Cancel"
                     focusPolicy: Qt.StrongFocus
                     onClicked: root.navigate("overview")
                 }
-                Button {
+                WorkbenchAction {
+                    prominent: true
                     objectName: "workbench-create-goal"
                     Layout.fillWidth: true
                     text: "Create"
@@ -215,7 +216,7 @@ Control {
                     font.pixelSize: Style.font.heading
                     font.bold: true
                 }
-                Button {
+                WorkbenchAction {
                     id: menuButton
                     objectName: "workbench-goal-menu"
                     text: "⋮"
@@ -255,14 +256,14 @@ Control {
                 }
                 Repeater {
                     model: root.goalActions
-                    delegate: Button {
+                    delegate: WorkbenchAction {
                         required property var modelData
                         readonly property var requestPayload: root.actionPayload(modelData)
                         readonly property bool available: root.connected && modelData.enabled
                             && requestPayload !== null
                         Layout.fillWidth: true
-                        text: (modelData.label || modelData.kind)
-                            + (available ? "" : ": " + (modelData.reason || "Unavailable"))
+                        text: modelData.label || modelData.kind
+                        supportingText: available ? "" : (modelData.reason || "Unavailable")
                         enabled: available
                         focusPolicy: Qt.StrongFocus
                         onClicked: root.intentRequested({
@@ -274,21 +275,21 @@ Control {
                 }
             }
 
-            Button {
+            WorkbenchAction {
                 Layout.fillWidth: true
                 text: "Add agent"
                 enabled: root.connected
                 focusPolicy: Qt.StrongFocus
                 onClicked: root.navigate("add_agent")
             }
-            Button {
+            WorkbenchAction {
                 Layout.fillWidth: true
                 text: "Prepare assignment"
                 enabled: root.connected
                 focusPolicy: Qt.StrongFocus
                 onClicked: root.navigate("assignment")
             }
-            Button {
+            WorkbenchAction {
                 Layout.fillWidth: true
                 text: "Checks"
                 enabled: root.connected

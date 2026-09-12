@@ -24,6 +24,9 @@ const QML_FILES = [
   'WorkbenchConsole.qml',
   'WorkbenchHost.qml',
   'WorkbenchOverview.qml',
+  'WorkbenchAction.qml',
+  'WorkbenchTextArea.qml',
+  'WorkbenchTextField.qml',
   'WorkbenchGoal.qml',
   'WorkbenchCards.qml',
   'WorkbenchAssignmentForm.qml',
@@ -68,7 +71,15 @@ QtObject {
     put('imports/qs/Commons/Border.qml', `pragma Singleton
 import QtQuick
 QtObject { function flat(color, width) { return {} } function surfaceSpec(a,b,c,d) { return {} } }`)
-    put('imports/qs/Ui/qmldir', 'module qs.Ui\nBorderSurface 1.0 BorderSurface.qml\n')
+    put('imports/qs/Ui/qmldir', 'module qs.Ui\nBorderSurface 1.0 BorderSurface.qml\nCursorSurface 1.0 CursorSurface.qml\n')
+    put('imports/qs/Ui/CursorSurface.qml', `import QtQuick
+Rectangle {
+  property color foreground: "#eeeeee"
+  property color accent: "#80c0ff"
+  property bool hasCursor: false
+  property bool current: false
+  color: hasCursor ? "#404040" : current ? "#303840" : "transparent"
+}`)
     put('imports/qs/Ui/BorderSurface.qml', 'import QtQuick\nRectangle { property var borderSpec: ({}) }\n')
     put('tst_workbench.qml', `import QtQuick
 import QtQuick.Window
@@ -105,10 +116,9 @@ Item {
       for (var i = 0; i < item.children.length; i++) visibleTexts(item.children[i], out)
     }
     function buttonWithText(item, value) {
-      // The concrete class differs per Controls style; every Button subclass
-      // still carries the pressed/down properties and the class name "Button".
+      // Local wrappers retain Qt's down property, independent of style/class name.
       // Only a visible control can receive a synthesized click.
-      if (item.visible && item.text === value && String(item).indexOf("Button") >= 0) return item
+      if (item.visible && item.text === value && item.down !== undefined) return item
       for (var i = 0; i < item.children.length; i++) {
         var found = buttonWithText(item.children[i], value)
         if (found !== null) return found
@@ -116,7 +126,7 @@ Item {
       return null
     }
     function buttonsWithText(item, value, out) {
-      if (item.visible && item.text === value && String(item).indexOf("Button") >= 0) out.push(item)
+      if (item.visible && item.text === value && item.down !== undefined) out.push(item)
       for (var i = 0; i < item.children.length; i++) buttonsWithText(item.children[i], value, out)
       return out
     }
@@ -237,7 +247,30 @@ Item {
       verify(joined.indexOf("Project: /home/user/work/omarchestra") >= 0)
       verify(joined.indexOf("Goal: Ship the parser fix") >= 0)
       verify(joined.indexOf("New Team Goal") >= 0)
-      verify(joined.indexOf("Take control: No assignment is running for this agent.") >= 0)
+      verify(joined.indexOf("No assignment is running for this agent.") < 0)
+      var menu = visualNamed(surfaceRoot(), "workbench-agent-actions")
+      verify(menu !== null)
+      clickItem(menu)
+      var expanded = []; visibleTexts(surfaceRoot(), expanded)
+      verify(expanded.join("\\n").indexOf("No assignment is running for this agent.") >= 0)
+      var unavailable = buttonWithText(surfaceRoot(), "Take control")
+      verify(unavailable !== null)
+      compare(unavailable.enabled, false)
+      menu.forceActiveFocus()
+      keyClick(Qt.Key_Escape)
+      wait(20)
+      compare(consoleView.destination, "overview")
+      verify(menu.activeFocus)
+      verify(buttonWithText(surfaceRoot(), "Take control") === null)
+      var primary = findChild(consoleView, "workbench-new-goal")
+      verify(primary.width < pageOverview.width)
+      primary.forceActiveFocus()
+      wait(20)
+      verify(primary.activeFocus)
+      if (${JSON.stringify(process.env.WORKBENCH_VISUAL_EVIDENCE || '')} !== "") {
+        var overviewImage = grabImage(surfaceRoot())
+        overviewImage.save(${JSON.stringify(process.env.WORKBENCH_VISUAL_EVIDENCE || '')})
+      }
       verify(joined.indexOf("pi-a1b2") >= 0)
       verify(joined.indexOf("Add agent") >= 0)
       verify(joined.indexOf("Prepare assignment") >= 0)
@@ -300,7 +333,8 @@ Item {
       task.text = host.snapshot.details[1].goalText
       wait(20)
       var checkTexts = []; visibleTexts(surfaceRoot(), checkTexts)
-      verify(checkTexts.join("\n").indexOf("Unit tests · v3 · validator") >= 0)
+      verify(checkTexts.indexOf("Unit tests · v3") >= 0)
+      verify(checkTexts.some(function(text) { return text.indexOf("validator · available") >= 0 }))
       var start = findChild(consoleView, "workbench-start-review")
       verify(start !== null)
       verify(start.enabled, consoleView.reviewBlockedReason())
@@ -350,8 +384,8 @@ Item {
       wait(20)
       compare(consoleView.menuOpen, true)
       var texts = []; visibleTexts(surfaceRoot(), texts)
-      verify(texts.join("\\n").indexOf("Stop assignment: No assignment is running for this Goal.") >= 0)
-      var stop = buttonWithText(surfaceRoot(), "Stop assignment: No assignment is running for this Goal.")
+      verify(texts.indexOf("No assignment is running for this Goal.") >= 0)
+      var stop = buttonWithText(surfaceRoot(), "Stop assignment")
       verify(stop !== null)
       compare(stop.enabled, false)
       panel().requestActivate()
@@ -359,6 +393,49 @@ Item {
       keyClick(Qt.Key_Escape)
       tryCompare(consoleView, "menuOpen", false)
       verify(menu.activeFocus, "closing the menu returns focus to the control that opened it")
+    }
+
+    function test_confirmationUsesThemedActionsOnce() {
+      openJourney()
+      var choice = host.snapshot.observedSessions[0].choices[0]
+      var request = {kind: "request_adoption", target: choice.choiceId, payload: {choiceId: choice.choiceId}}
+      consoleView.requestConfirmation(request)
+      wait(20)
+      var dialog = findChild(consoleView, "workbench-confirmation")
+      verify(dialog.opened)
+      var cancel = dialog.footer.standardButton(Dialog.Cancel)
+      verify(cancel !== null)
+      clickItem(cancel)
+      compare(consoleView.pendingIntents.length, 0)
+      verify(!dialog.opened)
+      consoleView.requestConfirmation(request)
+      wait(20)
+      var ok = dialog.footer.standardButton(Dialog.Ok)
+      verify(ok !== null)
+      clickItem(ok)
+      compare(consoleView.pendingIntents.length, 1)
+      compare(consoleView.pendingIntents[0].target, choice.choiceId)
+      verify(!dialog.opened)
+    }
+
+    function test_visualAffordancesAndPages() {
+      openJourney()
+      var primary = findChild(consoleView, "workbench-new-goal")
+      verify(primary.background.children[0].color.a > 0.04, "enabled actions have a resting fill")
+      verify(primary.background.children[0].border.color.a > 0.1, "enabled actions have a subtle edge")
+      var board = findChild(consoleView, "workbench-board")
+      verify(board.background.children[0].color.a < primary.background.children[0].color.a)
+      consoleView.selectAgent("${JOURNEY_AGENT_RUN_ID}")
+      consoleView.selectCheck("${JOURNEY_CHECK_ID}", 3)
+      var states = ["overview", "new_goal", "goal", "add_agent", "adoption_review", "assignment", "checks", "start_review", "work", "activity"]
+      for (var i = 0; i < states.length; i++) {
+        consoleView.goTo(states[i])
+        wait(20)
+        if (${JSON.stringify(process.env.WORKBENCH_VISUAL_EVIDENCE || '')} !== "") {
+          var image = grabImage(surfaceRoot())
+          image.save(${JSON.stringify(process.env.WORKBENCH_VISUAL_EVIDENCE || '')}.replace(/\\.png$/, "-" + states[i] + ".png"))
+        }
+      }
     }
 
     function test_fixedDock() {

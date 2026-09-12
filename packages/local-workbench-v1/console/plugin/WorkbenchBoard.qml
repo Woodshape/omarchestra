@@ -50,7 +50,7 @@ Control {
             wrapMode: Text.Wrap
         }
 
-        Button {
+        WorkbenchAction {
             Layout.fillWidth: true
             text: "Open Board"
             enabled: false
