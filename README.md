@@ -22,6 +22,8 @@ and separate [human procedure](prototypes/first-vertical-slice/docs/live-adoptio
 
 ## Design
 
+- [Future-work backlog](docs/backlog.md) — deferred integration ideas and their implementation prerequisites
+
 - [MVP design](docs/design/mvp.md) — authoritative product scope, decisions, acceptance criteria, and open technical contracts
 - [Pi terminal behavior](docs/design/pi-terminal-behavior.md) — managed terminal presentation, ordinary-terminal observation, Adoption, and takeover behavior
 - [Domain language](CONTEXT.md) — canonical terms for managed Agent Runs, Observed Pi Sessions, Adoption, the Companion Plugin, and Projection Sessions

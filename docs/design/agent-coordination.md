@@ -60,3 +60,7 @@ Updates are immediately available on the board and produce bounded notifications
 Persist ordered messages and per-agent read cursors. Distinguish posted, notified, read, and acted-upon states. Prefer artifact references over repeated context copies. Only the Team Runner can authorize an Assignment; board messages cannot override that authority.
 
 Persistence/envelopes, permissions and subscription ownership, cursor/replay semantics, notification coalescing, content-size limits, retention, and visible delivery acknowledgement require a bounded design/acceptance milestone. This direction does not imply those mechanisms already exist.
+
+### Approved future review integration
+
+The user approved [Plannotator artifact review through the Board](../plans/plannotator-board-review-integration.md) as a future direction, tracked in the [backlog](../backlog.md). Human review outcomes and annotations belong to an exact artifact revision and linked thread; they do not automatically create Assignments, authorize execution or replace executable acceptance gates. Plannotator remains an optional external review surface, not an orchestrator. Integration waits for durable artifact/Assignment identity and Board contracts and does not block the current Local Workbench milestone.
