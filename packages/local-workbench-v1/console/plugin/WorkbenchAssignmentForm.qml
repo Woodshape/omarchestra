@@ -65,6 +65,22 @@ Control {
         root.draftChanged(root.draftKey, JSON.stringify(next))
     }
 
+    // Authorization is only offered when the committed projection advertises
+    // the action and the form holds the exact proposal it names. Nothing here
+    // invents a capable binding.
+    function authorizeAction(proposalId) {
+        if (!root.projection || !Array.isArray(root.projection.actions)) return null
+        for (var i = 0; i < root.projection.actions.length; i++) {
+            var action = root.projection.actions[i]
+            if (action.kind === "authorize_adoption" && action.enabled
+                    && (action.target === null || action.target === proposalId)) return action
+        }
+        return null
+    }
+
+    readonly property var adoptionAuthorizeAction: root.adoptionDetail === null
+        ? null : root.authorizeAction(root.adoptionDetail.proposalId)
+
     ColumnLayout {
         id: assignmentColumn
         anchors.left: parent.left
@@ -213,11 +229,20 @@ Control {
                 font.pixelSize: Style.font.caption
             }
             WorkbenchAction {
+                objectName: "workbench-authorize-adoption"
                 Layout.fillWidth: true
-                text: "Authorize adoption"
-                supportingText: "Runtime unavailable"
-                enabled: false
+                text: root.adoptionAuthorizeAction === null ? "Authorize adoption"
+                    : (root.adoptionAuthorizeAction.label || "Authorize adoption")
+                supportingText: root.adoptionAuthorizeAction === null
+                    ? "No committed authorization is available for this selection."
+                    : "Commits authorization only; delivery and readiness are reported separately."
+                enabled: root.connected && root.adoptionAuthorizeAction !== null
                 focusPolicy: Qt.StrongFocus
+                onClicked: root.intentRequested({
+                    kind: "authorize_adoption",
+                    target: root.adoptionDetail.proposalId,
+                    payload: { proposalId: root.adoptionDetail.proposalId }
+                })
             }
         }
 

@@ -126,6 +126,8 @@ export interface ObservedChoice {
   choiceId: string
   label: string
   enabled: boolean
+  /** Which committed intent this choice emits. Defaults to `request_adoption`. */
+  actionKind?: 'request_adoption' | 'authorize_adoption'
 }
 
 export interface ObservedSessionCard {
@@ -359,7 +361,7 @@ function requireObject(value: unknown, where: string): Record<string, unknown> {
     activity: 'eventId cursor kind reasonCode label createdAt',
     actions: 'kind target label enabled reasonCode reason',
     action: 'kind target label enabled reasonCode reason',
-    choices: 'choiceId label enabled', fixture: 'active label',
+    choices: 'choiceId label enabled actionKind', fixture: 'active label',
     checks: 'checkId version digest name summary mode commandSummary availability reason',
     check: 'checkId version digest name summary mode commandSummary availability reason',
   }
@@ -461,10 +463,14 @@ export function validateManagedAgentCard(value: unknown, where = 'managedAgent')
 
 export function validateObservedChoice(value: unknown, where = 'choice'): ObservedChoice {
   const obj = requireObject(value, where)
+  const actionKind = obj.actionKind === undefined
+    ? undefined
+    : requireEnum(obj.actionKind, ['request_adoption', 'authorize_adoption'], `${where}.actionKind`)
   return {
     choiceId: requireId(obj.choiceId, `${where}.choiceId`),
     label: requireDisplay(obj.label, `${where}.label`),
     enabled: obj.enabled === true,
+    ...(actionKind === undefined ? {} : { actionKind }),
   }
 }
 
@@ -603,10 +609,12 @@ export function validateIntent(value: unknown): WorkbenchIntent {
   requireProtocol(obj.protocol, 'intent')
   const payloadFields: Record<string, string[]> = {
     select_project: ['projectId'], select_goal: ['goalId'], create_goal: ['projectId', 'goalText'],
+    inspect_project: ['path'], confirm_register_project: ['registrationId'],
+    create_check: ['projectId', 'name', 'summary', 'mode', 'commandSummary', 'definitionDraft'],
     request_adoption: ['choiceId'], authorize_adoption: ['proposalId'],
     start_assignment: ['goalText', 'checkId', 'checkVersion'],
     configure_checks: ['projectId', 'checkId', 'checkVersion', 'name', 'summary', 'mode', 'commandSummary', 'definitionDraft'],
-    take_control: ['assignmentId'], return_to_team: ['assignmentId'], accept: ['assignmentId'],
+    take_control: ['agentRunId'], return_to_team: ['assignmentId'], accept: ['assignmentId'],
     resume: ['assignmentId'], retry: ['assignmentId'], retire: ['agentRunId'], purge: ['agentRunId'],
     stop: ['assignmentId'], recover: [], present: [],
   }
@@ -623,6 +631,10 @@ export function validateIntent(value: unknown): WorkbenchIntent {
     else if (key === 'checkVersion') { requireNonNegativeInt(item, `intent.payload.${key}`); if (item === 0) throw new SchemaError('check version must be positive') }
     else if (key === 'mode') requireEnum(item, CHECK_MODES, `intent.payload.${key}`)
     else if (key === 'goalText') requireManagedText(item, `intent.payload.${key}`)
+    else if (key === 'path') {
+      if (typeof item !== 'string' || !item.startsWith('/') || item.split('/').includes('..')) throw new SchemaError('intent.payload.path must be an absolute path without parent segments')
+      if (Buffer.byteLength(item) > 4096) throw new SchemaError('intent.payload.path exceeds the path byte bound')
+    }
     else if (key.endsWith('Id')) requireId(item, `intent.payload.${key}`)
     else requireDisplay(item, `intent.payload.${key}`)
   }

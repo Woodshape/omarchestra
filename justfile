@@ -324,3 +324,38 @@ local-workbench-v1-check:
         NODE_BIN="$node_bin" \
         QMLLINT_BIN="$qml_lint" \
         bash "$root/packages/local-workbench-v1/scripts/phase-gate.sh"
+
+# LOCAL WORKBENCH V1 — PHASE 2 P2.1 FOUNDATION. Run with
+# `just --no-dotenv local-workbench-v1-foundation-check` for the same
+# dotenv reason above. This entrypoint needs only Node: disposable temp roots,
+# injected ids/clocks, and node:sqlite. It installs nothing, launches no Pi or
+# desktop, reads no user state, mutates no Project, dispatches no Assignment,
+# and executes no acceptance check.
+local-workbench-v1-foundation-check:
+    #!/usr/bin/env bash
+    set -euo pipefail
+    root='{{justfile_directory()}}'
+    node_bin="$(command -v node || true)"
+    node_dir="$(dirname "${node_bin:-/usr/bin/node}")"
+    env -i \
+        PATH="$node_dir:/usr/bin:/bin" \
+        NODE_BIN="$node_bin" \
+        bash "$root/packages/local-workbench-v1/scripts/phase-2-foundation-gate.sh"
+
+# LOCAL WORKBENCH V1 — PHASE 2 P2.2-P2.5 RUNNABLE WORKBENCH. Run with
+# `just --no-dotenv local-workbench-v1-phase-2-check` for the same dotenv
+# reason above. This entrypoint needs Node and an offscreen Qt test runner:
+# disposable temp roots, injected ids/clocks/ports, and node:sqlite. It
+# installs nothing, launches no Pi or desktop, reads no user state, mutates no
+# Project, dispatches no Assignment, and executes no acceptance check. It
+# refuses to pass when the real QML render is unavailable.
+local-workbench-v1-phase-2-check:
+    #!/usr/bin/env bash
+    set -euo pipefail
+    root='{{justfile_directory()}}'
+    node_bin="$(command -v node || true)"
+    node_dir="$(dirname "${node_bin:-/usr/bin/node}")"
+    env -i \
+        PATH="$node_dir:/usr/bin:/bin" \
+        NODE_BIN="$node_bin" \
+        bash "$root/packages/local-workbench-v1/scripts/phase-2-gate.sh"

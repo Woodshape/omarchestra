@@ -1,12 +1,12 @@
 /**
- * Local Workbench v1 — Phase 1 additive Companion release.
+ * Local Workbench v1 — additive Companion release.
  *
- * This package contains only its own active release (0.7.0). It does not copy
+ * This package contains only its own active release (0.8.0). It does not copy
  * the historical prototype catalog (0.2.0/0.3.0/0.4.0) and does not alter
  * prototype release bytes or defaults. The active release assets are read from
  * the plugin directory so the packaged bytes are always identical to the
- * source. The frozen 0.6.0 assets are retained separately so they stay
- * reproducible after the source changes.
+ * source. The accepted 0.6.0 and 0.7.0 assets are retained separately so they
+ * stay reproducible after the source changes.
  */
 
 import fs from 'node:fs'

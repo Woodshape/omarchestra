@@ -19,6 +19,7 @@ Control {
     function actionPayload(kind, agentRunId, assignmentId) {
         switch (kind) {
         case "take_control":
+            return { agentRunId: agentRunId }
         case "return_to_team":
         case "accept":
         case "resume":
@@ -32,6 +33,15 @@ Control {
         default:
             return null
         }
+    }
+
+    // An observed-session choice names its committed intent. A proposal choice
+    // authorizes; a transport observation requests adoption.
+    function choiceIntent(choiceId, actionKind) {
+        if (actionKind === "authorize_adoption") {
+            return { kind: "authorize_adoption", target: choiceId, payload: { proposalId: choiceId } }
+        }
+        return { kind: "request_adoption", target: choiceId, payload: { choiceId: choiceId } }
     }
 
     component Caption: Text {
@@ -154,11 +164,7 @@ Control {
                         Layout.fillWidth: true
                         text: modelData.label
                         enabled: root.actionable && modelData.enabled
-                        onClicked: root.intentRequested({
-                            kind: "request_adoption",
-                            target: modelData.choiceId,
-                            payload: { choiceId: modelData.choiceId }
-                        })
+                        onClicked: root.intentRequested(root.choiceIntent(modelData.choiceId, modelData.actionKind))
                     }
                 }
             }

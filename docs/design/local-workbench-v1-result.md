@@ -1,10 +1,12 @@
 # Local Workbench v1 collaboration result
 
-Current status: Phase 0 contracts and Phase 1 presentation engineering are delivered. The **task-first redesign (Companion 0.7.0)** is implemented: nine task-first QML components, one labelled default journey fixture with opt-in developer scenarios, Project-scoped configured-check selection, and exact-fact Adoption/Start reviews. `just --no-dotenv local-workbench-v1-check` reports 119 Node tests (114 pass, five deferred runtime TODOs) and twelve passing offscreen Qt rows. The consolidated native operator layout checkpoint remains pending; Phase 2 has not started. No durable execution claim.
+Current status: Phase 0 contracts and Phase 1 presentation engineering are delivered. The **task-first redesign (Companion 0.7.0)** is implemented: nine task-first QML components, one labelled default journey fixture with opt-in developer scenarios, Project-scoped configured-check selection, and exact-fact Adoption/Start reviews. `just --no-dotenv local-workbench-v1-check` reports 119 Node tests (114 pass, five deferred runtime TODOs) and twelve passing offscreen Qt rows. The consolidated native operator layout checkpoint remains pending; Phase 2 had not started at the time of this record. No durable execution claim.
 
 Subsequent [independent validation](../reviews/local-workbench-ux-redesign-validation.md) rejected several gaps. The [correction slice](../reviews/local-workbench-ux-redesign-corrections.md) closes them with 115 Node pass/five runtime TODOs, 16 Qt rows and 163 affected regression tests passing. The loaded presentation contract is now `task-first-v2`; native UX acceptance remains pending. The Fusion DAG itself failed at 2.a; later reports were produced in-session, not independent delegated final reviews.
 
 The provenance and original validation below record the earlier Fusion delivery, not the latest test counts.
+
+**Phase 2 is incomplete. Its gate exits 1 (BLOCKED) after passing the implemented subset.** The final sequential fixes, actual validation, unresolved requirements and slot/task provenance are recorded in [the canonical Phase 2 integration result](local-workbench-v1-phase-2-integration-result.md). The human management walkthrough remains blocked and unrun.
 
 ## Delivered paths
 

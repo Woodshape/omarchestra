@@ -9,6 +9,10 @@ import { gateFailScenario } from '../fixtures/scenarios.ts'
 import { WorkbenchAdapter } from '../console/live-projection-adapter.ts'
 
 /** Controls that must never appear in the New Team Goal destination. */
+// The gate passes the resolved binary through the environment so its
+// availability check and this spawn cannot disagree.
+const QT_RUNNER = process.env.QT_BIN || '/usr/lib/qt6/bin/qmltestrunner'
+
 const FORBIDDEN_IN_GOAL_FORM = [
   'Acceptance check', 'Executable', 'argv', 'Environment', 'Timeout', 'Target agent',
   'Prepare assignment', 'Corrections',
@@ -549,7 +553,7 @@ Item {
     }
   }
 }`)
-    const result = spawnSync('/usr/lib/qt6/bin/qmltestrunner', ['-input', scratch, '-import', join(scratch, 'imports'), '-platform', 'offscreen'], {
+    const result = spawnSync(QT_RUNNER, ['-input', scratch, '-import', join(scratch, 'imports'), '-platform', 'offscreen'], {
       timeout: 30000, encoding: 'utf8', maxBuffer: 2 * 1024 * 1024,
       env: { PATH: '/usr/bin:/bin', HOME: join(scratch, 'home'), XDG_CONFIG_HOME: join(scratch, 'home'), XDG_CACHE_HOME: join(scratch, 'home'), XDG_STATE_HOME: join(scratch, 'home'), XDG_RUNTIME_DIR: join(scratch, 'runtime'), QT_QUICK_BACKEND: 'software', QML_DISABLE_DISK_CACHE: '1', QT_QUICK_CONTROLS_STYLE: 'Basic' },
     })

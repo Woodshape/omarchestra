@@ -1,7 +1,7 @@
 /** Explicit managed detail projections, not lifecycle authority or conversation collection. */
 export interface AdoptionDetail {
   kind: 'adoption'; proposalId: string; observedSessionId: string; projectId: string;
-  goalId: string; executionNodeId: string; role: string; predecessorAgentRunId: string | null;
+  goalId: string | null; executionNodeId: string; role: string; predecessorAgentRunId: string | null;
   vacancyGeneration: number; stage: 'proposed' | 'authorized' | 'awaiting_ack' | 'committed' | 'ready' | 'failed' | 'expired';
 }
 export interface GateDefinitionView {
@@ -38,7 +38,12 @@ export interface CheckDraft {
 export interface CheckConfigurationDetail {
   kind: 'check_configuration'; projectId: string; checkId: string; checkVersion: number; definitionDraft: CheckDraft;
 }
-export type WorkbenchDetail = AdoptionDetail | StartDetail | HandoffDetail | StopDetail | DiagnosticNotice | CheckConfigurationDetail
+export interface RegistrationDetail {
+  kind: 'registration'; registrationId: string; requestedPath: string; canonicalPath: string;
+  gitCommonDir: string | null; executionNodeId: string; headOid: string | null; dirty: boolean;
+  supported: boolean; reasons: string[]; executionReady: boolean; readinessReasons: string[];
+}
+export type WorkbenchDetail = AdoptionDetail | StartDetail | HandoffDetail | StopDetail | DiagnosticNotice | CheckConfigurationDetail | RegistrationDetail
 
 const id = (v: unknown): string => {
   if (typeof v !== 'string' || !/^[A-Za-z0-9_-]{1,128}$/.test(v)) throw new Error('invalid detail identity')
@@ -120,13 +125,30 @@ export function validateCheckDraft(v: unknown): CheckDraft {
 }
 export function validateDetail(v: unknown): WorkbenchDetail {
   const kind = (v as any)?.kind
+  if (kind === 'registration') {
+    const o = object(v, 'kind registrationId requestedPath canonicalPath gitCommonDir executionNodeId headOid dirty supported reasons executionReady readinessReasons')
+    return {
+      kind,
+      registrationId: id(o.registrationId),
+      requestedPath: absolute(o.requestedPath),
+      canonicalPath: absolute(o.canonicalPath),
+      gitCommonDir: o.gitCommonDir === null ? null : absolute(o.gitCommonDir),
+      executionNodeId: id(o.executionNodeId),
+      headOid: o.headOid === null ? null : id(o.headOid),
+      dirty: bool(o.dirty),
+      supported: bool(o.supported),
+      reasons: list(o.reasons, 16, v => text(v, 128)),
+      executionReady: bool(o.executionReady),
+      readinessReasons: list(o.readinessReasons, 16, v => text(v, 128)),
+    }
+  }
   if (kind === 'check_configuration') {
     const o = object(v, 'kind projectId checkId checkVersion definitionDraft')
     return { kind, projectId: id(o.projectId), checkId: id(o.checkId), checkVersion: number(o.checkVersion, 1), definitionDraft: validateCheckDraft(o.definitionDraft) }
   }
   if (kind === 'adoption') {
     const o = object(v, 'kind proposalId observedSessionId projectId goalId executionNodeId role predecessorAgentRunId vacancyGeneration stage')
-    return { kind, proposalId: id(o.proposalId), observedSessionId: id(o.observedSessionId), projectId: id(o.projectId), goalId: id(o.goalId), executionNodeId: id(o.executionNodeId), role: text(o.role, 512), predecessorAgentRunId: o.predecessorAgentRunId === null ? null : id(o.predecessorAgentRunId), vacancyGeneration: number(o.vacancyGeneration), stage: choice(o.stage, ['proposed', 'authorized', 'awaiting_ack', 'committed', 'ready', 'failed', 'expired']) }
+    return { kind, proposalId: id(o.proposalId), observedSessionId: id(o.observedSessionId), projectId: id(o.projectId), goalId: o.goalId === null ? null : id(o.goalId), executionNodeId: id(o.executionNodeId), role: text(o.role, 512), predecessorAgentRunId: o.predecessorAgentRunId === null ? null : id(o.predecessorAgentRunId), vacancyGeneration: number(o.vacancyGeneration), stage: choice(o.stage, ['proposed', 'authorized', 'awaiting_ack', 'committed', 'ready', 'failed', 'expired']) }
   }
   if (kind === 'start') {
     const o = object(v, 'kind confirmationId projectId goalId agentRunId goalText executionNodeId gitCommonDir headOid baselineDigest dirty maxCorrections elapsedMs gate')

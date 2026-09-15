@@ -1,6 +1,6 @@
 # Local Workbench v1 implementation plan
 
-Status: **Phase 0 contracts and Phase 1 presentation engineering delivered. The operator confirmed fixed dock behavior after shell restart, but rejected the complexity of the creation flow. The approved [task-first UX redesign](local-workbench-ux-redesign.md) is the next bounded engineering task before Phase 2 integration. Native UX acceptance remains pending; Phase 2 has not started.**
+Status: **Phase 0 contracts and Phase 1 task-first presentation delivered. Following the corrected all-pages preview, the operator reported “ok working now” and explicitly authorized proceeding to functional integration. Phase 2 is partially implemented but its full gate is BLOCKED; use the [verified sequential completion plan](local-workbench-v1-phase-2-completion.md), not another broad all-Phase-2 delegation. This entry decision is not a formal exhaustive layout-checklist PASS or live execution evidence.**
 
 Canonical collaboration result: [delivery and provenance](../design/local-workbench-v1-result.md). Latest [Phase 1 engineering closeout](../design/local-workbench-v1-phase-1-closeout.md) records the completed follow-up and evidence limits.
 

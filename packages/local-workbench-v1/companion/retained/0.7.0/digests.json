@@ -1,0 +1,25 @@
+{
+  "version": "0.7.0",
+  "pluginId": "omarchestra.agent-console",
+  "protocol": "omarchestra.companion/v1",
+  "algorithm": "sha256",
+  "capturedFrom": "packages/local-workbench-v1/console/plugin",
+  "capturedAtHead": "744598f8d52307ea503e53ef7870a56c6823a926",
+  "capturedOnBranch": "feature/local-workbench-v1",
+  "assets": {
+    "manifest.json": "c447c880eb1e4534775dcad8a896b0fe2381ad54bd9e7e5aa20fa244957e218c",
+    "WorkbenchConsole.qml": "31a0b649ae2354651f01f1fdfeac0a23a05ebf3da771a9fcebd4e4722f9e5b6a",
+    "WorkbenchHost.qml": "eec4ad150c257bfeb695cac049389372256aca2ad3a59d416574a2565bda4026",
+    "WorkbenchOverview.qml": "0a7f7b991ac2de03808a6e5c6f3e236d93a853f4063d8ed14a73a88827968dfb",
+    "WorkbenchAction.qml": "bb93ec2ae577fdef03233f1db25e4696cb0fed27870ac4b5debdeb63702b7658",
+    "WorkbenchTextArea.qml": "0fefa1555f8a2e7a3ee4b22f828f28dff110d273dc19e4b164dafc6de03976e8",
+    "WorkbenchTextField.qml": "588bc2ca21ac6a14fe08632fd1f2d8cdcdd5f7e743aff00041c9e003dc2121f6",
+    "WorkbenchCards.qml": "b7d9b06bae5ec0e5b9b6c5d9202957a3f1198fa9e321d1c42e55531456a19a3f",
+    "WorkbenchBoard.qml": "024846413ece1e0d443fc6f6835d43ae9b0ea7ccbf578c1c8ff0776666c113c3",
+    "WorkbenchGoal.qml": "e45436b3ee73260437e4bc290e0e4b4e0794a7cfab256a63c08ab164c98b5650",
+    "WorkbenchAssignmentForm.qml": "a7c7ca2c3ccdc08aa69b2fdd247e91247c46289cd2d3553641fd05a2fdbacde8",
+    "WorkbenchChecks.qml": "5e8fead9496f18704271fd8ecdd839e00163ccf3091e61e8ec60380dcc39cb9c",
+    "WorkbenchReview.qml": "dbc705d4e339ef9d484dae8f7ae52d98fe59b3310d29596f44abc2d35d0b367f",
+    "AgentConsole.qml": "f3708e96cffdbce16e9b27fb46caf5311b2d1ac730a5a12d60bd4736716dee2e"
+  }
+}

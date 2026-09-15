@@ -1,12 +1,11 @@
 # Local Workbench — task-first UX redesign
 
-Status: **User-approved direction; engineering implemented (Companion 0.7.0); native UX acceptance pending.**
+Status: **Engineering implemented (Companion 0.7.0), followed by the accepted all-pages visual iteration. The operator reported “ok working now” and explicitly authorized Phase 2 engineering. The [Phase 2 execution plan](local-workbench-v1-phase-2-handoff.md) supersedes the pending entry prerequisite; no exhaustive checklist or runtime PASS is inferred.**
 
 The initial delivery required [independent corrections](../reviews/local-workbench-ux-redesign-corrections.md), now implemented in `packages/local-workbench-v1/` and `manual/`: Create contract, review invalidation, Project transport, progressive disclosure and advanced configuration drafts. Current evidence: 120 Node tests
 (115 pass, five deferred runtime TODOs) and sixteen passing offscreen Qt rows via
 `just --no-dotenv local-workbench-v1-check`. No installation, shell restart,
-live Pi, real dispatch, commit or push occurred. The operator walkthrough that
-accepts this natively remains separately authorized and unperformed.
+live Pi, real dispatch, commit or push occurred. Those evidence limits describe the original correction slice. Subsequent native feedback and visual changes are recorded in the [all-pages closeout](../reviews/local-workbench-all-pages-visual-pass.md); another redesign walkthrough is not a Phase 2 entry blocker.
 
 ## Why this task exists
 

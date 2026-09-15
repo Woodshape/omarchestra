@@ -1,0 +1,9 @@
+REPRODUCED: F4: ACK after proposal expiry from wrong transport commits
+REPRODUCED: F3: abandoned proposal blocks another and failed ACK projects a disconnected binding
+REPRODUCED: F6: deleting owner.sqlite permits a second simultaneous owner
+REPRODUCED: F7: effect survives failed outcome persistence
+REPRODUCED: F7: wrong plugin generation is acknowledged
+REPRODUCED: F10: invalid nonexistent resource draft accepted
+REPRODUCED: F11: non-SQLite bytes accepted as verified backup
+REPRODUCED: F9: failed git status is reported supported and clean
+REPRODUCED: F12 nested arbitrary frame payload accepted

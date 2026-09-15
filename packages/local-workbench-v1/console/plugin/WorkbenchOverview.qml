@@ -28,6 +28,17 @@ Control {
     signal navigate(string destination)
     implicitHeight: overviewColumn.implicitHeight
 
+    // Runner-computed registration detail, if an inspection is pending. QML
+    // renders this; it never derives Git facts itself.
+    readonly property var registrationDetail: {
+        if (!root.projection || !Array.isArray(root.projection.details)) return null
+        for (var i = 0; i < root.projection.details.length; i++) {
+            var detail = root.projection.details[i]
+            if (detail && detail.kind === "registration") return detail
+        }
+        return null
+    }
+
     readonly property color textColor: Color.popups.text
     readonly property color mutedColor: Qt.darker(root.textColor, 1.45)
     readonly property bool connected: root.projection !== null && root.projection.connection === "connected"
@@ -150,6 +161,80 @@ Control {
                 retired: root.projection ? root.projection.retiredRuns : []
                 actionable: root.connected
                 onIntentRequested: function(payload) { root.intentRequested(payload) }
+            }
+
+            Text {
+                Layout.fillWidth: true
+                textFormat: Text.PlainText
+                text: "Project registration"
+                color: root.textColor
+                font.family: Style.font.family
+                font.pixelSize: Style.font.caption
+                font.bold: true
+            }
+            Text {
+                Layout.fillWidth: true
+                visible: root.projection !== null && Array.isArray(root.projection.projects)
+                    && root.projection.projects.length > 0
+                textFormat: Text.PlainText
+                wrapMode: Text.Wrap
+                text: root.projection && Array.isArray(root.projection.projects) && root.projection.projects.length > 0
+                    ? "Registered: " + root.projection.projects[0].canonicalPath : ""
+                color: root.mutedColor
+                font.family: Style.font.family
+                font.pixelSize: Style.font.caption
+            }
+            // The runner resolves Git facts; this field only carries the path
+            // the operator typed. Confirmation is a separate, explicit step.
+            WorkbenchTextField {
+                id: projectPathField
+                Layout.fillWidth: true
+                objectName: "workbench-project-path"
+                placeholderText: "/absolute/path/to/a/git/worktree"
+                enabled: root.connected
+                onAccepted: root.intentRequested({ kind: "inspect_project", target: null, payload: { path: projectPathField.text } })
+            }
+            RowLayout {
+                Layout.fillWidth: true
+                spacing: Style.space(4)
+                WorkbenchAction {
+                    objectName: "workbench-inspect-project"
+                    text: "Inspect path"
+                    enabled: root.connected && projectPathField.text.length > 0
+                    onClicked: root.intentRequested({ kind: "inspect_project", target: null, payload: { path: projectPathField.text } })
+                }
+                WorkbenchAction {
+                    objectName: "workbench-confirm-registration"
+                    text: "Confirm and register"
+                    prominent: true
+                    enabled: root.connected && root.registrationDetail !== null && root.registrationDetail.supported === true
+                    onClicked: {
+                        var detail = root.registrationDetail
+                        if (detail === null) return
+                        root.intentRequested({
+                            kind: "confirm_register_project",
+                            target: detail.registrationId,
+                            payload: { registrationId: detail.registrationId }
+                        })
+                    }
+                }
+            }
+            Text {
+                id: registrationNote
+                Layout.fillWidth: true
+                visible: text.length > 0
+                textFormat: Text.PlainText
+                wrapMode: Text.Wrap
+                color: root.mutedColor
+                font.family: Style.font.family
+                font.pixelSize: Style.font.caption
+                text: {
+                    var detail = root.registrationDetail
+                    if (detail === null) return ""
+                    if (!detail.supported) return "Not registrable: " + detail.reasons.join(", ")
+                    if (!detail.executionReady) return "Registrable, but not execution-ready: " + detail.readinessReasons.join(", ")
+                    return "Registrable Git worktree at " + detail.canonicalPath
+                }
             }
 
             Text {

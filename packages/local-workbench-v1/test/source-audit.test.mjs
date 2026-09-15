@@ -26,6 +26,10 @@ function walk(dir) {
 
 const allFiles = walk(PACKAGE_ROOT).filter((p) => !p.includes('/test/'))
 const PHASE_GATE = join(PACKAGE_ROOT, 'scripts', 'phase-gate.sh')
+const PHASE_2_GATE = join(PACKAGE_ROOT, 'scripts', 'phase-2-gate.sh')
+// Phase 2 needs exactly one bounded, read-only local Git inspection. No other
+// non-test module may spawn, and the one that does must use a fixed argv.
+const ONLY_GIT_INSPECTOR = join(PACKAGE_ROOT, 'runner', 'git-context.ts')
 
 function source(path) {
   return readFileSync(path, 'utf8')
@@ -63,11 +67,27 @@ test('no non-test module spawns processes or touches live systems', () => {
     ['PTY', /\bpty\b|\bpseudo-terminal\b/i],
   ]
   for (const path of allFiles) {
+    if (path === ONLY_GIT_INSPECTOR) continue
     const value = source(path)
     for (const [name, pattern] of liveTokens) {
       assert.doesNotMatch(value, pattern, `${name} token in ${path}`)
     }
   }
+})
+
+test('the single Git inspector spawns only fixed git argv with no shell', () => {
+  const value = source(ONLY_GIT_INSPECTOR)
+  assert.match(value, /spawnSync\('\/usr\/bin\/git', \['-c', 'core.fsmonitor=false', \.\.\.argv\]/)
+  assert.match(value, /GIT_OPTIONAL_LOCKS: '0'/)
+  assert.match(value, /GIT_CONFIG_GLOBAL: '\/dev\/null'/)
+  assert.match(value, /GIT_CONFIG_NOSYSTEM: '1'/)
+  assert.doesNotMatch(value, /process\.env/)
+  assert.match(value, /shell: false/)
+  assert.doesNotMatch(value, /shell\s*:\s*true/)
+  assert.doesNotMatch(value, /execSync|execFile|execFileSync|\bfork\b/)
+  assert.doesNotMatch(value, /`git|<git'|git\s+\$\{/)
+  // Only read-only plumbing is invoked.
+  assert.doesNotMatch(value, /'commit'|'checkout'|'reset'|'clean'|'push'|'fetch'|'add'|'apply'|'restore'|'gc'|'stash'|'update-index'|'write-tree'|'init'|'clone'|'rm'|'mv'|'config'|'remote'|'tag'|'branch'|'worktree'|'submodule'|'switch'|'rebase'|'merge'|'cherry-pick'|'revert'|'am'/)
 })
 
 test('no module reads user configuration or provider state', () => {
@@ -94,11 +114,21 @@ test('the companion release module reads only its own plugin directory', () => {
   assert.doesNotMatch(releaseSource, /prototypes|spikes|\.config|\.env/)
 })
 
-test('the package contains no SQLite or durable store module', () => {
+test('durable SQLite usage is confined to the runner composition', () => {
+  // Phase 2 introduces one runner/store/fence owner. SQLite and exclusive
+  // authority transactions must not leak into presentation, fixture,
+  // companion or retained-release modules.
+  const runnerDir = join(PACKAGE_ROOT, 'runner') + '/'
+  const sqliteTokens = /node:sqlite|DatabaseSync|BEGIN IMMEDIATE|BEGIN EXCLUSIVE/
+  let runnerOwners = 0
   for (const path of allFiles) {
-    const value = source(path)
-    assert.doesNotMatch(value, /node:sqlite|DatabaseSync|BEGIN IMMEDIATE/, `sqlite token in ${path}`)
+    if (path.startsWith(runnerDir)) {
+      if (sqliteTokens.test(source(path))) runnerOwners += 1
+      continue
+    }
+    assert.doesNotMatch(source(path), sqliteTokens, `sqlite token outside the runner in ${path}`)
   }
+  assert.ok(runnerOwners >= 3, 'the runner must own the store, owner lock and fence ledger')
 })
 
 test('the package contains no gate execution or dispatch module', () => {
@@ -116,4 +146,30 @@ test('the Phase 0/1 gate is foreground and does not load external configuration'
   assert.match(executable, /QML lint: UNAVAILABLE/)
   assert.doesNotMatch(executable, /dotenv|\.env|tee|nohup|disown/)
   assert.doesNotMatch(executable, /OMARCHY_QML_IMPORT_DIR|XDG_CONFIG_HOME=\$HOME|XDG_STATE_HOME=\$HOME/)
+})
+
+test('the Phase 2 foundation gate is foreground, disposable and never live', () => {
+  const value = source(join(PACKAGE_ROOT, 'scripts', 'phase-2-foundation-gate.sh'))
+  const executable = value.replace(/^\s*#.*$/gm, '')
+  assert.match(value, /Phase 2 foundation gate/)
+  assert.match(executable, /env -i/)
+  assert.doesNotMatch(executable, /dotenv|\.env|tee|nohup|disown|systemctl|ghostty|hyprctl/)
+  assert.doesNotMatch(executable, /\$HOME\/(?:\.config|\.local)/)
+})
+
+test('the Phase 2 gate is foreground, disposable, provider-free and asserts zero dispatch', () => {
+  const value = source(PHASE_2_GATE)
+  const executable = value.replace(/^\s*#.*$/gm, '')
+  assert.match(value, /Phase 2 acceptance gate/)
+  assert.match(executable, /env -i/)
+  assert.doesNotMatch(executable, /dotenv|\.env|tee|nohup|disown|systemctl|ghostty|hyprctl/)
+  assert.doesNotMatch(executable, /\$HOME\/(?:\.config|\.local)/)
+  assert.match(executable, /mktemp -d/)
+  assert.match(executable, /trap 'rm -rf -- "\$scratch"' EXIT/)
+  // The gate refuses to pass without the real offscreen QML render.
+  assert.match(executable, /qmltestrunner/)
+  assert.match(executable, /QML offscreen render: UNAVAILABLE/)
+  assert.match(executable, /exit 1/)
+  // The two Phase 2 invariants are stated in the gate itself.
+  assert.match(executable, /zero Assignment deliveries and zero acceptance-check executions/)
 })

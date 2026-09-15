@@ -29,7 +29,10 @@ Control {
     property int selectedCheckVersion: 0
     property string checksDraft: ""
     property bool advancedOpen: false
-    onSelectedCheckIdChanged: advancedOpen = false
+    // A new check is created through the same validated editor as an edit; the
+    // button never emits a placeholder definition.
+    property bool newCheckOpen: false
+    onSelectedCheckIdChanged: { advancedOpen = false; newCheckOpen = false }
     onSelectedCheckVersionChanged: advancedOpen = false
     signal draftChanged(string value)
     signal navigate(string destination)
@@ -70,6 +73,7 @@ Control {
     }
 
     readonly property var configurationDetail: {
+        if (root.newCheckOpen) return null
         if (!projection || !projection.details) return null
         for (var i = 0; i < projection.details.length; i++) {
             var d = projection.details[i]
@@ -127,6 +131,20 @@ Control {
     readonly property bool editAvailable: projection && Array.isArray(projection.actions) && projection.actions.some(function(a) {
         return a.kind === "configure_checks" && a.target === root.selectedCheckId && a.enabled
     })
+    // A new check is created against the selected Project; the runner allocates
+    // the check id and version. The default draft mirrors the same closed
+    // fields the edit form uses and executes nothing.
+    readonly property bool createAvailable: connected && projection !== null
+        && projection.selectedProjectId !== null && Array.isArray(projection.actions)
+        && projection.actions.some(function(a) { return a.kind === "create_check" && a.enabled })
+    readonly property bool editorActive: root.selectedCheck !== null || root.newCheckOpen
+    readonly property string projectPath: {
+        if (!projection || !Array.isArray(projection.projects) || projection.selectedProjectId === null) return ""
+        for (var i = 0; i < projection.projects.length; i++) {
+            if (projection.projects[i].projectId === projection.selectedProjectId) return projection.projects[i].canonicalPath
+        }
+        return ""
+    }
 
     function shortDigest(value) {
         return typeof value === "string" && value.length >= 8 ? value.slice(0, 8) : String(value)
@@ -146,6 +164,22 @@ Control {
             font.family: Style.font.family
             font.pixelSize: Style.font.heading
             font.bold: true
+        }
+        WorkbenchAction {
+            objectName: "workbench-new-check"
+            Layout.fillWidth: true
+            text: "+ New check"
+            enabled: root.createAvailable && root.projectPath.length > 0
+            focusPolicy: Qt.StrongFocus
+            // Opening the editor is the whole effect: the definition is only
+            // committed once the operator fills it and presses Create.
+            onClicked: {
+                root.selectedCheckId = ""
+                root.selectedCheckVersion = 0
+                root.advancedOpen = true
+                root.newCheckOpen = true
+                root.draftChanged("{}")
+            }
         }
         Text {
             Layout.fillWidth: true
@@ -186,13 +220,13 @@ Control {
 
         ColumnLayout {
             Layout.fillWidth: true
-            visible: root.selectedCheck !== null
+            visible: root.editorActive
             spacing: Style.space(6)
 
             Text {
                 Layout.fillWidth: true
                 textFormat: Text.PlainText
-                text: "Edit definition"
+                text: root.newCheckOpen ? "New check definition" : "Edit definition"
                 color: root.textColor
                 font.family: Style.font.family
                 font.pixelSize: Style.font.title
@@ -285,13 +319,36 @@ Control {
             }
             Label {
                 Layout.fillWidth: true; textFormat: Text.PlainText; wrapMode: Text.Wrap
-                visible: !root.editAvailable
+                visible: !root.editAvailable && !root.newCheckOpen
                 text: "Editing this check is unavailable in the current projection. Your draft is retained."
+            }
+            WorkbenchAction {
+                prominent: true
+                objectName: "workbench-create-check"
+                Layout.fillWidth: true
+                visible: root.newCheckOpen
+                text: "Create check"
+                enabled: root.connected && root.createAvailable && root.draftName.trim().length > 0
+                    && root.projection.selectedProjectId !== null && root.definitionError === ""
+                focusPolicy: Qt.StrongFocus
+                onClicked: root.intentRequested({
+                    kind: "create_check",
+                    target: null,
+                    payload: {
+                        projectId: root.projection.selectedProjectId,
+                        name: root.draftName,
+                        summary: root.draftSummary,
+                        mode: root.draftMode,
+                        commandSummary: root.draftCommand,
+                        definitionDraft: root.definitionDraft()
+                    }
+                })
             }
             WorkbenchAction {
                 prominent: true
                 objectName: "workbench-save-check"
                 Layout.fillWidth: true
+                visible: !root.newCheckOpen
                 text: "Save check"
                 enabled: root.connected && root.editAvailable && root.draftName.trim().length > 0
                     && root.projection.selectedProjectId !== null && root.definitionError === ""

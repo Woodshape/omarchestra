@@ -144,8 +144,11 @@ Item {
     }
 
     function checksDraftKey() {
-        if (!projection || !projection.selectedProjectId || !selectedCheckId) return ""
-        return "checks:" + projection.selectedProjectId + ":" + selectedCheckId
+        if (!projection || !projection.selectedProjectId) return ""
+        // A new check is edited before it has an id; its draft is keyed by the
+        // Project so unsaved field text survives navigation and restart while
+        // remaining separate from every existing check's draft.
+        return "checks:" + projection.selectedProjectId + ":" + (selectedCheckId || "new")
     }
 
     function checkById(checkId, version) {
@@ -455,7 +458,10 @@ Item {
         if (payload.target) confirmationText += "\nReference: …" + String(payload.target).slice(-8)
         confirmationDetailsOpen = false
         if (payload.kind === "select_goal") { selectGoal(payload.target); return }
-        if (["select_project", "create_goal", "configure_checks"].indexOf(payload.kind) >= 0) {
+        // Non-destructive declarations commit without a modal confirmation; the
+        // runner still validates and may reject them.
+        if (["select_project", "create_goal", "configure_checks", "inspect_project",
+                "confirm_register_project", "create_check", "authorize_adoption"].indexOf(payload.kind) >= 0) {
             emitIntent(payload)
             return
         }
@@ -945,9 +951,11 @@ Item {
                         textFormat: Text.PlainText
                         text: root.lastIntentResult === null ? "" : root.lastIntentResult.reasonCode === "fixture_only_no_management"
                             ? "Preview only — no work was created, saved or started."
-                            : ({ submitted: "Request sent; awaiting confirmation.", acknowledged: "Change recorded.",
+                            : (({ submitted: "Request sent; awaiting confirmation.", acknowledged: "Change recorded.",
                                  rejected: "Request was not accepted. Check current availability.", unknown: "Outcome unknown. Refresh before trying again.",
-                                 stale: "Request is out of date. Review the current state.", expired: "Request expired. Review again." })[root.lastIntentResult.status] || "Request status unavailable."
+                                 stale: "Request is out of date. Review the current state.", expired: "Request expired. Review again." })[root.lastIntentResult.status] || "Request status unavailable.")
+                              + (root.lastIntentResult.reasonCode && root.lastIntentResult.status !== "acknowledged"
+                                 ? "\nReason: " + root.lastIntentResult.reasonCode : "")
                         color: Qt.darker(Color.popups.text, 1.35)
                         font.family: Style.font.family
                         font.pixelSize: Style.font.caption

@@ -1,7 +1,7 @@
 // Local Workbench v1 — QML boundary and release audit.
 //
 // Proves the QML is presentation-only (no storage, process, PTY, SSH,
-// scraping, or label derivation), that the additive 0.7.0 release packages
+// scraping, or label derivation), that the additive 0.8.0 release packages
 // the QML byte-identical to the plugin source, and that the release does not
 // copy or alter historical prototype releases.
 
@@ -50,10 +50,10 @@ function allQmlSources() {
   return QML_FILES.map((name) => source(name))
 }
 
-test('the manifest exposes a schema-versioned panel entry point at 0.7.0', () => {
+test('the manifest exposes a schema-versioned panel entry point at 0.8.0', () => {
   const manifest = JSON.parse(source('manifest.json'))
   assert.equal(manifest.schemaVersion, 1)
-  assert.equal(manifest.version, '0.7.0')
+  assert.equal(manifest.version, '0.8.0')
   assert.equal(manifest.id, 'omarchestra.agent-console')
   assert.ok(Array.isArray(manifest.kinds) && manifest.kinds.includes('panel'))
   assert.equal(manifest.entryPoints?.panel, 'WorkbenchHost.qml')
@@ -103,9 +103,9 @@ test('QML emits intents only and never computes authority', () => {
   assert.doesNotMatch(combined, /(?:derive|compute|validate|check)(?:Adoption|Eligibility|Expiry|Identity|Digest)/i)
 })
 
-test('the additive 0.7.0 release packages QML byte-identical to the plugin source', async () => {
+test('the additive 0.8.0 release packages QML byte-identical to the plugin source', async () => {
   const { WORKBENCH_RELEASE } = await import('../companion/releases.ts')
-  assert.equal(WORKBENCH_RELEASE.version, '0.7.0')
+  assert.equal(WORKBENCH_RELEASE.version, '0.8.0')
   for (const file of QML_FILES) {
     assert.equal(
       WORKBENCH_RELEASE.assets[file],
@@ -115,13 +115,13 @@ test('the additive 0.7.0 release packages QML byte-identical to the plugin sourc
   }
   assert.equal(
     JSON.parse(WORKBENCH_RELEASE.assets['manifest.json']).version,
-    '0.7.0',
+    '0.8.0',
   )
 })
 
 test('the workbench release catalog contains only its own additive release', async () => {
   const { WORKBENCH_RELEASE_CATALOG } = await import('../companion/releases.ts')
-  assert.deepEqual(Object.keys(WORKBENCH_RELEASE_CATALOG), ['0.7.0'])
+  assert.deepEqual(Object.keys(WORKBENCH_RELEASE_CATALOG), ['0.8.0'])
 })
 
 test('the workbench release does not copy historical prototype release bytes', async () => {

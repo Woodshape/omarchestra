@@ -33,6 +33,9 @@ export const INTENT_KINDS = [
   'select_project',
   'select_goal',
   'create_goal',
+  'inspect_project',
+  'confirm_register_project',
+  'create_check',
   'request_adoption',
   'authorize_adoption',
   'start_assignment',
@@ -217,7 +220,10 @@ export class WorkbenchAdapter {
       throw new Error(`pending intent queue is full (${MAX_PENDING_INTENTS})`)
     }
     const snapshot = handoff.snapshot
-    if (['start_assignment', 'authorize_adoption'].includes(kind)) throw new Error('runtime action unavailable in Phase 1')
+    // Phase 2 enables authorize_adoption on the real path; the authoritative
+    // projection still gates it, so only an adoptable Proposal can be
+    // authorized. Work execution stays Phase 3.
+    if (kind === 'start_assignment') throw new Error('runtime action unavailable in Phase 2: Assignment delivery is Phase 3')
     if (!['select_project', 'select_goal'].includes(kind)) {
       const actions = [
         ...snapshot.actions,
@@ -241,11 +247,20 @@ export class WorkbenchAdapter {
       payload: payload ?? {},
     }
     const validated = validateIntent(intent)
-    if (kind === 'create_goal' || kind === 'configure_checks') {
+    if (kind === 'create_goal' || kind === 'create_check' || kind === 'configure_checks') {
       const projectId = validated.payload.projectId
       if (projectId !== snapshot.selectedProjectId || !snapshot.projects.some(project => project.projectId === projectId)) throw new Error('action requires the selected Project')
       if (kind === 'create_goal' && (target !== null || !(validated.payload.goalText as string).trim())) throw new Error('invalid Goal creation context')
       if (kind === 'configure_checks' && (target !== validated.payload.checkId || !snapshot.checks.some(check => check.checkId === target && check.version === validated.payload.checkVersion))) throw new Error('check version is no longer current')
+      if (kind === 'create_check' && (validated.payload.definitionDraft as { cwd?: string }).cwd !== undefined) {
+        const project = snapshot.projects.find(candidate => candidate.projectId === projectId)
+        const cwd = (validated.payload.definitionDraft as { cwd: string }).cwd
+        if (!project || (cwd !== project.canonicalPath && !cwd.startsWith(`${project.canonicalPath}/`))) throw new Error('check working directory must be inside the selected Project')
+      }
+    }
+    if (kind === 'confirm_register_project') {
+      const registration = snapshot.details?.find(detail => detail.kind === 'registration' && (detail as { registrationId?: string }).registrationId === target)
+      if (!registration || !(registration as { supported?: boolean }).supported) throw new Error('no supported inspection matches this confirmation')
     }
     assertEnvelopeBytes(JSON.stringify(validated), 'intent')
     this.pending.set(intentId, {
@@ -255,7 +270,9 @@ export class WorkbenchAdapter {
       committedRevision: null,
       submittedAt: this.clock(),
     })
-    this.intentSink(validated)
+    // The view learns that the intent is in flight before the sink runs: a
+    // synchronous in-process runner may answer within `intentSink`, and the
+    // committed outcome must be the last feedback the view sees.
     this.onFeedback?.({
       intentId,
       sessionId: validated.sessionId,
@@ -265,6 +282,7 @@ export class WorkbenchAdapter {
       reasonCode: null,
       committedRevision: null,
     })
+    this.intentSink(validated)
     return validated
   }
 

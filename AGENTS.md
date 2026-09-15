@@ -22,4 +22,12 @@ Product scope is locked. Close the open technical contracts through bounded, evi
 - A spike is complete when its directory records the question, reproducible setup, evidence, conclusion, and resulting contract changes.
 - An implementation slice is complete when its executable acceptance gate passes and affected documentation reflects the resulting behavior.
 
+## Implementation and Fusion discipline
+
+- Delegate one bounded implementation slice with concrete failure tests and an exit gate, not an entire multi-system phase to one writer. More planning/review agents do not substitute for working integration checkpoints.
+- Keep one checkout writer. Reviewers inspect landed code and required end-to-end paths; interfaces, fixture callbacks and printed records do not prove a real bridge or native entry point.
+- Resolve blocking review findings before declaring the slice complete. A passing subset is not full acceptance; report host continuation separately from independent review.
+- Bound subprocess tests and clean up their exact children on failure. A shell pipeline or an unreferenced timer is not a timeout guarantee.
+- Preserve partial work; turn verified failures into regressions rather than disabling required functionality to obtain PASS.
+
 Use `just fusion` to launch the external Fusion Harness with this repository as every agent's working directory.

@@ -1,6 +1,6 @@
 # Local Workbench v1 — Phase 1 engineering closeout
 
-Status: **Superseded by the task-first redesign; retained as the 0.6.0 engineering record. Phase 2 has not started.**
+Status: **Superseded by the task-first redesign; retained as the 0.6.0 engineering record. Phase 2 had not started at the time of this record; it was later implemented and its independent final authority verdict is FAIL.**
 
 > **Superseded (Companion 0.7.0, task-first presentation contract).** The
 > [screen and flow design](local-workbench-v1-screens.md) and
