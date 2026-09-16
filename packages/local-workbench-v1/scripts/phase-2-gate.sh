@@ -62,6 +62,7 @@ run_node "${flags[@]}" --test \
 printf '%s\n' '== runnable management and adoption journey (P2.2-P2.5) =='
 run_node "${flags[@]}" --test \
     "$root/test/phase-2-authority.test.ts" \
+    "$root/test/phase-2-command-transactions.test.ts" \
     "$root/test/phase-2-adoption-exchange.test.ts" \
     "$root/test/phase-2-integration-safety.test.ts"
 

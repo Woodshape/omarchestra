@@ -92,6 +92,8 @@ export interface EventRecord {
 }
 
 export interface IntentResultRecord {
+  reason?: string | null
+  detail?: string | null
   intentId: string
   sessionId: string
   payloadHash: string
@@ -315,16 +317,24 @@ export function openWorkbenchStore(options: StoreOptions): WorkbenchStore {
     sqliteFailure(path, error)
   }
 
+  let transactionDepth = 0
+  let savepointSequence = 0
   function transaction<T>(fn: () => T): T {
-    db.exec('BEGIN IMMEDIATE')
+    const savepoint = transactionDepth === 0 ? null : `command_${++savepointSequence}`
+    db.exec(savepoint === null ? 'BEGIN IMMEDIATE' : `SAVEPOINT ${savepoint}`)
+    transactionDepth++
     try {
       const result = fn()
-      db.exec('COMMIT')
+      if (result && typeof (result as { then?: unknown }).then === 'function') throw new Error('store transactions must be synchronous')
+      db.exec(savepoint === null ? 'COMMIT' : `RELEASE SAVEPOINT ${savepoint}`)
       return result
     } catch (error) {
-      try { db.exec('ROLLBACK') } catch { /* already failing */ }
+      try {
+        if (savepoint === null) db.exec('ROLLBACK')
+        else db.exec(`ROLLBACK TO SAVEPOINT ${savepoint}; RELEASE SAVEPOINT ${savepoint}`)
+      } catch { /* preserve the original failure */ }
       throw error
-    }
+    } finally { transactionDepth-- }
   }
 
   return {
@@ -507,10 +517,10 @@ export function openWorkbenchStore(options: StoreOptions): WorkbenchStore {
     },
     putIntentResult(record) {
       db.prepare(
-        `INSERT INTO intent_dedup (intent_id, session_id, payload_hash, status, reason_code, committed_revision, created_at)
-         VALUES (?, ?, ?, ?, ?, ?, ?)
+        `INSERT INTO intent_dedup (intent_id, session_id, payload_hash, status, reason_code, committed_revision, created_at, reason, detail)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
          ON CONFLICT(intent_id) DO NOTHING`,
-      ).run(record.intentId, record.sessionId, record.payloadHash, record.status, record.reasonCode, record.committedRevision, record.createdAt)
+      ).run(record.intentId, record.sessionId, record.payloadHash, record.status, record.reasonCode, record.committedRevision, record.createdAt, record.reason ?? null, record.detail ?? null)
     },
     getIntentResult(intentId) {
       const row = db.prepare('SELECT * FROM intent_dedup WHERE intent_id = ?').get(intentId) as Record<string, unknown> | undefined
@@ -518,6 +528,7 @@ export function openWorkbenchStore(options: StoreOptions): WorkbenchStore {
       return {
         intentId: String(row.intent_id), sessionId: String(row.session_id), payloadHash: String(row.payload_hash),
         status: String(row.status), reasonCode: row.reason_code === null ? null : String(row.reason_code),
+        reason: row.reason === null ? null : String(row.reason), detail: row.detail === null ? null : String(row.detail),
         committedRevision: row.committed_revision === null ? null : Number(row.committed_revision), createdAt: Number(row.created_at),
       }
     },

@@ -1,12 +1,12 @@
 /**
- * Local Workbench v1 Phase 2 — declared store schema (version 2).
+ * Local Workbench v1 Phase 2 — declared store schema (version 3).
  *
  * The declared shape is the contract the runner validates before accepting
  * management frames. Any missing table or unexpected table is drift that
  * blocks startup; the runner never repairs schema silently.
  */
 
-export const STORE_SCHEMA_VERSION = 2
+export const STORE_SCHEMA_VERSION = 3
 
 export interface TableSpec {
   name: string
@@ -34,7 +34,7 @@ export const STORE_TABLES: TableSpec[] = [
   { name: 'events', columns: ['event_id', 'cursor', 'base_revision', 'revision', 'kind', 'created_at', 'run_id'] },
   {
     name: 'intent_dedup',
-    columns: ['intent_id', 'session_id', 'payload_hash', 'status', 'reason_code', 'committed_revision', 'created_at'],
+    columns: ['intent_id', 'session_id', 'payload_hash', 'status', 'reason_code', 'committed_revision', 'created_at', 'reason', 'detail'],
   },
 ]
 
@@ -128,7 +128,9 @@ CREATE TABLE IF NOT EXISTS intent_dedup (
   status TEXT NOT NULL,
   reason_code TEXT,
   committed_revision INTEGER,
-  created_at INTEGER NOT NULL
+  created_at INTEGER NOT NULL,
+  reason TEXT,
+  detail TEXT
 );
 `
 

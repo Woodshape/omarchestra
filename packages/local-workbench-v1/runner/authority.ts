@@ -5,9 +5,10 @@
  * selection, projection revision/cursor, intent deduplication and the
  * authoritative snapshot. One instance wraps one open runner.
  *
- * Every management intent is committed inside one store transaction that
- * includes the eligibility check and the resulting event; the projection
- * revision advances only after that commit. An intent whose payload hash
+ * Durable Project/Goal/check/selection commands commit effects, events and
+ * intent receipts in one store transaction. Cross-ledger and bridge commands
+ * still require their separate S2 integration; this is not full Phase 2 acceptance.
+ * Projection revisions advance only after the owning transaction commits. An intent whose payload hash
  * differs from a previously recorded intent with the same id is rejected
  * instead of being reapplied.
  *
@@ -106,6 +107,7 @@ export class WorkbenchAuthority {
   private registrations = new Map<string, RegistrationRecord>()
   private revision: number
   private cursor: number
+  private commandContext: { revision: number; cursor: number } | null = null
 
   constructor(options: AuthorityOptions) {
     this.runner = options.runner
@@ -368,6 +370,7 @@ export class WorkbenchAuthority {
     target: string | null
     payload: Record<string, unknown>
   }): IntentOutcome {
+    if (this.commandContext !== null) throw workbenchError('invalid_input', 'reentrant command during authority transaction', 'wait for the current command outcome')
     const payloadHash = sha256({ kind: intent.kind, target: intent.target, payload: intent.payload })
     const recorded = this.runner.store.getIntentResult(intent.intentId)
     if (recorded !== null) {
@@ -377,9 +380,13 @@ export class WorkbenchAuthority {
       return {
         status: recorded.status as IntentStatus,
         reasonCode: recorded.reasonCode,
-        reason: null,
+        reason: recorded.reason ?? null,
         committedRevision: recorded.committedRevision,
+        ...(recorded.detail == null ? {} : { detail: recorded.detail }),
       }
+    }
+    if (intent.pluginGeneration !== this.pluginGeneration) {
+      return this.record(intent.intentId, payloadHash, { status: 'stale', reasonCode: 'plugin_generation_changed', reason: 'The Companion generation changed; reload its projection before acting.', committedRevision: null })
     }
     if (intent.sessionId !== this.sessionId || intent.runnerEpoch !== this.runner.epoch) {
       return this.record(intent.intentId, payloadHash, { status: 'stale', reasonCode: 'runner_epoch_changed', reason: 'The workbench runner restarted; reload the projection before acting.', committedRevision: null })
@@ -388,6 +395,24 @@ export class WorkbenchAuthority {
       return this.record(intent.intentId, payloadHash, { status: 'stale', reasonCode: 'revision_changed', reason: 'The projection changed; re-read the current state before acting.', committedRevision: null })
     }
     try {
+      if (['confirm_register_project', 'select_project', 'select_goal', 'create_goal', 'create_check', 'configure_checks'].includes(intent.kind)) {
+        const context = { revision: this.revision, cursor: this.cursor }
+        const registrations = new Map(this.registrations)
+        this.commandContext = context
+        try {
+          const outcome = this.runner.store.transaction(() => {
+            const routed = this.route(intent)
+            const normalized = routed.committedRevision === null ? routed : { ...routed, committedRevision: context.revision }
+            return this.record(intent.intentId, payloadHash, normalized)
+          })
+          this.revision = context.revision
+          this.cursor = context.cursor
+          return outcome
+        } catch (error) {
+          this.registrations = registrations
+          throw error
+        } finally { this.commandContext = null }
+      }
       const outcome = this.route(intent)
       return this.record(intent.intentId, payloadHash, outcome)
     } catch (error) {
@@ -495,29 +520,33 @@ export class WorkbenchAuthority {
   }
 
   private record(intentId: string, payloadHash: string, outcome: IntentOutcome): IntentOutcome {
-    this.runner.store.putIntentResult({
+    this.runner.store.transaction(() => this.runner.store.putIntentResult({
       intentId,
       sessionId: this.sessionId,
       payloadHash,
       status: outcome.status,
       reasonCode: outcome.reasonCode,
+      reason: outcome.reason,
+      detail: outcome.detail ?? null,
       committedRevision: outcome.committedRevision,
       createdAt: this.clock(),
-    })
+    }))
     return outcome
   }
 
   /** Append an event and advance revision/cursor inside the same transaction. */
   commit(kind: string, payload: Record<string, unknown>, mutate: () => void): number {
-    let committedRevision = 0
+    const context = this.commandContext
+    const baseRevision = context?.revision ?? this.revision
+    const committedRevision = baseRevision + 1
+    const cursor = (context?.cursor ?? this.cursor) + 1
+    if (!Number.isSafeInteger(committedRevision) || !Number.isSafeInteger(cursor)) throw workbenchError('invalid_input', 'projection counter exhausted', 'never round or reset authority counters')
     this.runner.store.transaction(() => {
       mutate()
-      const baseRevision = this.revision
-      committedRevision = baseRevision + 1
       const event: EventRecord = {
         eventId: this.newId('evt-'),
         runId: typeof payload.runId === 'string' ? payload.runId : null,
-        cursor: this.cursor + 1,
+        cursor,
         baseRevision,
         revision: committedRevision,
         kind,
@@ -525,9 +554,14 @@ export class WorkbenchAuthority {
       }
       this.runner.store.appendEvent(event)
       this.runner.store.setMeta('projection_revision', String(committedRevision))
-      this.revision = committedRevision
-      this.cursor = event.cursor
     })
+    if (context) {
+      context.revision = committedRevision
+      context.cursor = cursor
+    } else {
+      this.revision = committedRevision
+      this.cursor = cursor
+    }
     return committedRevision
   }
 

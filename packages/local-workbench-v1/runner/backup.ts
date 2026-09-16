@@ -191,7 +191,7 @@ export interface MigrationPlan {
 
 /**
  * Migration policy: only the current schema is a verified no-op. The
- * development schema-1 roots are unsupported; no automatic migration exists.
+ * older development roots are unsupported; no automatic migration exists.
  * No downgrade and no automatic restore is ever planned.
  */
 export function planMigration(currentVersion: number): MigrationPlan {
