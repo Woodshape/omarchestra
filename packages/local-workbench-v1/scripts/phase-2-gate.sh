@@ -71,6 +71,7 @@ run_node "${flags[@]}" --test \
 printf '%s\n' '== actual presentation adapter composition =='
 run_node "${flags[@]}" --test \
     "$root/test/phase-2-composed.test.ts" \
+    "$root/test/phase-2-source-outcomes.test.ts" \
     "$root/test/phase-2-entry.test.ts" \
     "$root/test/presentation-shell.test.ts" \
     "$root/test/intent.test.ts" \

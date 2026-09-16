@@ -35,7 +35,7 @@ export function createPresentationShell(options: {
     },
     onFeedback(feedback) {
       if (session && session.sessionId === feedback.sessionId) {
-        options.view.intentResult({ ...feedback, pluginGeneration: session.pluginGeneration })
+        if (!options.view.intentResult({ ...feedback, pluginGeneration: session.pluginGeneration })) throw new Error('presentation feedback rejected')
       }
     },
   })

@@ -76,23 +76,28 @@ test('emitIntent rejects emission from gap state', async () => {
   adapter.stop()
 })
 
-test('applyFeedback acknowledges a submitted intent', async () => {
+test('feedback waits for the committed snapshot and then resolves once', async () => {
   const { adapter, source, feedback } = makeAdapter()
   await adapter.start()
   source.handler!.onSnapshot(managedFixture)
   const intent = adapter.emitIntent('select_project', 'project-local-1', { projectId: 'project-local-1' })
-  adapter.applyFeedback({
+  const outcome = {
     intentId: intent.intentId,
     sessionId: intent.sessionId,
     target: intent.target,
     originRevision: intent.expectedRevision,
     status: 'acknowledged',
     reasonCode: null,
-    committedRevision: 2,
-  })
+    committedRevision: managedFixture.revision + 1,
+  }
+  assert.throws(() => adapter.applyFeedback(outcome), /not been displayed/)
+  source.handler!.onOutcome!(outcome)
+  assert.equal(adapter.pendingIntents[0].status, 'submitted')
+  source.handler!.onSnapshot({ ...managedFixture, revision: managedFixture.revision + 1, cursor: managedFixture.cursor + 1 })
+  adapter.applyFeedback(outcome) // duplicate does not notify the view again
   const pending = adapter.pendingIntents[0]
   assert.equal(pending.status, 'acknowledged')
-  assert.equal(pending.committedRevision, 2)
+  assert.equal(pending.committedRevision, managedFixture.revision + 1)
   assert.equal(feedback.length, 2) // submitted + acknowledged
   adapter.stop()
 })

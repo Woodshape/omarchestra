@@ -47,7 +47,10 @@ The Phase 2 gate includes both suites. The persistence foundation gate also cove
 
 No installation, live Pi/provider, desktop mutation, Assignment/check execution or prototype/spike modification occurred. Only the preceding work was committed as requested; this checkpoint's changes remain uncommitted. Nothing was pushed.
 
-## Remaining S2 work / next implementation
+## Remaining S2 work at this checkpoint
+
+The subsequent [source/outcome checkpoint](source-outcomes-checkpoint.md) implements snapshot-before-feedback, source queries/heartbeat/reconnect and truthful unavailable presentation/recovery results. Durable bridge delivery and full authority-envelope validation remain outstanding.
+
 
 - Durable authorization/binding delivery tracking: commit effect and delivery intent together; send only afterward on the exact connection; preserve unknown delivery instead of retrying or rejecting a committed command.
 - Atomic acknowledgement-to-membership integration and challenged lost-delivery recovery, using S1 identity/membership tables and the S4 real bridge. The current no-send command repair does not close these S5 prerequisites.

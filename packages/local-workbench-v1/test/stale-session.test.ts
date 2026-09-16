@@ -25,6 +25,25 @@ function makeAdapter(clock = () => 0) {
   return { adapter, source, feedback }
 }
 
+test('reconnect fences captured callbacks and keeps drafts without restarting the owner', async () => {
+  const { adapter, source } = makeAdapter()
+  await adapter.start()
+  const old = source.handler!
+  old.onSnapshot(managedFixture)
+  adapter.setDraft('goal-1', 'keep')
+  old.onClose(new Error('lost presentation'))
+  await adapter.start()
+  source.handler!.onSnapshot(managedFixture)
+  old.onSnapshot({ ...managedFixture, revision: managedFixture.revision + 1, cursor: managedFixture.cursor + 1 })
+  old.onClose(new Error('late close'))
+  assert.equal(adapter.handoff?.revision, managedFixture.revision)
+  assert.equal(adapter.handoff?.connection, 'connected')
+  assert.equal(adapter.getDraft('goal-1'), 'keep')
+  adapter.stop()
+  source.handler!.onSnapshot({ ...managedFixture, revision: managedFixture.revision + 1, cursor: managedFixture.cursor + 1 })
+  assert.equal(adapter.handoff?.revision, managedFixture.revision)
+})
+
 test('drafts survive ordinary projection updates', async () => {
   const { adapter, source } = makeAdapter()
   await adapter.start()

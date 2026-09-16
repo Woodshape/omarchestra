@@ -525,7 +525,9 @@ export class WorkbenchAuthority {
       }
       case 'present':
       case 'recover':
-        return { status: 'acknowledged', reasonCode: null, reason: null, committedRevision: this.revision }
+        return { status: 'rejected', reasonCode: 'handler_unavailable', reason: intent.kind === 'recover'
+          ? 'Challenged surviving-process recovery is not implemented; reconnecting is not recovery proof.'
+          : 'Exact native terminal presentation is not implemented; no window was opened.', committedRevision: null }
       default:
         return {
           status: 'rejected',

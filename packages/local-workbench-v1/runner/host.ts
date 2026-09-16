@@ -1,50 +1,94 @@
-/**
- * Local Workbench v1 Phase 2 — composition of the runner authority with the
- * actual presentation shell and the actual QML view port.
- *
- * This is the real runtime path: the projection the QML host renders and the
- * intents it emits are produced and consumed by the durable runner, not by a
- * fixture transport. The fixture path stays available and labelled separately.
+/** Runner/presentation composition. No installed desktop or Pi bridge is
+ * implied by this injected port; native entry and delivery remain gated.
  */
-
 import { createPresentationShell, type PresentationPort } from '../console/presentation-shell.ts'
-import type { WorkbenchSource, WorkbenchIntent, WorkbenchIntentSink } from '../console/live-projection-adapter.ts'
-import type { WorkbenchSnapshot } from '../console/schema.ts'
-import type { WorkbenchAuthority } from './authority.ts'
+import type { WorkbenchSource, WorkbenchSourceHandler, WorkbenchIntent, WorkbenchIntentSink } from '../console/live-projection-adapter.ts'
+import { validateIntent, validateFeedback, type WorkbenchSnapshot, type WorkbenchFeedback } from '../console/schema.ts'
+import { sha256, type WorkbenchAuthority } from './authority.ts'
 import { buildSnapshot } from './projection.ts'
 
 export interface RunnerSource {
   source: WorkbenchSource
   publish(): void
+  publishOutcome(feedback: WorkbenchFeedback): void
   close(error: Error | null): void
 }
+const HEARTBEAT_MS = 1000
 
-/** Authoritative snapshot broadcaster. One connection at a time, by design. */
-export function createRunnerSource(authority: WorkbenchAuthority, connection: WorkbenchSnapshot['connection'] = 'connected'): RunnerSource {
-  let handler: { onSnapshot(snapshot: unknown): void; onEvent(event: unknown): void; onClose(error: Error | null): void } | null = null
-  let published: string | null = null
-  const snapshotOf = () => buildSnapshot({ authority, adoption: authority.adoption, connection })
+/** One presentation subscriber; the foreground runner remains the owner. */
+export function createRunnerSource(authority: WorkbenchAuthority, connection: WorkbenchSnapshot['connection'] = 'connected', options: { clock?: () => number } = {}): RunnerSource {
+  const clock = options.clock ?? (() => performance.now())
+  type Subscription = { handler: WorkbenchSourceHandler; published: string | null; at: number; publishing: boolean; refresh: boolean }
+  let active: Subscription | null = null
+  function publish(force = false) {
+    const current = active
+    if (!current) return
+    if (current.publishing) { current.refresh = true; return }
+    const snapshot = buildSnapshot({ authority, adoption: authority.adoption, connection })
+    const encoded = JSON.stringify(snapshot)
+    if (!force && !current.refresh && encoded === current.published && clock() - current.at < HEARTBEAT_MS) return
+    current.publishing = true
+    current.refresh = false
+    try {
+      current.handler.onSnapshot(snapshot)
+      current.published = encoded
+      current.at = clock()
+    } catch (error) {
+      current.refresh = true
+      throw error
+    } finally { current.publishing = false }
+  }
+  function publishOutcome(input: WorkbenchFeedback) {
+    const feedback = validateFeedback(input)
+    active?.handler.onOutcome?.(feedback) // Staged receipt, not displayed ACK.
+    publish(true) // Successful presentation is the feedback release barrier.
+  }
   return {
     source: {
-      connect(next) {
-        if (handler !== null) throw new Error('the workbench runner holds one authoritative connection')
-        handler = next
-        published = JSON.stringify(snapshotOf())
-        next.onSnapshot(snapshotOf())
-        return Promise.resolve({ send() { /* authoritative snapshots replace the projection */ }, close() { /* the runner owns closure */ } })
+      async connect(handler) {
+        if (active) throw new Error('the workbench runner holds one authoritative connection')
+        const current: Subscription = { handler, published: null, at: clock(), publishing: false, refresh: true }
+        active = current
+        try {
+          publish(true)
+          if (active !== current) throw new Error('source closed during initial publication')
+        } catch (error) { if (active === current) active = null; throw error }
+        return {
+          send(type, body) {
+            if (active !== current) throw new Error('presentation channel is closed')
+            if (!body || typeof body !== 'object' || Array.isArray(body)) throw new Error('invalid source request')
+            if (type === 'request_snapshot') {
+              if (Object.keys(body).length !== 1 || body.sessionId !== authority.sessionId) throw new Error('snapshot request session mismatch')
+              publish(true)
+              return
+            }
+            if (type !== 'query_intent' || Object.keys(body).length !== 1 || !Object.hasOwn(body, 'intent')) throw new Error('unsupported source request')
+            // Read-only lookup. The full original intent binds the query to the
+            // durable session/payload; a reused presentation counter cannot
+            // turn a different command's old receipt into success.
+            const intent = validateIntent(body.intent)
+            const receipt = authority.runner.store.getIntentResult(intent.intentId)
+            const hash = sha256({ kind: intent.kind, target: intent.target, payload: intent.payload })
+            const matches = receipt && receipt.sessionId === intent.sessionId && receipt.payloadHash === hash
+            publishOutcome({ intentId: intent.intentId, sessionId: intent.sessionId, target: intent.target, originRevision: intent.expectedRevision,
+              status: matches ? receipt.status as WorkbenchFeedback['status'] : receipt ? 'rejected' : 'unknown',
+              reasonCode: matches ? receipt.reasonCode : receipt ? 'intent_identity_conflict' : 'outcome_unavailable',
+              committedRevision: matches ? receipt.committedRevision : null })
+          },
+          close() {
+            if (active !== current) return
+            active = null
+            current.handler.onClose(null)
+          },
+        }
       },
     },
-    /** Publish only a changed projection; an idle tick writes nothing. */
-    publish() {
-      const encoded = JSON.stringify(snapshotOf())
-      if (published === encoded) return
-      published = encoded
-      handler?.onSnapshot(snapshotOf())
-    },
+    publish: () => publish(),
+    publishOutcome,
     close(error) {
-      const current = handler
-      handler = null
-      current?.onClose(error)
+      const current = active
+      active = null
+      current?.handler.onClose(error)
     },
   }
 }
@@ -55,7 +99,6 @@ export interface WorkbenchHostOptions {
   connection?: WorkbenchSnapshot['connection']
   clock?: () => number
 }
-
 export interface WorkbenchHost {
   readonly shell: ReturnType<typeof createPresentationShell>
   readonly source: RunnerSource
@@ -64,50 +107,22 @@ export interface WorkbenchHost {
   stop(): void
 }
 
-/**
- * Connect the runner to the real QML presentation port. The host drains QML
- * intents on `tick`, routes them through the durable runner, and feeds the
- * committed outcome back to the shell before republishing the projection.
- */
+/** Receipt -> committed snapshot -> displayed feedback, never the reverse. */
 export function createWorkbenchHost(options: WorkbenchHostOptions): WorkbenchHost {
-  const source = createRunnerSource(options.authority, options.connection ?? 'connected')
-  let shell: ReturnType<typeof createPresentationShell> | null = null
+  const source = createRunnerSource(options.authority, options.connection ?? 'connected', { clock: options.clock })
   const intentSink: WorkbenchIntentSink = (intent: WorkbenchIntent) => {
     const outcome = options.authority.handleIntent(intent)
-    shell?.adapter.applyFeedback({
-      intentId: intent.intentId,
-      sessionId: intent.sessionId,
-      target: intent.target,
-      originRevision: intent.expectedRevision,
-      status: outcome.status,
-      reasonCode: outcome.reasonCode,
-      committedRevision: outcome.committedRevision,
-    })
-    source.publish()
+    source.publishOutcome({ intentId: intent.intentId, sessionId: intent.sessionId, target: intent.target,
+      originRevision: intent.expectedRevision, status: outcome.status, reasonCode: outcome.reasonCode, committedRevision: outcome.committedRevision })
   }
-  shell = createPresentationShell({
-    source: source.source,
-    intentSink,
-    view: options.view,
-    clock: options.clock,
-  })
+  const shell = createPresentationShell({ source: source.source, intentSink, view: options.view, clock: options.clock })
   return {
-    shell,
-    source,
-    async start() {
-      await shell!.start()
-    },
-    tick() {
-      shell!.tick()
-      source.publish()
-    },
-    stop() {
-      shell!.close()
-      source.close(null)
-    },
+    shell, source,
+    start: () => shell.start(),
+    tick() { shell.tick(); source.publish() },
+    stop() { shell.close(); source.close(null) },
   }
 }
-
 export function snapshotOf(authority: WorkbenchAuthority, connection: WorkbenchSnapshot['connection'] = 'connected'): WorkbenchSnapshot {
   return buildSnapshot({ authority, adoption: authority.adoption, connection })
 }

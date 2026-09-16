@@ -62,6 +62,8 @@ export interface WorkbenchSourceHandler {
   onSnapshot(snapshot: unknown): void
   onEvent(event: unknown): void
   onClose(error: Error | null): void
+  /** A known result is staged until a subsequent snapshot is displayed. */
+  onOutcome?(feedback: unknown): void
 }
 
 export interface WorkbenchChannel {
@@ -111,6 +113,7 @@ export class WorkbenchAdapter {
   private started = false
   private stopped = false
   private intentCounter = 0
+  private readonly intentNamespace = crypto.randomUUID()
   private lastAuthoritativeAt: number
   private pending = new Map<string, PendingIntent>()
   private drafts = new Map<string, string>()
@@ -118,6 +121,9 @@ export class WorkbenchAdapter {
   private lastRunnerEpoch: number | null = null
   private lastRevision: number | null = null
   private lastIdentity: string | null = null
+  private stagedOutcomes = new Map<string, WorkbenchFeedback>()
+  private publishedSnapshot: WorkbenchSnapshot | null = null
+  private connectionAttempt = 0
 
   constructor(options: WorkbenchAdapterOptions) {
     if (options === null || typeof options !== 'object') {
@@ -151,16 +157,41 @@ export class WorkbenchAdapter {
     if (this.started) throw new Error('workbench adapter already started')
     if (this.stopped) throw new Error('a stopped workbench adapter cannot restart')
     this.started = true
-    this.channel = await this.source.connect({
-      onSnapshot: (snapshot) => this.applySnapshot(snapshot),
-      onEvent: (event) => this.applyEvent(event),
-      onClose: (error) => this.closed(error),
-    })
+    const attempt = ++this.connectionAttempt
+    const current = () => !this.stopped && this.connectionAttempt === attempt
+    try {
+      const channel = await this.source.connect({
+        onSnapshot: snapshot => { if (current()) this.applySnapshot(snapshot) },
+        onEvent: event => { if (current()) this.applyEvent(event) },
+        onOutcome: feedback => { if (current()) this.prepareFeedback(feedback) },
+        onClose: error => { if (current()) this.closed(error) },
+      })
+      if (!current()) channel.close()
+      else {
+        this.channel = channel
+        this.queryOutcomes()
+      }
+    } catch (error) {
+      if (this.connectionAttempt === attempt) {
+        const channel = this.channel
+        this.channel = null
+        this.started = false
+        this.connectionAttempt++
+        this.publishedSnapshot = null
+        try { channel?.close() } catch { /* preserve the connection/publication failure */ }
+        if (this.projection.handoff) {
+          this.projection.markGap('presentation connection failed')
+          try { this.publish() } catch { /* original failure remains authoritative */ }
+        }
+      }
+      throw error
+    }
   }
 
   stop(): void {
     if (this.stopped) return
     this.stopped = true
+    this.connectionAttempt++
     this.channel?.close()
     this.channel = null
   }
@@ -182,6 +213,9 @@ export class WorkbenchAdapter {
     this.lastAuthoritativeAt = this.clock()
     this.onIdentityChange(value)
     this.publish()
+    for (const feedback of [...this.stagedOutcomes.values()]) {
+      if (feedback.committedRevision === null || feedback.committedRevision <= value.revision) this.applyFeedback(feedback)
+    }
     return handoff
   }
 
@@ -217,7 +251,14 @@ export class WorkbenchAdapter {
       if (this.pending.size >= MAX_PENDING_INTENTS && !['submitted', 'unknown'].includes(entry.status)) this.pending.delete(id)
     }
     if (this.pending.size >= MAX_PENDING_INTENTS) {
-      throw new Error(`pending intent queue is full (${MAX_PENDING_INTENTS})`)
+      for (const [id, pending] of this.pending) {
+        if (['acknowledged', 'rejected', 'expired'].includes(pending.status)) {
+          this.pending.delete(id)
+          this.stagedOutcomes.delete(id)
+          break
+        }
+      }
+      if (this.pending.size >= MAX_PENDING_INTENTS) throw new Error(`pending intent queue is full (${MAX_PENDING_INTENTS})`)
     }
     const snapshot = handoff.snapshot
     // Phase 2 enables authorize_adoption on the real path; the authoritative
@@ -234,7 +275,7 @@ export class WorkbenchAdapter {
       const purgeLeaf = kind === 'purge' && snapshot.retiredRuns.some(card => card.agentRunId === target && card.canPurge)
       if (!observedChoice && !purgeLeaf && !actions.some(action => action.kind === kind && action.target === target && action.enabled)) throw new Error('action unavailable in authoritative projection')
     }
-    const intentId = `wb-${snapshot.sessionId}-${++this.intentCounter}`
+    const intentId = `wb-${this.intentNamespace}-${++this.intentCounter}`
     const intent: WorkbenchIntent = {
       protocol: 'omarchestra.workbench/v1',
       sessionId: snapshot.sessionId,
@@ -286,6 +327,19 @@ export class WorkbenchAdapter {
     return validated
   }
 
+  /** Stage a receipt without showing success or executing anything. */
+  prepareFeedback(input: unknown): void {
+    const feedback = validateFeedback(input)
+    if (!['acknowledged', 'rejected', 'stale', 'unknown'].includes(feedback.status)) throw new Error('invalid runner outcome status')
+    const pending = this.pending.get(feedback.intentId)
+    if (!pending || feedback.sessionId !== pending.intent.sessionId || feedback.target !== pending.intent.target
+        || feedback.originRevision !== pending.intent.expectedRevision) throw new Error('outcome does not match the original intent')
+    const current = this.projection.handoff?.snapshot
+    if (!current || current.sessionId !== pending.intent.sessionId || current.pluginGeneration !== pending.intent.pluginGeneration
+        || current.runnerEpoch !== pending.intent.runnerEpoch || pending.status === 'expired') throw new Error('outcome identity is obsolete')
+    this.stagedOutcomes.set(feedback.intentId, feedback)
+  }
+
   /** Apply a runner feedback for a previously emitted intent. */
   applyFeedback(input: unknown): WorkbenchFeedback {
     const feedback = validateFeedback(input)
@@ -303,15 +357,26 @@ export class WorkbenchAdapter {
       throw new Error('feedback origin revision does not match the intent revision')
     }
     const current = this.projection.handoff?.snapshot
-    if (!current || pending.status === 'stale' || pending.status === 'expired'
+    const staged = this.stagedOutcomes.get(feedback.intentId)
+    const resolving = staged !== undefined && staged.status === feedback.status && staged.reasonCode === feedback.reasonCode && staged.committedRevision === feedback.committedRevision
+    if (!current || (pending.status === 'stale' && !resolving) || pending.status === 'expired'
         || current.sessionId !== pending.intent.sessionId
         || current.pluginGeneration !== pending.intent.pluginGeneration
         || current.runnerEpoch !== pending.intent.runnerEpoch) throw new Error('feedback identity is obsolete')
-    if (!['submitted', 'unknown'].includes(pending.status) && pending.status !== feedback.status) throw new Error('terminal feedback cannot change status')
+    if (feedback.status === 'acknowledged' && (this.isStale || this.projection.handoff?.connection !== 'connected'
+        || !this.publishedSnapshot || this.publishedSnapshot.sessionId !== current.sessionId
+        || this.publishedSnapshot.pluginGeneration !== current.pluginGeneration || this.publishedSnapshot.runnerEpoch !== current.runnerEpoch
+        || (feedback.committedRevision !== null && this.publishedSnapshot.revision < feedback.committedRevision))) throw new Error('committed snapshot has not been displayed')
+    if (!['submitted', 'unknown'].includes(pending.status) && !(resolving && pending.status === 'stale')) {
+      if (pending.status !== feedback.status || pending.reasonCode !== feedback.reasonCode || pending.committedRevision !== feedback.committedRevision) throw new Error('terminal feedback cannot change outcome')
+      this.stagedOutcomes.delete(feedback.intentId)
+      return feedback
+    }
+    this.onFeedback?.(feedback)
     pending.status = feedback.status
     pending.reasonCode = feedback.reasonCode
     pending.committedRevision = feedback.committedRevision
-    this.onFeedback?.(feedback)
+    this.stagedOutcomes.delete(feedback.intentId)
     return feedback
   }
 
@@ -371,7 +436,6 @@ export class WorkbenchAdapter {
       if (pending.status === 'submitted' && now - pending.submittedAt > this.ackDeadlineMs) {
         pending.status = 'unknown'
         pending.reasonCode = 'ack_deadline'
-        this.channel?.send('query_intent', { intentId: id, sessionId: pending.intent.sessionId })
         changed += 1
         this.onFeedback?.({
           intentId: id,
@@ -382,9 +446,21 @@ export class WorkbenchAdapter {
           reasonCode: 'ack_deadline',
           committedRevision: null,
         })
+        this.channel?.send('query_intent', { intent: pending.intent })
       }
     }
     return changed
+  }
+
+  /** Read-only recovery of unresolved results; never re-submit an intent. */
+  queryOutcomes(): void {
+    const snapshot = this.projection.handoff?.snapshot
+    if (!snapshot || !this.channel || this.stopped) return
+    for (const pending of this.pending.values()) {
+      if (['submitted', 'unknown', 'stale'].includes(pending.status)
+          && pending.intent.sessionId === snapshot.sessionId && pending.intent.pluginGeneration === snapshot.pluginGeneration
+          && pending.intent.runnerEpoch === snapshot.runnerEpoch) this.channel.send('query_intent', { intent: pending.intent })
+    }
   }
 
   /** Explicit staleness check driven by the local monotonic clock. */
@@ -412,7 +488,13 @@ export class WorkbenchAdapter {
       // Invalidate pending confirmations and obsolete feedback on identity or
       // relevant revision change. Text drafts are preserved separately.
       for (const [id, pending] of this.pending) {
-        if (pending.status === 'submitted') {
+        const sameAuthority = snapshot.sessionId === pending.intent.sessionId && snapshot.pluginGeneration === pending.intent.pluginGeneration && snapshot.runnerEpoch === pending.intent.runnerEpoch
+        if (!sameAuthority) this.stagedOutcomes.delete(id)
+        if (pending.status === 'submitted' || (pending.status === 'unknown' && !sameAuthority)) {
+          const staged = this.stagedOutcomes.get(id)
+          if (staged && snapshot.sessionId === pending.intent.sessionId && snapshot.pluginGeneration === pending.intent.pluginGeneration
+              && snapshot.runnerEpoch === pending.intent.runnerEpoch) continue
+          this.stagedOutcomes.delete(id)
           pending.status = 'stale'
           pending.reasonCode = 'identity_changed'
           this.onFeedback?.({
@@ -431,6 +513,10 @@ export class WorkbenchAdapter {
 
   private closed(error: Error | null): void {
     if (this.stopped) return
+    this.started = false
+    this.channel = null
+    this.connectionAttempt++
+    this.publishedSnapshot = null
     if (this.projection.handoff !== null) {
       this.projection.markGap(error?.message ?? 'projection connection closed')
       this.publish()
@@ -440,11 +526,17 @@ export class WorkbenchAdapter {
   private publish(): void {
     const handoff = this.projection.handoff
     if (handoff !== null) {
-      if (handoff.connection === 'gap') this.channel?.send('request_snapshot', { sessionId: handoff.snapshot.sessionId })
-      try { this.sink(handoff) } catch (error) {
+      try {
+        this.sink(handoff)
+        this.publishedSnapshot = handoff.connection === 'connected' ? handoff.snapshot : null
+      } catch (error) {
+        this.publishedSnapshot = null
         this.projection.markGap('projection publication failed')
         throw error
       }
+      // Synchronous resnapshot replies must come after the gap presentation,
+      // otherwise an old gap frame can overwrite a just-recovered snapshot.
+      if (handoff.connection === 'gap') this.channel?.send('request_snapshot', { sessionId: handoff.snapshot.sessionId })
     }
   }
 }
