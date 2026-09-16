@@ -17,6 +17,7 @@ import { existsSync } from 'node:fs'
 import { createOwnedReceipt, verifyOwnedReceipt, guardOwned } from './owned-resources.ts'
 import { createBackup, describeBackupSupport, type BackupMetadata, type BackupSupport } from './backup.ts'
 import { workbenchError } from './errors.ts'
+import { prepareManagementOperation, completeManagementOperation, type ManagementCommandInput, type ManagementCommandResult, type ManagementCommandPhase } from './management-operations.ts'
 import { incarnationKey, type PiIncarnation } from './binding-identity.ts'
 import { openFenceLedger, type BindingFence, type FenceLedger, type RecordRetirementInput } from './fences.ts'
 import { createNodeIdentity, defaultNewId, type NodeIdentityOptions } from './identity.ts'
@@ -29,7 +30,7 @@ import { openWorkbenchStore, type BindingRecord, type WorkbenchStore } from './s
 export interface WorkbenchRunnerOptions extends NodeIdentityOptions {
   roots: WorkbenchRootsInput
   /** Injected crash-boundary observer for disposable persistence tests only. */
-  failurePoint?: (phase: 'retirement_ledger' | 'retirement_store' | 'purge_intent' | 'purge_store' | 'purge_fence') => void
+  failurePoint?: (phase: 'retirement_ledger' | 'retirement_store' | 'purge_intent' | 'purge_store' | 'purge_fence' | ManagementCommandPhase) => void
 }
 
 export interface RetireBindingInput extends Omit<RecordRetirementInput, 'predecessorRunId' | 'goalId' | 'incarnationKey'> {
@@ -52,6 +53,7 @@ export interface WorkbenchRunner {
   retireBinding(input: RetireBindingInput): BindingFence
   /** Leaf-only purge; requires an independently retained fence and terminal state. */
   purgeBinding(runId: string): BindingFence | null
+  executeManagementCommand(input: ManagementCommandInput): ManagementCommandResult
   backup(): BackupMetadata
   describe(): Record<string, unknown>
   close(): void
@@ -206,6 +208,16 @@ export function openWorkbenchRunner(options: WorkbenchRunnerOptions): WorkbenchR
           return fence
         } catch (error) { operationFault = true; throw error }
       },
+      executeManagementCommand(input) {
+        // Validate before durable preparation. After preparation, failure is
+        // pending reconciliation, never a final rejected command receipt.
+        const operation = prepareManagementOperation(handle, input, clock())
+        try {
+          store!.transaction(() => store!.putManagementOperation(operation))
+          options.failurePoint?.('command_prepared')
+          return completeManagementOperation(handle, operation, { clock, newId: options.newId ?? defaultNewId, failurePoint: options.failurePoint })
+        } catch (error) { operationFault = true; throw error }
+      },
       backup() {
         return createBackup({ store: store!, roots, ownershipHeld: true, clock })
       },
@@ -220,6 +232,11 @@ export function openWorkbenchRunner(options: WorkbenchRunnerOptions): WorkbenchR
           try { fences!.close() } finally { lock!.release() }
         }
       },
+    }
+    // No authority or presentation can attach before retained command
+    // authorizations are reconciled with the independent revocation ledger.
+    for (const operation of store.listManagementOperations()) {
+      completeManagementOperation(handle, operation, { clock, newId: options.newId ?? defaultNewId })
     }
     return handle
   } catch (error) {

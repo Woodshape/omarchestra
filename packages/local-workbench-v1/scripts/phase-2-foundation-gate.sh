@@ -55,7 +55,8 @@ printf '%s\n' '== running durable runner foundation tests =='
 run_node "${flags[@]}" --test \
     "$root/test/runner-foundation.test.ts" \
     "$root/test/phase-2-owned-resources.test.ts" \
-    "$root/test/phase-2-fence-operations.test.ts"
+    "$root/test/phase-2-fence-operations.test.ts" \
+    "$root/test/phase-2-retirement-outcomes.test.ts"
 
 printf '%s\n' '== running Phase 1 boundary audits against the updated tree =='
 run_node "${flags[@]}" --test \

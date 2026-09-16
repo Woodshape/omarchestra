@@ -128,6 +128,22 @@ export class AdoptionManager {
     unsubscribe?.()
   }
 
+  /** Roll back transient state of commands that perform no external send.
+   * This does not authorize rolling back a delivered frame or a connection.
+   */
+  checkpointCommandState(): () => void {
+    const proposals = new Map([...this.proposals].map(([id, value]) => [id, { ...value }]))
+    const pending = new Map([...this.pending].map(([id, value]) => [id, { ...value }]))
+    const expired = [...this.expired]
+    const exchanges = new Map(this.exchanges)
+    return () => {
+      this.proposals = proposals
+      this.pending = pending
+      this.expired = expired
+      this.exchanges = exchanges
+    }
+  }
+
   /** Recover retained membership: an acknowledged proposal keeps its digest. */
   retainedProposals(): Proposal[] {
     return [...this.proposals.values()].filter(proposal => proposal.stage !== 'failed' && proposal.stage !== 'expired').map(proposal => ({ ...proposal }))
@@ -413,6 +429,9 @@ export class AdoptionManager {
    */
   takeControl(runId: string): BindingRecord {
     const binding = this.assertLive(runId)
+    if (['proposed', 'authorized', 'acknowledged'].includes(binding.state)) {
+      throw workbenchError('invalid_input', 'ordinary Pi cannot acquire managed control before Adoption commits', 'finish exact Adoption first; observation and proposals grant no control authority')
+    }
     this.host.commit('control_taken', { runId, source: 'operator' }, () => {
       this.host.runner.store.setBindingControlEpoch(runId, binding.controlEpoch + 1, this.host.clock())
       this.host.runner.store.setBindingState(runId,
@@ -444,6 +463,15 @@ export class AdoptionManager {
     if (fence === null) return null
     this.send({ frameId: this.host.newId('frame-'), kind: 'purge_notice', runId, bindingDigest: fence.bindingDigest, nonce: null, payload: { generation: fence.generation } })
     return fence
+  }
+
+  /** Post-commit local cleanup only. No send can invalidate a durable receipt. */
+  forgetRetired(runId: string): void {
+    if (!this.host.runner.fences.isFenced(runId)) throw workbenchError('fence_missing', 'cannot forget an unfenced Run', 'complete retirement first')
+    const proposal = this.proposalForRun(runId)
+    if (proposal) this.proposals.delete(proposal.proposalId)
+    this.pending.delete(runId)
+    this.exchanges.delete(runId)
   }
 
   generation(projectId: string, role: string): number {

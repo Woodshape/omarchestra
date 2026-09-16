@@ -5,9 +5,10 @@
  * selection, projection revision/cursor, intent deduplication and the
  * authoritative snapshot. One instance wraps one open runner.
  *
- * Durable Project/Goal/check/selection commands commit effects, events and
- * intent receipts in one store transaction. Cross-ledger and bridge commands
- * still require their separate S2 integration; this is not full Phase 2 acceptance.
+ * Database-only commands (including request-Adoption and Take control) commit
+ * effects, events and receipts together. Retirement/purge use a recoverable
+ * authorization journal across the independent ledger. Bridge delivery still
+ * requires its separate S2 integration; this is not full Phase 2 acceptance.
  * Projection revisions advance only after the owning transaction commits. An intent whose payload hash
  * differs from a previously recorded intent with the same id is rejected
  * instead of being reapplied.
@@ -394,10 +395,32 @@ export class WorkbenchAuthority {
     if (intent.expectedRevision !== this.revision) {
       return this.record(intent.intentId, payloadHash, { status: 'stale', reasonCode: 'revision_changed', reason: 'The projection changed; re-read the current state before acting.', committedRevision: null })
     }
+    if (intent.kind === 'retire' || intent.kind === 'purge') {
+      let receipt
+      try {
+        receipt = this.runner.executeManagementCommand({ intentId: intent.intentId, sessionId: this.sessionId,
+          payloadHash, kind: intent.kind, runId: String(intent.payload.agentRunId) })
+      } catch (error) {
+        if (error instanceof Error && error.name === 'WorkbenchError') {
+          // A prepared-operation fault fences store admission, so this cannot
+          // turn an irreversible/pending operation into a rejected receipt.
+          return this.record(intent.intentId, payloadHash, { status: 'rejected', reasonCode: (error as { code?: string }).code ?? 'invalid_input', reason: error.message, committedRevision: null })
+        }
+        throw error
+      }
+      this.revision = receipt.projectionRevision
+      this.cursor = receipt.cursor
+      // Post-commit cleanup failures propagate as unavailable; they never get
+      // caught by the domain-rejection handler or overwrite the saved outcome.
+      this.adoption.forgetRetired(String(intent.payload.agentRunId))
+      return { status: receipt.status as IntentStatus, reasonCode: receipt.reasonCode, reason: receipt.reason ?? null, committedRevision: receipt.committedRevision }
+    }
     try {
-      if (['confirm_register_project', 'select_project', 'select_goal', 'create_goal', 'create_check', 'configure_checks'].includes(intent.kind)) {
+      if (['confirm_register_project', 'select_project', 'select_goal', 'create_goal', 'create_check', 'configure_checks', 'request_adoption', 'take_control'].includes(intent.kind)) {
         const context = { revision: this.revision, cursor: this.cursor }
         const registrations = new Map(this.registrations)
+        const observations = new Map(this.observations)
+        const restoreAdoption = this.adoption.checkpointCommandState()
         this.commandContext = context
         try {
           const outcome = this.runner.store.transaction(() => {
@@ -410,6 +433,8 @@ export class WorkbenchAuthority {
           return outcome
         } catch (error) {
           this.registrations = registrations
+          this.observations = observations
+          restoreAdoption()
           throw error
         } finally { this.commandContext = null }
       }
@@ -496,14 +521,6 @@ export class WorkbenchAuthority {
       }
       case 'take_control': {
         this.adoption.takeControl(String(intent.payload.agentRunId))
-        return { status: 'acknowledged', reasonCode: null, reason: null, committedRevision: this.revision }
-      }
-      case 'retire': {
-        this.adoption.retire(String(intent.payload.agentRunId))
-        return { status: 'acknowledged', reasonCode: null, reason: null, committedRevision: this.revision }
-      }
-      case 'purge': {
-        this.adoption.purge(String(intent.payload.agentRunId))
         return { status: 'acknowledged', reasonCode: null, reason: null, committedRevision: this.revision }
       }
       case 'present':

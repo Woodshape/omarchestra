@@ -39,7 +39,10 @@ The new tests are included in `local-workbench-v1-phase-2-check`. Full package t
 
 No installation, live Pi/provider, Project mutation outside disposable tests, Assignment/check execution, prototype/spike change, commit or push.
 
-## Remaining S2 work
+## Remaining S2 work at this checkpoint
+
+The subsequent [management-outcome checkpoint](management-outcomes-checkpoint.md) implements the retirement/purge journal and no-send Adoption command transactions described as pending below. External delivery and source lifecycle remain outstanding.
+
 
 - Cross-ledger retirement/purge needs recoverable command identity and result reconciliation; SQLite savepoints do not make independent databases atomic.
 - Adoption/bridge commands still have external sends and transient manager state. They are deliberately **not** wrapped as ordinary database commands. Durable outcome/delivery ordering and rollback/recovery need their own integration.

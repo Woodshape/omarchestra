@@ -103,6 +103,16 @@ export interface IntentResultRecord {
   createdAt: number
 }
 
+export interface ManagementOperation {
+  intentId: string
+  sessionId: string
+  payloadHash: string
+  kind: 'retire' | 'purge'
+  runId: string
+  targetJson: string
+  createdAt: number
+}
+
 export interface WorkbenchStore {
   readonly path: string
   readonly nodeId: string
@@ -137,6 +147,9 @@ export interface WorkbenchStore {
   appendEvent(event: EventRecord): void
   listEvents(): EventRecord[]
   maxCursor(): number
+  putManagementOperation(operation: ManagementOperation): void
+  listManagementOperations(): ManagementOperation[]
+  deleteManagementOperation(intentId: string): void
   putIntentResult(record: IntentResultRecord): void
   getIntentResult(intentId: string): IntentResultRecord | null
   integrityCheck(): string
@@ -515,6 +528,16 @@ export function openWorkbenchStore(options: StoreOptions): WorkbenchStore {
         : db.prepare('SELECT * FROM goals WHERE project_id = ? ORDER BY created_at, goal_id').all(projectId)
       return (rows as Array<Record<string, unknown>>).map(rowToGoal)
     },
+    putManagementOperation(operation) {
+      db.prepare('INSERT INTO management_operations VALUES (?, ?, ?, ?, ?, ?, ?)').run(operation.intentId, operation.sessionId, operation.payloadHash, operation.kind, operation.runId, operation.targetJson, operation.createdAt)
+    },
+    listManagementOperations() {
+      return db.prepare('SELECT * FROM management_operations ORDER BY created_at, intent_id').all().map(row => ({
+        intentId: String(row.intent_id), sessionId: String(row.session_id), payloadHash: String(row.payload_hash), kind: String(row.kind) as ManagementOperation['kind'],
+        runId: String(row.run_id), targetJson: String(row.target_json), createdAt: Number(row.created_at),
+      }))
+    },
+    deleteManagementOperation(intentId) { db.prepare('DELETE FROM management_operations WHERE intent_id = ?').run(intentId) },
     putIntentResult(record) {
       db.prepare(
         `INSERT INTO intent_dedup (intent_id, session_id, payload_hash, status, reason_code, committed_revision, created_at, reason, detail)

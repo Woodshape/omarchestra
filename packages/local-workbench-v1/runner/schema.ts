@@ -1,12 +1,12 @@
 /**
- * Local Workbench v1 Phase 2 — declared store schema (version 3).
+ * Local Workbench v1 Phase 2 — declared store schema (version 4).
  *
  * The declared shape is the contract the runner validates before accepting
  * management frames. Any missing table or unexpected table is drift that
  * blocks startup; the runner never repairs schema silently.
  */
 
-export const STORE_SCHEMA_VERSION = 3
+export const STORE_SCHEMA_VERSION = 4
 
 export interface TableSpec {
   name: string
@@ -30,6 +30,7 @@ export const STORE_TABLES: TableSpec[] = [
   },
   { name: 'binding_identities', columns: ['run_id', 'goal_id', 'incarnation_json', 'incarnation_key'] },
   { name: 'role_memberships', columns: ['goal_id', 'role', 'run_id'] },
+  { name: 'management_operations', columns: ['intent_id', 'session_id', 'payload_hash', 'kind', 'run_id', 'target_json', 'created_at'] },
   { name: 'uncertain_effects', columns: ['run_id', 'project_id', 'recorded_at'] },
   { name: 'events', columns: ['event_id', 'cursor', 'base_revision', 'revision', 'kind', 'created_at', 'run_id'] },
   {
@@ -121,6 +122,15 @@ BEGIN
   INSERT INTO meta (key, value) VALUES ('event_cursor', CAST(NEW.cursor AS TEXT))
   ON CONFLICT(key) DO UPDATE SET value = excluded.value;
 END;
+CREATE TABLE IF NOT EXISTS management_operations (
+  intent_id TEXT PRIMARY KEY NOT NULL,
+  session_id TEXT NOT NULL,
+  payload_hash TEXT NOT NULL,
+  kind TEXT NOT NULL CHECK (kind IN ('retire', 'purge')),
+  run_id TEXT NOT NULL,
+  target_json TEXT NOT NULL,
+  created_at INTEGER NOT NULL
+);
 CREATE TABLE IF NOT EXISTS intent_dedup (
   intent_id TEXT PRIMARY KEY,
   session_id TEXT NOT NULL,
