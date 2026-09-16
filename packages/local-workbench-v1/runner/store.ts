@@ -12,6 +12,7 @@ import { DatabaseSync } from 'node:sqlite'
 import { chmodSync } from 'node:fs'
 import { workbenchError } from './errors.ts'
 import { assertNodeId } from './identity.ts'
+import { validateDelivery, type BridgeDelivery, type DeliveryState } from './bridge-delivery.ts'
 import { incarnationKey, validateIncarnation, type BindingIdentity, type PiIncarnation } from './binding-identity.ts'
 import { OWNED_FILE_MODE } from './paths.ts'
 import { REQUIRED_JOURNAL_MODE, REQUIRED_PRAGMAS, STORE_DDL, STORE_SCHEMA_VERSION, STORE_TABLES } from './schema.ts'
@@ -147,6 +148,9 @@ export interface WorkbenchStore {
   appendEvent(event: EventRecord): void
   listEvents(): EventRecord[]
   maxCursor(): number
+  putDelivery(delivery: BridgeDelivery): void
+  listDeliveries(runId?: string): BridgeDelivery[]
+  transitionDelivery(frameId: string, from: DeliveryState, to: DeliveryState, reasonCode: string | null): boolean
   putManagementOperation(operation: ManagementOperation): void
   listManagementOperations(): ManagementOperation[]
   deleteManagementOperation(intentId: string): void
@@ -256,6 +260,7 @@ export function assertSchemaShape(db: DatabaseSync, path: string): void {
       || db.prepare('PRAGMA foreign_key_check').all().length !== 0) {
     throw workbenchError('integrity_failure', `integrity/foreign key check failed for ${path}`, 'preserve the damaged database; do not keep writing')
   }
+  for (const row of db.prepare('SELECT * FROM bridge_deliveries').all()) validateDelivery(rowToDelivery(row))
   const identityNode = db.prepare("SELECT value FROM meta WHERE key = 'node_id'").get()?.value
   for (const row of db.prepare('SELECT i.*, b.project_id, g.project_id AS goal_project_id, p.execution_node_id FROM binding_identities i LEFT JOIN bindings b USING (run_id) LEFT JOIN goals g ON g.goal_id = i.goal_id LEFT JOIN projects p ON p.project_id = b.project_id').all()) {
     try {
@@ -528,6 +533,24 @@ export function openWorkbenchStore(options: StoreOptions): WorkbenchStore {
         : db.prepare('SELECT * FROM goals WHERE project_id = ? ORDER BY created_at, goal_id').all(projectId)
       return (rows as Array<Record<string, unknown>>).map(rowToGoal)
     },
+    putDelivery(delivery) {
+      validateDelivery(delivery)
+      if (delivery.state !== 'queued' || delivery.reasonCode !== null) throw workbenchError('invalid_input', 'new delivery must be queued', 'never invent a completed send')
+      db.prepare('INSERT INTO bridge_deliveries VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)').run(delivery.frameId, delivery.runId, delivery.kind, delivery.frameJson, delivery.connectionId, delivery.deadline, delivery.state, delivery.reasonCode, delivery.createdAt)
+    },
+    listDeliveries(runId) {
+      const rows = runId === undefined ? db.prepare('SELECT * FROM bridge_deliveries ORDER BY created_at, frame_id').all()
+        : db.prepare('SELECT * FROM bridge_deliveries WHERE run_id = ? ORDER BY created_at, frame_id').all(runId)
+      return rows.map(rowToDelivery)
+    },
+    transitionDelivery(frameId, from, to, reasonCode) {
+      if (!(from === 'queued' && ['attempting', 'not_sent'].includes(to)) && !(from === 'attempting' && ['written', 'unknown'].includes(to))) throw workbenchError('invalid_input', 'delivery transitions never reset an attempt', 'unknown delivery requires explicit reconciliation, not retry')
+      if (![null, 'connection_lost', 'expired', 'revoked', 'transport_error', 'owner_restarted'].includes(reasonCode)) throw workbenchError('invalid_input', 'invalid delivery reason', 'use a bounded delivery disposition')
+      const current = db.prepare('SELECT * FROM bridge_deliveries WHERE frame_id = ?').get(frameId)
+      if (!current || current.state !== from) return false
+      validateDelivery({ ...rowToDelivery(current), state: to, reasonCode })
+      return Number(db.prepare('UPDATE bridge_deliveries SET state = ?, reason_code = ? WHERE frame_id = ? AND state = ?').run(to, reasonCode, frameId, from).changes) === 1
+    },
     putManagementOperation(operation) {
       db.prepare('INSERT INTO management_operations VALUES (?, ?, ?, ?, ?, ?, ?)').run(operation.intentId, operation.sessionId, operation.payloadHash, operation.kind, operation.runId, operation.targetJson, operation.createdAt)
     },
@@ -580,6 +603,10 @@ function rowToProject(row: Record<string, unknown>): ProjectRecord {
     revision: Number(row.revision),
     createdAt: Number(row.created_at),
   }
+}
+
+function rowToDelivery(row: Record<string, unknown>): BridgeDelivery {
+  return { frameId: String(row.frame_id), runId: String(row.run_id), kind: String(row.kind) as BridgeDelivery['kind'], frameJson: String(row.frame_json), connectionId: String(row.connection_id), deadline: Number(row.deadline), state: String(row.state) as DeliveryState, reasonCode: row.reason_code === null ? null : String(row.reason_code), createdAt: Number(row.created_at) }
 }
 
 function rowToBinding(row: Record<string, unknown>): BindingRecord {

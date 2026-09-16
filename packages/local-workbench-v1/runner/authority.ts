@@ -108,7 +108,7 @@ export class WorkbenchAuthority {
   private registrations = new Map<string, RegistrationRecord>()
   private revision: number
   private cursor: number
-  private commandContext: { revision: number; cursor: number } | null = null
+  private commandContext: { revision: number; cursor: number; afterCommit: Array<() => void> } | null = null
 
   constructor(options: AuthorityOptions) {
     this.runner = options.runner
@@ -415,32 +415,37 @@ export class WorkbenchAuthority {
       this.adoption.forgetRetired(String(intent.payload.agentRunId))
       return { status: receipt.status as IntentStatus, reasonCode: receipt.reasonCode, reason: receipt.reason ?? null, committedRevision: receipt.committedRevision }
     }
+    let committed = false
     try {
-      if (['confirm_register_project', 'select_project', 'select_goal', 'create_goal', 'create_check', 'configure_checks', 'request_adoption', 'take_control'].includes(intent.kind)) {
-        const context = { revision: this.revision, cursor: this.cursor }
+      if (['confirm_register_project', 'select_project', 'select_goal', 'create_goal', 'create_check', 'configure_checks', 'request_adoption', 'authorize_adoption', 'take_control'].includes(intent.kind)) {
+        const context = { revision: this.revision, cursor: this.cursor, afterCommit: [] as Array<() => void> }
         const registrations = new Map(this.registrations)
         const observations = new Map(this.observations)
         const restoreAdoption = this.adoption.checkpointCommandState()
         this.commandContext = context
+        let outcome: IntentOutcome
         try {
-          const outcome = this.runner.store.transaction(() => {
+          outcome = this.runner.store.transaction(() => {
             const routed = this.route(intent)
             const normalized = routed.committedRevision === null ? routed : { ...routed, committedRevision: context.revision }
             return this.record(intent.intentId, payloadHash, normalized)
           })
           this.revision = context.revision
           this.cursor = context.cursor
-          return outcome
+          committed = true
         } catch (error) {
           this.registrations = registrations
           this.observations = observations
           restoreAdoption()
           throw error
         } finally { this.commandContext = null }
+        for (const effect of context.afterCommit) effect()
+        return outcome
       }
       const outcome = this.route(intent)
       return this.record(intent.intentId, payloadHash, outcome)
     } catch (error) {
+      if (committed) throw error // Delivery/publication failure cannot reject an already committed command.
       if (error instanceof Error && (error as { name?: string }).name === 'WorkbenchError') {
         const code = (error as { code?: string }).code ?? 'invalid_input'
         return this.record(intent.intentId, payloadHash, { status: 'rejected', reasonCode: code, reason: error.message, committedRevision: null })
@@ -554,7 +559,7 @@ export class WorkbenchAuthority {
   }
 
   /** Append an event and advance revision/cursor inside the same transaction. */
-  commit(kind: string, payload: Record<string, unknown>, mutate: () => void): number {
+  commit(kind: string, payload: Record<string, unknown>, mutate: () => void, afterCommit?: () => void): number {
     const context = this.commandContext
     const baseRevision = context?.revision ?? this.revision
     const committedRevision = baseRevision + 1
@@ -577,9 +582,11 @@ export class WorkbenchAuthority {
     if (context) {
       context.revision = committedRevision
       context.cursor = cursor
+      if (afterCommit) context.afterCommit.push(afterCommit)
     } else {
       this.revision = committedRevision
       this.cursor = cursor
+      afterCommit?.()
     }
     return committedRevision
   }

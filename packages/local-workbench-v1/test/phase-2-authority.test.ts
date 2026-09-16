@@ -445,8 +445,10 @@ test('an expired adopt acknowledgement is refused and never commits', () => {
       const proposalId = buildSnapshot({ authority, adoption: authority.adoption, connection: 'connected' })
         .observedSessions[0].choices[0].choiceId
       intent(authority, 'authorize_adoption', { proposalId })
-      const adoptFrame = port.last('adopt')
-      assert.ok(adoptFrame)
+      const queued = runner.store.listDeliveries()[0]
+      assert.equal(queued.state, 'not_sent', 'a zero-length deadline cannot release an adopt frame')
+      assert.equal(port.last('adopt'), undefined)
+      const adoptFrame = decodeFrame(queued.frameJson) // forged late reply to the expired queued exchange
       assert.throws(
         () => port.emit({ type: 'adopt_ack', runId: adoptFrame?.runId ?? '', bindingDigest: adoptFrame?.bindingDigest ?? '', nonce: adoptFrame?.nonce ?? '' }),
         { name: 'WorkbenchError' },

@@ -468,14 +468,15 @@ test('migration and restore report only what is genuinely supported', (t) => {
   const s = scaffold(t)
   const runner = openWorkbenchRunner({ roots: { stateDir: s.stateDir } })
   const roots = runner.roots
-  assert.deepEqual(planMigration(4), { from: 4, to: 4, steps: [], requiredBackup: false })
+  assert.deepEqual(planMigration(5), { from: 5, to: 5, steps: [], requiredBackup: false })
+  assert.throws(() => planMigration(4), expectCode('migration_unavailable'))
   assert.throws(() => planMigration(3), expectCode('migration_unavailable'))
   assert.throws(() => planMigration(2), expectCode('migration_unavailable'))
   assert.throws(() => planMigration(1), expectCode('migration_unavailable'))
   assert.throws(() => planMigration(0), expectCode('migration_unavailable'))
   assert.deepEqual(
-    assertMigrationPreconditions(roots, 4, { ownershipHeld: false, backupDatabase: null }),
-    { from: 4, to: 4, steps: [], requiredBackup: false },
+    assertMigrationPreconditions(roots, 5, { ownershipHeld: false, backupDatabase: null }),
+    { from: 5, to: 5, steps: [], requiredBackup: false },
     'no forward step means no backup or ownership precondition is invented',
   )
   const support = describeBackupSupport()

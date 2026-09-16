@@ -22,7 +22,7 @@ The old receipt/effect split in the authority retirement/purge route is removed.
 
 Take control additionally refuses proposed/authorized/acknowledged-but-uncommitted bindings: ordinary Pi observation or a proposal cannot acquire managed control authority.
 
-**Authorization delivery remains outstanding.** `authorize_adoption` sends an external frame and is not wrapped as a database-only command. The committed-binding delivery path also still needs durable post-commit delivery tracking, safe unknown-delivery handling and explicit recovery. No send is described as rolled back by SQL. The legacy manager's Project-only occupancy and missing real incarnation/bridge composition still require S4/S5.
+**Authorization delivery was outstanding at this checkpoint** (subsequently repaired by the [delivery-outbox checkpoint](delivery-outbox-checkpoint.md), except real bridge/challenged recovery). At this checkpoint, `authorize_adoption` sends an external frame and is not wrapped as a database-only command. The committed-binding delivery path also still needs durable post-commit delivery tracking, safe unknown-delivery handling and explicit recovery. No send is described as rolled back by SQL. The legacy manager's Project-only occupancy and missing real incarnation/bridge composition still require S4/S5.
 
 ## Failure evidence
 
@@ -49,7 +49,7 @@ No installation, live Pi/provider, desktop mutation, Assignment/check execution 
 
 ## Remaining S2 work at this checkpoint
 
-The subsequent [source/outcome checkpoint](source-outcomes-checkpoint.md) implements snapshot-before-feedback, source queries/heartbeat/reconnect and truthful unavailable presentation/recovery results. Durable bridge delivery and full authority-envelope validation remain outstanding.
+The subsequent [source/outcome checkpoint](source-outcomes-checkpoint.md) implements snapshot-before-feedback, source queries/heartbeat/reconnect and truthful unavailable presentation/recovery results. The later [delivery-outbox checkpoint](delivery-outbox-checkpoint.md) adds durable queued intent and uncertain-attempt retention without replay. Full authority-envelope validation and real bridge/challenged recovery remain outstanding.
 
 
 - Durable authorization/binding delivery tracking: commit effect and delivery intent together; send only afterward on the exact connection; preserve unknown delivery instead of retrying or rejecting a committed command.

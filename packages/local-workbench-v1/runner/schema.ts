@@ -1,12 +1,12 @@
 /**
- * Local Workbench v1 Phase 2 — declared store schema (version 4).
+ * Local Workbench v1 Phase 2 — declared store schema (version 5).
  *
  * The declared shape is the contract the runner validates before accepting
  * management frames. Any missing table or unexpected table is drift that
  * blocks startup; the runner never repairs schema silently.
  */
 
-export const STORE_SCHEMA_VERSION = 4
+export const STORE_SCHEMA_VERSION = 5
 
 export interface TableSpec {
   name: string
@@ -29,6 +29,7 @@ export const STORE_TABLES: TableSpec[] = [
     columns: ['run_id', 'project_id', 'role', 'state', 'binding_digest', 'control_epoch', 'writer_state', 'predecessor_run_id', 'generation', 'updated_at'],
   },
   { name: 'binding_identities', columns: ['run_id', 'goal_id', 'incarnation_json', 'incarnation_key'] },
+  { name: 'bridge_deliveries', columns: ['frame_id', 'run_id', 'kind', 'frame_json', 'connection_id', 'deadline', 'state', 'reason_code', 'created_at'] },
   { name: 'role_memberships', columns: ['goal_id', 'role', 'run_id'] },
   { name: 'management_operations', columns: ['intent_id', 'session_id', 'payload_hash', 'kind', 'run_id', 'target_json', 'created_at'] },
   { name: 'uncertain_effects', columns: ['run_id', 'project_id', 'recorded_at'] },
@@ -122,6 +123,18 @@ BEGIN
   INSERT INTO meta (key, value) VALUES ('event_cursor', CAST(NEW.cursor AS TEXT))
   ON CONFLICT(key) DO UPDATE SET value = excluded.value;
 END;
+CREATE TABLE IF NOT EXISTS bridge_deliveries (
+  frame_id TEXT PRIMARY KEY NOT NULL,
+  run_id TEXT NOT NULL REFERENCES bindings(run_id) ON DELETE CASCADE,
+  kind TEXT NOT NULL CHECK (kind IN ('adopt', 'committed')),
+  frame_json TEXT NOT NULL,
+  connection_id TEXT NOT NULL,
+  deadline INTEGER NOT NULL,
+  state TEXT NOT NULL CHECK (state IN ('queued', 'attempting', 'written', 'not_sent', 'unknown')),
+  reason_code TEXT,
+  created_at INTEGER NOT NULL,
+  UNIQUE (run_id, kind)
+);
 CREATE TABLE IF NOT EXISTS management_operations (
   intent_id TEXT PRIMARY KEY NOT NULL,
   session_id TEXT NOT NULL,

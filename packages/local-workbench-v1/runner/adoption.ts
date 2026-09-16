@@ -14,7 +14,8 @@
 
 import { workbenchError } from './errors.ts'
 import { canonicalJson, sha256 } from './authority.ts'
-import type { BindingRecord } from './store.ts'
+import type { BindingRecord, WorkbenchStore } from './store.ts'
+import { validateDelivery, type BridgeDelivery } from './bridge-delivery.ts'
 import type { BindingFence, FenceLedger } from './fences.ts'
 import type { WorkbenchFrame, ObserverPort, TransportEvent } from './transport.ts'
 
@@ -29,7 +30,7 @@ export interface AdoptionHost {
   revisionOf(): number
   clock(): number
   newId(prefix: string): string
-  commit(kind: string, payload: Record<string, unknown>, mutate: () => void): number
+  commit(kind: string, payload: Record<string, unknown>, mutate: () => void, afterCommit?: () => void): number
   readonly runner: {
     store: {
       putBinding(binding: BindingRecord): void
@@ -38,6 +39,9 @@ export interface AdoptionHost {
       setBindingState(runId: string, state: BindingRecord['state'], updatedAt: number): void
       setBindingControlEpoch(runId: string, controlEpoch: number, updatedAt: number): void
       setMeta(key: string, value: string): void
+      putDelivery: WorkbenchStore['putDelivery']
+      transitionDelivery: WorkbenchStore['transitionDelivery']
+      transaction: WorkbenchStore['transaction']
     }
     fences: Pick<FenceLedger, 'highWater' | 'isFenced' | 'getFence' | 'assertVacancyGeneration'>
     retireBinding(input: { runId: string; projectId: string; role: string | null; bindingDigest: string | null }): BindingFence
@@ -87,8 +91,8 @@ export class AdoptionManager {
   private transportId: string | null = null
   private unsubscribe: (() => void) | null = null
   /** Object identity is local subscription ownership, not Pi attestation. */
-  private connection: { port: ObserverPort } | null = null
-  private exchanges = new Map<string, { port: ObserverPort }>()
+  private connection: { port: ObserverPort; token: string } | null = null
+  private exchanges = new Map<string, { port: ObserverPort; token: string }>()
 
   constructor(host: AdoptionHost, transport: () => ObserverPort | null, ackDeadlineMs = DEFAULT_ACK_DEADLINE_MS) {
     this.host = host
@@ -101,7 +105,7 @@ export class AdoptionManager {
     if (port !== null && this.connection?.port === port && this.unsubscribe !== null) return
     this.unbind()
     if (port === null) return
-    const connection = { port }
+    const connection = { port, token: this.host.newId('connection-') }
     this.connection = connection
     this.transportId = port.transportId
     try {
@@ -222,19 +226,20 @@ export class AdoptionManager {
     if (binding.bindingDigest !== proposal.proposalDigest) {
       throw workbenchError('fence_conflict', `binding digest for ${proposal.runId} changed`, 'stop and inspect the retained ledger; a frozen proposal digest is never re-derived')
     }
-    this.host.commit('adoption_authorized', { runId: proposal.runId, proposalId }, () => {
-      this.host.runner.store.setBindingState(proposal.runId, 'authorized', this.host.clock())
-    })
-    proposal.stage = 'authorized'
-    this.pending.set(proposal.runId, { runId: proposal.runId, bindingDigest: proposal.proposalDigest, nonce: proposal.nonce, deadline: Math.min(proposal.expiresAt, this.host.clock() + this.ackDeadlineMs) })
-    this.send({
-      frameId: this.host.newId('frame-'),
-      kind: 'adopt',
-      runId: proposal.runId,
-      bindingDigest: proposal.proposalDigest,
-      nonce: proposal.nonce,
-      payload: { executionNodeId: proposal.executionNodeId, vacancyGeneration: proposal.vacancyGeneration, predecessorRunId: proposal.predecessorRunId },
-    })
+    const deadline = Math.min(proposal.expiresAt, this.host.clock() + this.ackDeadlineMs)
+    const restore = this.checkpointCommandState()
+    let committed = false
+    let deliver: () => void = () => {}
+    try {
+      this.host.commit('adoption_authorized', { runId: proposal.runId, proposalId }, () => {
+        this.host.runner.store.setBindingState(proposal.runId, 'authorized', this.host.clock())
+        proposal.stage = 'authorized'
+        this.pending.set(proposal.runId, { runId: proposal.runId, bindingDigest: proposal.proposalDigest, nonce: proposal.nonce, deadline })
+        deliver = this.queueDelivery({ frameId: this.host.newId('frame-'), kind: 'adopt', runId: proposal.runId,
+          bindingDigest: proposal.proposalDigest, nonce: proposal.nonce,
+          payload: { executionNodeId: proposal.executionNodeId, vacancyGeneration: proposal.vacancyGeneration, predecessorRunId: proposal.predecessorRunId } }, deadline)
+      }, () => { committed = true; deliver() })
+    } catch (error) { if (!committed) restore(); throw error }
     return { ...proposal }
   }
 
@@ -407,20 +412,20 @@ export class AdoptionManager {
       })
       throw workbenchError('invalid_input', `role ${String(binding.role)} is already occupied by ${occupant.runId} in this Project`, 'retire or take control of the current Run before adopting another')
     }
-    this.host.commit('adoption_committed', { runId, controlEpoch: binding.controlEpoch + 1 }, () => {
-      this.host.runner.store.setBindingControlEpoch(runId, binding.controlEpoch + 1, this.host.clock())
-      this.host.runner.store.setBindingState(runId, 'committed', this.host.clock())
-    })
-    proposal.stage = 'committed'
-    this.pending.delete(runId)
-    this.send({
-      frameId: this.host.newId('frame-'),
-      kind: 'committed',
-      runId,
-      bindingDigest: binding.bindingDigest,
-      nonce: proposal?.nonce ?? null,
-      payload: { projectId: binding.projectId, role: binding.role, generation: binding.generation },
-    })
+    const restore = this.checkpointCommandState()
+    let committed = false
+    let deliver: () => void = () => {}
+    try {
+      this.host.commit('adoption_committed', { runId, controlEpoch: binding.controlEpoch + 1 }, () => {
+        this.host.runner.store.setBindingControlEpoch(runId, binding.controlEpoch + 1, this.host.clock())
+        this.host.runner.store.setBindingState(runId, 'committed', this.host.clock())
+        proposal.stage = 'committed'
+        this.pending.delete(runId)
+        deliver = this.queueDelivery({ frameId: this.host.newId('frame-'), kind: 'committed', runId,
+          bindingDigest: binding.bindingDigest, nonce: proposal.nonce,
+          payload: { projectId: binding.projectId, role: binding.role, generation: binding.generation } }, pending.deadline)
+      }, () => { committed = true; deliver() })
+    } catch (error) { if (!committed) restore(); throw error }
   }
 
   /**
@@ -476,6 +481,36 @@ export class AdoptionManager {
 
   generation(projectId: string, role: string): number {
     return this.host.runner.fences.highWater(projectId, role) + 1
+  }
+
+  /** Called only inside the effect transaction; returns post-commit work. */
+  private queueDelivery(frame: WorkbenchFrame, deadline: number): () => void {
+    const connection = this.connection
+    if (!connection || frame.runId === null || (frame.kind !== 'adopt' && frame.kind !== 'committed')) throw workbenchError('fence_conflict', 'no exact exchange for queued delivery', 'retain the original binding; do not retarget delivery')
+    const record: BridgeDelivery = { frameId: frame.frameId, runId: frame.runId, kind: frame.kind, frameJson: JSON.stringify(frame),
+      connectionId: connection.token, deadline, state: 'queued', reasonCode: null, createdAt: this.host.clock() }
+    Object.freeze(record)
+    this.host.runner.store.putDelivery(record)
+    return () => {
+      const store = this.host.runner.store
+      const change = (from: BridgeDelivery['state'], to: BridgeDelivery['state'], reason: string | null) => store.transaction(() => store.transitionDelivery(record.frameId, from, to, reason))
+      let refusal: string | null = null
+      if (this.connection !== connection || this.transport() !== connection.port || this.exchanges.get(record.runId) !== connection) refusal = 'connection_lost'
+      else if (this.host.clock() >= deadline) refusal = 'expired'
+      else if (this.host.runner.fences.isFenced(record.runId)) refusal = 'revoked'
+      else {
+        const binding = store.getBinding(record.runId)
+        if (!binding || binding.bindingDigest !== frame.bindingDigest || binding.state !== (record.kind === 'adopt' ? 'authorized' : 'committed')) refusal = 'revoked'
+      }
+      if (refusal) { change('queued', 'not_sent', refusal); return }
+      if (!change('queued', 'attempting', null)) return
+      // The attempt marker is durable BEFORE calling a possibly-throwing port.
+      // Only this captured live connection can consume this queued record.
+      try { connection.port.send(validateDelivery(record)) }
+      catch { change('attempting', 'unknown', 'transport_error'); return }
+      // A successful local write is not same-process receipt/readiness proof.
+      change('attempting', 'written', null)
+    }
   }
 
   private send(frame: WorkbenchFrame): void {

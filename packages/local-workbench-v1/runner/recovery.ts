@@ -55,6 +55,14 @@ export function recoverRunnerState(options: RecoverRunnerStateOptions): Recovery
       disconnectedOnRestart.push(binding.runId)
     }
   }
+  // A new owner has no proof of the previous live connection. Never replay
+  // persisted frames on startup; preserve ambiguous attempts for reconciliation.
+  store.transaction(() => {
+    for (const delivery of store.listDeliveries()) {
+      if (delivery.state === 'queued') store.transitionDelivery(delivery.frameId, 'queued', 'not_sent', 'owner_restarted')
+      if (delivery.state === 'attempting') store.transitionDelivery(delivery.frameId, 'attempting', 'unknown', 'owner_restarted')
+    }
+  })
   const uncertainBindings = store.markUncertainInFlight(now)
   return { epoch: store.epoch, retiredFromFence, purgedFromFence, disconnectedOnRestart, uncertainBindings }
 }
