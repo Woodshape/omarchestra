@@ -23,8 +23,8 @@ function setup(t: test.TestContext) {
     for (const handler of [...handlers]) handler(frame)
   }
   emit({ type: 'session_observed', observedSessionId: 'observed', role: 'implementer' })
-  const intent = { intentId: 'request', sessionId: 'session', pluginGeneration: 1, runnerEpoch: runner.epoch, expectedRevision: 0,
-    kind: 'request_adoption', target: null, payload: { choiceId: authority.observedChoices[0].choiceId } as Record<string, unknown> }
+  const intent = { protocol: 'omarchestra.workbench/v1', intentId: 'request', sessionId: 'session', pluginGeneration: 1, runnerEpoch: runner.epoch, expectedRevision: 0,
+    kind: 'request_adoption', target: authority.observedChoices[0].choiceId, payload: { choiceId: authority.observedChoices[0].choiceId } as Record<string, unknown> }
   return { runner, authority, intent, frames, emit }
 }
 
@@ -59,7 +59,7 @@ test('Take control outcome rolls back with its effect and replays without a seco
   s.emit({ type: 'adopt_ack', ...identity })
   s.emit({ type: 'readiness', ...identity })
   const before = s.runner.store.getBinding(proposal.runId)!, revision = s.authority.currentRevision
-  const command = { ...s.intent, intentId: 'control', kind: 'take_control', expectedRevision: revision, payload: { agentRunId: proposal.runId } }
+  const command = { ...s.intent, intentId: 'control', kind: 'take_control', target: proposal.runId, expectedRevision: revision, payload: { agentRunId: proposal.runId } }
   const write = s.runner.store.putIntentResult.bind(s.runner.store)
   s.runner.store.putIntentResult = row => { write(row); throw Error('receipt fault') }
   assert.throws(() => s.authority.handleIntent(command), /receipt fault/)
@@ -78,7 +78,7 @@ test('operator Take control cannot grant management to an uncommitted proposal',
   const s = setup(t)
   s.authority.handleIntent(s.intent)
   const proposal = s.authority.adoption.retainedProposals()[0]
-  const result = s.authority.handleIntent({ ...s.intent, intentId: 'early-control', kind: 'take_control', expectedRevision: s.authority.currentRevision, payload: { agentRunId: proposal.runId } })
+  const result = s.authority.handleIntent({ ...s.intent, intentId: 'early-control', kind: 'take_control', target: proposal.runId, expectedRevision: s.authority.currentRevision, payload: { agentRunId: proposal.runId } })
   assert.equal(result.status, 'rejected')
   assert.equal(s.runner.store.getBinding(proposal.runId)?.state, 'proposed')
   assert.equal(s.runner.store.getBinding(proposal.runId)?.controlEpoch, 0)

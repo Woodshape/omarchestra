@@ -97,6 +97,7 @@ export interface IntentResultRecord {
   detail?: string | null
   intentId: string
   sessionId: string
+  /** Schema 6 authority receipts hash the complete validated original envelope. */
   payloadHash: string
   status: string
   reasonCode: string | null
@@ -107,6 +108,7 @@ export interface IntentResultRecord {
 export interface ManagementOperation {
   intentId: string
   sessionId: string
+  /** Same complete-envelope fingerprint as the eventual authority receipt. */
   payloadHash: string
   kind: 'retire' | 'purge'
   runId: string

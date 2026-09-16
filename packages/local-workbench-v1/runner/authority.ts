@@ -7,9 +7,9 @@
  *
  * Database-only commands (including request-Adoption and Take control) commit
  * effects, events and receipts together. Retirement/purge use a recoverable
- * authorization journal across the independent ledger. Bridge delivery still
- * requires its separate S2 integration; this is not full Phase 2 acceptance.
- * Projection revisions advance only after the owning transaction commits. An intent whose payload hash
+ * authorization journal across the independent ledger. Adoption delivery uses
+ * durable post-commit intent; real bridge integration remains separate.
+ * Projection revisions advance only after the owning transaction commits. An intent whose complete envelope hash
  * differs from a previously recorded intent with the same id is rejected
  * instead of being reapplied.
  *
@@ -26,6 +26,8 @@ import { contextDigestOf, inspectProjectPath } from './git-context.ts'
 import type { WorkbenchRunner } from './runner.ts'
 import type { CheckRecord, EventRecord, GoalRecord, ProjectRecord } from './store.ts'
 import { AdoptionManager } from './adoption.ts'
+import { validateAuthorityIntent } from './intent-envelope.ts'
+import type { WorkbenchIntent } from '../console/schema.ts'
 import type { ObserverPort, TransportEvent } from './transport.ts'
 
 export const OFFERED_ROLES = ['implementer', 'reviewer'] as const
@@ -361,22 +363,18 @@ export class WorkbenchAuthority {
   // Intent routing and durable deduplication
   // -------------------------------------------------------------------------
 
-  handleIntent(intent: {
-    intentId: string
-    sessionId: string
-    pluginGeneration: number
-    runnerEpoch: number
-    expectedRevision: number
-    kind: string
-    target: string | null
-    payload: Record<string, unknown>
-  }): IntentOutcome {
+  handleIntent(input: unknown): IntentOutcome {
     if (this.commandContext !== null) throw workbenchError('invalid_input', 'reentrant command during authority transaction', 'wait for the current command outcome')
-    const payloadHash = sha256({ kind: intent.kind, target: intent.target, payload: intent.payload })
+    let intent: WorkbenchIntent
+    try { intent = validateAuthorityIntent(input) }
+    catch { return { status: 'rejected', reasonCode: 'invalid_envelope', reason: 'Invalid bounded intent envelope or target association.', committedRevision: null } }
+    // Schema 6 binds receipts to the complete original envelope, not just the
+    // action body. Historical exact replay reads a result; it grants no action.
+    const payloadHash = sha256(intent)
     const recorded = this.runner.store.getIntentResult(intent.intentId)
     if (recorded !== null) {
-      if (recorded.payloadHash !== payloadHash) {
-        return { status: 'rejected', reasonCode: 'intent_identity_conflict', reason: 'This intent id was already recorded with a different payload.', committedRevision: null }
+      if (recorded.sessionId !== intent.sessionId || recorded.payloadHash !== payloadHash) {
+        return { status: 'rejected', reasonCode: 'intent_identity_conflict', reason: 'This intent id was already recorded with a different envelope.', committedRevision: null }
       }
       return {
         status: recorded.status as IntentStatus,
@@ -387,13 +385,16 @@ export class WorkbenchAuthority {
       }
     }
     if (intent.pluginGeneration !== this.pluginGeneration) {
-      return this.record(intent.intentId, payloadHash, { status: 'stale', reasonCode: 'plugin_generation_changed', reason: 'The Companion generation changed; reload its projection before acting.', committedRevision: null })
+      return this.record(intent, payloadHash, { status: 'stale', reasonCode: 'plugin_generation_changed', reason: 'The Companion generation changed; reload its projection before acting.', committedRevision: null })
     }
-    if (intent.sessionId !== this.sessionId || intent.runnerEpoch !== this.runner.epoch) {
-      return this.record(intent.intentId, payloadHash, { status: 'stale', reasonCode: 'runner_epoch_changed', reason: 'The workbench runner restarted; reload the projection before acting.', committedRevision: null })
+    if (intent.sessionId !== this.sessionId) {
+      return this.record(intent, payloadHash, { status: 'stale', reasonCode: 'session_changed', reason: 'The presentation session changed; reload its projection before acting.', committedRevision: null })
+    }
+    if (intent.runnerEpoch !== this.runner.epoch) {
+      return this.record(intent, payloadHash, { status: 'stale', reasonCode: 'runner_epoch_changed', reason: 'The workbench runner restarted; reload the projection before acting.', committedRevision: null })
     }
     if (intent.expectedRevision !== this.revision) {
-      return this.record(intent.intentId, payloadHash, { status: 'stale', reasonCode: 'revision_changed', reason: 'The projection changed; re-read the current state before acting.', committedRevision: null })
+      return this.record(intent, payloadHash, { status: 'stale', reasonCode: 'revision_changed', reason: 'The projection changed; re-read the current state before acting.', committedRevision: null })
     }
     if (intent.kind === 'retire' || intent.kind === 'purge') {
       let receipt
@@ -404,7 +405,7 @@ export class WorkbenchAuthority {
         if (error instanceof Error && error.name === 'WorkbenchError') {
           // A prepared-operation fault fences store admission, so this cannot
           // turn an irreversible/pending operation into a rejected receipt.
-          return this.record(intent.intentId, payloadHash, { status: 'rejected', reasonCode: (error as { code?: string }).code ?? 'invalid_input', reason: error.message, committedRevision: null })
+          return this.record(intent, payloadHash, { status: 'rejected', reasonCode: (error as { code?: string }).code ?? 'invalid_input', reason: error.message, committedRevision: null })
         }
         throw error
       }
@@ -417,7 +418,7 @@ export class WorkbenchAuthority {
     }
     let committed = false
     try {
-      if (['confirm_register_project', 'select_project', 'select_goal', 'create_goal', 'create_check', 'configure_checks', 'request_adoption', 'authorize_adoption', 'take_control'].includes(intent.kind)) {
+      if (['inspect_project', 'confirm_register_project', 'select_project', 'select_goal', 'create_goal', 'create_check', 'configure_checks', 'request_adoption', 'authorize_adoption', 'take_control'].includes(intent.kind)) {
         const context = { revision: this.revision, cursor: this.cursor, afterCommit: [] as Array<() => void> }
         const registrations = new Map(this.registrations)
         const observations = new Map(this.observations)
@@ -428,7 +429,7 @@ export class WorkbenchAuthority {
           outcome = this.runner.store.transaction(() => {
             const routed = this.route(intent)
             const normalized = routed.committedRevision === null ? routed : { ...routed, committedRevision: context.revision }
-            return this.record(intent.intentId, payloadHash, normalized)
+            return this.record(intent, payloadHash, normalized)
           })
           this.revision = context.revision
           this.cursor = context.cursor
@@ -443,12 +444,12 @@ export class WorkbenchAuthority {
         return outcome
       }
       const outcome = this.route(intent)
-      return this.record(intent.intentId, payloadHash, outcome)
+      return this.record(intent, payloadHash, outcome)
     } catch (error) {
       if (committed) throw error // Delivery/publication failure cannot reject an already committed command.
       if (error instanceof Error && (error as { name?: string }).name === 'WorkbenchError') {
         const code = (error as { code?: string }).code ?? 'invalid_input'
-        return this.record(intent.intentId, payloadHash, { status: 'rejected', reasonCode: code, reason: error.message, committedRevision: null })
+        return this.record(intent, payloadHash, { status: 'rejected', reasonCode: code, reason: error.message, committedRevision: null })
       }
       throw error
     }
@@ -543,10 +544,10 @@ export class WorkbenchAuthority {
     }
   }
 
-  private record(intentId: string, payloadHash: string, outcome: IntentOutcome): IntentOutcome {
+  private record(intent: WorkbenchIntent, payloadHash: string, outcome: IntentOutcome): IntentOutcome {
     this.runner.store.transaction(() => this.runner.store.putIntentResult({
-      intentId,
-      sessionId: this.sessionId,
+      intentId: intent.intentId,
+      sessionId: intent.sessionId,
       payloadHash,
       status: outcome.status,
       reasonCode: outcome.reasonCode,

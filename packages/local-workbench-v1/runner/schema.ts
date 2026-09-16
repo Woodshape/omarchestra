@@ -1,12 +1,12 @@
 /**
- * Local Workbench v1 Phase 2 — declared store schema (version 5).
+ * Local Workbench v1 Phase 2 — declared store schema (version 6; receipts bind complete intent envelopes).
  *
  * The declared shape is the contract the runner validates before accepting
  * management frames. Any missing table or unexpected table is drift that
  * blocks startup; the runner never repairs schema silently.
  */
 
-export const STORE_SCHEMA_VERSION = 5
+export const STORE_SCHEMA_VERSION = 6
 
 export interface TableSpec {
   name: string

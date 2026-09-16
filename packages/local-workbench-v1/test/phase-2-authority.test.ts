@@ -95,14 +95,16 @@ function openAuthority(roots: { stateDir: string }, port: FakePort, project: str
 let intentCounter = 0
 function intent(authority: WorkbenchAuthority, kind: string, payload: Record<string, unknown>, overrides: Record<string, unknown> = {}) {
   intentCounter += 1
+  const targetField = ({ select_project: 'projectId', select_goal: 'goalId', confirm_register_project: 'registrationId', configure_checks: 'checkId', request_adoption: 'choiceId', authorize_adoption: 'proposalId', take_control: 'agentRunId', retire: 'agentRunId', purge: 'agentRunId' } as Record<string, string>)[kind]
   return authority.handleIntent({
+    protocol: 'omarchestra.workbench/v1',
     intentId: `intent-${intentCounter}`,
     sessionId: authority.sessionId,
     pluginGeneration: authority.pluginGeneration,
     runnerEpoch: authority.runner.epoch,
     expectedRevision: authority.currentRevision,
     kind,
-    target: null,
+    target: targetField ? payload[targetField] : null,
     payload,
     ...overrides,
   } as never)
@@ -196,20 +198,24 @@ test('Phase 2 management journey: register, goals, checks, dedup, restart', () =
     assert.equal(staleEdit.reasonCode, 'invalid_input')
 
     // --- intent deduplication and staleness -------------------------------
+    const originalRevision = authority.currentRevision
     const dedup = authority.handleIntent({
+      protocol: 'omarchestra.workbench/v1',
       intentId: 'intent-dedup', sessionId: authority.sessionId, pluginGeneration: 7,
       runnerEpoch: authority.runner.epoch, expectedRevision: authority.currentRevision,
       kind: 'create_goal', target: null, payload: { projectId, goalText: 'Deduplicated Goal' },
     } as never)
     assert.equal(dedup.status, 'acknowledged')
     const replay = authority.handleIntent({
+      protocol: 'omarchestra.workbench/v1',
       intentId: 'intent-dedup', sessionId: authority.sessionId, pluginGeneration: 7,
-      runnerEpoch: authority.runner.epoch, expectedRevision: dedup.committedRevision,
+      runnerEpoch: authority.runner.epoch, expectedRevision: originalRevision,
       kind: 'create_goal', target: null, payload: { projectId, goalText: 'Deduplicated Goal' },
     } as never)
     assert.equal(replay.status, 'acknowledged')
     assert.equal(replay.committedRevision, dedup.committedRevision)
     const conflict = authority.handleIntent({
+      protocol: 'omarchestra.workbench/v1',
       intentId: 'intent-dedup', sessionId: authority.sessionId, pluginGeneration: 7,
       runnerEpoch: authority.runner.epoch, expectedRevision: replay.committedRevision,
       kind: 'create_goal', target: null, payload: { projectId, goalText: 'Different payload' },
@@ -218,6 +224,7 @@ test('Phase 2 management journey: register, goals, checks, dedup, restart', () =
     assert.equal(conflict.reasonCode, 'intent_identity_conflict')
 
     const stale = authority.handleIntent({
+      protocol: 'omarchestra.workbench/v1',
       intentId: 'intent-stale', sessionId: authority.sessionId, pluginGeneration: 7,
       runnerEpoch: authority.runner.epoch, expectedRevision: 0,
       kind: 'create_goal', target: null, payload: { projectId, goalText: 'Stale Goal' },
@@ -226,7 +233,7 @@ test('Phase 2 management journey: register, goals, checks, dedup, restart', () =
     assert.equal(stale.reasonCode, 'revision_changed')
 
     // --- Phase 2 never starts work ----------------------------------------
-    const start = intent(authority, 'start_assignment', { goalText: 'do work', checkId, checkVersion: 2 })
+    const start = intent(authority, 'start_assignment', { goalText: 'do work', checkId, checkVersion: 2 }, { target: 'run' })
     assert.equal(start.status, 'rejected')
     assert.equal(start.reasonCode, 'handler_unavailable')
     snapshot = buildSnapshot({ authority, adoption: authority.adoption, connection: 'connected' })

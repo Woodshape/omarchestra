@@ -49,7 +49,7 @@ No installation, live Pi/provider, desktop mutation, Assignment/check execution 
 
 ## Remaining S2 work at this checkpoint
 
-The subsequent [source/outcome checkpoint](source-outcomes-checkpoint.md) implements snapshot-before-feedback, source queries/heartbeat/reconnect and truthful unavailable presentation/recovery results. The later [delivery-outbox checkpoint](delivery-outbox-checkpoint.md) adds durable queued intent and uncertain-attempt retention without replay. Full authority-envelope validation and real bridge/challenged recovery remain outstanding.
+The subsequent [source/outcome checkpoint](source-outcomes-checkpoint.md) implements snapshot-before-feedback, source queries/heartbeat/reconnect and truthful unavailable presentation/recovery results. The later [delivery-outbox checkpoint](delivery-outbox-checkpoint.md) adds durable queued intent and uncertain-attempt retention without replay. Full authority-envelope validation is subsequently implemented in the [authority-envelope checkpoint](intent-envelope-checkpoint.md); real bridge/challenged recovery remain outstanding.
 
 
 - Durable authorization/binding delivery tracking: commit effect and delivery intent together; send only afterward on the exact connection; preserve unknown delivery instead of retrying or rejecting a committed command.

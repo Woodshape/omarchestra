@@ -14,7 +14,7 @@ function setup(t: test.TestContext) {
   t.after(() => { runner.close(); rmSync(root, { recursive: true, force: true }) })
   runner.store.putProject({ projectId: 'project', executionNodeId: runner.nodeId, canonicalPath: join(root, 'project'), gitCommonDir: join(root, 'project/.git'), headOid: null, dirty: false, contextDigest: null, revision: 0, createdAt: 1 })
   const authority = new WorkbenchAuthority({ runner, sessionId: 'session', pluginGeneration: 1 })
-  const intent = { intentId: 'create-goal', sessionId: 'session', pluginGeneration: 1, runnerEpoch: runner.epoch, expectedRevision: 0, kind: 'create_goal', target: null, payload: { projectId: 'project', goalText: 'Persist together' } }
+  const intent = { protocol: 'omarchestra.workbench/v1', intentId: 'create-goal', sessionId: 'session', pluginGeneration: 1, runnerEpoch: runner.epoch, expectedRevision: 0, kind: 'create_goal', target: null, payload: { projectId: 'project', goalText: 'Persist together' } }
   return { runner, authority, intent }
 }
 
@@ -131,9 +131,14 @@ test('registration failure restores both SQL and its transient confirmation reco
     const value = facts[argv.join(' ')]
     return { status: value === undefined ? 128 : 0, stdout: value ?? '', stderr: '' }
   } })
-  const inspected = authority.inspect(path)
-  const command = { ...intent, kind: 'confirm_register_project', payload: { registrationId: inspected.inspectionId } }
   const write = runner.store.putIntentResult.bind(runner.store)
+  runner.store.putIntentResult = result => { write(result); throw Error('receipt fault') }
+  assert.throws(() => authority.handleIntent({ ...intent, kind: 'inspect_project', payload: { path } }), /receipt fault/)
+  assert.equal(authority.pendingRegistration(), null, 'failed inspection receipt cannot leave a confirmation candidate')
+  assert.equal(runner.store.getIntentResult(intent.intentId), null)
+  runner.store.putIntentResult = write
+  const inspected = authority.inspect(path)
+  const command = { ...intent, kind: 'confirm_register_project', target: inspected.inspectionId, payload: { registrationId: inspected.inspectionId } }
   runner.store.putIntentResult = result => { write(result); throw Error('receipt fault') }
   assert.throws(() => authority.handleIntent(command), /receipt fault/)
   assert.equal(runner.store.listProjects().length, 1)
@@ -149,7 +154,8 @@ for (const kind of ['select_project', 'select_goal', 'create_check', 'configure_
   const fields = { name: 'Check', summary: 'Test definition only', mode: 'validator', commandSummary: 'true', definitionDraft: {
     executable: '/usr/bin/true', argv: [], cwd: runner.store.getProject('project')!.canonicalPath, environment: [], resourcePaths: [], timeoutMs: 1000, outputBytes: 4096, maxCorrections: 1, elapsedMs: 60000,
   } }
-  const payload: Record<string, unknown> = { projectId: 'project', goalId: 'goal', ...fields }
+  const payload: Record<string, unknown> = kind === 'select_project' ? { projectId: 'project' }
+    : kind === 'select_goal' ? { goalId: 'goal' } : { projectId: 'project', ...fields }
   if (kind === 'configure_checks') {
     const check = authority.createCheck('project', fields)
     Object.assign(payload, { checkId: check.checkId, checkVersion: 1 })
@@ -159,7 +165,7 @@ for (const kind of ['select_project', 'select_goal', 'create_check', 'configure_
     project: runner.store.getMeta('selected_project_id'), goal: runner.store.getMeta('selected_goal_id') }
   const write = runner.store.putIntentResult.bind(runner.store)
   runner.store.putIntentResult = value => { write(value); throw Error('receipt fault') }
-  assert.throws(() => authority.handleIntent({ ...intent, kind, payload, expectedRevision: authority.currentRevision }), /receipt fault/)
+  assert.throws(() => authority.handleIntent({ ...intent, kind, target: kind === 'select_project' ? 'project' : kind === 'select_goal' ? 'goal' : kind === 'configure_checks' ? payload.checkId : null, payload, expectedRevision: authority.currentRevision }), /receipt fault/)
   assert.deepEqual({ checks: runner.store.listChecks('project'), events: runner.store.listEvents(), revision: authority.currentRevision, cursor: authority.currentCursor,
     project: runner.store.getMeta('selected_project_id'), goal: runner.store.getMeta('selected_goal_id') }, before)
   assert.equal(runner.store.getIntentResult(intent.intentId), null)

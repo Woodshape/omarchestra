@@ -2,6 +2,8 @@
 
 Status: **Phase 2 remains incomplete.** Source review and disposable negative reproductions performed after Fusion's final integration. This is independent of the Fusion writer's completion claims, not a full security audit or live acceptance.
 
+The findings/reproductions below characterize the original Fusion-delivered tree. Later direct repairs are recorded separately in the [completion plan](../../plans/local-workbench-v1-phase-2-completion.md), including the passing S1 substrate and S2 command/source checkpoints. They are not independent re-review, and this historical defect reproducer is not a release gate.
+
 ## Evidence
 
 - Reviewed the current `packages/local-workbench-v1/runner/` composition, authority, Adoption, transport, host, entry, paths, backup, Git-context, schema and projection implementations, plus relevant adapter and acceptance-test paths.

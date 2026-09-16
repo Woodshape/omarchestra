@@ -120,8 +120,8 @@ test('same-owner reconnect recovers a lost outcome without dispatching it again'
 test('unimplemented presentation/recovery operations return truthful unavailable outcomes', t => {
   const s = fixture(t)
   for (const kind of ['present', 'recover']) {
-    const result = s.authority.handleIntent({ intentId: kind, sessionId: 'session', pluginGeneration: 1, runnerEpoch: s.runner.epoch,
-      expectedRevision: 0, kind, target: 'run', payload: { agentRunId: 'run' } })
+    const result = s.authority.handleIntent({ protocol: 'omarchestra.workbench/v1', intentId: kind, sessionId: 'session', pluginGeneration: 1, runnerEpoch: s.runner.epoch,
+      expectedRevision: 0, kind, target: 'run', payload: {} })
     assert.equal(result.status, 'rejected')
     assert.equal(result.reasonCode, 'handler_unavailable')
     assert.equal(result.committedRevision, null)
@@ -151,7 +151,7 @@ test('a fresh presentation adapter cannot reuse the previous adapter intent IDs'
   assert.equal(s.runner.store.listGoals().length, 2)
 })
 
-test('outcome query checks the original payload and never re-executes a command', async t => {
+test('outcome query checks the complete original envelope and never re-executes a command', async t => {
   const s = fixture(t)
   const intent = { protocol: 'omarchestra.workbench/v1', sessionId: 'session', pluginGeneration: 1, runnerEpoch: s.runner.epoch,
     intentId: 'query-test', expectedRevision: 0, kind: 'create_goal', target: null, payload: { projectId: 'project', goalText: 'Once' } }
@@ -165,6 +165,11 @@ test('outcome query checks the original payload and never re-executes a command'
   channel.send('query_intent', { intent: { ...intent, payload: { ...intent.payload, goalText: 'Different' } } })
   assert.equal(receipts.at(-1)?.status, 'rejected')
   assert.equal(receipts.at(-1)?.reasonCode, 'intent_identity_conflict')
+  for (const changed of [{ sessionId: 'other' }, { expectedRevision: 1 }, { pluginGeneration: 2 }, { runnerEpoch: intent.runnerEpoch + 1 }]) {
+    channel.send('query_intent', { intent: { ...intent, ...changed } })
+    assert.equal(receipts.at(-1)?.reasonCode, 'intent_identity_conflict')
+  }
+  assert.throws(() => channel.send('query_intent', { intent: { ...intent, extra: true } }), /invalid outcome query envelope/)
   const events = s.runner.store.listEvents()
   channel.send('query_intent', { intent: { ...intent, intentId: 'missing' } })
   assert.equal(receipts.at(-1)?.status, 'unknown')

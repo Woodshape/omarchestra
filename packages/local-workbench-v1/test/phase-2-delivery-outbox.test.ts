@@ -21,7 +21,7 @@ function setup(t: test.TestContext) {
   let authority = new WorkbenchAuthority({ runner, sessionId: 'session', pluginGeneration: 1, clock: () => now, transport: () => currentPort })
   t.after(() => { authority.adoption.unbind(); port.close(); runner.close(); rmSync(root, { recursive: true, force: true }) })
   const proposal = authority.adoption.propose({ projectId: 'project', goalId: 'goal', role: 'implementer', observedSessionId: 'observed' })
-  const intent = { intentId: 'authorize', sessionId: 'session', pluginGeneration: 1, runnerEpoch: runner.epoch, expectedRevision: authority.currentRevision, kind: 'authorize_adoption', target: proposal.proposalId, payload: { proposalId: proposal.proposalId } }
+  const intent = { protocol: 'omarchestra.workbench/v1', intentId: 'authorize', sessionId: 'session', pluginGeneration: 1, runnerEpoch: runner.epoch, expectedRevision: authority.currentRevision, kind: 'authorize_adoption', target: proposal.proposalId, payload: { proposalId: proposal.proposalId } }
   return { get runner() { return runner }, get authority() { return authority }, proposal, intent, frames,
     send(fn: (frame: WorkbenchFrame) => void) { onSend = fn }, time(value: number) { now = value },
     replacePort() { currentPort = { ...port }; authority.adoption.bind() },

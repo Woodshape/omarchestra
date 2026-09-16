@@ -3,9 +3,10 @@
  */
 import { createPresentationShell, type PresentationPort } from '../console/presentation-shell.ts'
 import type { WorkbenchSource, WorkbenchSourceHandler, WorkbenchIntent, WorkbenchIntentSink } from '../console/live-projection-adapter.ts'
-import { validateIntent, validateFeedback, type WorkbenchSnapshot, type WorkbenchFeedback } from '../console/schema.ts'
+import { validateFeedback, type WorkbenchSnapshot, type WorkbenchFeedback } from '../console/schema.ts'
 import { sha256, type WorkbenchAuthority } from './authority.ts'
 import { buildSnapshot } from './projection.ts'
+import { validateAuthorityIntent } from './intent-envelope.ts'
 
 export interface RunnerSource {
   source: WorkbenchSource
@@ -64,11 +65,13 @@ export function createRunnerSource(authority: WorkbenchAuthority, connection: Wo
             }
             if (type !== 'query_intent' || Object.keys(body).length !== 1 || !Object.hasOwn(body, 'intent')) throw new Error('unsupported source request')
             // Read-only lookup. The full original intent binds the query to the
-            // durable session/payload; a reused presentation counter cannot
+            // complete durable envelope; a reused presentation counter cannot
             // turn a different command's old receipt into success.
-            const intent = validateIntent(body.intent)
+            let intent: WorkbenchIntent
+            try { intent = validateAuthorityIntent(body.intent) }
+            catch { throw new Error('invalid outcome query envelope') }
             const receipt = authority.runner.store.getIntentResult(intent.intentId)
-            const hash = sha256({ kind: intent.kind, target: intent.target, payload: intent.payload })
+            const hash = sha256(intent)
             const matches = receipt && receipt.sessionId === intent.sessionId && receipt.payloadHash === hash
             publishOutcome({ intentId: intent.intentId, sessionId: intent.sessionId, target: intent.target, originRevision: intent.expectedRevision,
               status: matches ? receipt.status as WorkbenchFeedback['status'] : receipt ? 'rejected' : 'unknown',

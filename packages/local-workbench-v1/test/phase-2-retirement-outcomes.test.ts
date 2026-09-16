@@ -22,7 +22,7 @@ function setup(t: test.TestContext, kind: 'retire' | 'purge') {
   runner.store.setBindingState('run', 'disconnected', 2)
   if (kind === 'purge') runner.retireBinding({ runId: 'run', projectId: 'project', role: 'builder', bindingDigest: 'a'.repeat(64) })
   let authority = new WorkbenchAuthority({ runner, sessionId: 'session', pluginGeneration: 1 })
-  const intent = { intentId: 'operation', sessionId: 'session', pluginGeneration: 1, runnerEpoch: runner.epoch, expectedRevision: authority.currentRevision, kind, target: 'run', payload: { agentRunId: 'run' } }
+  const intent = { protocol: 'omarchestra.workbench/v1', intentId: 'operation', sessionId: 'session', pluginGeneration: 1, runnerEpoch: runner.epoch, expectedRevision: authority.currentRevision, kind, target: 'run', payload: { agentRunId: 'run' } }
   return { get runner() { return runner }, get authority() { return authority }, intent,
     fault(phase: string) { fault = phase },
     restart() { runner.close(); fault = null; runner = openWorkbenchRunner(options); authority = new WorkbenchAuthority({ runner, sessionId: 'next', pluginGeneration: 2 }); return runner },
