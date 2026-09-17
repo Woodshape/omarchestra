@@ -23,6 +23,7 @@ import { defaultNewId } from './identity.ts'
 import { workbenchError } from './errors.ts'
 import type { GitRunner, GitInspection } from './git-context.ts'
 import { contextDigestOf, inspectProjectPath } from './git-context.ts'
+import { pathsOverlap } from './project-identity.ts'
 import type { WorkbenchRunner } from './runner.ts'
 import type { CheckRecord, EventRecord, GoalRecord, ProjectRecord } from './store.ts'
 import { AdoptionManager } from './adoption.ts'
@@ -52,13 +53,27 @@ export interface RegistrationRecord {
   canonicalPath: string
   gitCommonDir: string | null
   headOid: string | null
-  dirty: boolean
+  dirty: boolean | null
+  repositoryIdentity: string | null
+  reconfirmProjectId: string | null
+  priorContextDigest: string | null
+  priorProjectRevision: number | null
   executionReady: boolean
   supported: boolean
   reasons: string[]
   readinessReasons: string[]
   executionNodeId: string
   createdAt: number
+}
+
+export interface ProjectContextStatus {
+  available: boolean
+  dirty: boolean | null
+  reason: string | null
+}
+
+function copyRegistration(record: RegistrationRecord): RegistrationRecord {
+  return { ...record, reasons: [...record.reasons], readinessReasons: [...record.readinessReasons] }
 }
 
 export interface AuthorityOptions {
@@ -108,6 +123,7 @@ export class WorkbenchAuthority {
   private readonly transport: () => ObserverPort | null
   private observations = new Map<string, Observation>()
   private registrations = new Map<string, RegistrationRecord>()
+  private projectContexts = new Map<string, ProjectContextStatus>()
   private revision: number
   private cursor: number
   private commandContext: { revision: number; cursor: number; afterCommit: Array<() => void> } | null = null
@@ -125,6 +141,8 @@ export class WorkbenchAuthority {
     this.transport = options.transport ?? (() => null)
     this.revision = Number(options.runner.store.getMeta('projection_revision') ?? '0')
     this.cursor = Math.max(0, options.runner.store.maxCursor())
+    // Startup revalidation changes availability, never the saved repository binding.
+    for (const project of this.runner.store.listProjects()) this.refreshProjectContext(project)
     this.adoption = new AdoptionManager(this, () => this.transport(), options.ackDeadlineMs)
     const port = this.transport()
     if (port !== null) {
@@ -166,8 +184,17 @@ export class WorkbenchAuthority {
   /** Resolve Git facts for a candidate path. Transient: no durable write. */
   inspect(requestedPath: unknown): RegistrationRecord {
     const inspection: GitInspection = inspectProjectPath(requestedPath, this.git)
-    if (this.isInsideStateRoot(inspection.canonicalPath)) {
+    if (this.isInsideStateRoot(inspection.canonicalPath) || (inspection.gitCommonDir !== null && this.isInsideStateRoot(inspection.gitCommonDir))) {
       throw workbenchError('unsafe_path', `${inspection.canonicalPath} is inside the workbench state root`, 'choose a Project outside the workbench state directory')
+    }
+    const existing = this.runner.store.listProjects().find(project => project.canonicalPath === inspection.canonicalPath)
+    const reconfirm = existing && existing.contextDigest !== inspection.repositoryIdentity ? existing : null
+    if (existing) {
+      const available = inspection.supported && !reconfirm && existing.executionNodeId === this.executionNodeId
+        && existing.gitCommonDir === inspection.gitCommonDir
+      this.projectContexts.set(existing.projectId, { available, dirty: available ? inspection.dirty : null,
+        reason: available ? null : reconfirm ? 'repository_identity_changed'
+          : inspection.reasons.join(', ') || 'repository_identity_unavailable' })
     }
     const record: RegistrationRecord = {
       inspectionId: this.newId('insp-'),
@@ -176,6 +203,10 @@ export class WorkbenchAuthority {
       gitCommonDir: inspection.gitCommonDir,
       headOid: inspection.headOid,
       dirty: inspection.dirty,
+      repositoryIdentity: inspection.repositoryIdentity,
+      reconfirmProjectId: reconfirm?.projectId ?? null,
+      priorContextDigest: reconfirm?.contextDigest ?? null,
+      priorProjectRevision: reconfirm?.revision ?? null,
       executionReady: inspection.executionReady,
       supported: inspection.supported,
       reasons: [...inspection.reasons],
@@ -185,7 +216,7 @@ export class WorkbenchAuthority {
     }
     this.pruneRegistrations()
     this.registrations.set(record.inspectionId, record)
-    return record
+    return copyRegistration(record)
   }
 
   /**
@@ -205,49 +236,88 @@ export class WorkbenchAuthority {
       this.registrations.delete(inspectionId)
       throw workbenchError('invalid_input', `inspection ${inspectionId} expired`, 'inspect the Project path again and confirm the fresh registrationId')
     }
+    if (!record.supported || record.repositoryIdentity === null || record.dirty === null) {
+      throw workbenchError('invalid_input', 'a fresh inspection is required', 'failed inspection facts cannot authorize registration')
+    }
     const current = inspectProjectPath(record.requestedPath, this.git)
     if (!current.supported) {
       throw workbenchError('invalid_input', `Project is no longer registrable: ${current.reasons.join(', ')}`, 'resolve the Git context and inspect the path again')
     }
-    if (this.isInsideStateRoot(current.canonicalPath)) {
+    if (this.isInsideStateRoot(current.canonicalPath) || (current.gitCommonDir !== null && this.isInsideStateRoot(current.gitCommonDir))) {
       throw workbenchError('unsafe_path', 'Project overlaps the workbench state root', 'choose a state root outside every registered Project')
     }
-    if (current.canonicalPath !== record.canonicalPath || (current.gitCommonDir ?? null) !== (record.gitCommonDir ?? null)) {
+    if (current.canonicalPath !== record.canonicalPath || current.gitCommonDir !== record.gitCommonDir
+        || current.repositoryIdentity !== record.repositoryIdentity || current.headOid !== record.headOid || current.dirty !== record.dirty) {
       throw workbenchError('invalid_input', 'Project Git context changed since inspection', 'inspect the Project path again and confirm the fresh registrationId')
     }
     const existing = this.runner.store.listProjects().find(project => project.canonicalPath === current.canonicalPath)
-    if (existing) {
+    if (record.reconfirmProjectId !== null) {
+      if (!existing || existing.projectId !== record.reconfirmProjectId || existing.executionNodeId !== this.executionNodeId
+          || existing.revision !== record.priorProjectRevision || existing.contextDigest !== record.priorContextDigest) {
+        throw workbenchError('invalid_input', 'registered Project context changed since inspection', 'obtain a fresh inspection before reconfirming')
+      }
+    } else if (existing) {
       throw workbenchError('invalid_input', `${current.canonicalPath} is already registered as ${existing.projectId}`, 'select the existing Project instead of registering it twice')
     }
     // Overlapping storage is refused in both directions: an ancestor of a
     // registered Project, or a descendant of one, would give two Projects claim
     // to the same files and the same Git history.
-    const overlapping = this.runner.store.listProjects().find(project =>
-      project.canonicalPath === current.canonicalPath
-      || project.canonicalPath.startsWith(`${current.canonicalPath}/`)
-      || current.canonicalPath.startsWith(`${project.canonicalPath}/`))
+    const candidatePaths = [current.canonicalPath, current.gitCommonDir!]
+    const overlapping = this.runner.store.listProjects().find(project => project.projectId !== existing?.projectId &&
+      candidatePaths.some(candidate => [project.canonicalPath, project.gitCommonDir].some(existing => pathsOverlap(candidate, existing))))
     if (overlapping) {
       throw workbenchError('invalid_input', `${current.canonicalPath} overlaps registered Project ${overlapping.projectId} at ${overlapping.canonicalPath}`, 'register one Project per storage tree; overlapping paths cannot both own the same files')
     }
-    const projectId = this.newId('proj-')
+    const projectId = existing?.projectId ?? this.newId('proj-')
+    const revision = existing ? existing.revision + 1 : 1
+    if (!Number.isSafeInteger(revision)) throw workbenchError('invalid_input', 'Project revision exhausted', 'never reset or round a Project revision')
     const project: ProjectRecord = {
       projectId,
       executionNodeId: this.executionNodeId,
       canonicalPath: current.canonicalPath,
       gitCommonDir: current.gitCommonDir ?? '',
       headOid: current.headOid,
-      dirty: current.dirty,
+      dirty: current.dirty!, // supported inspection requires a successful status query
       contextDigest: contextDigestOf(current),
-      revision: 1,
-      createdAt: this.clock(),
+      revision,
+      createdAt: existing?.createdAt ?? this.clock(),
     }
-    this.commit('project_registered', { projectId, canonicalPath: project.canonicalPath }, () => {
+    this.commit(existing ? 'project_context_confirmed' : 'project_registered', { projectId, canonicalPath: project.canonicalPath }, () => {
       this.runner.store.putProject(project)
       const selection = this.runner.store.getMeta('selected_project_id')
       if (selection === null) this.runner.store.setMeta('selected_project_id', projectId)
     })
     this.registrations.delete(inspectionId)
+    this.projectContexts.set(projectId, { available: true, dirty: current.dirty, reason: null })
     return project
+  }
+
+  /** Cached display facts only. Context-dependent operations must revalidate. */
+  projectContext(projectId: string): ProjectContextStatus {
+    return { ...(this.projectContexts.get(projectId) ?? { available: false, dirty: null, reason: 'repository_identity_unavailable' }) }
+  }
+
+  private refreshProjectContext(project: ProjectRecord): ProjectContextStatus {
+    let status: ProjectContextStatus = { available: false, dirty: null, reason: 'repository_identity_unavailable' }
+    if (project.executionNodeId === this.executionNodeId && /^repo-v1:[a-f0-9]{64}$/.test(project.contextDigest ?? '')) {
+      try {
+        const current = inspectProjectPath(project.canonicalPath, this.git)
+        if (!current.supported) status.reason = current.reasons.join(', ')
+        else if (this.isInsideStateRoot(current.canonicalPath) || this.isInsideStateRoot(current.gitCommonDir!)) status.reason = 'state_root_overlap'
+        else if (current.gitCommonDir !== project.gitCommonDir || current.repositoryIdentity !== project.contextDigest) status.reason = 'repository_identity_changed'
+        else status = { available: true, dirty: current.dirty, reason: null }
+      } catch { status.reason = 'repository_inspection_unavailable' }
+    }
+    this.projectContexts.set(project.projectId, status)
+    return { ...status }
+  }
+
+  requireProjectContext(projectId: string): ProjectContextStatus {
+    const status = this.refreshProjectContext(this.requireProject(projectId))
+    if (!status.available) {
+      throw workbenchError('invalid_input', `Project context is unavailable: ${status.reason}`, 'restore the registered repository or obtain fresh context confirmation; history and uncertainty are retained')
+    }
+    return status
   }
 
   createGoal(projectId: unknown, goalText: unknown): GoalRecord {
@@ -279,6 +349,7 @@ export class WorkbenchAuthority {
     definitionDraft: unknown
   }): CheckRecord {
     const project = this.requireProject(projectId)
+    this.requireProjectContext(project.projectId)
     const fields = this.normalizeCheckFields(input)
     const checkId = this.newId('check-')
     const body = { projectId: project.projectId, checkId, version: 1, ...fields }
@@ -314,6 +385,7 @@ export class WorkbenchAuthority {
     if (latest.version !== Number(checkVersion)) {
       throw workbenchError('invalid_input', `check ${latest.checkId} is at version ${latest.version}, not ${String(checkVersion)}`, 'reload the committed check version before saving; the runner rejects stale edits')
     }
+    this.requireProjectContext(project.projectId)
     const fields = this.normalizeCheckFields(input)
     const version = latest.version + 1
     const body = { projectId: project.projectId, checkId: latest.checkId, version, ...fields }
@@ -336,6 +408,7 @@ export class WorkbenchAuthority {
 
   selectProject(projectId: unknown): void {
     const project = this.requireProject(projectId)
+    this.refreshProjectContext(project) // History remains navigable when unavailable.
     if (this.runner.store.getMeta('selected_project_id') === project.projectId) return
     this.commit('project_selected', { projectId: project.projectId }, () => {
       this.runner.store.setMeta('selected_project_id', project.projectId)
@@ -353,6 +426,7 @@ export class WorkbenchAuthority {
     if (selectedProject !== goal.projectId) {
       throw workbenchError('invalid_input', `Goal ${goalIdText} belongs to another Project`, 'select its Project first')
     }
+    this.refreshProjectContext(this.requireProject(goal.projectId))
     if (this.runner.store.getMeta('selected_goal_id') === goalIdText) return
     this.commit('goal_selected', { goalId: goalIdText }, () => {
       this.runner.store.setMeta('selected_goal_id', goalIdText)
@@ -421,6 +495,7 @@ export class WorkbenchAuthority {
       if (['inspect_project', 'confirm_register_project', 'select_project', 'select_goal', 'create_goal', 'create_check', 'configure_checks', 'request_adoption', 'authorize_adoption', 'take_control'].includes(intent.kind)) {
         const context = { revision: this.revision, cursor: this.cursor, afterCommit: [] as Array<() => void> }
         const registrations = new Map(this.registrations)
+        const previousProjectContexts = new Map(this.projectContexts)
         const observations = new Map(this.observations)
         const restoreAdoption = this.adoption.checkpointCommandState()
         this.commandContext = context
@@ -436,6 +511,13 @@ export class WorkbenchAuthority {
           committed = true
         } catch (error) {
           this.registrations = registrations
+          // Remove tentative registrations, but keep newly observed unavailability
+          // for existing Projects; failed commands must not display stale readiness.
+          for (const [id, status] of this.projectContexts) {
+            const previous = previousProjectContexts.get(id)
+            if (!previous) this.projectContexts.delete(id)
+            else if (status.available) this.projectContexts.set(id, previous)
+          }
           this.observations = observations
           restoreAdoption()
           throw error
@@ -628,7 +710,7 @@ export class WorkbenchAuthority {
 
   private isInsideStateRoot(canonicalPath: string): boolean {
     const root = this.runner.roots.stateDir
-    return canonicalPath === root || canonicalPath.startsWith(`${root}/`) || root.startsWith(`${canonicalPath}/`)
+    return pathsOverlap(canonicalPath, root)
   }
 
   private pruneRegistrations(): void {
@@ -639,7 +721,8 @@ export class WorkbenchAuthority {
   }
 
   currentRegistration(inspectionId: string): RegistrationRecord | null {
-    return this.registrations.get(inspectionId) ?? null
+    const record = this.registrations.get(inspectionId)
+    return record === undefined ? null : copyRegistration(record)
   }
 
   /** Most recent unresolved inspection, newest first. Transient by design. */
@@ -648,6 +731,6 @@ export class WorkbenchAuthority {
     for (const record of this.registrations.values()) {
       if (newest === null || record.createdAt >= newest.createdAt) newest = record
     }
-    return newest
+    return newest === null ? null : copyRegistration(newest)
   }
 }

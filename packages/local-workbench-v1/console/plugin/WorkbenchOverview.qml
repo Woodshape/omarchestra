@@ -205,7 +205,7 @@ Control {
                 }
                 WorkbenchAction {
                     objectName: "workbench-confirm-registration"
-                    text: "Confirm and register"
+                    text: root.registrationDetail && root.registrationDetail.reconfirmation === true ? "Reconfirm context" : "Confirm and register"
                     prominent: true
                     enabled: root.connected && root.registrationDetail !== null && root.registrationDetail.supported === true
                     onClicked: {
@@ -232,6 +232,7 @@ Control {
                     var detail = root.registrationDetail
                     if (detail === null) return ""
                     if (!detail.supported) return "Not registrable: " + detail.reasons.join(", ")
+                    if (detail.reconfirmation === true) return "Repository identity changed. Reconfirming keeps this Project's Goals and history. It does not clear uncertain work or resume execution."
                     if (!detail.executionReady) return "Registrable, but not execution-ready: " + detail.readinessReasons.join(", ")
                     return "Registrable Git worktree at " + detail.canonicalPath
                 }

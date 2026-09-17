@@ -64,7 +64,7 @@ for (const field of ['sessionId', 'pluginGeneration', 'runnerEpoch', 'expectedRe
   assert.equal(s.runner.store.listGoals().length, 1)
 })
 
-test('schema 5 receipt semantics cannot be silently reopened as schema 6', t => {
+test('schema 5 receipt semantics cannot be silently reopened under the current schema', t => {
   const s = fixture(t)
   const roots = { stateDir: s.runner.roots.stateDir }, path = s.runner.roots.databasePath
   s.runner.close()

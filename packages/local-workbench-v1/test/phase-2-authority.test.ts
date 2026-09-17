@@ -51,16 +51,18 @@ function gitFixture(overrides: Record<string, string | null> = {}): GitRunner {
     'rev-parse --git-common-dir': '.git',
     'rev-parse --git-dir': '.git',
     'rev-parse --show-superproject-working-tree': '',
-    'rev-parse --verify HEAD': 'a'.repeat(40),
+    'rev-parse --verify HEAD^{commit}': 'a'.repeat(40),
     'status --porcelain': '',
     ...overrides,
   }
   return (argv, cwd) => {
     const key = argv.join(' ')
+    if (argv[0] === 'config') return { status: 1, stdout: '', stderr: '' }
+    if (argv[0] === 'ls-files') return { status: 0, stdout: '', stderr: '' }
     if (key === 'rev-parse --show-toplevel') return { status: 0, stdout: `${cwd}\n`, stderr: '' }
     const value = table[key]
     if (value === undefined || value === null) return { status: 128, stdout: '', stderr: 'unavailable' }
-    return { status: 0, stdout: `${value}\n`, stderr: '' }
+    return { status: 0, stdout: key === 'status --porcelain' && value === '' ? '' : `${value}\n`, stderr: '' }
   }
 }
 
@@ -69,7 +71,7 @@ function scratch(): { root: string; project: string; cleanup: () => void } {
   const root = join(base, 'state')
   const project = join(base, 'project')
   mkdirSync(root, { recursive: true, mode: 0o700 })
-  mkdirSync(project, { recursive: true })
+  mkdirSync(join(project, '.git'), { recursive: true })
   return { root, project, cleanup: () => rmSync(base, { recursive: true, force: true }) }
 }
 
@@ -566,7 +568,7 @@ test('registration refuses overlapping Project storage in both directions', () =
         return intent(authority, 'confirm_register_project', { registrationId })
       }
       const nested = join(store.project, 'packages')
-      mkdirSync(nested, { recursive: true })
+      mkdirSync(join(nested, '.git'), { recursive: true })
       assert.equal(register(store.project).status, 'acknowledged')
       const nestedResult = register(nested)
       assert.equal(nestedResult.status, 'rejected')

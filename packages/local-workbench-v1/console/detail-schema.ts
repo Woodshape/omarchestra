@@ -40,7 +40,8 @@ export interface CheckConfigurationDetail {
 }
 export interface RegistrationDetail {
   kind: 'registration'; registrationId: string; requestedPath: string; canonicalPath: string;
-  gitCommonDir: string | null; executionNodeId: string; headOid: string | null; dirty: boolean;
+  gitCommonDir: string | null; executionNodeId: string; headOid: string | null; dirty: boolean | null;
+  reconfirmation?: boolean;
   supported: boolean; reasons: string[]; executionReady: boolean; readinessReasons: string[];
 }
 export type WorkbenchDetail = AdoptionDetail | StartDetail | HandoffDetail | StopDetail | DiagnosticNotice | CheckConfigurationDetail | RegistrationDetail
@@ -126,7 +127,7 @@ export function validateCheckDraft(v: unknown): CheckDraft {
 export function validateDetail(v: unknown): WorkbenchDetail {
   const kind = (v as any)?.kind
   if (kind === 'registration') {
-    const o = object(v, 'kind registrationId requestedPath canonicalPath gitCommonDir executionNodeId headOid dirty supported reasons executionReady readinessReasons')
+    const o = object(v, 'kind registrationId requestedPath canonicalPath gitCommonDir executionNodeId headOid dirty supported reasons executionReady readinessReasons reconfirmation')
     return {
       kind,
       registrationId: id(o.registrationId),
@@ -135,7 +136,8 @@ export function validateDetail(v: unknown): WorkbenchDetail {
       gitCommonDir: o.gitCommonDir === null ? null : absolute(o.gitCommonDir),
       executionNodeId: id(o.executionNodeId),
       headOid: o.headOid === null ? null : id(o.headOid),
-      dirty: bool(o.dirty),
+      dirty: o.dirty === null ? null : bool(o.dirty),
+      ...(o.reconfirmation === undefined ? {} : { reconfirmation: bool(o.reconfirmation) }),
       supported: bool(o.supported),
       reasons: list(o.reasons, 16, v => text(v, 128)),
       executionReady: bool(o.executionReady),

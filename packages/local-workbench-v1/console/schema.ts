@@ -95,7 +95,7 @@ export interface ProjectSummary {
   canonicalPath: string
   gitCommonDir: string
   revision: string
-  dirty: boolean
+  dirty: boolean | null
   contextMatch: boolean
 }
 
@@ -368,6 +368,7 @@ function requireObject(value: unknown, where: string): Record<string, unknown> {
   const aliases: Record<string, string> = { project: 'projects', goal: 'goals', managedAgent: 'managedAgents', observedSession: 'observedSessions', retiredRun: 'retiredRuns', assignment: 'assignments', choice: 'choices' }
   const allowed = fields[aliases[name] ?? name]?.split(' ')
   for (const key of ['enabled', 'dirty', 'contextMatch', 'canPurge', 'active']) {
+    if (key === 'dirty' && value[key] === null) continue
     if (key in value && typeof value[key] !== 'boolean') throw new SchemaError(`${where}.${key} must be boolean`)
   }
   if (allowed) for (const key of keys) {
@@ -428,7 +429,7 @@ export function validateProjectSummary(value: unknown, where = 'project'): Proje
     canonicalPath: requireDisplay(obj.canonicalPath, `${where}.canonicalPath`),
     gitCommonDir: requireDisplay(obj.gitCommonDir, `${where}.gitCommonDir`),
     revision: requireDisplay(obj.revision, `${where}.revision`),
-    dirty: obj.dirty === true,
+    dirty: obj.dirty === null ? null : obj.dirty === true,
     contextMatch: obj.contextMatch === true,
   }
 }

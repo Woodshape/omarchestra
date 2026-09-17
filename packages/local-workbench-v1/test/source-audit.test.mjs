@@ -81,13 +81,19 @@ test('the single Git inspector spawns only fixed git argv with no shell', () => 
   assert.match(value, /GIT_OPTIONAL_LOCKS: '0'/)
   assert.match(value, /GIT_CONFIG_GLOBAL: '\/dev\/null'/)
   assert.match(value, /GIT_CONFIG_NOSYSTEM: '1'/)
+  assert.match(value, /GIT_NO_LAZY_FETCH: '1'/)
+  assert.match(value, /GIT_ALLOW_PROTOCOL: ''/)
   assert.doesNotMatch(value, /process\.env/)
   assert.match(value, /shell: false/)
   assert.doesNotMatch(value, /shell\s*:\s*true/)
   assert.doesNotMatch(value, /execSync|execFile|execFileSync|\bfork\b/)
   assert.doesNotMatch(value, /`git|<git'|git\s+\$\{/)
-  // Only read-only plumbing is invoked.
-  assert.doesNotMatch(value, /'commit'|'checkout'|'reset'|'clean'|'push'|'fetch'|'add'|'apply'|'restore'|'gc'|'stash'|'update-index'|'write-tree'|'init'|'clone'|'rm'|'mv'|'config'|'remote'|'tag'|'branch'|'worktree'|'submodule'|'switch'|'rebase'|'merge'|'cherry-pick'|'revert'|'am'/)
+  // Permit only this exact read-only config query; all other config commands
+  // remain forbidden alongside repository mutation commands.
+  const readConfig = String.raw`['config', '--includes', '--null', '--name-only', '--get-regexp', '^filter\\..*\\.(clean|process)$']`
+  assert.ok(value.includes(readConfig))
+  const withoutReadConfig = value.replace(readConfig, '[]')
+  assert.doesNotMatch(withoutReadConfig, /'commit'|'checkout'|'reset'|'clean'|'push'|'fetch'|'add'|'apply'|'restore'|'gc'|'stash'|'update-index'|'write-tree'|'init'|'clone'|'rm'|'mv'|'config'|'remote'|'tag'|'branch'|'worktree'|'submodule'|'switch'|'rebase'|'merge'|'cherry-pick'|'revert'|'am'/)
 })
 
 test('no module reads user configuration or provider state', () => {

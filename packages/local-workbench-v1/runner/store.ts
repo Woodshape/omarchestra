@@ -57,6 +57,7 @@ export interface ProjectRecord {
   gitCommonDir: string
   headOid: string | null
   dirty: boolean
+  /** Schema 7 repo-v1 directory identity, NOT the C9 content/Run context fingerprint. */
   contextDigest: string | null
   revision: number
   createdAt: number

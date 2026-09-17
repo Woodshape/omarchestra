@@ -12,7 +12,7 @@
 import assert from 'node:assert/strict'
 import test from 'node:test'
 import { execFileSync, spawnSync } from 'node:child_process'
-import { existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs'
+import { existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync, renameSync, cpSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { openWorkbenchRunner } from '../runner/runner.ts'
@@ -28,7 +28,7 @@ const QML_FILES = [
   'WorkbenchAssignmentForm.qml', 'WorkbenchChecks.qml', 'WorkbenchReview.qml', 'WorkbenchBoard.qml',
 ]
 
-type HarnessMode = 'inspect' | 'confirm' | 'check' | 'render' | 'observe' | 'authorize'
+type HarnessMode = 'inspect' | 'confirm' | 'reconfirm' | 'check' | 'render' | 'observe' | 'authorize'
 
 function harness(snapshot: unknown, projectPath: string, mode: HarnessMode): Record<string, string> {
   const files: Record<string, string> = {}
@@ -135,8 +135,8 @@ Item {
         wait(20)
         clickItem(buttonWithText(surfaceRoot(), "Inspect path"))
         emit()
-      } else if (${mode === 'confirm' ? 'true' : 'false'}) {
-        var confirm = buttonWithText(surfaceRoot(), "Confirm and register")
+      } else if (${mode === 'confirm' || mode === 'reconfirm' ? 'true' : 'false'}) {
+        var confirm = buttonWithText(surfaceRoot(), ${JSON.stringify(mode === 'reconfirm' ? 'Reconfirm context' : 'Confirm and register')})
         verify(confirm !== null)
         compare(confirm.enabled, true)
         clickItem(confirm)
@@ -363,15 +363,33 @@ test('the real runner, real adapter and real QML host complete one management jo
     // and no remaining registration affordance.
     runQml(harness(final, project, 'render'))
 
+    // A copied repository at the same path is not the registered directory.
+    // Reconfirmation is a new, visible operator action through the real QML.
+    const originalProject = runner.store.getProject(final.selectedProjectId as string)!
+    renameSync(project, join(base, 'old-project'))
+    cpSync(join(base, 'old-project'), project, { recursive: true })
+    const inspection = capturedIntents(runQml(harness(final, project, 'inspect')))[0]
+    queue.push(JSON.stringify(inspection)); host.tick()
+    const changed = rendered.at(-1)!
+    assert.equal((changed.details as Array<{ reconfirmation: boolean }>)[0].reconfirmation, true)
+    assert.equal((changed.checks as Array<{ availability: string }>)[0].availability, 'unavailable')
+    const reconfirm = capturedIntents(runQml(harness(changed, project, 'reconfirm')))[0]
+    queue.push(JSON.stringify(reconfirm)); host.tick()
+    const updated = runner.store.getProject(originalProject.projectId)!
+    assert.notEqual(updated.contextDigest, originalProject.contextDigest)
+    assert.equal(updated.revision, originalProject.revision + 1)
+    assert.equal(runner.store.listChecks(updated.projectId).length, 1)
+    assert.equal((rendered.at(-1)!.assignments as unknown[]).length, 0)
+
     host.stop()
     // Each terminal acknowledgement reached the view, and every durable commit
     // reported the revision the runner actually wrote.
     const acknowledged = results.filter(result => result.status === 'acknowledged')
     const submitted = results.filter(result => result.status === 'submitted')
-    assert.equal(acknowledged.length, 3, 'every intent was acknowledged')
-    assert.equal(submitted.length, 3, 'the view also saw each intent in flight')
+    assert.equal(acknowledged.length, 5, 'every intent was acknowledged')
+    assert.equal(submitted.length, 5, 'the view also saw each intent in flight')
     const revisions = acknowledged.map(result => result.committedRevision).filter(value => typeof value === 'number') as number[]
-    assert.equal(revisions.length, 2, 'confirm and create must both report a committed revision')
+    assert.equal(revisions.length, 3, 'registration, check creation and reconfirmation report committed revisions')
     assert.ok(revisions.every(value => value >= 1))
     assert.equal(results[results.length - 1].status, 'acknowledged')
   } finally {

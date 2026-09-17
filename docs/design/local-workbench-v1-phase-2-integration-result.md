@@ -6,7 +6,7 @@ This final sequential integration record supersedes the task 6.a gate-green word
 
 ## Subsequent direct implementation
 
-The [S1 persistence and binding/fence checkpoint](../reviews/local-workbench-phase-2-verification/binding-fence-checkpoint.md) now passes its bounded durable-substrate gate. It supersedes the original ownership/backup and full-row-purge implementation facts below, not this overall FAIL result. The legacy Adoption/projection path, transactional outcomes, real bridge and native entry still require the [completion sequence](../plans/local-workbench-v1-phase-2-completion.md). The collaboration findings below describe its original delivered tree.
+The [S1 persistence and binding/fence checkpoint](../reviews/local-workbench-phase-2-verification/binding-fence-checkpoint.md) now passes its bounded durable-substrate gate. It supersedes the original ownership/backup and full-row-purge implementation facts below, not this overall FAIL result. The later S2 command/source checkpoints also pass. The [S3 Project-context checkpoint](../reviews/local-workbench-phase-2-verification/project-context-checkpoint.md) now adds schema-7 directory identity, fail-closed Git facts, startup/operation revalidation and explicit transactional reconfirmation through offscreen QML. Check-resource resolution, the legacy Adoption/projection composition, real bridge and native entry still require the [completion sequence](../plans/local-workbench-v1-phase-2-completion.md). The collaboration findings below describe its original delivered tree, not the repaired S1/S2 or Project-context implementation.
 
 ## D1. Final integration changes
 

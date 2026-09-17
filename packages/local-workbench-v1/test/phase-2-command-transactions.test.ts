@@ -6,13 +6,16 @@ import { tmpdir } from 'node:os'
 import { openWorkbenchRunner } from '../runner/runner.ts'
 import { WorkbenchAuthority } from '../runner/authority.ts'
 import { workbenchError } from '../runner/errors.ts'
+import { execFileSync } from 'node:child_process'
+import { inspectProjectPath, contextDigestOf } from '../runner/git-context.ts'
 
 function setup(t: test.TestContext) {
   const root = mkdtempSync(join(tmpdir(), 'wb-command-tx-'))
   mkdirSync(join(root, 'project'))
+  execFileSync('/usr/bin/git', ['init', '-q'], { cwd: join(root, 'project'), timeout: 5000, killSignal: 'SIGKILL', env: { PATH: '/usr/bin:/bin', GIT_CONFIG_NOSYSTEM: '1', GIT_CONFIG_GLOBAL: '/dev/null' } })
   const runner = openWorkbenchRunner({ roots: { stateDir: join(root, 'state') } })
   t.after(() => { runner.close(); rmSync(root, { recursive: true, force: true }) })
-  runner.store.putProject({ projectId: 'project', executionNodeId: runner.nodeId, canonicalPath: join(root, 'project'), gitCommonDir: join(root, 'project/.git'), headOid: null, dirty: false, contextDigest: null, revision: 0, createdAt: 1 })
+  runner.store.putProject({ projectId: 'project', executionNodeId: runner.nodeId, canonicalPath: join(root, 'project'), gitCommonDir: join(root, 'project/.git'), headOid: null, dirty: false, contextDigest: contextDigestOf(inspectProjectPath(join(root, 'project'))), revision: 0, createdAt: 1 })
   const authority = new WorkbenchAuthority({ runner, sessionId: 'session', pluginGeneration: 1 })
   const intent = { protocol: 'omarchestra.workbench/v1', intentId: 'create-goal', sessionId: 'session', pluginGeneration: 1, runnerEpoch: runner.epoch, expectedRevision: 0, kind: 'create_goal', target: null, payload: { projectId: 'project', goalText: 'Persist together' } }
   return { runner, authority, intent }
@@ -125,9 +128,11 @@ test('a typed rejection after a tentative mutation rolls back before recording r
 test('registration failure restores both SQL and its transient confirmation record', t => {
   const { runner, intent } = setup(t)
   const path = join(runner.roots.stateDir, '..', 'another-project')
-  mkdirSync(path)
+  mkdirSync(join(path, '.git'), { recursive: true })
   const authority = new WorkbenchAuthority({ runner, sessionId: 'session', pluginGeneration: 1, git: (argv, cwd) => {
-    const facts: Record<string, string> = { 'rev-parse --show-toplevel': cwd, 'rev-parse --is-inside-work-tree': 'true', 'rev-parse --is-bare-repository': 'false', 'rev-parse --git-common-dir': '.git', 'rev-parse --git-dir': '.git', 'rev-parse --show-superproject-working-tree': '', 'rev-parse --verify HEAD': 'a'.repeat(40), 'status --porcelain': '' }
+    if (argv[0] === 'config') return { status: 1, stdout: '', stderr: '' }
+    if (argv[0] === 'ls-files') return { status: 0, stdout: '', stderr: '' }
+    const facts: Record<string, string> = { 'rev-parse --show-toplevel': cwd, 'rev-parse --is-inside-work-tree': 'true', 'rev-parse --is-bare-repository': 'false', 'rev-parse --git-common-dir': '.git', 'rev-parse --git-dir': '.git', 'rev-parse --show-superproject-working-tree': '', 'rev-parse --verify HEAD^{commit}': 'a'.repeat(40), 'status --porcelain': '' }
     const value = facts[argv.join(' ')]
     return { status: value === undefined ? 128 : 0, stdout: value ?? '', stderr: '' }
   } })
@@ -164,7 +169,7 @@ for (const kind of ['select_project', 'select_goal', 'create_check', 'configure_
   const before = { checks: runner.store.listChecks('project'), events: runner.store.listEvents(), revision: authority.currentRevision, cursor: authority.currentCursor,
     project: runner.store.getMeta('selected_project_id'), goal: runner.store.getMeta('selected_goal_id') }
   const write = runner.store.putIntentResult.bind(runner.store)
-  runner.store.putIntentResult = value => { write(value); throw Error('receipt fault') }
+  runner.store.putIntentResult = value => { assert.equal(value.status, 'acknowledged'); write(value); throw Error('receipt fault') }
   assert.throws(() => authority.handleIntent({ ...intent, kind, target: kind === 'select_project' ? 'project' : kind === 'select_goal' ? 'goal' : kind === 'configure_checks' ? payload.checkId : null, payload, expectedRevision: authority.currentRevision }), /receipt fault/)
   assert.deepEqual({ checks: runner.store.listChecks('project'), events: runner.store.listEvents(), revision: authority.currentRevision, cursor: authority.currentCursor,
     project: runner.store.getMeta('selected_project_id'), goal: runner.store.getMeta('selected_goal_id') }, before)

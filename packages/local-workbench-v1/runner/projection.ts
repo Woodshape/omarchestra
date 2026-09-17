@@ -58,14 +58,14 @@ function checkSummary(check: CheckRecord): WorkbenchSnapshot['checks'][number] {
   }
 }
 
-function projectSummary(project: ProjectRecord): WorkbenchSnapshot['projects'][number] {
+function projectSummary(project: ProjectRecord, dirty: boolean | null): WorkbenchSnapshot['projects'][number] {
   return {
     projectId: project.projectId,
     executionNodeId: project.executionNodeId,
     canonicalPath: project.canonicalPath,
     gitCommonDir: project.gitCommonDir,
     revision: String(project.revision),
-    dirty: project.dirty,
+    dirty, // Last inspection fact; null when current context is unavailable.
     // No Run has verified this Project's execution context in Phase 2, so the
     // field stays the honest `false`. It is never repurposed as "is selected".
     contextMatch: false,
@@ -89,6 +89,7 @@ export function buildSnapshot(options: ProjectionOptions): WorkbenchSnapshot {
         executionNodeId: pending.executionNodeId,
         headOid: pending.headOid,
         dirty: pending.dirty,
+        reconfirmation: pending.reconfirmProjectId !== null,
         supported: pending.supported,
         reasons: [...pending.reasons],
         executionReady: pending.executionReady,
@@ -99,6 +100,8 @@ export function buildSnapshot(options: ProjectionOptions): WorkbenchSnapshot {
   const projects = store.listProjects()
   const goals = selectedProjectId === null ? [] : store.listGoals(selectedProjectId)
   const checks = selectedProjectId === null ? [] : latestChecks(store.listChecks(selectedProjectId))
+  const context = selectedProjectId === null ? null : authority.projectContext(selectedProjectId)
+  const contextReason = context?.available ? null : `Project context unavailable: ${context?.reason ?? 'no_project_selected'}.`
 
   const managedAgents: WorkbenchSnapshot['managedAgents'] = store.listBindings()
     .filter(binding => ['ready', 'committed', 'manual_takeover', 'manual_takeover_disconnected', 'disconnected'].includes(binding.state))
@@ -197,9 +200,9 @@ export function buildSnapshot(options: ProjectionOptions): WorkbenchSnapshot {
       reason: selectedProjectId === null ? 'Register and select a Project before adding a Team Goal.' : null,
     },
     {
-      kind: 'create_check', target: null, label: 'Add a check', enabled: selectedProjectId !== null,
-      reasonCode: selectedProjectId === null ? 'no_project_selected' : null,
-      reason: selectedProjectId === null ? 'Register and select a Project before configuring checks.' : null,
+      kind: 'create_check', target: null, label: 'Add a check', enabled: context?.available === true,
+      reasonCode: selectedProjectId === null ? 'no_project_selected' : context?.available ? null : 'project_context_unavailable',
+      reason: selectedProjectId === null ? 'Register and select a Project before configuring checks.' : contextReason,
     },
     {
       kind: 'start_assignment', target: null, label: 'Start Assignment', enabled: false,
@@ -210,7 +213,7 @@ export function buildSnapshot(options: ProjectionOptions): WorkbenchSnapshot {
       : [{
           kind: 'confirm_register_project',
           target: registrationDetail.registrationId,
-          label: 'Confirm and register this Project',
+          label: registrationDetail.reconfirmation ? 'Reconfirm changed repository context' : 'Confirm and register this Project',
           enabled: true,
           reasonCode: null,
           reason: null,
@@ -229,9 +232,9 @@ export function buildSnapshot(options: ProjectionOptions): WorkbenchSnapshot {
       kind: 'configure_checks',
       target: check.checkId,
       label: `Edit ${check.name}`,
-      enabled: true,
-      reasonCode: null,
-      reason: null,
+      enabled: context?.available === true,
+      reasonCode: context?.available ? null : 'project_context_unavailable',
+      reason: contextReason,
     })),
   ]
 
@@ -244,7 +247,8 @@ export function buildSnapshot(options: ProjectionOptions): WorkbenchSnapshot {
     createdAt: new Date(event.createdAt).toISOString(),
   }))
 
-  const checkSummaries = checks.map(check => checkSummary(check))
+  const checkSummaries = checks.map(check => context?.available ? checkSummary(check)
+    : { ...checkSummary(check), availability: 'unavailable' as const, reason: contextReason })
 
   const adoptionDetails: Detail[] = proposals
     .filter(proposal => proposal.stage === 'proposed' || proposal.stage === 'authorized' || proposal.stage === 'awaiting_ack')
@@ -273,7 +277,7 @@ export function buildSnapshot(options: ProjectionOptions): WorkbenchSnapshot {
     revision: authority.currentRevision,
     cursor: authority.currentCursor,
     connection: options.connection,
-    projects: projects.slice(0, 100).map(project => projectSummary(project)),
+    projects: projects.slice(0, 100).map(project => projectSummary(project, authority.projectContext(project.projectId).dirty)),
     goals: goals.slice(0, 100).map(goal => goalSummary(goal, goal.goalId === selectedGoalId)),
     selectedProjectId,
     selectedGoalId,

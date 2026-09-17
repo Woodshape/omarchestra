@@ -9,8 +9,9 @@
 #
 # Every root is disposable under a temp directory created here. The runner
 # receives all roots, clocks and id sources by injection. Nothing installs,
-# launches Pi, opens a desktop, mutates a Project, delivers an Assignment or
-# executes an acceptance check. The gate asserts both zeros explicitly.
+# launches Pi, opens a desktop, mutates a user Project, delivers an Assignment or
+# executes an acceptance check. Only disposable Git fixtures are changed.
+# The gate asserts both execution zeros explicitly.
 # Node's node:sqlite is the only store.
 
 set -euo pipefail
@@ -62,6 +63,7 @@ run_node "${flags[@]}" --test \
 printf '%s\n' '== runnable management and adoption journey (P2.2-P2.5) =='
 run_node "${flags[@]}" --test \
     "$root/test/phase-2-authority.test.ts" \
+    "$root/test/phase-2-project-context.test.ts" \
     "$root/test/phase-2-command-transactions.test.ts" \
     "$root/test/phase-2-retirement-outcomes.test.ts" \
     "$root/test/phase-2-adoption-outcomes.test.ts" \
@@ -99,6 +101,6 @@ else
 fi
 
 printf '%s\n' '== Phase 2 automated subset: PASS =='
-printf '%s\n' 'Phase 2 acceptance gate: BLOCKED. Project/check resource resolution, real Pi bridge, challenged management and native entry remain incomplete.' >&2
+printf '%s\n' 'Phase 2 acceptance gate: BLOCKED. Check-resource resolution, real Pi bridge, challenged management and native entry remain incomplete.' >&2
 printf '%s\n' 'See docs/design/local-workbench-v1-phase-2-integration-result.md. Passing the subset is not complete management acceptance.' >&2
 exit 1
