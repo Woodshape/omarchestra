@@ -92,8 +92,8 @@ Control {
     }
     readonly property var fieldSpecs: [
         {key:"executable", label:"Absolute executable"}, {key:"argv", label:"Arguments — one per line; no shell expansion"},
-        {key:"cwd", label:"Working directory — absolute path"}, {key:"environment", label:"Nonsecret environment — NAME=value, one per line"},
-        {key:"resourcePaths", label:"Validator resources — absolute paths, one per line"},
+        {key:"cwd", label:"Working directory — confirmed Project root"}, {key:"environment", label:"Nonsecret environment — NAME=value, one per line"},
+        {key:"resourcePaths", label:"Validator resources — regular files inside Project, one absolute path per line"},
         {key:"timeoutMs", label:"Check timeout (ms, 100–300000)"}, {key:"outputBytes", label:"Output limit (bytes, 1–65536)"},
         {key:"maxCorrections", label:"Maximum corrections (0–3)"}, {key:"elapsedMs", label:"Work time limit (ms, 1000–3600000)"}
     ]
@@ -126,6 +126,7 @@ Control {
         }
         var paths = [d.executable, d.cwd].concat(d.resourcePaths)
         for (var k = 0; k < paths.length; k++) if (paths[k][0] !== "/" || paths[k].split("/").indexOf("..") >= 0) return "Use absolute paths without parent traversal."
+        if (root.projectPath !== "" && d.cwd !== root.projectPath) return "Use the confirmed Project root as the working directory."
         return ""
     }
     readonly property bool editAvailable: projection && Array.isArray(projection.actions) && projection.actions.some(function(a) {

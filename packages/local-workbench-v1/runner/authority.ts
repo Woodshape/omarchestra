@@ -18,12 +18,14 @@
  * and the projection advertises it disabled with a committed reason.
  */
 
-import { createHash } from 'node:crypto'
+import { canonicalJson, sha256 } from './canonical-hash.ts'
+export { canonicalJson, sha256 } from './canonical-hash.ts'
 import { defaultNewId } from './identity.ts'
 import { workbenchError } from './errors.ts'
 import type { GitRunner, GitInspection } from './git-context.ts'
 import { contextDigestOf, inspectProjectPath } from './git-context.ts'
 import { pathsOverlap } from './project-identity.ts'
+import { resolveCheckDefinition } from './check-definition.ts'
 import type { WorkbenchRunner } from './runner.ts'
 import type { CheckRecord, EventRecord, GoalRecord, ProjectRecord } from './store.ts'
 import { AdoptionManager } from './adoption.ts'
@@ -95,17 +97,6 @@ export interface Observation {
   choiceId: string
   observedSessionId: string
   role: string
-}
-
-export function canonicalJson(value: unknown): string {
-  if (value === null || typeof value !== 'object') return JSON.stringify(value) ?? 'null'
-  if (Array.isArray(value)) return `[${value.map(canonicalJson).join(',')}]`
-  const entries = Object.entries(value as Record<string, unknown>).sort(([a], [b]) => (a < b ? -1 : a > b ? 1 : 0))
-  return `{${entries.map(([key, item]) => `${JSON.stringify(key)}:${canonicalJson(item)}`).join(',')}}`
-}
-
-export function sha256(value: unknown): string {
-  return createHash('sha256').update(typeof value === 'string' ? value : canonicalJson(value)).digest('hex')
 }
 
 export class WorkbenchAuthority {
@@ -350,18 +341,17 @@ export class WorkbenchAuthority {
   }): CheckRecord {
     const project = this.requireProject(projectId)
     this.requireProjectContext(project.projectId)
-    const fields = this.normalizeCheckFields(input)
     const checkId = this.newId('check-')
-    const body = { projectId: project.projectId, checkId, version: 1, ...fields }
-    const digest = sha256(body)
+    const body = resolveCheckDefinition(project, { checkId, version: 1 }, input)
+    const digest = sha256(canonicalJson(body))
     const check: CheckRecord = {
       projectId: project.projectId,
       checkId,
       version: 1,
       digest,
       canonicalJson: canonicalJson(body),
-      name: fields.name,
-      mode: fields.mode,
+      name: body.name,
+      mode: body.mode,
       createdAt: this.clock(),
     }
     this.commit('check_created', { checkId, projectId: project.projectId, version: 1 }, () => {
@@ -386,18 +376,18 @@ export class WorkbenchAuthority {
       throw workbenchError('invalid_input', `check ${latest.checkId} is at version ${latest.version}, not ${String(checkVersion)}`, 'reload the committed check version before saving; the runner rejects stale edits')
     }
     this.requireProjectContext(project.projectId)
-    const fields = this.normalizeCheckFields(input)
+    if (!Number.isSafeInteger(latest.version + 1)) throw workbenchError('invalid_input', 'check version exhausted', 'retain the existing check history')
     const version = latest.version + 1
-    const body = { projectId: project.projectId, checkId: latest.checkId, version, ...fields }
-    const digest = sha256(body)
+    const body = resolveCheckDefinition(project, { checkId: latest.checkId, version }, input)
+    const digest = sha256(canonicalJson(body))
     const check: CheckRecord = {
       projectId: project.projectId,
       checkId: latest.checkId,
       version,
       digest,
       canonicalJson: canonicalJson(body),
-      name: fields.name,
-      mode: fields.mode,
+      name: body.name,
+      mode: body.mode,
       createdAt: this.clock(),
     }
     this.commit('check_configured', { checkId: check.checkId, projectId: project.projectId, version }, () => {
@@ -694,18 +684,6 @@ export class WorkbenchAuthority {
       throw workbenchError('missing_resource', `no Project ${String(projectId)}`, 'register or select a committed Project first')
     }
     return project
-  }
-
-  private normalizeCheckFields(input: { name: unknown; summary: unknown; mode: unknown; commandSummary: unknown; definitionDraft: unknown }) {
-    const name = String(input.name ?? '')
-    const summary = String(input.summary ?? '')
-    const mode = String(input.mode ?? '')
-    const commandSummary = String(input.commandSummary ?? '')
-    if (name.trim().length === 0) throw workbenchError('invalid_input', 'check name must not be empty', 'give the check a name')
-    if (!['validator', 'artifact_presence'].includes(mode)) {
-      throw workbenchError('invalid_input', `unsupported check mode ${mode}`, 'choose validator or artifact_presence')
-    }
-    return { name, summary, mode, commandSummary, definitionDraft: input.definitionDraft ?? null }
   }
 
   private isInsideStateRoot(canonicalPath: string): boolean {

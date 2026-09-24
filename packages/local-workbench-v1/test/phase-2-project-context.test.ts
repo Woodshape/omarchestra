@@ -207,7 +207,10 @@ test('separate Git storage overlapping state or another Project is refused', t =
 
 test('editing a check revalidates instead of trusting a cached available Project', t => {
   const s = fixture(t), project = s.register()
-  const fields = { name: 'Check', summary: '', mode: 'validator', commandSummary: 'not executed', definitionDraft: {} }
+  const fields = { name: 'Check', summary: '', mode: 'validator', commandSummary: 'not executed', definitionDraft: {
+    executable: '/usr/bin/true', argv: [], cwd: s.project, environment: [], resourcePaths: [], timeoutMs: 1000,
+    outputBytes: 4096, maxCorrections: 1, elapsedMs: 60000,
+  } }
   const check = s.authority.createCheck(project.projectId, fields)
   s.replace()
   assert.throws(() => s.authority.configureCheck(project.projectId, check.checkId, check.version, fields), /Project context is unavailable/)

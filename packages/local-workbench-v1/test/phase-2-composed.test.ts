@@ -16,7 +16,8 @@ import { existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { openWorkbenchRunner } from '../runner/runner.ts'
-import { WorkbenchAuthority } from '../runner/authority.ts'
+import { WorkbenchAuthority, sha256 } from '../runner/authority.ts'
+import { readResolvedCheck } from '../runner/check-definition.ts'
 import { createWorkbenchHost } from '../runner/host.ts'
 import type { ObserverPort, TransportEvent, WorkbenchFrame } from '../runner/transport.ts'
 import { validateDetail } from '../console/detail-schema.ts'
@@ -28,7 +29,7 @@ const QML_FILES = [
   'WorkbenchAssignmentForm.qml', 'WorkbenchChecks.qml', 'WorkbenchReview.qml', 'WorkbenchBoard.qml',
 ]
 
-type HarnessMode = 'inspect' | 'confirm' | 'reconfirm' | 'check' | 'render' | 'observe' | 'authorize'
+type HarnessMode = 'inspect' | 'confirm' | 'reconfirm' | 'check' | 'edit-check' | 'render' | 'observe' | 'authorize'
 
 function harness(snapshot: unknown, projectPath: string, mode: HarnessMode): Record<string, string> {
   const files: Record<string, string> = {}
@@ -163,9 +164,30 @@ Item {
         verify(cwd !== null)
         cwd.text = ${JSON.stringify(projectPath)}
         wait(20)
+        var resource = itemNamed(surfaceRoot(), "check-field-resourcePaths")
+        verify(resource !== null)
+        resource.text = ${JSON.stringify(projectPath + '/validator.conf')}
+        wait(20)
         var create = findChild(consoleView, "workbench-create-check")
         compare(create.enabled, true)
         clickItem(create)
+        emit()
+      } else if (${mode === 'edit-check' ? 'true' : 'false'}) {
+        consoleView.goTo("checks")
+        wait(20)
+        clickItem(buttonWithTextPrefix(surfaceRoot(), "Composed gate check · v"))
+        clickItem(findChild(consoleView, "workbench-check-advanced"))
+        var editExecutable = itemNamed(surfaceRoot(), "check-field-executable")
+        var editCwd = itemNamed(surfaceRoot(), "check-field-cwd")
+        var editResources = itemNamed(surfaceRoot(), "check-field-resourcePaths")
+        verify(editExecutable !== null && editCwd !== null && editResources !== null)
+        editExecutable.text = "/bin/true"
+        editCwd.text = ${JSON.stringify(projectPath)}
+        editResources.text = ${JSON.stringify(projectPath + '/validator.conf')}
+        wait(20)
+        var save = findChild(consoleView, "workbench-save-check")
+        compare(save.enabled, true)
+        clickItem(save)
         emit()
       } else if (${mode === 'observe' ? 'true' : 'false'}) {
         wait(20)
@@ -284,6 +306,7 @@ test('the real runner, real adapter and real QML host complete one management jo
     mkdirSync(stateRoot, { recursive: true, mode: 0o700 })
     mkdirSync(project, { recursive: true })
     execFileSync('git', ['init', '-q', project], { stdio: 'ignore' })
+    writeFileSync(join(project, 'validator.conf'), 'composed-v1\n')
 
     let tick = 1_000
     const clock = () => (tick += 10)
@@ -357,7 +380,20 @@ test('the real runner, real adapter and real QML host complete one management jo
     const stored = runner.store.listChecks(final.selectedProjectId as string)
     assert.equal(stored.length, 1)
     assert.equal(stored[0].projectId, final.selectedProjectId)
+    assert.equal(readResolvedCheck(stored[0]).resources[0].digest, sha256('composed-v1\n'))
     assert.equal(runner.store.listEvents().filter(event => event.kind === 'check_created').length, 1)
+
+    // A second QML journey edits the exact version, producing a new runner-resolved definition.
+    writeFileSync(join(project, 'validator.conf'), 'composed-v2\n')
+    const edit = capturedIntents(runQml(harness(final, project, 'edit-check')))
+    assert.deepEqual(edit.map(intent => intent.kind), ['configure_checks'])
+    assert.equal(edit[0].payload.checkVersion, 1)
+    queue.push(JSON.stringify(edit[0])); host.tick()
+    assert.deepEqual(results.slice(-1).map(result => result.status), ['acknowledged'])
+    const updatedCheck = runner.store.latestCheck(final.selectedProjectId as string, stored[0].checkId)!
+    assert.equal(updatedCheck.version, 2)
+    assert.equal(readResolvedCheck(updatedCheck).resources[0].digest, sha256('composed-v2\n'))
+    assert.notEqual(updatedCheck.digest, stored[0].digest)
 
     // The runner's committed snapshot renders in the real QML with no warning
     // and no remaining registration affordance.
@@ -378,7 +414,7 @@ test('the real runner, real adapter and real QML host complete one management jo
     const updated = runner.store.getProject(originalProject.projectId)!
     assert.notEqual(updated.contextDigest, originalProject.contextDigest)
     assert.equal(updated.revision, originalProject.revision + 1)
-    assert.equal(runner.store.listChecks(updated.projectId).length, 1)
+    assert.equal(runner.store.listChecks(updated.projectId).length, 2)
     assert.equal((rendered.at(-1)!.assignments as unknown[]).length, 0)
 
     host.stop()
@@ -386,10 +422,10 @@ test('the real runner, real adapter and real QML host complete one management jo
     // reported the revision the runner actually wrote.
     const acknowledged = results.filter(result => result.status === 'acknowledged')
     const submitted = results.filter(result => result.status === 'submitted')
-    assert.equal(acknowledged.length, 5, 'every intent was acknowledged')
-    assert.equal(submitted.length, 5, 'the view also saw each intent in flight')
+    assert.equal(acknowledged.length, 6, 'every intent was acknowledged')
+    assert.equal(submitted.length, 6, 'the view also saw each intent in flight')
     const revisions = acknowledged.map(result => result.committedRevision).filter(value => typeof value === 'number') as number[]
-    assert.equal(revisions.length, 3, 'registration, check creation and reconfirmation report committed revisions')
+    assert.equal(revisions.length, 4, 'registration, check creation/edit and reconfirmation report committed revisions')
     assert.ok(revisions.every(value => value >= 1))
     assert.equal(results[results.length - 1].status, 'acknowledged')
   } finally {

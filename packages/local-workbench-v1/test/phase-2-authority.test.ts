@@ -16,6 +16,7 @@ import { join } from 'node:path'
 import { inspectProjectPath, type GitRunner } from '../runner/git-context.ts'
 import { openWorkbenchRunner } from '../runner/runner.ts'
 import { WorkbenchAuthority } from '../runner/authority.ts'
+import { readResolvedCheck } from '../runner/check-definition.ts'
 import { buildSnapshot } from '../runner/projection.ts'
 import { validateDetail } from '../console/detail-schema.ts'
 import { validateSnapshot } from '../console/schema.ts'
@@ -258,6 +259,10 @@ test('Phase 2 management journey: register, goals, checks, dedup, restart', () =
     assert.equal(resumed.goals.length, goalCount)
     assert.equal(resumed.checks.length, 1)
     assert.equal(resumed.checks[0].version, 2)
+    const frozen = restarted.runner.store.latestCheck(projectId, checkId)!
+    assert.equal(frozen.digest, resumed.checks[0].digest)
+    assert.deepEqual(readResolvedCheck(frozen).argv, ['--check'])
+    assert.equal(readResolvedCheck(frozen).cwd, store.project)
     assert.equal(resumed.revision, revisionBefore)
     assert.equal(resumed.runnerEpoch, restarted.runner.epoch)
     assert.equal(deliveryAttempts, 0)

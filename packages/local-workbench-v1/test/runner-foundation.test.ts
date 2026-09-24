@@ -22,6 +22,7 @@ import { DatabaseSync } from 'node:sqlite'
 import { tmpdir } from 'node:os'
 import { dirname, join, resolve } from 'node:path'
 import test from 'node:test'
+import { STORE_SCHEMA_VERSION } from '../runner/schema.ts'
 import { fileURLToPath, pathToFileURL } from 'node:url'
 
 import {
@@ -468,7 +469,8 @@ test('migration and restore report only what is genuinely supported', (t) => {
   const s = scaffold(t)
   const runner = openWorkbenchRunner({ roots: { stateDir: s.stateDir } })
   const roots = runner.roots
-  assert.deepEqual(planMigration(7), { from: 7, to: 7, steps: [], requiredBackup: false })
+  assert.deepEqual(planMigration(STORE_SCHEMA_VERSION), { from: STORE_SCHEMA_VERSION, to: STORE_SCHEMA_VERSION, steps: [], requiredBackup: false })
+  assert.throws(() => planMigration(7), expectCode('migration_unavailable'), 'old unresolved check definitions are not silently promoted')
   assert.throws(() => planMigration(6), expectCode('migration_unavailable'))
   assert.throws(() => planMigration(5), expectCode('migration_unavailable'))
   assert.throws(() => planMigration(4), expectCode('migration_unavailable'))
@@ -477,8 +479,8 @@ test('migration and restore report only what is genuinely supported', (t) => {
   assert.throws(() => planMigration(1), expectCode('migration_unavailable'))
   assert.throws(() => planMigration(0), expectCode('migration_unavailable'))
   assert.deepEqual(
-    assertMigrationPreconditions(roots, 7, { ownershipHeld: false, backupDatabase: null }),
-    { from: 7, to: 7, steps: [], requiredBackup: false },
+    assertMigrationPreconditions(roots, STORE_SCHEMA_VERSION, { ownershipHeld: false, backupDatabase: null }),
+    { from: STORE_SCHEMA_VERSION, to: STORE_SCHEMA_VERSION, steps: [], requiredBackup: false },
     'no forward step means no backup or ownership precondition is invented',
   )
   const support = describeBackupSupport()

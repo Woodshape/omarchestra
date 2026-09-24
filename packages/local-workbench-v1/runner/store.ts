@@ -13,6 +13,7 @@ import { chmodSync } from 'node:fs'
 import { workbenchError } from './errors.ts'
 import { assertNodeId } from './identity.ts'
 import { validateDelivery, type BridgeDelivery, type DeliveryState } from './bridge-delivery.ts'
+import { readResolvedCheck } from './check-definition.ts'
 import { incarnationKey, validateIncarnation, type BindingIdentity, type PiIncarnation } from './binding-identity.ts'
 import { OWNED_FILE_MODE } from './paths.ts'
 import { REQUIRED_JOURNAL_MODE, REQUIRED_PRAGMAS, STORE_DDL, STORE_SCHEMA_VERSION, STORE_TABLES } from './schema.ts'
@@ -264,6 +265,10 @@ export function assertSchemaShape(db: DatabaseSync, path: string): void {
     throw workbenchError('integrity_failure', `integrity/foreign key check failed for ${path}`, 'preserve the damaged database; do not keep writing')
   }
   for (const row of db.prepare('SELECT * FROM bridge_deliveries').all()) validateDelivery(rowToDelivery(row))
+  for (const row of db.prepare('SELECT * FROM check_definitions').all()) {
+    try { readResolvedCheck(rowToCheck(row)) }
+    catch { throw workbenchError('schema_drift', 'persisted check definition is invalid', 'preserve history and inspect the stored definition; do not repair it automatically') }
+  }
   const identityNode = db.prepare("SELECT value FROM meta WHERE key = 'node_id'").get()?.value
   for (const row of db.prepare('SELECT i.*, b.project_id, g.project_id AS goal_project_id, p.execution_node_id FROM binding_identities i LEFT JOIN bindings b USING (run_id) LEFT JOIN goals g ON g.goal_id = i.goal_id LEFT JOIN projects p ON p.project_id = b.project_id').all()) {
     try {
@@ -494,11 +499,10 @@ export function openWorkbenchStore(options: StoreOptions): WorkbenchStore {
       }
     },
     putCheck(check) {
+      readResolvedCheck(check)
       db.prepare(
         `INSERT INTO check_definitions (project_id, check_id, version, digest, canonical_json, name, mode, created_at)
-         VALUES (?, ?, ?, ?, ?, ?, ?, ?)
-         ON CONFLICT(project_id, check_id, version) DO UPDATE SET
-           digest = excluded.digest, canonical_json = excluded.canonical_json, name = excluded.name, mode = excluded.mode`,
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
       ).run(check.projectId, check.checkId, check.version, check.digest, check.canonicalJson, check.name, check.mode, check.createdAt)
     },
     getCheck(projectId, checkId, version) {

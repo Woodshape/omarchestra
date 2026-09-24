@@ -293,10 +293,10 @@ export class WorkbenchAdapter {
       if (projectId !== snapshot.selectedProjectId || !snapshot.projects.some(project => project.projectId === projectId)) throw new Error('action requires the selected Project')
       if (kind === 'create_goal' && (target !== null || !(validated.payload.goalText as string).trim())) throw new Error('invalid Goal creation context')
       if (kind === 'configure_checks' && (target !== validated.payload.checkId || !snapshot.checks.some(check => check.checkId === target && check.version === validated.payload.checkVersion))) throw new Error('check version is no longer current')
-      if (kind === 'create_check' && (validated.payload.definitionDraft as { cwd?: string }).cwd !== undefined) {
+      if (kind === 'create_check' || kind === 'configure_checks') {
         const project = snapshot.projects.find(candidate => candidate.projectId === projectId)
         const cwd = (validated.payload.definitionDraft as { cwd: string }).cwd
-        if (!project || (cwd !== project.canonicalPath && !cwd.startsWith(`${project.canonicalPath}/`))) throw new Error('check working directory must be inside the selected Project')
+        if (!project || cwd !== project.canonicalPath) throw new Error('check working directory must equal the confirmed Project root')
       }
     }
     if (kind === 'confirm_register_project') {

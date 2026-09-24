@@ -64,6 +64,7 @@ printf '%s\n' '== runnable management and adoption journey (P2.2-P2.5) =='
 run_node "${flags[@]}" --test \
     "$root/test/phase-2-authority.test.ts" \
     "$root/test/phase-2-project-context.test.ts" \
+    "$root/test/phase-2-check-resources.test.ts" \
     "$root/test/phase-2-command-transactions.test.ts" \
     "$root/test/phase-2-retirement-outcomes.test.ts" \
     "$root/test/phase-2-adoption-outcomes.test.ts" \
@@ -101,6 +102,6 @@ else
 fi
 
 printf '%s\n' '== Phase 2 automated subset: PASS =='
-printf '%s\n' 'Phase 2 acceptance gate: BLOCKED. Check-resource resolution, real Pi bridge, challenged management and native entry remain incomplete.' >&2
+printf '%s\n' 'Phase 2 acceptance gate: BLOCKED. Real Pi bridge, challenged management and native entry remain incomplete.' >&2
 printf '%s\n' 'See docs/design/local-workbench-v1-phase-2-integration-result.md. Passing the subset is not complete management acceptance.' >&2
 exit 1
