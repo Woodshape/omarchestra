@@ -1,12 +1,12 @@
 /**
- * Local Workbench v1 Phase 2 — declared store schema (version 8; checks contain resolved resource hashes).
+ * Local Workbench v1 Phase 2 — declared store schema (version 9; separate pending proposals).
  *
  * The declared shape is the contract the runner validates before accepting
  * management frames. Any missing table or unexpected table is drift that
  * blocks startup; the runner never repairs schema silently.
  */
 
-export const STORE_SCHEMA_VERSION = 8
+export const STORE_SCHEMA_VERSION = 9
 
 export interface TableSpec {
   name: string
@@ -29,6 +29,7 @@ export const STORE_TABLES: TableSpec[] = [
     columns: ['run_id', 'project_id', 'role', 'state', 'binding_digest', 'control_epoch', 'writer_state', 'predecessor_run_id', 'generation', 'updated_at'],
   },
   { name: 'binding_identities', columns: ['run_id', 'goal_id', 'incarnation_json', 'incarnation_key'] },
+  { name: 'adoption_proposals', columns: ['proposal_id', 'run_id', 'project_id', 'goal_id', 'role', 'observed_session_id', 'incarnation_json', 'connection_id', 'challenge', 'nonce', 'digest', 'generation', 'predecessor_run_id', 'expires_at', 'ack_deadline', 'state', 'delivery_json', 'delivery_state'] },
   { name: 'bridge_deliveries', columns: ['frame_id', 'run_id', 'kind', 'frame_json', 'connection_id', 'deadline', 'state', 'reason_code', 'created_at'] },
   { name: 'role_memberships', columns: ['goal_id', 'role', 'run_id'] },
   { name: 'management_operations', columns: ['intent_id', 'session_id', 'payload_hash', 'kind', 'run_id', 'target_json', 'created_at'] },
@@ -92,6 +93,27 @@ CREATE TABLE IF NOT EXISTS binding_identities (
   goal_id TEXT NOT NULL REFERENCES goals(goal_id),
   incarnation_json TEXT NOT NULL,
   incarnation_key TEXT NOT NULL UNIQUE
+);
+CREATE TABLE IF NOT EXISTS adoption_proposals (
+  proposal_id TEXT PRIMARY KEY,
+  run_id TEXT NOT NULL UNIQUE,
+  project_id TEXT NOT NULL REFERENCES projects(project_id),
+  goal_id TEXT NOT NULL REFERENCES goals(goal_id),
+  role TEXT NOT NULL,
+  observed_session_id TEXT NOT NULL UNIQUE,
+  incarnation_json TEXT NOT NULL,
+  connection_id TEXT NOT NULL,
+  challenge TEXT NOT NULL,
+  nonce TEXT NOT NULL,
+  digest TEXT NOT NULL,
+  generation INTEGER NOT NULL CHECK (generation > 0),
+  predecessor_run_id TEXT,
+  expires_at INTEGER NOT NULL,
+  ack_deadline INTEGER,
+  state TEXT NOT NULL CHECK (state IN ('proposed', 'authorized')),
+  delivery_json TEXT,
+  delivery_state TEXT NOT NULL CHECK (delivery_state IN ('none', 'queued', 'attempting', 'written', 'unknown', 'not_sent')),
+  UNIQUE (goal_id, role)
 );
 CREATE TABLE IF NOT EXISTS role_memberships (
   goal_id TEXT NOT NULL REFERENCES goals(goal_id),

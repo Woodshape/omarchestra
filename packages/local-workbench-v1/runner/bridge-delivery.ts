@@ -1,5 +1,6 @@
 /** Management-only delivery intent. A local write is not a Pi acknowledgement. */
 import type { WorkbenchFrame } from './transport.ts'
+import { decodeBridgeFrame, type BridgeFrame } from './bridge-protocol.ts'
 import { workbenchError } from './errors.ts'
 export type DeliveryState = 'queued' | 'attempting' | 'written' | 'not_sent' | 'unknown'
 export interface BridgeDelivery {
@@ -16,6 +17,25 @@ export interface BridgeDelivery {
 const ID = /^[A-Za-z0-9_-]{1,128}$/
 const id = (v: unknown) => typeof v === 'string' && ID.test(v)
 function invalid(): never { throw workbenchError('invalid_input', 'invalid durable bridge delivery', 'preserve the record; management frames carry only closed identity metadata') }
+export function validateStoredDelivery(record: BridgeDelivery): WorkbenchFrame | BridgeFrame {
+  if (typeof record.frameJson !== 'string') invalid()
+  if (record.frameJson.startsWith('{"protocol":"omarchestra.bridge/v1"')) {
+    if (!id(record.frameId) || !id(record.runId) || !id(record.connectionId) || record.kind !== 'committed'
+        || typeof record.frameJson !== 'string' || Buffer.byteLength(record.frameJson) > 4096
+        || !Number.isSafeInteger(record.deadline) || record.deadline < 0
+        || !Number.isSafeInteger(record.createdAt) || record.createdAt < 0
+        || !['queued', 'attempting', 'written', 'not_sent', 'unknown'].includes(record.state)
+        || ![null, 'connection_lost', 'expired', 'revoked', 'transport_error', 'owner_restarted'].includes(record.reasonCode)) invalid()
+    if (['queued', 'attempting', 'written'].includes(record.state) && record.reasonCode !== null) invalid()
+    if (record.state === 'not_sent' && !['connection_lost', 'expired', 'revoked', 'owner_restarted'].includes(record.reasonCode ?? '')) invalid()
+    if (record.state === 'unknown' && !['transport_error', 'owner_restarted'].includes(record.reasonCode ?? '')) invalid()
+    let frame: BridgeFrame
+    try { frame = decodeBridgeFrame(Buffer.from(record.frameJson)) } catch { return invalid() }
+    if (frame.type !== 'adoption_committed' || frame.messageId !== record.frameId || frame.body.runId !== record.runId || frame.body.connectionId !== record.connectionId) invalid()
+    return frame
+  }
+  return validateDelivery(record)
+}
 export function validateDelivery(record: BridgeDelivery): WorkbenchFrame {
   if (!id(record.frameId) || !id(record.runId) || !id(record.connectionId)
       || !Number.isSafeInteger(record.deadline) || record.deadline < 0 || !Number.isSafeInteger(record.createdAt) || record.createdAt < 0

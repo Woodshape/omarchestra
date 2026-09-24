@@ -4,7 +4,7 @@ Status: **bounded engineering checkpoint PASS; independent review pending; Phase
 
 ## Reproduce
 
-Run `just --no-dotenv local-workbench-v1-phase-2-check`. Its S4 cases live in `packages/local-workbench-v1/test/phase-2-real-bridge.test.ts`; the overall gate must still exit 1/BLOCKED until S5/S6 complete. The suite uses disposable roots, a fake Pi host, paired byte streams, and one owner-only Unix socket under a 0700 disposable runtime directory. No Assignment or validator is executed. On this host (Node 26.8.1), the final gate ran 41/41 foundation, 174/174 management (including 9 S4 cases), 83/88 presentation with 5 existing TODOs, 38/38 audits and the offscreen QML runner, then exited 1/BLOCKED by design. `just --no-dotenv local-workbench-v1-check` passed with 125/130 tests, 5 existing TODOs and QML lint. `git diff --check` passed.
+Run `just --no-dotenv local-workbench-v1-phase-2-check`. Its S4 cases live in `packages/local-workbench-v1/test/phase-2-real-bridge.test.ts`; the overall gate still exits 1/BLOCKED pending S6; the later [S5 checkpoint](framed-adoption-checkpoint.md) records the challenged management conversion. The suite uses disposable roots, a fake Pi host, paired byte streams, and one owner-only Unix socket under a 0700 disposable runtime directory. No Assignment or validator is executed. On this host (Node 26.8.1), the final gate ran 41/41 foundation, 174/174 management (including 9 S4 cases), 83/88 presentation with 5 existing TODOs, 38/38 audits and the offscreen QML runner, then exited 1/BLOCKED by design. `just --no-dotenv local-workbench-v1-check` passed with 125/130 tests, 5 existing TODOs and QML lint. `git diff --check` passed.
 
 ## Contract and evidence
 
@@ -15,4 +15,4 @@ Run `just --no-dotenv local-workbench-v1-phase-2-check`. Its S4 cases live in `p
 
 ## Limits / next dependency
 
-The separate S5 slice must wire exact proposed Adoption, ACK, durable binding delivery/receipt, recovery and takeover persistence into this registry and replace the old injected object-event path. The S6 slice must compose the owner listener with native start/open/hide and Companion projection. The current `main.ts` stdio launcher does **not** start the Pi socket. No installed extension compatibility, human Adoption or live Pi surface has been asserted. The full Phase 2 gate is still blocked; no Phase 3 dispatch is enabled.
+The later [S5 checkpoint](framed-adoption-checkpoint.md) wires challenged proposals, ACK, delivery, receipt, recovery and takeover through this registry; the injected object-event port remains historical-test-only. S6 must compose the owner listener with native start/open/hide and Companion projection. The current `main.ts` stdio launcher does **not** start the Pi socket. No installed extension compatibility, human Adoption or live Pi surface has been asserted. The full Phase 2 gate is still blocked; no Phase 3 dispatch is enabled.

@@ -67,6 +67,7 @@ run_node "${flags[@]}" --test \
     "$root/test/phase-2-check-resources.test.ts" \
     "$root/test/phase-2-real-bridge.test.ts" \
     "$root/test/phase-2-challenged-ack-seam.test.ts" \
+    "$root/test/phase-2-framed-adoption.test.ts" \
     "$root/test/phase-2-command-transactions.test.ts" \
     "$root/test/phase-2-retirement-outcomes.test.ts" \
     "$root/test/phase-2-adoption-outcomes.test.ts" \
@@ -104,6 +105,6 @@ else
 fi
 
 printf '%s\n' '== Phase 2 automated subset: PASS =='
-printf '%s\n' 'Phase 2 acceptance gate: BLOCKED. Real bridge S4 tests pass; challenged management and native entry remain incomplete.' >&2
+printf '%s\n' 'Phase 2 acceptance gate: BLOCKED. S5 framed management is fake-host tested; native owner entry, Companion negotiation and complete composed acceptance remain unavailable.' >&2
 printf '%s\n' 'See docs/design/local-workbench-v1-phase-2-integration-result.md. Passing the subset is not complete management acceptance.' >&2
 exit 1

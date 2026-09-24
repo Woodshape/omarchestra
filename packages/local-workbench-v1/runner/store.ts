@@ -12,8 +12,9 @@ import { DatabaseSync } from 'node:sqlite'
 import { chmodSync } from 'node:fs'
 import { workbenchError } from './errors.ts'
 import { assertNodeId } from './identity.ts'
-import { validateDelivery, type BridgeDelivery, type DeliveryState } from './bridge-delivery.ts'
+import { validateStoredDelivery, type BridgeDelivery, type DeliveryState } from './bridge-delivery.ts'
 import { readResolvedCheck } from './check-definition.ts'
+import { pendingRow, validatePendingProposal, type PendingProposal } from './pending-proposal.ts'
 import { incarnationKey, validateIncarnation, type BindingIdentity, type PiIncarnation } from './binding-identity.ts'
 import { OWNED_FILE_MODE } from './paths.ts'
 import { REQUIRED_JOURNAL_MODE, REQUIRED_PRAGMAS, STORE_DDL, STORE_SCHEMA_VERSION, STORE_TABLES } from './schema.ts'
@@ -131,6 +132,12 @@ export interface WorkbenchStore {
   putBindingIdentity(runId: string, goalId: string, incarnation: PiIncarnation): void
   getBindingIdentity(runId: string): BindingIdentity | null
   commitMembership(runId: string): void
+  putProposal(record: PendingProposal): void
+  getProposal(proposalId: string): PendingProposal | null
+  listProposals(): PendingProposal[]
+  updateProposal(record: PendingProposal): void
+  deleteProposal(proposalId: string): void
+  discardProposalsOnRestart(): void
   releaseMembership(runId: string): void
   listMemberships(goalId: string): Array<{ goalId: string; role: string; runId: string }>
   purgeRetiredHistory(runId: string, now: number): void
@@ -264,12 +271,32 @@ export function assertSchemaShape(db: DatabaseSync, path: string): void {
       || db.prepare('PRAGMA foreign_key_check').all().length !== 0) {
     throw workbenchError('integrity_failure', `integrity/foreign key check failed for ${path}`, 'preserve the damaged database; do not keep writing')
   }
-  for (const row of db.prepare('SELECT * FROM bridge_deliveries').all()) validateDelivery(rowToDelivery(row))
+  for (const row of db.prepare('SELECT * FROM bridge_deliveries').all()) {
+    const delivery = rowToDelivery(row)
+    const frame = validateStoredDelivery(delivery)
+    if ('protocol' in frame && frame.protocol === 'omarchestra.bridge/v1' && delivery.kind === 'committed') {
+      const binding = db.prepare('SELECT b.binding_digest, b.role, i.goal_id FROM bindings b JOIN binding_identities i USING (run_id) WHERE b.run_id = ?')
+        .get(delivery.runId) as { binding_digest: string; role: string; goal_id: string } | undefined
+      if (!binding || frame.body.bindingDigest !== binding.binding_digest || frame.body.goalId !== binding.goal_id || frame.body.role !== binding.role) {
+        throw workbenchError('schema_drift', 'framed delivery no longer matches its committed binding', 'preserve the store and investigate identity drift')
+      }
+    }
+  }
+  const identityNode = db.prepare("SELECT value FROM meta WHERE key = 'node_id'").get()?.value
+  for (const row of db.prepare('SELECT * FROM adoption_proposals').all()) {
+    try {
+      const proposal = pendingRow(row)
+      const association = db.prepare('SELECT p.execution_node_id, g.project_id AS goal_project FROM projects p JOIN goals g ON g.project_id = p.project_id WHERE p.project_id = ? AND g.goal_id = ?')
+        .get(proposal.projectId, proposal.goalId) as { execution_node_id: string; goal_project: string } | undefined
+      if (!association || association.execution_node_id !== identityNode || proposal.incarnation.executionNodeId !== identityNode
+          || association.goal_project !== proposal.projectId || db.prepare('SELECT 1 FROM bindings WHERE run_id = ?').get(proposal.runId)
+          || db.prepare('SELECT 1 FROM role_memberships WHERE goal_id = ? AND role = ?').get(proposal.goalId, proposal.role)) throw Error('pending association drift')
+    } catch { throw workbenchError('schema_drift', 'persisted pending Adoption proposal is invalid', 'preserve the store; never promote malformed proposal state') }
+  }
   for (const row of db.prepare('SELECT * FROM check_definitions').all()) {
     try { readResolvedCheck(rowToCheck(row)) }
     catch { throw workbenchError('schema_drift', 'persisted check definition is invalid', 'preserve history and inspect the stored definition; do not repair it automatically') }
   }
-  const identityNode = db.prepare("SELECT value FROM meta WHERE key = 'node_id'").get()?.value
   for (const row of db.prepare('SELECT i.*, b.project_id, g.project_id AS goal_project_id, p.execution_node_id FROM binding_identities i LEFT JOIN bindings b USING (run_id) LEFT JOIN goals g ON g.goal_id = i.goal_id LEFT JOIN projects p ON p.project_id = b.project_id').all()) {
     try {
       const identity = validateIncarnation(JSON.parse(String(row.incarnation_json)))
@@ -429,6 +456,28 @@ export function openWorkbenchStore(options: StoreOptions): WorkbenchStore {
       // one store transaction. SQL uniqueness is the final occupancy arbiter.
       db.prepare('INSERT INTO role_memberships VALUES (?, ?, ?)').run(String(row.goal_id), row.role, runId)
     },
+    putProposal(record) {
+      validatePendingProposal(record)
+      if (record.state !== 'proposed') throw workbenchError('invalid_input', 'new proposal must be uncommitted', 'only an operator authorizes the frozen proposal')
+      db.prepare('INSERT INTO adoption_proposals VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)').run(record.proposalId, record.runId, record.projectId, record.goalId, record.role, record.observedSessionId, JSON.stringify(record.incarnation), record.connectionId, record.challenge, record.nonce, record.digest, record.generation, record.predecessorRunId, record.expiresAt, record.ackDeadline, record.state, record.deliveryJson, record.deliveryState)
+    },
+    getProposal(proposalId) {
+      const row = db.prepare('SELECT * FROM adoption_proposals WHERE proposal_id = ?').get(proposalId)
+      return row ? pendingRow(row) : null
+    },
+    listProposals() { return db.prepare('SELECT * FROM adoption_proposals ORDER BY proposal_id').all().map(pendingRow) },
+    updateProposal(record) {
+      validatePendingProposal(record)
+      const previous = db.prepare('SELECT * FROM adoption_proposals WHERE proposal_id = ?').get(record.proposalId)
+      if (!previous) throw workbenchError('missing_resource', 'pending proposal not found', 'request a fresh Adoption')
+      const frozen = pendingRow(previous)
+      if (record.digest !== frozen.digest || record.state !== 'authorized' || (frozen.state !== 'proposed' && frozen.state !== 'authorized')
+          || (frozen.state === 'authorized' && (record.ackDeadline !== frozen.ackDeadline || record.deliveryJson !== frozen.deliveryJson))) throw workbenchError('identity_drift', 'pending proposal immutable fields changed', 'retain original authorization')
+      db.prepare('UPDATE adoption_proposals SET ack_deadline = ?, state = ?, delivery_json = ?, delivery_state = ? WHERE proposal_id = ?')
+        .run(record.ackDeadline, record.state, record.deliveryJson, record.deliveryState, record.proposalId)
+    },
+    deleteProposal(proposalId) { db.prepare('DELETE FROM adoption_proposals WHERE proposal_id = ?').run(proposalId) },
+    discardProposalsOnRestart() { db.prepare('DELETE FROM adoption_proposals').run() },
     releaseMembership(runId) { db.prepare('DELETE FROM role_memberships WHERE run_id = ?').run(runId) },
     listMemberships(goalId) {
       return db.prepare('SELECT * FROM role_memberships WHERE goal_id = ? ORDER BY role').all(goalId).map(row => ({ goalId: String(row.goal_id), role: String(row.role), runId: String(row.run_id) }))
@@ -541,7 +590,7 @@ export function openWorkbenchStore(options: StoreOptions): WorkbenchStore {
       return (rows as Array<Record<string, unknown>>).map(rowToGoal)
     },
     putDelivery(delivery) {
-      validateDelivery(delivery)
+      validateStoredDelivery(delivery)
       if (delivery.state !== 'queued' || delivery.reasonCode !== null) throw workbenchError('invalid_input', 'new delivery must be queued', 'never invent a completed send')
       db.prepare('INSERT INTO bridge_deliveries VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)').run(delivery.frameId, delivery.runId, delivery.kind, delivery.frameJson, delivery.connectionId, delivery.deadline, delivery.state, delivery.reasonCode, delivery.createdAt)
     },
@@ -555,7 +604,7 @@ export function openWorkbenchStore(options: StoreOptions): WorkbenchStore {
       if (![null, 'connection_lost', 'expired', 'revoked', 'transport_error', 'owner_restarted'].includes(reasonCode)) throw workbenchError('invalid_input', 'invalid delivery reason', 'use a bounded delivery disposition')
       const current = db.prepare('SELECT * FROM bridge_deliveries WHERE frame_id = ?').get(frameId)
       if (!current || current.state !== from) return false
-      validateDelivery({ ...rowToDelivery(current), state: to, reasonCode })
+      validateStoredDelivery({ ...rowToDelivery(current), state: to, reasonCode })
       return Number(db.prepare('UPDATE bridge_deliveries SET state = ?, reason_code = ? WHERE frame_id = ? AND state = ?').run(to, reasonCode, frameId, from).changes) === 1
     },
     putManagementOperation(operation) {

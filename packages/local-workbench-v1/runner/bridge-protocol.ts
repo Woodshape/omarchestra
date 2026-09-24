@@ -22,6 +22,13 @@ const bodies = {
   input_received: { connectionId: capability, connectionChallenge: capability, eventId: id },
   adoption_request: { proposalId: id, proposalDigest: digest, acknowledgementNonce: capability, observedSessionId: id, processInstanceId: capability, piSessionId: id, extensionInstanceId: capability, connectionId: capability, connectionChallenge: capability, targetGoalId: id, targetRole: id, vacancyGeneration: (v: unknown) => counter(v) && v > 0, remainingMs: (v: unknown) => counter(v) && v <= 5000 },
   adoption_ack: { proposalId: id, proposalDigest: digest, acknowledgementNonce: capability, observedSessionId: id, processInstanceId: capability, piSessionId: id, extensionInstanceId: capability, connectionId: capability, connectionChallenge: capability, sourceSequence: counter, decision: (v: unknown) => v === 'acknowledged' || v === 'refused', activity: (v: unknown) => enums.activity.includes(v as never) },
+  adoption_committed: { runId: id, bindingDigest: digest, processInstanceId: capability, piSessionId: id, extensionInstanceId: capability, connectionId: capability, connectionChallenge: capability, goalId: id, role: id },
+  adoption_cancelled: { proposalDigest: digest, connectionId: capability, connectionChallenge: capability },
+  managed_status: { runId: id, bindingDigest: digest, connectionId: capability, connectionChallenge: capability,
+    state: (v: unknown) => v === 'ready' || v === 'manual_takeover' },
+  binding_receipt: { runId: id, bindingDigest: digest, connectionId: capability, connectionChallenge: capability, sourceSequence: counter, activity: (v: unknown) => enums.activity.includes(v as never), pendingInput: (v: unknown) => typeof v === 'boolean' },
+  recovery_request: { runId: id, bindingDigest: digest, processInstanceId: capability, piSessionId: id, extensionInstanceId: capability, connectionId: capability, connectionChallenge: capability },
+  recovery_proof: { runId: id, bindingDigest: digest, processInstanceId: capability, piSessionId: id, extensionInstanceId: capability, connectionId: capability, connectionChallenge: capability, sourceSequence: counter, pendingInput: (v: unknown) => typeof v === 'boolean' },
   rejected: { requestMessageId: id, code: (v: unknown) => enums.code.includes(v as never) },
 } as const
 export type BridgeType = keyof typeof bodies

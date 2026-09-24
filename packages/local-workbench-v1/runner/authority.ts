@@ -21,6 +21,7 @@
 import { canonicalJson, sha256 } from './canonical-hash.ts'
 export { canonicalJson, sha256 } from './canonical-hash.ts'
 import { defaultNewId } from './identity.ts'
+import { incarnationKey } from './binding-identity.ts'
 import { workbenchError } from './errors.ts'
 import type { GitRunner, GitInspection } from './git-context.ts'
 import { contextDigestOf, inspectProjectPath } from './git-context.ts'
@@ -29,6 +30,8 @@ import { resolveCheckDefinition } from './check-definition.ts'
 import type { WorkbenchRunner } from './runner.ts'
 import type { CheckRecord, EventRecord, GoalRecord, ProjectRecord } from './store.ts'
 import { AdoptionManager } from './adoption.ts'
+import { FramedAdoptionManager } from './framed-adoption.ts'
+import type { BridgeRegistry } from './bridge-registry.ts'
 import { validateAuthorityIntent } from './intent-envelope.ts'
 import type { WorkbenchIntent } from '../console/schema.ts'
 import type { ObserverPort, TransportEvent } from './transport.ts'
@@ -91,6 +94,8 @@ export interface AuthorityOptions {
   offeredRoles?: readonly string[]
   /** Injected observer transport. Phase 2 uses a fake in tests and NDJSON in the real composition. */
   transport?: () => ObserverPort | null
+  /** Owner-only S4 registry; legacy injected object port is tests-only. */
+  registry?: BridgeRegistry
 }
 
 export interface Observation {
@@ -112,6 +117,7 @@ export class WorkbenchAuthority {
   private readonly registrationTtlMs: number
   private readonly offeredRoles: readonly string[]
   private readonly transport: () => ObserverPort | null
+  readonly registry: BridgeRegistry | null
   private observations = new Map<string, Observation>()
   private registrations = new Map<string, RegistrationRecord>()
   private projectContexts = new Map<string, ProjectContextStatus>()
@@ -130,11 +136,12 @@ export class WorkbenchAuthority {
     this.registrationTtlMs = options.registrationTtlMs ?? DEFAULT_REGISTRATION_TTL_MS
     this.offeredRoles = options.offeredRoles ?? OFFERED_ROLES
     this.transport = options.transport ?? (() => null)
+    this.registry = options.registry ?? null
     this.revision = Number(options.runner.store.getMeta('projection_revision') ?? '0')
     this.cursor = Math.max(0, options.runner.store.maxCursor())
     // Startup revalidation changes availability, never the saved repository binding.
     for (const project of this.runner.store.listProjects()) this.refreshProjectContext(project)
-    this.adoption = new AdoptionManager(this, () => this.transport(), options.ackDeadlineMs)
+    this.adoption = this.registry ? new FramedAdoptionManager(this, this.registry) : new AdoptionManager(this, () => this.transport(), options.ackDeadlineMs)
     const port = this.transport()
     if (port !== null) {
       port.subscribe(event => this.onTransportEvent(event))
@@ -157,6 +164,26 @@ export class WorkbenchAuthority {
   }
 
   get observedChoices(): Observation[] {
+    if (this.registry) {
+      const goalId = this.selectedGoalId
+      const goal = goalId ? this.runner.store.getGoal(goalId) : null
+      if (!goal || goal.projectId !== this.selectedProjectId) { this.observations.clear(); return [] }
+      const choices: Observation[] = []
+      const retained = new Set<string>()
+      for (const agent of this.registry.listCurrent()) {
+        if (!agent.available || agent.mode !== 'observed' || agent.lifecycle !== 'running' || agent.activity !== 'idle' || agent.health !== 'healthy') continue
+        for (const role of this.offeredRoles) {
+          if (this.runner.store.listMemberships(goalId!).some(member => member.role === role)) continue
+          const existing = [...this.observations.values()].find(c => c.observedSessionId === agent.observedSessionId && c.role === role)
+          const choice = existing ?? { choiceId: this.newId('choice-'), observedSessionId: agent.observedSessionId, role }
+          this.observations.set(choice.choiceId, choice)
+          retained.add(choice.choiceId)
+          choices.push({ ...choice })
+        }
+      }
+      for (const choiceId of this.observations.keys()) if (!retained.has(choiceId)) this.observations.delete(choiceId)
+      return choices
+    }
     return [...this.observations.values()]
   }
 
@@ -457,10 +484,22 @@ export class WorkbenchAuthority {
     if (intent.runnerEpoch !== this.runner.epoch) {
       return this.record(intent, payloadHash, { status: 'stale', reasonCode: 'runner_epoch_changed', reason: 'The workbench runner restarted; reload the projection before acting.', committedRevision: null })
     }
+    if (this.registry) { this.registry.list(); this.adoption.retainedProposals() }
     if (intent.expectedRevision !== this.revision) {
       return this.record(intent, payloadHash, { status: 'stale', reasonCode: 'revision_changed', reason: 'The projection changed; re-read the current state before acting.', committedRevision: null })
     }
     if (intent.kind === 'retire' || intent.kind === 'purge') {
+      if (intent.kind === 'retire' && this.registry) {
+        const identity = this.runner.store.getBindingIdentity(String(intent.payload.agentRunId))
+        const connected = identity && this.registry.list().some(agent => agent.available
+          && incarnationKey(agent.incarnation) === identity.incarnationKey)
+        if (this.revision !== intent.expectedRevision) return this.record(intent, payloadHash, { status: 'stale', reasonCode: 'revision_changed',
+          reason: 'The Run connection changed; review its current state before retirement.', committedRevision: null })
+        if (connected) {
+          return this.record(intent, payloadHash, { status: 'rejected', reasonCode: 'run_active',
+            reason: 'The exact Pi bridge is still connected; disconnect before retiring this Run.', committedRevision: null })
+        }
+      }
       let receipt
       try {
         receipt = this.runner.executeManagementCommand({ intentId: intent.intentId, sessionId: this.sessionId,
@@ -571,7 +610,7 @@ export class WorkbenchAuthority {
       }
       case 'request_adoption': {
         const choiceId = String(intent.payload.choiceId)
-        const observation = this.observations.get(choiceId)
+        const observation = this.observedChoices.find(choice => choice.choiceId === choiceId)
         if (observation === undefined) {
           throw workbenchError('missing_resource', `no observed Pi for choice ${choiceId}`, 'connect the observer transport and let the Pi extension report its sessions')
         }
@@ -580,7 +619,9 @@ export class WorkbenchAuthority {
           throw workbenchError('invalid_input', 'no Project is selected', 'select the Project this Adoption belongs to')
         }
         const predecessor = this.runner.store.listBindings()
-          .filter(binding => binding.projectId === projectId && binding.role === observation.role && (binding.state === 'retired' || binding.state === 'purged'))
+          .filter(binding => binding.projectId === projectId && binding.role === observation.role
+            && (!this.registry || this.runner.store.getBindingIdentity(binding.runId)?.goalId === this.selectedGoalId)
+            && (binding.state === 'retired' || binding.state === 'purged'))
           .sort((a, b) => (a.updatedAt < b.updatedAt ? -1 : a.updatedAt > b.updatedAt ? 1 : 0))
           .at(-1)
         this.adoption.propose({

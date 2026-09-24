@@ -9,6 +9,7 @@
 
 import { WORKBENCH_PROTOCOL, type WorkbenchSnapshot } from '../console/schema.ts'
 import type { WorkbenchAuthority } from './authority.ts'
+import { incarnationKey } from './binding-identity.ts'
 import { EXECUTION_UNAVAILABLE_REASON, OFFERED_ROLES, START_UNAVAILABLE_REASON } from './authority.ts'
 import type { AdoptionManager } from './adoption.ts'
 import type { CheckRecord, GoalRecord, ProjectRecord } from './store.ts'
@@ -102,15 +103,20 @@ export function buildSnapshot(options: ProjectionOptions): WorkbenchSnapshot {
   const checks = selectedProjectId === null ? [] : latestChecks(store.listChecks(selectedProjectId))
   const context = selectedProjectId === null ? null : authority.projectContext(selectedProjectId)
   const contextReason = context?.available ? null : `Project context unavailable: ${context?.reason ?? 'no_project_selected'}.`
+  const registryAgents = authority.registry?.list() ?? []
 
   const managedAgents: WorkbenchSnapshot['managedAgents'] = store.listBindings()
-    .filter(binding => ['ready', 'committed', 'manual_takeover', 'manual_takeover_disconnected', 'disconnected'].includes(binding.state))
+    .filter(binding => ['ready', 'committed', 'manual_takeover', 'manual_takeover_disconnected', 'disconnected'].includes(binding.state)
+      && (!authority.registry || (selectedGoalId !== null && store.getBindingIdentity(binding.runId)?.goalId === selectedGoalId)))
     .slice(0, 100)
     .map(binding => {
-      const connected = binding.state !== 'disconnected' && binding.state !== 'manual_takeover_disconnected'
+      const currentIdentity = store.getBindingIdentity(binding.runId)
+      const bridgeLive = registryAgents.some(agent => agent.available && currentIdentity
+        && incarnationKey(agent.incarnation) === currentIdentity.incarnationKey) ?? false
+      const connected = authority.registry ? bridgeLive : binding.state !== 'disconnected' && binding.state !== 'manual_takeover_disconnected'
       const takenOver = binding.state === 'manual_takeover' || binding.state === 'manual_takeover_disconnected'
-      const canTakeControl = binding.state === 'ready' || binding.state === 'committed'
-      const canRetire = !connected
+      const canTakeControl = (binding.state === 'ready' || binding.state === 'committed') && connected
+      const canRetire = !connected && (binding.state === 'disconnected' || binding.state === 'manual_takeover_disconnected')
       return {
         agentRunId: binding.runId,
         role: binding.role ?? 'unknown',
@@ -140,7 +146,20 @@ export function buildSnapshot(options: ProjectionOptions): WorkbenchSnapshot {
   // session, so the emitted intent always matches the durable stage.
   const observedChoices = authority.observedChoices
   const proposals = adoption.retainedProposals()
-  const observedSessions: WorkbenchSnapshot['observedSessions'] = [
+  const observedSessions: WorkbenchSnapshot['observedSessions'] = authority.registry ? [
+    ...registryAgents.filter(agent => agent.mode === 'observed').map(agent => {
+      const proposal = proposals.find(p => p.stage === 'proposed' && p.goalId === selectedGoalId && p.observedSessionId === agent.observedSessionId)
+      return {
+        observedSessionId: agent.observedSessionId, piStatus: proposal ? 'proposal_pending' : 'observed', lifecycle: agent.lifecycle,
+        availability: agent.available ? 'available' : 'unavailable', health: agent.health,
+        choices: proposal ? [{ choiceId: proposal.proposalId, label: `Authorize adoption as ${proposal.role}`,
+          enabled: agent.available, actionKind: 'authorize_adoption' as const }]
+          : observedChoices.filter(choice => choice.observedSessionId === agent.observedSessionId).map(choice => ({
+            choiceId: choice.choiceId, label: `Adopt as ${choice.role}`, enabled: agent.available, actionKind: 'request_adoption' as const,
+          })),
+      }
+    }),
+  ] : [
     ...observedChoices.slice(0, 100).map(observation => ({
       observedSessionId: observation.observedSessionId,
       piStatus: 'observed',
@@ -173,7 +192,8 @@ export function buildSnapshot(options: ProjectionOptions): WorkbenchSnapshot {
   ]
 
   const retiredRuns: WorkbenchSnapshot['retiredRuns'] = store.listBindings()
-    .filter(binding => binding.state === 'retired')
+    .filter(binding => binding.state === 'retired'
+      && (!authority.registry || (selectedGoalId !== null && store.getBindingIdentity(binding.runId)?.goalId === selectedGoalId)))
     .slice(0, 100)
     .map(binding => {
       const successor = store.listBindings().find(other => other.predecessorRunId === binding.runId && other.state !== 'purged')
@@ -219,7 +239,7 @@ export function buildSnapshot(options: ProjectionOptions): WorkbenchSnapshot {
           reason: null,
         }]),
     ...proposals
-      .filter(proposal => proposal.stage === 'proposed')
+      .filter(proposal => proposal.stage === 'proposed' && (!authority.registry || proposal.goalId === selectedGoalId))
       .map(proposal => ({
         kind: 'authorize_adoption',
         target: proposal.proposalId,
@@ -251,7 +271,8 @@ export function buildSnapshot(options: ProjectionOptions): WorkbenchSnapshot {
     : { ...checkSummary(check), availability: 'unavailable' as const, reason: contextReason })
 
   const adoptionDetails: Detail[] = proposals
-    .filter(proposal => proposal.stage === 'proposed' || proposal.stage === 'authorized' || proposal.stage === 'awaiting_ack')
+    .filter(proposal => (!authority.registry || proposal.goalId === selectedGoalId)
+      && (proposal.stage === 'proposed' || proposal.stage === 'authorized' || proposal.stage === 'awaiting_ack'))
     .map(proposal => ({
       kind: 'adoption' as const,
       proposalId: proposal.proposalId,

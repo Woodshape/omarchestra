@@ -17,6 +17,9 @@ const CONNECTION_STATES: BindingState[] = ['acknowledged', 'committed', 'ready']
 export function recoverRunnerState(options: RecoverRunnerStateOptions): RecoveryReport {
   const { store, fences } = options
   const now = (options.clock ?? (() => Date.now()))()
+  // Pending proposals never become Runs on restart, including authorized
+  // requests whose socket write may have been lost. A late ACK cannot commit.
+  store.transaction(() => store.discardProposalsOnRestart())
   const retiredFromFence: string[] = [], purgedFromFence: string[] = []
   const pending = new Set(fences.listFences().filter(f => f.purgedAt !== null).map(f => f.runId))
   for (const binding of store.listBindings()) {
