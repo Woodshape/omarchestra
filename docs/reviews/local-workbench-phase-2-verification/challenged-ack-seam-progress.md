@@ -1,0 +1,9 @@
+# S5 progress — challenged acknowledgement seam (NOT S5 acceptance)
+
+Status: **partial implementation only; S5 and S6 remain BLOCKED.** This is not an Adoption commit, a management release, or an invitation to run a human walkthrough.
+
+After S4 commit `9f2967d`, the real closed bridge protocol acquired `adoption_request` and `adoption_ack` frames. The Pi adapter checks the current process/session/extension, observed ID, exact connection challenge, positive remaining time and best-effort idle state. It refuses a busy Pi and sends no work. The registry accepts ACKs only over its exact current observation connection, with monotonic source sequence and full identity matching, and invokes an optional injected owner callback. Without a callback, ACKs are rejected. No owner provides a committing callback yet: registration and ACK alone create **zero** Agent Runs.
+
+Reproduce: `just --no-dotenv local-workbench-v1-phase-2-check`. The new `test/phase-2-challenged-ack-seam.test.ts` drives the actual adapter and registry across paired byte streams and checks wrong process/observed ID/challenge, busy refusal, idle ACK and no binding. The implemented test subsets passed on Node 26.8.1; the gate correctly exited 1/BLOCKED. This test does not prove proposal durability or a commit.
+
+Remaining **S5 blockers**: immutable operator-reviewed proposals with Goal-scoped occupancy, authorization/outbox transaction, deadline/eligibility revalidation at ACK, exact membership commit, committed delivery and Pi receipt/readiness, survivor-only recovery including offline input, retirement/replacement/purge integration and complete negative matrix. Existing `runner/adoption.ts` is still an injected legacy object-event manager and is **not** the framed S5 authority. S6 native owner/client/Companion entry and composed QML acceptance remain untouched. Do not remove the gate's BLOCKED terminator.

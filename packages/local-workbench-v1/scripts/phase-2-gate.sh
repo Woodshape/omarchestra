@@ -66,6 +66,7 @@ run_node "${flags[@]}" --test \
     "$root/test/phase-2-project-context.test.ts" \
     "$root/test/phase-2-check-resources.test.ts" \
     "$root/test/phase-2-real-bridge.test.ts" \
+    "$root/test/phase-2-challenged-ack-seam.test.ts" \
     "$root/test/phase-2-command-transactions.test.ts" \
     "$root/test/phase-2-retirement-outcomes.test.ts" \
     "$root/test/phase-2-adoption-outcomes.test.ts" \

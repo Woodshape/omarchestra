@@ -83,6 +83,8 @@ Use one writer per shared checkout, read-only reviewers, and a checkpoint at the
 
 ## S5 — Exact Adoption, recovery and retirement/purge
 
+**Progress only, NOT a checkpoint PASS:** the [framed ACK seam](../reviews/local-workbench-phase-2-verification/challenged-ack-seam-progress.md) is fake-host tested after S4, but it is not connected to operator authorization or a durable Run commit. All S5 exit requirements below remain open; do not advance S6 or enable management on this evidence.
+
 **Findings:** F2–F5, F8; requires S1/S2/S4.
 
 **Primary files:** `runner/{adoption,authority,recovery,fences,store,projection}.ts` and shared bridge logic.

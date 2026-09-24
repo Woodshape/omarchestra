@@ -7,6 +7,7 @@ export const BRIDGE_CAPABILITIES = ['observe.lifecycle', 'adoption.acknowledge',
 const id = (v: unknown): v is string => typeof v === 'string' && /^[A-Za-z0-9_-]{1,128}$/.test(v)
 const capability = (v: unknown): v is string => id(v) && v.length >= 32
 const counter = (v: unknown): v is number => Number.isSafeInteger(v) && (v as number) >= 0
+const digest = (v: unknown): v is string => typeof v === 'string' && /^[a-f0-9]{64}$/.test(v)
 const enums = {
   hostMode: ['tui'], lifecycle: ['running', 'exited'], activity: ['idle', 'busy', 'unknown', 'waiting_for_user'], health: ['healthy', 'degraded'],
   reason: ['quit', 'reload', 'new', 'resume', 'fork'], mode: ['observed', 'committed'],
@@ -19,6 +20,8 @@ const bodies = {
   close: { connectionId: capability, connectionChallenge: capability, sourceSequence: counter, reason: (v: unknown) => enums.reason.includes(v as never) },
   input_observed: { connectionId: capability, connectionChallenge: capability, sourceSequence: counter, eventId: id },
   input_received: { connectionId: capability, connectionChallenge: capability, eventId: id },
+  adoption_request: { proposalId: id, proposalDigest: digest, acknowledgementNonce: capability, observedSessionId: id, processInstanceId: capability, piSessionId: id, extensionInstanceId: capability, connectionId: capability, connectionChallenge: capability, targetGoalId: id, targetRole: id, vacancyGeneration: (v: unknown) => counter(v) && v > 0, remainingMs: (v: unknown) => counter(v) && v <= 5000 },
+  adoption_ack: { proposalId: id, proposalDigest: digest, acknowledgementNonce: capability, observedSessionId: id, processInstanceId: capability, piSessionId: id, extensionInstanceId: capability, connectionId: capability, connectionChallenge: capability, sourceSequence: counter, decision: (v: unknown) => v === 'acknowledged' || v === 'refused', activity: (v: unknown) => enums.activity.includes(v as never) },
   rejected: { requestMessageId: id, code: (v: unknown) => enums.code.includes(v as never) },
 } as const
 export type BridgeType = keyof typeof bodies

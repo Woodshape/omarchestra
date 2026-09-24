@@ -8,6 +8,8 @@ export const BRIDGE_HEARTBEAT_MS = 5_000
 export interface BridgePeer { send(bytes: Buffer): void; close(): void }
 export interface ObservedPi { observedSessionId: string; incarnation: PiIncarnation; lifecycle: string; activity: string; health: string; available: boolean; mode: 'observed' | 'committed' }
 export interface BridgeSourceInput { incarnation: PiIncarnation; observedSessionId: string; connectionId: string; connectionChallenge: string; sourceSequence: number; eventId: string }
+/** Trusted S5 callback, called only on the exact current transport object. */
+export interface BridgeAdoptionAck { incarnation: PiIncarnation; observedSessionId: string; connectionId: string; connectionChallenge: string; peer: BridgePeer; frame: BridgeFrame }
 type Entry = { key: string; identity: PiIncarnation; peer: BridgePeer | null; connectionId: string; challenge: string; observedId: string; attempt: number; sequence: number; deadline: number; lifecycle: string; activity: string; health: string; mode: 'observed' | 'committed'; dedup: Map<string, string> }
 function refuse(code: string): never { throw new Error(code) }
 /** One instance belongs to one runner owner, not to a presentation client. */
@@ -16,8 +18,8 @@ export class BridgeRegistry {
   private readonly water = new Map<string, { attempt: number; sequence: number }>()
   private readonly peers = new Map<BridgePeer, Entry>()
   /** onInput must commit the takeover marker before returning; otherwise do not supply it. */
-  private readonly options: { nodeId: string; store: WorkbenchStore; fences: FenceLedger; now?: () => number; issue?: (prefix: string) => string; onInput?: (event: BridgeSourceInput) => void }
-  constructor(options: { nodeId: string; store: WorkbenchStore; fences: FenceLedger; now?: () => number; issue?: (prefix: string) => string; onInput?: (event: BridgeSourceInput) => void }) { this.options = options }
+  private readonly options: { nodeId: string; store: WorkbenchStore; fences: FenceLedger; now?: () => number; issue?: (prefix: string) => string; onInput?: (event: BridgeSourceInput) => void; onAdoptionAck?: (event: BridgeAdoptionAck) => void }
+  constructor(options: { nodeId: string; store: WorkbenchStore; fences: FenceLedger; now?: () => number; issue?: (prefix: string) => string; onInput?: (event: BridgeSourceInput) => void; onAdoptionAck?: (event: BridgeAdoptionAck) => void }) { this.options = options }
   private now() { return (this.options.now ?? (() => performance.now()))() }
   private issue(prefix: string) { const value = (this.options.issue ?? bridgeId)(prefix); if (!/^[A-Za-z0-9_-]{32,128}$/.test(value)) refuse('invalid_identity'); return value }
   private snapshot(entry: Entry): ObservedPi { return { observedSessionId: entry.observedId, incarnation: { ...entry.identity }, lifecycle: entry.lifecycle, activity: entry.activity, health: entry.health, available: entry.peer !== null && this.now() < entry.deadline, mode: entry.mode } }
@@ -35,7 +37,7 @@ export class BridgeRegistry {
     if (!entry || entry.peer !== peer || this.now() >= entry.deadline) refuse('connection_not_current')
     if (this.options.fences.isIncarnationFenced(entry.key)) refuse('fence_conflict')
     const body = frame.body
-    if (frame.type === 'registered' || frame.type === 'rejected' || frame.type === 'input_received') refuse('invalid_bridge_envelope')
+    if (frame.type === 'registered' || frame.type === 'rejected' || frame.type === 'input_received' || frame.type === 'adoption_request') refuse('invalid_bridge_envelope')
     if (body.connectionId !== entry.connectionId || body.connectionChallenge !== entry.challenge) refuse('connection_not_current')
     const serialized = JSON.stringify(frame)
     const prior = entry.dedup.get(frame.messageId)
@@ -45,7 +47,15 @@ export class BridgeRegistry {
     // A previous connection's last sequence cannot be replayed after reconnect.
     const water = this.water.get(entry.key)
     if (water && seq <= water.sequence) refuse('invalid_sequence')
-    if (frame.type === 'input_observed') {
+    if (frame.type === 'adoption_ack') {
+      if (!this.options.onAdoptionAck || entry.mode !== 'observed'
+          || body.processInstanceId !== entry.identity.processInstanceId
+          || body.piSessionId !== entry.identity.piSessionId
+          || body.extensionInstanceId !== entry.identity.extensionInstanceId
+          || body.observedSessionId !== entry.observedId) refuse('invalid_identity')
+      this.options.onAdoptionAck({ incarnation: { ...entry.identity }, observedSessionId: entry.observedId,
+        connectionId: entry.connectionId, connectionChallenge: entry.challenge, peer, frame })
+    } else if (frame.type === 'input_observed') {
       // No ordinary input is takeover. Retained committed membership, not a
       // client-supplied flag, decides whether the source-only event is useful.
       if (entry.mode === 'committed') {

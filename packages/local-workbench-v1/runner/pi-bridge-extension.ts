@@ -6,7 +6,7 @@ import { BRIDGE_CAPABILITIES, bridgeId, type BridgeFrame } from './bridge-protoc
 
 type Context = { mode: string; sessionManager: { getSessionId(): string | undefined }; isIdle(): boolean; hasPendingMessages?(): boolean; ui: { setStatus(key: string, text: string | undefined): void } }
 type PiAPI = { on(name: string, handler: (event: unknown, ctx: Context) => void): void }
-type Client = { sendFrame(type: 'register' | 'heartbeat' | 'input_observed' | 'close', id: string, body: Record<string, unknown>): void; close(): void }
+type Client = { sendFrame(type: 'register' | 'heartbeat' | 'input_observed' | 'close' | 'adoption_ack', id: string, body: Record<string, unknown>): void; close(): void }
 export function connectLocalPiBridge(path: string, onFrame: (frame: BridgeFrame) => void, onClose: () => void): Promise<Client> {
   return new Promise((resolve, reject) => {
     const socket: Socket = netConnect(path)
@@ -30,13 +30,13 @@ export function createPiBridgeExtension(options: { socketPath?: string; connect?
   const cancel = options.cancel ?? clearTimeout
   return (pi: PiAPI) => {
     let ctx: Context | null = null, client: Client | null = null
-    let sessionId: string | null = null, connectionId: string | null = null, challenge: string | null = null
+    let sessionId: string | null = null, observedSessionId: string | null = null, connectionId: string | null = null, challenge: string | null = null
     let attempt = 0, sequence = 0, connecting = false, stopped = true, retryMs = 500, mode: 'observed' | 'committed' = 'observed'
     let timer: ReturnType<typeof setTimeout> | null = null, generation = 0, pendingInput: string | null = null, handshakeTicks = 0
     const status = () => { try { ctx?.ui.setStatus('omarchestra-observer-status', client && connectionId && mode === 'observed' ? 'Unassigned · observed' : undefined) } catch { /* never disrupt Pi */ } }
     const activity = () => { try { return ctx && ctx.isIdle() && !ctx.hasPendingMessages?.() ? 'idle' : 'busy' } catch { return 'unknown' } }
     const clearTimer = () => { if (timer) cancel(timer); timer = null }
-    const send = (type: 'heartbeat' | 'input_observed' | 'close', extra: Record<string, unknown> = {}) => {
+    const send = (type: 'heartbeat' | 'input_observed' | 'close' | 'adoption_ack', extra: Record<string, unknown> = {}) => {
       if (!client || !connectionId || !challenge) return false
       sequence += 1
       try { client.sendFrame(type, issue('message'), { connectionId, connectionChallenge: challenge, sourceSequence: sequence, ...extra }); return true }
@@ -60,15 +60,30 @@ export function createPiBridgeExtension(options: { socketPath?: string; connect?
           if (frame.type === 'input_received' && connectionId && challenge
               && frame.body.connectionId === connectionId && frame.body.connectionChallenge === challenge
               && frame.body.eventId === pendingInput) { pendingInput = null; return }
+          if (frame.type === 'adoption_request' && connectionId && challenge) {
+            const b = frame.body
+            if (stopped || !ctx || ctx.mode !== 'tui' || ctx.sessionManager.getSessionId() !== sessionId
+                || b.processInstanceId !== processInstanceId || b.piSessionId !== sessionId
+                || b.extensionInstanceId !== extensionInstanceId || b.connectionId !== connectionId
+                || b.connectionChallenge !== challenge || b.observedSessionId !== observedSessionId
+                || b.remainingMs === 0 || mode !== 'observed') return
+            const currentActivity = activity()
+            send('adoption_ack', { proposalId: b.proposalId, proposalDigest: b.proposalDigest,
+              acknowledgementNonce: b.acknowledgementNonce, observedSessionId: b.observedSessionId,
+              processInstanceId, piSessionId: sessionId, extensionInstanceId,
+              decision: currentActivity === 'idle' && !pendingInput ? 'acknowledged' : 'refused', activity: currentActivity })
+            return
+          }
           if (frame.type !== 'registered' || connectionId) return
           const b = frame.body
           if (b.acceptedRegistrationAttempt !== attempt || b.acceptedSourceSequence !== sequence) { client.close(); return }
+          observedSessionId = b.observedSessionId as string
           connectionId = b.connectionId as string; challenge = b.connectionChallenge as string
           handshakeTicks = 0; retryMs = 500; mode = b.mode as 'observed' | 'committed'; status()
           if (pendingInput && mode === 'committed') send('input_observed', { eventId: pendingInput })
         }, () => {
           if (current !== generation) return
-          client = null; connectionId = null; challenge = null; retryMs = Math.min(5000, retryMs * 2); status()
+          client = null; observedSessionId = null; connectionId = null; challenge = null; retryMs = Math.min(5000, retryMs * 2); status()
         })
         if (current !== generation || stopped) { channel.close(); return }
         client = channel; handshakeTicks = 0; attempt += 1; sequence += 1
@@ -79,7 +94,7 @@ export function createPiBridgeExtension(options: { socketPath?: string; connect?
     const stop = (reason: string) => {
       generation += 1; stopped = true; clearTimer()
       if (client) { send('close', { reason }); client.close() }
-      client = null; connectionId = null; challenge = null; status(); ctx = null; sessionId = null
+      client = null; observedSessionId = null; connectionId = null; challenge = null; status(); ctx = null; sessionId = null
     }
     pi.on('session_start', (_event, context) => {
       stop('new')
