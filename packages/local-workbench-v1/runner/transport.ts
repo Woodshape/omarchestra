@@ -1,9 +1,10 @@
 /**
  * Local Workbench v1 Phase 2 — observer transport and Pi installation probe.
  *
- * This is the current object-event port and preliminary frame codec, not the
- * production framed Pi connection. The closed S4 bridge remains unimplemented.
- * Outbound frames carry
+ * Legacy injected management object-event port, NOT the S4 Pi channel.
+ * The separately versioned owner-only framed connection lives in
+ * bridge-{protocol,channel,registry,owner}.ts; S5 must replace this legacy
+ * management seam with challenged delivery on that connection. Outbound frames carry
  * identifiers, enums and digests only: no Goal text, no check definition, no
  * worker prose. An unknown frame kind, an unknown field, an oversized line or
  * a non-string field is a protocol error and never a partial application.

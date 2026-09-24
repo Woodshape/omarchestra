@@ -2,8 +2,11 @@
   "name": "omarchestra-local-workbench-v1",
   "private": true,
   "type": "module",
-  "description": "Local Workbench v1 Phase 1 presentation shell. Presentation-only: renders injected authoritative projections and emits validated intents. No durable runner, gate execution, dispatch, or live services.",
+  "description": "Local Workbench v1: durable local runner, presentation shell and opt-in content-free Pi bridge. No Assignment delivery or acceptance-check execution.",
   "engines": {
     "node": ">=22.6.0"
+  },
+  "pi": {
+    "extensions": ["./pi-extension.ts"]
   }
 }

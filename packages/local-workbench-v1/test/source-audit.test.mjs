@@ -1,9 +1,9 @@
 // Local Workbench v1 — Phase 1 source audit.
 //
-// Proves the package is desktop/provider-free: no imports from prototype or
-// spike evidence, no process supervision, no live-system tokens, no
-// configuration/provider access, and no runtime dependencies. Automation uses
-// injected fixtures and disposable state only.
+// Proves the package is desktop/provider-free: no prototype/spike imports,
+// process supervision, external service commands, provider credentials or
+// runtime dependencies. S4's owner-only local Pi socket is tested only under
+// a disposable root with a fake host; no live Pi or desktop is launched.
 
 import assert from 'node:assert/strict'
 import { readFileSync, readdirSync, statSync } from 'node:fs'
@@ -51,7 +51,7 @@ test('no module imports prototype or spike evidence', () => {
   }
 })
 
-test('no non-test module spawns processes or touches live systems', () => {
+test('no non-test module spawns processes or invokes external desktop/services', () => {
   const liveTokens = [
     ['Pi', /\bpi[ \t]+(?:-{1,2}|"|')|\bpi[ \t]*$/],
     ['Ghostty', /\bghostty\b/],
@@ -106,12 +106,18 @@ test('no module reads user configuration or provider state', () => {
     /XDG_STATE_HOME/,
     /\.local\/state/,
   ]
+  const bridgeAdapter = join(PACKAGE_ROOT, 'runner', 'pi-bridge-extension.ts')
   for (const path of allFiles) {
-    const value = source(path)
+    const value = path === bridgeAdapter
+      // The explicitly installed Pi adapter locates the owner-only Unix
+      // socket from XDG_RUNTIME_DIR; never transmit its path or any env value.
+      ? source(path).replace('process.env.XDG_RUNTIME_DIR', 'private-runtime-directory')
+      : source(path)
     for (const pattern of configTokens) {
       assert.doesNotMatch(value, pattern, `config/provider token in ${path}`)
     }
   }
+  assert.equal((source(bridgeAdapter).match(/process\.env\./g) ?? []).length, 1)
 })
 
 test('the companion release module reads only its own plugin directory', () => {
