@@ -92,14 +92,7 @@ Control {
                 spacing: Style.space(3)
                 RowLayout {
                     Layout.fillWidth: true
-                    WorkbenchAction {
-                        objectName: "workbench-managed-show-pane"
-                        Layout.fillWidth: true
-                        text: "Show terminal pane · " + (cardRow.modelData.sessionCode ? "Pi " + cardRow.modelData.sessionCode : "Session code unavailable")
-                            + " · " + cardRow.modelData.piStatus
-                        enabled: root.actionable && !!cardRow.modelData.terminalNavigation && cardRow.modelData.terminalNavigation.enabled
-                        onClicked: root.intentRequested({ kind: "present", target: cardRow.modelData.terminalNavigation.target, payload: ({}) })
-                    }
+                    Status { Layout.fillWidth: true; text: cardRow.modelData.piStatus }
                     WorkbenchAction {
                         id: agentMenu
                         objectName: "workbench-agent-actions"
@@ -109,11 +102,6 @@ Control {
                         highlighted: cardRow.actionsExpanded
                         onClicked: cardRow.actionsExpanded = !cardRow.actionsExpanded
                     }
-                }
-                Caption {
-                    objectName: "workbench-managed-navigation-result"
-                    Layout.fillWidth: true
-                    text: cardRow.modelData.terminalNavigation ? cardRow.modelData.terminalNavigation.reason : "Terminal navigation unavailable."
                 }
                 Caption {
                     Layout.fillWidth: true
@@ -166,31 +154,10 @@ Control {
                 required property var modelData
                 Layout.fillWidth: true
                 spacing: Style.space(3)
-                WorkbenchAction {
-                    objectName: "workbench-observed-show-pane"
-                    Layout.fillWidth: true
-                    text: "Show terminal pane · " + (observedRow.modelData.sessionCode ? "Pi " + observedRow.modelData.sessionCode : "Session code unavailable")
-                        + " · " + observedRow.modelData.piStatus
-                    enabled: root.actionable && !!observedRow.modelData.terminalNavigation && observedRow.modelData.terminalNavigation.enabled
-                    onClicked: root.intentRequested({ kind: "present", target: observedRow.modelData.terminalNavigation.target, payload: ({}) })
-                }
-                Caption {
-                    objectName: "workbench-observed-navigation-result"
-                    Layout.fillWidth: true
-                    text: observedRow.modelData.terminalNavigation ? observedRow.modelData.terminalNavigation.reason : "Terminal navigation unavailable."
-                }
+                Status { Layout.fillWidth: true; text: observedRow.modelData.piStatus }
                 Caption {
                     Layout.fillWidth: true
-                    objectName: "workbench-observed-facts"
-                    text: "Observed · unmanaged · connection " + observedRow.modelData.availability
-                        + " · " + observedRow.modelData.lifecycle + " · " + observedRow.modelData.activity
-                        + " · " + observedRow.modelData.health
-                }
-                Caption {
-                    objectName: "workbench-observed-adoption-reason"
-                    Layout.fillWidth: true
-                    visible: !!observedRow.modelData.adoptionReason
-                    text: observedRow.modelData.adoptionReason || ""
+                    text: "Observed · unmanaged · " + observedRow.modelData.availability + " · " + observedRow.modelData.lifecycle
                 }
                 Repeater {
                     model: observedRow.modelData.choices || []

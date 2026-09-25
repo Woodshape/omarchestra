@@ -117,13 +117,13 @@ test('same-owner reconnect recovers a lost outcome without dispatching it again'
   assert.equal(s.runner.epoch, 1)
 })
 
-test('unimplemented presentation/recovery operations return truthful unavailable outcomes', t => {
+test('presentation without a live navigation ticket and unimplemented recovery return truthful unavailable outcomes', t => {
   const s = fixture(t)
   for (const kind of ['present', 'recover']) {
     const result = s.authority.handleIntent({ protocol: 'omarchestra.workbench/v1', intentId: kind, sessionId: 'session', pluginGeneration: 1, runnerEpoch: s.runner.epoch,
       expectedRevision: 0, kind, target: 'run', payload: {} })
     assert.equal(result.status, 'rejected')
-    assert.equal(result.reasonCode, 'handler_unavailable')
+    assert.equal(result.reasonCode, kind === 'present' ? 'navigation_unavailable' : 'handler_unavailable')
     assert.equal(result.committedRevision, null)
   }
   assert.equal(s.runner.store.listEvents().length, 0)

@@ -14,8 +14,12 @@ identity and immutable authorized proposal.
 
 PID plus Linux process-start time and boot identity was rejected. It adds
 procfs coupling and process-timing metadata without replacing the need for a
-current same-process extension acknowledgement. PID remains optional restricted
-diagnostic metadata and never authorizes correlation, reconnect, or Adoption.
+current same-process extension acknowledgement. PID remains restricted local diagnostic/presentation-check metadata and never
+authorizes bridge identity correlation, reconnect, or Adoption. The later
+operator-approved [checked pane-navigation contract](../design/pi-terminal-behavior.md#approved-local-workbench-usability-slices)
+permits local process/start/TTY checks only inside the already-addressed Pi
+extension for a presentation-only request; these facts never cross the bridge
+or establish management authority.
 If an extension reload cannot retain a process capability, it creates a fresh
 identity and loses continuity rather than correlating by PID, cwd, terminal
 title, focus, recency, display name, or equal strings.

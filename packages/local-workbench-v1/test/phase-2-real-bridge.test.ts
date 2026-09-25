@@ -62,6 +62,8 @@ test('exact current connection, high-water, duplicates, capacity, lease and fenc
   const registered = (first.received[0] as { body: Record<string, unknown> }).body
   assert.equal(registry.list()[0].mode, 'observed')
   assert.equal(registry.list()[0].sessionCode, null, 'legacy extension has no invented matching footer')
+  assert.equal(registry.list()[0].navigation, null, 'legacy extension has no navigation capability or target')
+  assert.equal(registry.prepareNavigation('not-issued', 'request'), null)
   assert.equal(Object.hasOwn(registered, 'sessionCode'), false, 'legacy registered envelope is unchanged')
   first.client.sendFrame('heartbeat', 'heartbeat-1', { connectionId: registered.connectionId, connectionChallenge: registered.connectionChallenge, sourceSequence: 2, lifecycle: 'running', activity: 'busy', health: 'healthy' })
   assert.equal(registry.list()[0].activity, 'busy')
@@ -210,7 +212,11 @@ test('real owner-only Unix socket and fake Pi host: no content getters, fail-ope
   const hooks = new Map<string, (event: unknown, ctx: unknown) => void>()
   const statuses: Array<string | undefined> = []
   const ctx = { mode: 'tui', sessionManager: { getSessionId: () => 'session-1' }, isIdle: () => true, ui: { setStatus(_key: string, text: string | undefined) { statuses.push(text) } } }
-  const extension = createPiBridgeExtension({ socketPath: socket })
+  let navigationCalls = 0
+  const extension = createPiBridgeExtension({ socketPath: socket, navigate: async guard => {
+    assert.equal(guard(), true); navigationCalls++; return 'shown'
+  } })
+  t.after(() => hooks.get('session_shutdown')?.(null, ctx))
   extension({ on(name, handler) { hooks.set(name, handler as (event: unknown, ctx: unknown) => void) } })
   hooks.get('session_start')!(null, ctx)
   const deadline = Date.now() + 2000
@@ -218,6 +224,13 @@ test('real owner-only Unix socket and fake Pi host: no content getters, fail-ope
   assert.equal(owner.registry.list()[0]?.mode, 'observed')
   assert.match(owner.registry.list()[0].sessionCode!, /^[A-F0-9]{4}-[A-F0-9]{4}$/)
   assert.ok(statuses.includes(`Pi ${owner.registry.list()[0].sessionCode} · Unassigned · observed`))
+  // Transport boundary only; authority receipt-before-send is separately tested.
+  const request = owner.registry.prepareNavigation(owner.registry.list()[0].navigation!.ticket!, 'socket-navigation')
+  assert.ok(request); request()
+  const focusDeadline = Date.now() + 2000
+  while (owner.registry.list()[0].navigation?.state === 'checking' && Date.now() < focusDeadline) await new Promise(resolve => setTimeout(resolve, 10))
+  assert.equal(owner.registry.list()[0].navigation?.state, 'shown')
+  assert.equal(navigationCalls, 1)
   const input = { source: 'interactive', get text() { throw Error('privacy violation') }, get length() { throw Error('privacy violation') } }
   hooks.get('input')!(input, ctx)
   assert.equal(runner.store.listBindings().length, 0)

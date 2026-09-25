@@ -10,7 +10,12 @@ The operator-approved [three-slice sequence](../../plans/workbench-session-usabi
 now has development-only eligibility explanations and a [shared dock/Pi session
 code checkpoint](session-code-checkpoint.md). These direct changes have disposable
 host verification, not independent review, installed-release or physical-matching
-acceptance. Exact terminal focus remains the next slice.
+acceptance. The subsequent [checked pane-navigation checkpoint](checked-pane-navigation.md)
+implements the operator-approved best-effort navigation policy, preserving Herdr:
+full disposable gate PASS with 25 offscreen Qt rows. A subsequent authorized
+installation now verifies Companion 0.13.0 loaded and Owner epoch 12, with config
+and history preserved. Pi observer `/reload` remains pending. No atomic exact-focus,
+live focus, shared-code physical acceptance or independent-review claim is made.
 
 ## Evidence
 

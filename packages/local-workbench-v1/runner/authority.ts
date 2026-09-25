@@ -551,6 +551,17 @@ export class WorkbenchAuthority {
     if (intent.expectedRevision !== this.revision) {
       return this.record(intent, payloadHash, { status: 'stale', reasonCode: 'revision_changed', reason: 'The projection changed; re-read the current state before acting.', committedRevision: null })
     }
+    if (intent.kind === 'present') {
+      const effect = this.registry?.prepareNavigation(intent.target!, intent.intentId)
+      if (!effect) return this.record(intent, payloadHash, { status: 'rejected', reasonCode: 'navigation_unavailable',
+        reason: 'This terminal navigation target is unavailable or already checking.', committedRevision: null })
+      // The immutable receipt accepts the REQUEST, not a successful focus. The
+      // connection-bound result is separately projected; never resend on replay.
+      const outcome = this.record(intent, payloadHash, { status: 'acknowledged', reasonCode: 'navigation_requested',
+        reason: 'Navigation requested. Check the row for the verified outcome.', committedRevision: null })
+      effect()
+      return outcome
+    }
     if (intent.kind === 'retire' || intent.kind === 'purge') {
       if (intent.kind === 'retire' && this.registry) {
         const identity = this.runner.store.getBindingIdentity(String(intent.payload.agentRunId))
@@ -722,11 +733,9 @@ export class WorkbenchAuthority {
         this.adoption.takeControl(String(intent.payload.agentRunId))
         return { status: 'acknowledged', reasonCode: null, reason: null, committedRevision: this.revision }
       }
-      case 'present':
       case 'recover':
-        return { status: 'rejected', reasonCode: 'handler_unavailable', reason: intent.kind === 'recover'
-          ? 'Manual recovery is unavailable. A surviving Pi extension must prove its exact identity on a fresh bridge connection; reconnect alone grants no authority.'
-          : 'Exact native terminal presentation is not implemented; no window was opened.', committedRevision: null }
+        return { status: 'rejected', reasonCode: 'handler_unavailable',
+          reason: 'Manual recovery is unavailable. A surviving Pi extension must prove its exact identity on a fresh bridge connection; reconnect alone grants no authority.', committedRevision: null }
       default:
         return {
           status: 'rejected',

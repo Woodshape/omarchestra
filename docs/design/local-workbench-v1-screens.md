@@ -110,8 +110,12 @@ Board backend is not available in this slice.
   managed rows show `Pi XXXX-XXXX`, matching that same Pi's named status slot;
   Add agent and Assignment target rows repeat it. Missing/legacy/disconnected
   codes explicitly show `Session code unavailable`. Codes never replace exact
-  target IDs and a changed visible code disarms an armed action. Lifetime and the
-  pending terminal-focus follow-up are tracked in
+  target IDs and a changed visible code disarms an armed action. Overview row
+  headers now expose **Show terminal pane**: one click emits `present` with only
+  the runner-issued connection ticket and an empty payload. This is navigation,
+  not a consequential authority change. Literal checked/unknown/unavailable
+  explanations stay in the dock; there is no popup or automatic retry.
+  Disconnected/legacy/checking rows disable navigation. Lifetime and evidence are tracked in
   [session usability](../plans/workbench-session-usability.md).
 - Board is visible but disabled with a short reason and emits no intent.
 - Back: none (root). Escape disarms an armed action first, then closes an open menu or Project list; otherwise no-op.

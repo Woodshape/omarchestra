@@ -273,8 +273,10 @@ export class WorkbenchAdapter {
         ...snapshot.managedAgents.flatMap(card => card.actions),
       ]
       const observedChoice = kind === 'request_adoption' && snapshot.observedSessions.some(card => card.choices.some(choice => choice.choiceId === target && choice.enabled))
+      const navigation = kind === 'present' && [...snapshot.managedAgents, ...snapshot.observedSessions]
+        .some(card => card.terminalNavigation?.enabled && card.terminalNavigation.target === target)
       const purgeLeaf = kind === 'purge' && snapshot.retiredRuns.some(card => card.agentRunId === target && card.canPurge)
-      if (!observedChoice && !purgeLeaf && !actions.some(action => action.kind === kind && action.target === target && action.enabled)) throw new Error('action unavailable in authoritative projection')
+      if (!navigation && !observedChoice && !purgeLeaf && !actions.some(action => action.kind === kind && action.target === target && action.enabled)) throw new Error('action unavailable in authoritative projection')
     }
     const intentId = `wb-${this.intentNamespace}-${++this.intentCounter}`
     const intent: WorkbenchIntent = {

@@ -1,7 +1,7 @@
 // Local Workbench v1 — QML boundary and release audit.
 //
 // Proves the QML is presentation-only (no storage, process, PTY, SSH,
-// scraping, or label derivation), that the additive 0.12.0 release packages
+// scraping, or label derivation), that the additive 0.13.0 release packages
 // the QML byte-identical to the plugin source, and that the release does not
 // copy or alter historical prototype releases.
 
@@ -51,10 +51,10 @@ function allQmlSources() {
   return QML_FILES.map((name) => source(name))
 }
 
-test('the manifest exposes panel and bar-widget entry points at 0.12.0', () => {
+test('the manifest exposes panel and bar-widget entry points at 0.13.0', () => {
   const manifest = JSON.parse(source('manifest.json'))
   assert.equal(manifest.schemaVersion, 1)
-  assert.equal(manifest.version, '0.12.0')
+  assert.equal(manifest.version, '0.13.0')
   assert.equal(manifest.id, 'omarchestra.agent-console')
   assert.ok(Array.isArray(manifest.kinds) && manifest.kinds.includes('panel'))
   assert.equal(manifest.entryPoints?.panel, 'WorkbenchHost.qml')
@@ -128,9 +128,9 @@ test('QML emits intents only and never computes authority', () => {
   assert.doesNotMatch(combined, /(?:derive|compute|validate|check)(?:Adoption|Eligibility|Expiry|Identity|Digest)/i)
 })
 
-test('the additive 0.12.0 release packages QML byte-identical to the plugin source', async () => {
+test('the additive 0.13.0 release packages QML byte-identical to the plugin source', async () => {
   const { WORKBENCH_RELEASE } = await import('../companion/releases.ts')
-  assert.equal(WORKBENCH_RELEASE.version, '0.12.0')
+  assert.equal(WORKBENCH_RELEASE.version, '0.13.0')
   for (const file of QML_FILES) {
     assert.equal(
       WORKBENCH_RELEASE.assets[file],
@@ -140,8 +140,17 @@ test('the additive 0.12.0 release packages QML byte-identical to the plugin sour
   }
   assert.equal(
     JSON.parse(WORKBENCH_RELEASE.assets['manifest.json']).version,
-    '0.12.0',
+    '0.13.0',
   )
+})
+
+test('the installed 0.12.0 Companion is preserved against its receipt-validated aggregate hash', () => {
+  const retained = join(PACKAGE_ROOT, 'companion', 'retained', '0.12.0')
+  const names = readdirSync(retained).sort(), digest = createHash('sha256')
+  assert.equal(names.length, 15)
+  assert.equal(JSON.parse(readFileSync(join(retained, 'manifest.json'), 'utf8')).version, '0.12.0')
+  for (const name of names) digest.update(name).update(readFileSync(join(retained, name)))
+  assert.equal(digest.digest('hex'), '9cc9480aaf40e6f820f62a53300485838fa920d57ddc0225be72f83952865f32')
 })
 
 test('the previous installed 0.11.0 Companion remains byte-for-byte archived for rollback', () => {
@@ -192,7 +201,7 @@ test('the former installed 0.9.0 Companion assets remain byte-for-byte archived'
 
 test('the workbench release catalog contains only its own additive release', async () => {
   const { WORKBENCH_RELEASE_CATALOG } = await import('../companion/releases.ts')
-  assert.deepEqual(Object.keys(WORKBENCH_RELEASE_CATALOG), ['0.12.0'])
+  assert.deepEqual(Object.keys(WORKBENCH_RELEASE_CATALOG), ['0.13.0'])
 })
 
 test('the workbench release does not copy historical prototype release bytes', async () => {

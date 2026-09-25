@@ -196,9 +196,9 @@ Item {
       updated.observedSessions.push(second)
       verify(consoleView.applyProjection(updated)); wait(30)
       var texts = []; visibleTexts(surfaceRoot(), texts)
-      verify(texts.indexOf("Pi AAAA-1111 · " + updated.observedSessions[0].piStatus) >= 0)
-      verify(texts.indexOf("Pi BBBB-2222 · " + second.piStatus) >= 0)
-      verify(texts.indexOf("Pi BEEF-1234 · " + updated.managedAgents[0].piStatus) >= 0)
+      verify(texts.indexOf("Show terminal pane · Pi AAAA-1111 · " + updated.observedSessions[0].piStatus) >= 0)
+      verify(texts.indexOf("Show terminal pane · Pi BBBB-2222 · " + second.piStatus) >= 0)
+      verify(texts.indexOf("Show terminal pane · Pi BEEF-1234 · " + updated.managedAgents[0].piStatus) >= 0)
       var label = updated.observedSessions[0].choices[0].label
       clickItem(buttonsWithText(surfaceRoot(), label, [])[0])
       compare(consoleView.takeIntent(updated), "")
@@ -220,7 +220,7 @@ Item {
       updated.observedSessions[0].sessionCode = null
       verify(consoleView.applyProjection(updated)); wait(30)
       texts = []; visibleTexts(surfaceRoot(), texts)
-      verify(texts.indexOf("Session code unavailable · " + updated.observedSessions[0].piStatus) >= 0)
+      verify(texts.indexOf("Show terminal pane · Session code unavailable · " + updated.observedSessions[0].piStatus) >= 0)
     }
 
     function test_observedActivityAndIneligibilityAreVisibleWithoutPopups() {
@@ -256,6 +256,34 @@ Item {
       compare(buttonsWithText(surfaceRoot(), idle.choices[0].label, []).length, 2)
       texts = []; visibleTexts(surfaceRoot(), texts)
       verify(texts.indexOf(busy.adoptionReason) < 0, "obsolete reason is removed")
+    }
+
+    function test_showTerminalPaneUsesOneClickAndOnlyRunnerTicketWithHonestResults() {
+      openJourney()
+      var updated = JSON.parse(JSON.stringify(host.snapshot)); updated.revision += 1
+      updated.observedSessions[0].terminalNavigation = { target: "navigate-observed", enabled: true, state: "idle", reason: "Checked navigation, not atomic focus." }
+      updated.managedAgents[0].terminalNavigation = { target: "navigate-managed", enabled: true, state: "idle", reason: "Checked navigation, not atomic focus." }
+      verify(consoleView.applyProjection(updated)); wait(30)
+      for (var kind of ["observed", "managed"]) {
+        clickItem(visualNamed(surfaceRoot(), "workbench-" + kind + "-show-pane"))
+        var request = JSON.parse(consoleView.takeIntent(updated))
+        compare(request.kind, "present"); compare(request.target, "navigate-" + kind)
+        compare(Object.keys(request.payload).length, 0)
+        compare(consoleView.takeIntent(updated), "", "no Adoption or second action")
+      }
+      updated = JSON.parse(JSON.stringify(updated))
+      updated.observedSessions[0].terminalNavigation = { target: "navigate-observed", enabled: false, state: "checking", reason: "Checking terminal navigation…" }
+      verify(consoleView.applyProjection(updated)); wait(30)
+      compare(visualNamed(surfaceRoot(), "workbench-observed-show-pane").enabled, false)
+      updated = JSON.parse(JSON.stringify(updated))
+      updated.observedSessions[0].terminalNavigation = { target: "navigate-observed", enabled: true, state: "unknown", reason: "Navigation could not be verified; focus may have changed." }
+      verify(consoleView.applyProjection(updated)); wait(30)
+      var texts = []; visibleTexts(surfaceRoot(), texts)
+      verify(texts.indexOf(updated.observedSessions[0].terminalNavigation.reason) >= 0)
+      compare(consoleView.takeIntent(updated), "", "unknown does not retry")
+      updated = JSON.parse(JSON.stringify(updated)); updated.connection = "disconnected"
+      verify(consoleView.applyProjection(updated)); wait(30)
+      compare(visualNamed(surfaceRoot(), "workbench-observed-show-pane").enabled, false)
     }
 
     function test_closeDockSendsPresentationOnlyRequest() {
@@ -503,10 +531,10 @@ Item {
 
     function test_loadedCompanionVersionAppearsBesideRunnerStatus() {
       openJourney()
-      consoleView.manifest = { version: "0.12.0" }
+      consoleView.manifest = { version: "0.13.0" }
       var version = findChild(surfaceRoot(), "workbench-version")
       verify(version !== null && version.visible)
-      compare(version.text, "v0.12.0")
+      compare(version.text, "v0.13.0")
       verify(version.font.pixelSize < findChild(surfaceRoot(), "workbench-close").font.pixelSize,
         "version is visually secondary to the Runner status")
     }

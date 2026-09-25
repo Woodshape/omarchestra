@@ -1,5 +1,5 @@
 import { incarnationKey, type PiIncarnation } from './binding-identity.ts'
-import { bridgeId, encodeBridgeFrame, SESSION_CODE_CAPABILITY, type BridgeFrame } from './bridge-protocol.ts'
+import { bridgeId, encodeBridgeFrame, SESSION_CODE_CAPABILITY, PANE_NAVIGATION_CAPABILITY, type BridgeFrame } from './bridge-protocol.ts'
 import { SessionCodes } from './session-code.ts'
 import type { WorkbenchStore } from './store.ts'
 import type { FenceLedger } from './fences.ts'
@@ -7,11 +7,12 @@ import type { FenceLedger } from './fences.ts'
 export const BRIDGE_LEASE_MS = 15_000
 export const BRIDGE_HEARTBEAT_MS = 5_000
 export interface BridgePeer { send(bytes: Buffer): void; close(): void }
-export interface ObservedPi { observedSessionId: string; sessionCode: string | null; incarnation: PiIncarnation; lifecycle: string; activity: string; health: string; available: boolean; mode: 'observed' | 'committed' }
+export type NavigationState = 'idle' | 'checking' | 'shown' | 'unavailable' | 'unknown'
+export interface ObservedPi { observedSessionId: string; sessionCode: string | null; navigation: { ticket: string | null; state: NavigationState } | null; incarnation: PiIncarnation; lifecycle: string; activity: string; health: string; available: boolean; mode: 'observed' | 'committed' }
 export interface BridgeSourceInput { incarnation: PiIncarnation; observedSessionId: string; connectionId: string; connectionChallenge: string; sourceSequence: number; eventId: string }
 /** Trusted S5 callback, called only on the exact current transport object. */
 export interface BridgeAdoptionAck { incarnation: PiIncarnation; observedSessionId: string; connectionId: string; connectionChallenge: string; peer: BridgePeer; frame: BridgeFrame }
-type Entry = { key: string; sessionCode: string | null; identity: PiIncarnation; peer: BridgePeer | null; connectionId: string; challenge: string; observedId: string; attempt: number; sequence: number; deadline: number; lifecycle: string; activity: string; health: string; mode: 'observed' | 'committed'; dedup: Map<string, string> }
+type Entry = { key: string; sessionCode: string | null; navigation: { ticket: string; sequence: number; requestId: string | null; deadline: number; state: NavigationState } | null; identity: PiIncarnation; peer: BridgePeer | null; connectionId: string; challenge: string; observedId: string; attempt: number; sequence: number; deadline: number; lifecycle: string; activity: string; health: string; mode: 'observed' | 'committed'; dedup: Map<string, string> }
 function refuse(code: string): never { throw new Error(code) }
 /** One instance belongs to one runner owner, not to a presentation client. */
 export class BridgeRegistry {
@@ -31,7 +32,10 @@ export class BridgeRegistry {
   private issue(prefix: string) { const value = (this.options.issue ?? bridgeId)(prefix); if (!/^[A-Za-z0-9_-]{32,128}$/.test(value)) refuse('invalid_identity'); return value }
   private snapshot(entry: Entry): ObservedPi {
     const available = entry.peer !== null && this.now() < entry.deadline
+    const n = entry.navigation
     return { observedSessionId: entry.observedId, sessionCode: available ? entry.sessionCode : null,
+      navigation: available && n ? { ticket: n.ticket, state: n.state === 'checking' && this.now() >= n.deadline ? 'unknown' : n.state }
+        : n?.state === 'checking' ? { ticket: null, state: 'unknown' } : null,
       incarnation: { ...entry.identity }, lifecycle: entry.lifecycle, activity: entry.activity, health: entry.health, available, mode: entry.mode }
   }
   list(): ObservedPi[] { this.expire(); return this.listCurrent() }
@@ -54,6 +58,28 @@ export class BridgeRegistry {
     const entry = [...this.records.values()].find(e => e.observedId === observedId)
     return entry?.peer && this.now() < entry.deadline && entry.connectionId === connectionId && entry.challenge === challenge ? entry.peer : null
   }
+  /** Prepare without sending. Caller persists the intent receipt before invoking
+   * this one-shot effect. No automatic replay after failure or owner restart. */
+  prepareNavigation(ticket: string, requestId: string): (() => void) | null {
+    const entry = [...this.records.values()].find(e => e.navigation?.ticket === ticket)
+    if (!entry?.peer || this.now() >= entry.deadline || this.options.fences.isIncarnationFenced(entry.key)
+        || (entry.navigation!.state === 'checking' && this.now() < entry.navigation!.deadline)) return null
+    const peer = entry.peer, connection = entry.connectionId
+    let used = false
+    return () => {
+      if (used) return
+      used = true
+      const n = entry.navigation!
+      if (entry.peer !== peer || this.peers.get(peer) !== entry || entry.connectionId !== connection || this.now() >= entry.deadline
+          || this.options.fences.isIncarnationFenced(entry.key)) { n.state = 'unknown'; return }
+      n.sequence++; n.requestId = requestId; n.deadline = this.now() + 5000; n.state = 'checking'
+      try { peer.send(encodeBridgeFrame('focus_request', bridgeId('focus'), {
+        requestId, requestSequence: n.sequence, connectionId: entry.connectionId, connectionChallenge: entry.challenge,
+        observedSessionId: entry.observedId, processInstanceId: entry.identity.processInstanceId,
+        piSessionId: entry.identity.piSessionId, extensionInstanceId: entry.identity.extensionInstanceId, remainingMs: 5000,
+      })) } catch { n.state = 'unknown' }
+    }
+  }
   receive(peer: BridgePeer, frame: BridgeFrame): void {
     if (frame.type === 'register') { this.register(peer, frame); return }
     const entry = this.peers.get(peer)
@@ -61,7 +87,7 @@ export class BridgeRegistry {
     if (this.options.fences.isIncarnationFenced(entry.key)) refuse('fence_conflict')
     const body = frame.body
     if (frame.type === 'registered' || frame.type === 'rejected' || frame.type === 'input_received'
-        || frame.type === 'adoption_request' || frame.type === 'adoption_committed' || frame.type === 'recovery_request') refuse('invalid_bridge_envelope')
+        || frame.type === 'adoption_request' || frame.type === 'adoption_committed' || frame.type === 'recovery_request' || frame.type === 'focus_request') refuse('invalid_bridge_envelope')
     if (body.connectionId !== entry.connectionId || body.connectionChallenge !== entry.challenge) refuse('connection_not_current')
     const serialized = JSON.stringify(frame)
     const prior = entry.dedup.get(frame.messageId)
@@ -93,7 +119,11 @@ export class BridgeRegistry {
     entry.dedup.set(frame.messageId, serialized)
     if (entry.dedup.size > 256) entry.dedup.delete(entry.dedup.keys().next().value!)
     entry.deadline = this.now() + BRIDGE_LEASE_MS
-    if (frame.type === 'adoption_ack') {
+    if (frame.type === 'focus_result') {
+      const n = entry.navigation
+      // Ignore obsolete/late results, never attribute them to a newer click.
+      if (n && n.state === 'checking' && n.requestId === body.requestId && this.now() < n.deadline) n.state = body.status as NavigationState
+    } else if (frame.type === 'adoption_ack') {
       const handler = this.management?.onAdoptionAck ?? this.options.onAdoptionAck
       if (!handler || entry.mode !== 'observed'
           || body.processInstanceId !== entry.identity.processInstanceId
@@ -160,7 +190,9 @@ export class BridgeRegistry {
     if (former) this.peers.delete(former)
     const codeSupported = (body.capabilities as string[]).includes(SESSION_CODE_CAPABILITY)
     const sessionCode = codeSupported ? this.codes.forIdentity(key) : null
-    const entry: Entry = { key, sessionCode, identity, peer, connectionId: this.issue('connection'), challenge: this.issue('challenge'), observedId: existing?.observedId ?? this.issue('observed'), attempt, sequence, deadline: this.now() + BRIDGE_LEASE_MS, lifecycle: body.lifecycle as string, activity: body.activity as string, health: body.health as string, mode, dedup: new Map() }
+    const navigation: Entry['navigation'] = (body.capabilities as string[]).includes(PANE_NAVIGATION_CAPABILITY)
+      ? { ticket: this.issue('navigate'), sequence: 0, requestId: null, deadline: 0, state: 'idle' } : null
+    const entry: Entry = { key, sessionCode, navigation, identity, peer, connectionId: this.issue('connection'), challenge: this.issue('challenge'), observedId: existing?.observedId ?? this.issue('observed'), attempt, sequence, deadline: this.now() + BRIDGE_LEASE_MS, lifecycle: body.lifecycle as string, activity: body.activity as string, health: body.health as string, mode, dedup: new Map() }
     const response = encodeBridgeFrame('registered', frame.messageId, { observedSessionId: entry.observedId, executionNodeId: this.options.nodeId, connectionId: entry.connectionId, connectionChallenge: entry.challenge, acceptedRegistrationAttempt: attempt, acceptedSourceSequence: sequence, leaseDurationMs: BRIDGE_LEASE_MS, heartbeatIntervalMs: BRIDGE_HEARTBEAT_MS, mode, ...(codeSupported ? { sessionCode } : {}) })
     this.records.set(key, entry); this.peers.set(peer, entry)
     this.water.set(key, { attempt, sequence })

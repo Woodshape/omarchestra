@@ -110,10 +110,18 @@ export interface GoalSummary {
   actions: WorkbenchAction[]
 }
 
+export interface TerminalNavigation {
+  target: string | null
+  enabled: boolean
+  state: 'idle' | 'checking' | 'shown' | 'unavailable' | 'unknown'
+  reason: string
+}
+
 export interface ManagedAgentCard {
   agentRunId: string
   /** Display-only code shared with the currently connected Pi footer. */
   sessionCode?: string | null
+  terminalNavigation?: TerminalNavigation
   role: string
   piStatus: string
   controlMode: ControlMode
@@ -138,6 +146,7 @@ export interface ObservedSessionCard {
   observedSessionId: string
   /** Absent/null means the current peer cannot supply a shared visual code. */
   sessionCode?: string | null
+  terminalNavigation?: TerminalNavigation
   piStatus: string
   lifecycle: string
   availability: string
@@ -374,8 +383,9 @@ function requireObject(value: unknown, where: string): Record<string, unknown> {
     feedback: 'intentId sessionId target originRevision status reasonCode committedRevision',
     projects: 'projectId executionNodeId canonicalPath gitCommonDir revision dirty contextMatch',
     goals: 'goalId projectId goalText state outcome createdAt actions',
-    managedAgents: 'agentRunId sessionCode role piStatus controlMode connectionStatus assignment lastEvent predecessorAgentRunId actions',
-    observedSessions: 'observedSessionId sessionCode piStatus lifecycle availability activity health adoptionReasonCode adoptionReason choices',
+    terminalNavigation: 'target enabled state reason',
+    managedAgents: 'agentRunId sessionCode terminalNavigation role piStatus controlMode connectionStatus assignment lastEvent predecessorAgentRunId actions',
+    observedSessions: 'observedSessionId sessionCode terminalNavigation piStatus lifecycle availability activity health adoptionReasonCode adoptionReason choices',
     retiredRuns: 'agentRunId role piStatus retiredAt predecessorAgentRunId replacementAgentRunId canPurge purgeBlockedReason',
     assignments: 'assignmentId projectId goalId agentRunId goalText state attemptId gateId gateVersion gateResult candidateRef correctionCount correctionLimit diagnostics artifactRefs',
     activity: 'eventId cursor kind reasonCode label createdAt',
@@ -473,11 +483,20 @@ function requireSessionCode(value: unknown, where: string): string | null {
   return value
 }
 
+export function validateTerminalNavigation(value: unknown): TerminalNavigation {
+  const where = 'terminalNavigation', obj = requireObject(value, where)
+  const target = requireNullableId(obj.target, `${where}.target`)
+  const state = requireEnum(obj.state, ['idle', 'checking', 'shown', 'unavailable', 'unknown'], `${where}.state`)
+  if (typeof obj.enabled !== 'boolean' || (obj.enabled && (target === null || state === 'checking'))) throw new SchemaError('invalid terminal navigation availability')
+  return { target, state, enabled: obj.enabled, reason: requireDisplay(obj.reason, `${where}.reason`) }
+}
+
 export function validateManagedAgentCard(value: unknown, where = 'managedAgent'): ManagedAgentCard {
   const obj = requireObject(value, where)
   return {
     agentRunId: requireId(obj.agentRunId, `${where}.agentRunId`),
     sessionCode: requireSessionCode(obj.sessionCode, `${where}.sessionCode`),
+    ...(obj.terminalNavigation === undefined ? {} : { terminalNavigation: validateTerminalNavigation(obj.terminalNavigation) }),
     role: requireDisplay(obj.role, `${where}.role`),
     piStatus: requireDisplay(obj.piStatus, `${where}.piStatus`),
     controlMode: requireEnum(obj.controlMode, CONTROL_MODES, `${where}.controlMode`),
@@ -508,6 +527,7 @@ export function validateObservedSessionCard(value: unknown, where = 'observedSes
   return {
     observedSessionId: requireId(obj.observedSessionId, `${where}.observedSessionId`),
     sessionCode: requireSessionCode(obj.sessionCode, `${where}.sessionCode`),
+    ...(obj.terminalNavigation === undefined ? {} : { terminalNavigation: validateTerminalNavigation(obj.terminalNavigation) }),
     piStatus: requireDisplay(obj.piStatus, `${where}.piStatus`),
     lifecycle: requireDisplay(obj.lifecycle, `${where}.lifecycle`),
     availability: requireDisplay(obj.availability, `${where}.availability`),

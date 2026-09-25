@@ -53,12 +53,12 @@ test('native preview release passes installer validation without a package-versi
   assert.equal(WORKBENCH_PREVIEW_RELEASE.compatibility, null)
 })
 
-test('exact installed 0.11.0 assets upgrade to 0.12.0 and roll back without touching other bar widgets', async () => {
+for (const previous of ['0.11.0', '0.12.0']) test(`exact installed ${previous} assets upgrade to ${WORKBENCH_PLUGIN_VERSION} and roll back without touching other bar widgets`, async () => {
   const { CompanionInstallation } = await import('../../prototypes/first-vertical-slice/companion/installation.ts')
   const { FakeOmarchy } = await import('../../prototypes/first-vertical-slice/companion/fake-omarchy.ts')
-  const archive = new URL('../../packages/local-workbench-v1/companion/retained/0.11.0/', import.meta.url)
+  const archive = new URL(`../../packages/local-workbench-v1/companion/retained/${previous}/`, import.meta.url)
   const oldAssets = Object.fromEntries(readdirSync(archive).map(name => [name, readFileSync(new URL(name, archive), 'utf8')]))
-  const old = freezeCompanionRelease({ ...WORKBENCH_PREVIEW_RELEASE, version: '0.11.0', assets: oldAssets })
+  const old = freezeCompanionRelease({ ...WORKBENCH_PREVIEW_RELEASE, version: previous, assets: oldAssets })
   const fake = new FakeOmarchy()
   const installer = new CompanionInstallation(fake.ports())
   const install = await installer.inspect({ operation: 'install', release: old })
@@ -67,7 +67,7 @@ test('exact installed 0.11.0 assets upgrade to 0.12.0 and roll back without touc
   const update = await installer.inspect({ operation: 'update', release: WORKBENCH_PREVIEW_RELEASE })
   await installer.execute(update, fake.authorization.grant(update))
   const receipt = JSON.parse(fake.ports().receipts.inspectNoFollow(WORKBENCH_PLUGIN_ID)!.bytes)
-  assert.equal(receipt.previousRelease.version, '0.11.0')
+  assert.equal(receipt.previousRelease.version, previous)
   assert.deepEqual(receipt.previousRelease.assets, oldAssets)
   const rollback = await installer.inspect({ operation: 'update', release: old })
   await installer.execute(rollback, fake.authorization.grant(rollback))
@@ -77,7 +77,7 @@ test('exact installed 0.11.0 assets upgrade to 0.12.0 and roll back without touc
     .filter(entry => entry.relativePath && Object.hasOwn(oldAssets, entry.relativePath))
     .map(entry => [entry.relativePath, entry.sha256])
   assert.deepEqual(ownedAssets(restored), ownedAssets(original), 'rollback restores exact old asset bytes, not inode identities')
-  assert.equal(JSON.parse(fake.ports().receipts.inspectNoFollow(WORKBENCH_PLUGIN_ID)!.bytes).release.version, '0.11.0')
+  assert.equal(JSON.parse(fake.ports().receipts.inspectNoFollow(WORKBENCH_PLUGIN_ID)!.bytes).release.version, previous)
 })
 
 test('active release updates a historical owned installation on an unfamiliar host, survives a further host upgrade and refuses stale plans', async () => {

@@ -83,6 +83,26 @@ The [S2 authority-envelope checkpoint](../reviews/local-workbench-phase-2-verifi
 
 Authority confirmations expire after 30 seconds and are invalidated by session/generation/epoch/target identity or relevant revision changes. The exact-target review is an inline part of the fixed dock rather than a modal pop-up. A normal heartbeat that changes no relevant confirmation fact preserves it; expiry or relevant change disables the confirm action and leaves a dismissible inline explanation rather than silently closing the review. Form drafts survive ordinary projection updates and are keyed by Project/Goal/Run as applicable. Draft text may remain when authority changes, but it is never an active confirmation. Clear obsolete feedback on target/session changes and reject late feedback for an obsolete association. Escape cancels a confirmation without emitting an intent. Board is visible but disabled, emits no action, and has no simulated messages. Fixture mode is persistently labeled, and unsupported management/execution actions cannot pretend to be live.
 
+### Checked local pane navigation amendment
+
+The operator-approved [navigation checkpoint](../reviews/local-workbench-phase-2-verification/checked-pane-navigation.md)
+adds optional `terminalNavigation: {target, enabled, state, reason}` to observed
+and managed cards. `state` is `idle|checking|shown|unavailable|unknown`; `target`
+is a fresh opaque connection-bound runner ticket, or null when unavailable.
+`present` has an empty payload and a single-click presentation-only path. The
+runner persists acceptance of the request before sending one `focus_request`
+through the optional `presentation.checked-pane` bridge capability. The exact
+Pi extension performs local pre/post checks and returns only a bounded outcome;
+OS routing metadata never becomes a domain identity or projection field.
+
+Receipt replay never focuses again. A five-second absent result is unknown,
+not success or automatic retry. A reconnect allocates a new ticket; no navigation
+is recovered/replayed across Owner restart. “Shown” is a past post-check result,
+not atomic exact-agent or attachment attestation. No Adoption, Assignment, input,
+control-mode change, terminal creation or runtime installation follows navigation.
+The first native leaf supports only the original local Herdr → Foot → Hyprland
+arrangement; physical acceptance and independent review remain unrun.
+
 ## C5. Assignment delivery and exact acknowledgement
 
 `Assignment = {assignmentId, projectId, goalId, agentRunId, goalText, writeAuthority, state, revision}`. `Attempt = {attemptId, assignmentId, ordinal, runBinding, gateVersion, context, writerEpoch, controlEpoch, deliveryId, state}`. Binding includes Node/process/session/extension capabilities and exact challenged connection, not only Run ID. Original and replacement Runs follow one dispatch resolver and identical checks.

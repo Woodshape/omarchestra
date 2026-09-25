@@ -1,0 +1,49 @@
+{
+  "protocol": 22,
+  "schema_version": 1,
+  "schemas": {
+    "request": {
+      "$defs": {
+        "PaneTarget": {
+          "properties": { "pane_id": { "type": "string" } },
+          "required": ["pane_id"],
+          "type": "object"
+        },
+        "AgentTarget": {
+          "properties": { "target": { "type": "string" } },
+          "required": ["target"],
+          "type": "object"
+        }
+      },
+      "oneOf": [
+        {
+          "properties": {
+            "method": { "const": "pane.focus", "type": "string" },
+            "params": { "$ref": "#/schemas/request/$defs/PaneTarget" }
+          },
+          "required": ["method", "params"],
+          "type": "object"
+        },
+        {
+          "properties": {
+            "method": { "const": "agent.focus", "type": "string" },
+            "params": { "$ref": "#/schemas/request/$defs/AgentTarget" }
+          },
+          "required": ["method", "params"],
+          "type": "object"
+        }
+      ]
+    },
+    "success_response": {
+      "$defs": {
+        "SessionSnapshot": {
+          "properties": {
+            "agents": {}, "focused_pane_id": {}, "focused_tab_id": {},
+            "focused_workspace_id": {}, "layouts": {}, "panes": {},
+            "protocol": {}, "tabs": {}, "version": {}, "workspaces": {}
+          }
+        }
+      }
+    }
+  }
+}

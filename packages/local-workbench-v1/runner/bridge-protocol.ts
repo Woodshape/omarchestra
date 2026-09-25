@@ -7,8 +7,10 @@ export const BRIDGE_BUFFER_BYTES = 32_768
 export const BRIDGE_CAPABILITIES = ['observe.lifecycle', 'adoption.acknowledge', 'managed.activate'] as const
 /** Optional presentation feature. Legacy peers receive the unchanged registered body. */
 export const SESSION_CODE_CAPABILITY = 'presentation.session-code'
+export const PANE_NAVIGATION_CAPABILITY = 'presentation.checked-pane'
 const validCapabilities = (v: unknown) => Array.isArray(v)
-  && (v.length === 3 || (v.length === 4 && v[3] === SESSION_CODE_CAPABILITY))
+  && (v.length === 3 || (v.length === 4 && v[3] === SESSION_CODE_CAPABILITY)
+    || (v.length === 5 && v[3] === SESSION_CODE_CAPABILITY && v[4] === PANE_NAVIGATION_CAPABILITY))
   && BRIDGE_CAPABILITIES.every((c, i) => v[i] === c)
 const id = (v: unknown): v is string => typeof v === 'string' && /^[A-Za-z0-9_-]{1,128}$/.test(v)
 const capability = (v: unknown): v is string => id(v) && v.length >= 32
@@ -35,6 +37,12 @@ const bodies = {
   binding_receipt: { runId: id, bindingDigest: digest, connectionId: capability, connectionChallenge: capability, sourceSequence: counter, activity: (v: unknown) => enums.activity.includes(v as never), pendingInput: (v: unknown) => typeof v === 'boolean' },
   recovery_request: { runId: id, bindingDigest: digest, processInstanceId: capability, piSessionId: id, extensionInstanceId: capability, connectionId: capability, connectionChallenge: capability },
   recovery_proof: { runId: id, bindingDigest: digest, processInstanceId: capability, piSessionId: id, extensionInstanceId: capability, connectionId: capability, connectionChallenge: capability, sourceSequence: counter, pendingInput: (v: unknown) => typeof v === 'boolean' },
+  focus_request: { requestId: id, requestSequence: (v: unknown) => counter(v) && v > 0,
+    connectionId: capability, connectionChallenge: capability, observedSessionId: id,
+    processInstanceId: capability, piSessionId: id, extensionInstanceId: capability,
+    remainingMs: (v: unknown) => counter(v) && v > 0 && v <= 5000 },
+  focus_result: { connectionId: capability, connectionChallenge: capability, sourceSequence: counter,
+    requestId: id, status: (v: unknown) => typeof v === 'string' && ['shown', 'unavailable', 'unknown'].includes(v) },
   rejected: { requestMessageId: id, code: (v: unknown) => enums.code.includes(v as never) },
 } as const
 export type BridgeType = keyof typeof bodies

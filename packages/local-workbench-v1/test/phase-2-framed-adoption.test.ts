@@ -14,18 +14,21 @@ import { WorkbenchAuthority } from '../runner/authority.ts'
 import { incarnationKey } from '../runner/binding-identity.ts'
 import { buildSnapshot } from '../runner/projection.ts'
 import { validateSnapshot } from '../console/schema.ts'
+import { WorkbenchAdapter } from '../console/live-projection-adapter.ts'
 class Stream extends EventEmitter {
   other!: Stream; dead = false; drop = new Set<string>(); sent: string[] = []
+  frames: ReturnType<typeof decodeBridgeFrame>[] = []
+  onWrite?: (frame: ReturnType<typeof decodeBridgeFrame>) => void
   write(bytes: Buffer) {
     if (this.dead) throw Error('closed')
-    const frame = decodeBridgeFrame(bytes.subarray(0, -1)); this.sent.push(frame.type)
+    const frame = decodeBridgeFrame(bytes.subarray(0, -1)); this.sent.push(frame.type); this.frames.push(frame); this.onWrite?.(frame)
     if (!this.drop.has(frame.type)) this.other.emit('data', bytes)
     return true
   }
   destroy() { if (this.dead) return; this.dead = true; this.emit('close'); if (!this.other.dead) this.other.destroy() }
 }
 function pair() { const a = new Stream(), b = new Stream(); a.other = b; b.other = a; return { a, b } }
-function fixture(t: TestContext) {
+function fixture(t: TestContext, navigate: (isCurrent: () => boolean) => Promise<'shown' | 'unavailable' | 'unknown'> = async () => 'shown') {
   const root = mkdtempSync(join(tmpdir(), 'wb-framed-adopt-'))
   let now = 1000
   const runner = openWorkbenchRunner({ roots: { stateDir: join(root, 'state') } })
@@ -49,10 +52,11 @@ function fixture(t: TestContext) {
   const host = { mode: 'tui', sessionManager: { getSessionId: () => 'pi-session' }, isIdle: () => idle,
     ui: { setStatus(key: string, value: string | undefined) { statuses.push(value); slots.set(key, value) } } }
   const streams: ReturnType<typeof pair>[] = []
+  const navigationCalls: number[] = []
   const ticks: Array<() => void> = []
   let serial = 0
   const processId = 'process-' + 'a'.repeat(32), extensionId = 'extension-' + 'b'.repeat(32)
-  createPiBridgeExtension({ newId: prefix => prefix === 'process' ? processId : prefix === 'extension' ? extensionId : `${prefix}-${(++serial).toString(16).padStart(32, '0')}`,
+  createPiBridgeExtension({ navigate: async guard => { navigationCalls.push(0); return navigate(guard) }, newId: prefix => prefix === 'process' ? processId : prefix === 'extension' ? extensionId : `${prefix}-${(++serial).toString(16).padStart(32, '0')}`,
     schedule: callback => { ticks.push(callback); return 0 as unknown as ReturnType<typeof setTimeout> },
     connect: async (onFrame, onClose) => {
       const p = pair(); streams.push(p)
@@ -60,7 +64,7 @@ function fixture(t: TestContext) {
       return attachBridgeStream(p.b, { onFrame: (_peer, frame) => onFrame(frame), onClose })
     },
   })({ on(name, fn) { hooks.set(name, fn as (event: unknown, ctx: unknown) => void) } })
-  return { root, runner, registry, authority, projectId, goalId, streams, hooks, host, statuses, slots,
+  return { root, runner, registry, authority, projectId, goalId, streams, hooks, host, statuses, slots, navigationCalls,
     time(v: number) { now = v }, idle(v: boolean) { idle = v }, async tick() { ticks.shift()?.(); await new Promise(resolve => setImmediate(resolve)) },
     async start() { hooks.get('session_start')!(null, host); await new Promise(resolve => setImmediate(resolve)) },
     async second(piSessionId = 'replacement-session') {
@@ -69,7 +73,7 @@ function fixture(t: TestContext) {
       const secondStatuses: Array<string | undefined> = []
       const next = { mode: 'tui', sessionManager: { getSessionId: () => piSessionId }, isIdle: () => true,
         ui: { setStatus(_key: string, value: string | undefined) { secondStatuses.push(value) } } }
-      createPiBridgeExtension({ newId: prefix => prefix === 'process' ? id : prefix === 'extension' ? extension : `${prefix}-${(++serial).toString(16).padStart(32, '0')}`,
+      createPiBridgeExtension({ navigate: async () => { navigationCalls.push(1); return 'shown' }, newId: prefix => prefix === 'process' ? id : prefix === 'extension' ? extension : `${prefix}-${(++serial).toString(16).padStart(32, '0')}`,
         schedule: () => 0 as unknown as ReturnType<typeof setTimeout>,
         connect: async (onFrame, onClose) => { const p = pair(); streams.push(p)
           attachBridgeStream(p.a, { onFrame: (peer, frame) => registry.receive(peer, frame), onClose: peer => registry.disconnect(peer) })
@@ -81,6 +85,114 @@ function fixture(t: TestContext) {
     },
   }
 }
+function navigationIntent(s: ReturnType<typeof fixture>, target: string, intentId: string) {
+  return { protocol: 'omarchestra.workbench/v1', intentId, sessionId: s.authority.sessionId,
+    pluginGeneration: s.authority.pluginGeneration, runnerEpoch: s.runner.epoch, expectedRevision: s.authority.currentRevision,
+    kind: 'present', target, payload: {} }
+}
+const turn = () => new Promise(resolve => setImmediate(resolve))
+
+test('navigation uses exact connection ticket, durable request receipt, real framed extension and no Adoption/control effects', async t => {
+  const s = fixture(t); await s.start(); await s.second()
+  const snapshot = () => validateSnapshot(buildSnapshot({ authority: s.authority, adoption: s.authority.adoption, connection: 'connected' }))
+  const rows = snapshot().observedSessions
+  const initialRevision = s.authority.currentRevision
+  for (const target of [rows[0].sessionCode!, rows[0].observedSessionId, '0xabc']) {
+    assert.equal(s.authority.handleIntent(navigationIntent(s, target, `forged-${target}`)).status, 'rejected')
+  }
+  const adapter = new WorkbenchAdapter({ source: { connect: async () => ({ send() {}, close() {} }) }, sink() {},
+    intentSink: intent => { s.authority.handleIntent(intent) }, clock: () => 0 })
+  adapter.applySnapshot(snapshot())
+  assert.throws(() => adapter.emitIntent('present', rows[1].sessionCode!, {}), /unavailable/)
+  s.streams[1].a.onWrite = frame => {
+    if (frame.type === 'focus_request') assert.ok(s.runner.store.getIntentResult(frame.body.requestId as string), 'receipt precedes socket mutation')
+  }
+  const envelope = adapter.emitIntent('present', rows[1].terminalNavigation!.target!, {})
+  const outcome = s.authority.handleIntent(envelope)
+  assert.equal(outcome.reasonCode, 'navigation_requested')
+  assert.equal(snapshot().observedSessions[1].terminalNavigation!.state, 'checking')
+  assert.equal(snapshot().observedSessions[1].terminalNavigation!.enabled, false)
+  await turn()
+  assert.deepEqual(s.navigationCalls, [1])
+  assert.equal(snapshot().observedSessions[1].terminalNavigation!.state, 'shown')
+  assert.deepEqual(s.authority.handleIntent(envelope), outcome)
+  const frame = s.streams[1].a.frames.find(f => f.type === 'focus_request')!
+  s.streams[1].a.write(encodeBridgeFrame(frame.type, 'duplicate-frame', frame.body))
+  for (const key of ['processInstanceId', 'extensionInstanceId', 'piSessionId', 'observedSessionId', 'connectionId', 'connectionChallenge']) {
+    s.streams[1].a.write(encodeBridgeFrame(frame.type, `wrong-${key}`, { ...frame.body, requestSequence: 2, [key]: 'x'.repeat(32) }))
+  }
+  await turn(); assert.deepEqual(s.navigationCalls, [1], 'neither envelope nor wire replay focuses again')
+  assert.equal(s.authority.currentRevision, initialRevision)
+  assert.equal(s.runner.store.listBindings().length, 0); assert.equal(s.runner.store.listProposals().length, 0)
+  assert.equal(snapshot().assignments.length, 0)
+})
+
+test('receipt failure and stale envelope never send a navigation request', async t => {
+  const s = fixture(t); await s.start()
+  const ticket = s.registry.list()[0].navigation!.ticket!
+  const original = navigationIntent(s, ticket, 'stale-navigation')
+  assert.equal(s.authority.handleIntent({ ...original, expectedRevision: original.expectedRevision + 1 }).status, 'stale')
+  const method = s.runner.store.putIntentResult
+  s.runner.store.putIntentResult = () => { throw Error('receipt fault') }
+  try { assert.throws(() => s.authority.handleIntent(navigationIntent(s, ticket, 'receipt-failure')), /receipt fault/) }
+  finally { s.runner.store.putIntentResult = method }
+  await turn()
+  assert.equal(s.streams[0].a.sent.includes('focus_request'), false)
+  assert.deepEqual(s.navigationCalls, [])
+  assert.equal(s.registry.list()[0].navigation!.state, 'idle')
+})
+
+test('lost navigation result becomes unknown; reconnect rejects old tickets and same-session replacement cannot receive old requests', async t => {
+  const s = fixture(t); await s.start()
+  const original = s.registry.list()[0]
+  const target = original.navigation!.ticket!
+  s.streams[0].b.drop.add('focus_result')
+  s.authority.handleIntent(navigationIntent(s, target, 'lost-result')); await turn()
+  assert.equal(s.registry.list()[0].navigation!.state, 'checking')
+  assert.equal(s.authority.handleIntent(navigationIntent(s, target, 'busy-request')).status, 'rejected')
+  s.time(6001)
+  assert.equal(s.registry.list()[0].navigation!.state, 'unknown')
+  assert.deepEqual(s.navigationCalls, [0])
+  const oldFrame = s.streams[0].a.frames.find(f => f.type === 'focus_request')!
+  s.streams[0].a.destroy(); await s.tick()
+  assert.notEqual(s.registry.list()[0].navigation!.ticket, target)
+  assert.equal(s.authority.handleIntent(navigationIntent(s, target, 'stale-ticket')).status, 'rejected')
+  s.streams.at(-1)!.a.write(encodeBridgeFrame(oldFrame.type, 'stale-wire', { ...oldFrame.body, requestSequence: 2 }))
+  await turn(); assert.deepEqual(s.navigationCalls, [0])
+  const replacement = await s.second(original.incarnation.piSessionId)
+  assert.notEqual(replacement.navigation!.ticket, target)
+  assert.equal(s.runner.store.listBindings().length, 0)
+})
+
+test('navigation remains presentation-only after Adoption and takeover; disconnect invalidates an in-flight local guard', async t => {
+  let guard: (() => boolean) | undefined, finish!: (result: 'shown') => void
+  const s = fixture(t, isCurrent => { guard = isCurrent; return new Promise(resolve => { finish = resolve }) })
+  await s.start()
+  const observed = s.registry.list()[0]
+  const p = s.authority.adoption.propose({ projectId: s.projectId, goalId: s.goalId, role: 'implementer', observedSessionId: observed.observedSessionId })
+  s.authority.adoption.authorize(p.proposalId)
+  s.hooks.get('input')!({ source: 'interactive' }, s.host)
+  const before = s.runner.store.getBinding(p.runId)
+  const snapshot = buildSnapshot({ authority: s.authority, adoption: s.authority.adoption, connection: 'connected' })
+  assert.equal(snapshot.managedAgents[0].terminalNavigation!.target, observed.navigation!.ticket)
+  s.authority.handleIntent(navigationIntent(s, observed.navigation!.ticket!, 'managed-navigation'))
+  await turn(); assert.equal(guard!(), true)
+  const getSessionId = s.host.sessionManager.getSessionId
+  s.host.sessionManager.getSessionId = () => { throw Error('host context unavailable') }
+  assert.equal(guard!(), false, 'a failed host-context read is fail-open for Pi')
+  s.host.sessionManager.getSessionId = getSessionId
+  s.streams[0].a.destroy(); assert.equal(guard!(), false)
+  finish('shown'); await turn()
+  assert.ok(!s.streams[0].b.sent.includes('focus_result'), 'no result on a dead/replaced connection')
+  assert.deepEqual(s.registry.list()[0].navigation, { ticket: null, state: 'unknown' })
+  const disconnected = buildSnapshot({ authority: s.authority, adoption: s.authority.adoption, connection: 'connected' }).managedAgents[0].terminalNavigation!
+  assert.equal(disconnected.state, 'unknown'); assert.equal(disconnected.enabled, false)
+  assert.match(disconnected.reason, /focus may have changed/)
+  assert.equal(before?.state, 'manual_takeover')
+  assert.equal(s.runner.store.getBinding(p.runId)?.state, 'manual_takeover_disconnected')
+  assert.equal(buildSnapshot({ authority: s.authority, adoption: s.authority.adoption, connection: 'connected' }).assignments.length, 0)
+})
+
 test('two real extension adapters share their own exact code with observed and managed projections', async t => {
   const s = fixture(t); await s.start(); const second = await s.second()
   const snapshot = () => validateSnapshot(buildSnapshot({ authority: s.authority, adoption: s.authority.adoption, connection: 'connected' }))

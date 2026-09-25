@@ -85,20 +85,48 @@ after observing indistinguishable rows with different Adoption choices:
   Pi's named status slot. This supplements `Unassigned · observed` (and managed
   Role/state); it is display identity only, never Adoption or connection authority.
   Unrelated status slots and ordinary terminal titles remain unchanged.
-- Implement click-to-focus through verified current terminal correlation. Missing,
-  ambiguous or stale correlation reports unavailable. Ordinary-session focus
-  neither launches a replacement nor promises PTY persistence or reattachment.
+- Implement checked best-effort **Show terminal pane** as agreed below. Missing,
+  ambiguous or stale preflight reports unavailable; uncertain post-dispatch
+  verification reports unknown. It neither launches a replacement nor promises
+  atomic exact-agent focus, PTY persistence or reattachment.
 
-Slices 1 and 2 are implemented in the development tree, not installed or
-live-validated. The [shared-code contract](../reviews/local-workbench-phase-2-verification/session-code-checkpoint.md)
+Slices 1 and 2 are implemented. Companion 0.13.0 is installed/loaded and the
+Owner reloaded; existing Pi observers still require `/reload` when idle.
+Physical shared-code matching remains unvalidated. The [shared-code contract](../reviews/local-workbench-phase-2-verification/session-code-checkpoint.md)
 uses independent collision-checked `Pi XXXX-XXXX` codes negotiated through the
 exact observer connection. Codes persist for that incarnation within the owner
 lifetime, including lease expiry/reconnect; a new owner renegotiates them. Only
 the currently connected bridge projects a code. Legacy or disconnected rows
 explicitly show code unavailable. No stored conversation identity or connection
 capability is shortened into a display code, and codes never authorize an action.
-The linked sequence owns implementation checkpoints and evidence limits; terminal
-focus remains unimplemented.
+The linked sequence owns implementation checkpoints and evidence limits. Checked
+navigation is implemented and disposable-tested, with Companion 0.13.0 now
+installed/loaded. Pi observer reload and physical focus remain unrun. The [terminal-focus spike](../../spikes/terminal-focus/README.md)
+found two current Pi panels in separate Herdr panes inside one Foot window.
+Window focus alone therefore does not satisfy exact Pi navigation. Herdr's public
+focus targets a pane/agent location without an expected-occupant guard, and its
+public snapshot does not identify current attached-client/window bindings.
+The operator subsequently approved **checked best-effort “Show terminal pane”**
+while keeping the existing Herdr layout. This supersedes the strict atomic-focus
+requirement for this bounded local ordinary-terminal path only: inspect the exact
+Pi's current pane and unique original ancestor window, revalidate before each
+focus step and after both, and report unavailable before mutation or unknown if
+verification fails after mutation. The unavoidable check/dispatch interval is
+explicitly accepted; no atomic exact-agent guarantee is claimed. Reattached or
+ambiguous presentations without the original ancestor window are unsupported.
+Stable process ancestry is not runtime attestation of the currently attached
+client: attachment changes that leave those facts intact may escape the checks.
+This limitation is not relabelled as verified attachment or exact-agent focus.
+
+Navigation executes only inside the addressed same-process Pi extension after an
+explicit runner-issued, connection-bound request. A leaf adapter may locally use
+its inherited Herdr routing context, procfs process/start/TTY metadata and public
+pane/window metadata. No routing environment value, PID, title, argument, path or
+terminal output crosses the observer bridge or reaches QML. These facts are for
+presentation checks only, never Adoption, process identity or management authority.
+Unknown environments fail without guessing the focused session. There is no
+terminal launch, attachment, layout change, keystroke/input injection, notification
+or automatic retry. “Shown” means only the post-check succeeded at that instant.
 
 ## Adoption
 

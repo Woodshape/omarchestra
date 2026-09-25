@@ -2,11 +2,14 @@
 import { connect as netConnect, type Socket } from 'node:net'
 import { join } from 'node:path'
 import { attachBridgeStream } from './bridge-channel.ts'
-import { BRIDGE_CAPABILITIES, SESSION_CODE_CAPABILITY, bridgeId, type BridgeFrame } from './bridge-protocol.ts'
+import { BRIDGE_CAPABILITIES, SESSION_CODE_CAPABILITY, PANE_NAVIGATION_CAPABILITY, bridgeId, type BridgeFrame } from './bridge-protocol.ts'
+
+import { showLocalTerminalPane } from './local-pane-navigation.ts'
+import type { NavigationResult } from './pane-navigation.ts'
 
 type Context = { mode: string; sessionManager: { getSessionId(): string | undefined }; isIdle(): boolean; hasPendingMessages?(): boolean; ui: { setStatus(key: string, text: string | undefined): void } }
 type PiAPI = { on(name: string, handler: (event: unknown, ctx: Context) => void): void }
-type Client = { sendFrame(type: 'register' | 'heartbeat' | 'input_observed' | 'close' | 'adoption_ack' | 'binding_receipt' | 'recovery_proof', id: string, body: Record<string, unknown>): void; close(): void }
+type Client = { sendFrame(type: 'register' | 'heartbeat' | 'input_observed' | 'close' | 'adoption_ack' | 'binding_receipt' | 'recovery_proof' | 'focus_result', id: string, body: Record<string, unknown>): void; close(): void }
 export function connectLocalPiBridge(path: string, onFrame: (frame: BridgeFrame) => void, onClose: () => void): Promise<Client> {
   return new Promise((resolve, reject) => {
     const socket: Socket = netConnect(path)
@@ -21,8 +24,9 @@ export function connectLocalPiBridge(path: string, onFrame: (frame: BridgeFrame)
   })
 }
 /** Injectable fake Pi host and paired-channel connector; no work in the factory. */
-export function createPiBridgeExtension(options: { socketPath?: string; connect?: (onFrame: (frame: BridgeFrame) => void, onClose: () => void) => Promise<Client>; schedule?: (callback: () => void, ms: number) => ReturnType<typeof setTimeout>; cancel?: (timer: ReturnType<typeof setTimeout>) => void; newId?: (prefix: string) => string } = {}) {
+export function createPiBridgeExtension(options: { socketPath?: string; connect?: (onFrame: (frame: BridgeFrame) => void, onClose: () => void) => Promise<Client>; schedule?: (callback: () => void, ms: number) => ReturnType<typeof setTimeout>; cancel?: (timer: ReturnType<typeof setTimeout>) => void; newId?: (prefix: string) => string; navigate?: ((isCurrent: () => boolean) => Promise<NavigationResult>) | null } = {}) {
   const issue = options.newId ?? bridgeId
+  const navigate = options.navigate === undefined ? showLocalTerminalPane : options.navigate
   const processInstanceId = issue('process')
   const extensionInstanceId = issue('extension')
   const connect = options.connect ?? ((onFrame, onClose) => connectLocalPiBridge(options.socketPath ?? join(process.env.XDG_RUNTIME_DIR ?? '/nonexistent', 'omarchestra-bridge.sock'), onFrame, onClose))
@@ -32,6 +36,7 @@ export function createPiBridgeExtension(options: { socketPath?: string; connect?
     let ctx: Context | null = null, client: Client | null = null
     let sessionId: string | null = null, observedSessionId: string | null = null, connectionId: string | null = null, challenge: string | null = null
     let sessionCode: string | null = null
+    let focusSequence = 0, activeFocus: object | null = null
     let attempt = 0, sequence = 0, connecting = false, stopped = true, retryMs = 500, mode: 'observed' | 'committed' = 'observed'
     let acknowledged: string | null = null
     let committed: { runId: string; digest: string; goalId: string; role: string; state: 'connecting' | 'ready' | 'manual_takeover' } | null = null
@@ -44,7 +49,7 @@ export function createPiBridgeExtension(options: { socketPath?: string; connect?
     } catch { /* never disrupt Pi or replace other extensions' status slots */ } }
     const activity = () => { try { return ctx && ctx.isIdle() && !ctx.hasPendingMessages?.() ? 'idle' : 'busy' } catch { return 'unknown' } }
     const clearTimer = () => { if (timer) cancel(timer); timer = null }
-    const send = (type: 'heartbeat' | 'input_observed' | 'close' | 'adoption_ack' | 'binding_receipt' | 'recovery_proof', extra: Record<string, unknown> = {}) => {
+    const send = (type: 'heartbeat' | 'input_observed' | 'close' | 'adoption_ack' | 'binding_receipt' | 'recovery_proof' | 'focus_result', extra: Record<string, unknown> = {}) => {
       if (!client || !connectionId || !challenge) return false
       sequence += 1
       try { client.sendFrame(type, issue('message'), { connectionId, connectionChallenge: challenge, sourceSequence: sequence, ...extra }); return true }
@@ -65,6 +70,27 @@ export function createPiBridgeExtension(options: { socketPath?: string; connect?
       try {
         const channel = await connect(frame => {
           if (current !== generation || !client) return
+          if (frame.type === 'focus_request' && navigate && connectionId && challenge) {
+            const b = frame.body
+            if (stopped || !ctx || ctx.mode !== 'tui' || ctx.sessionManager.getSessionId() !== sessionId
+                || b.processInstanceId !== processInstanceId || b.piSessionId !== sessionId || b.extensionInstanceId !== extensionInstanceId
+                || b.connectionId !== connectionId || b.connectionChallenge !== challenge || b.observedSessionId !== observedSessionId
+                || (b.requestSequence as number) <= focusSequence) return
+            focusSequence = b.requestSequence as number
+            if (activeFocus) { send('focus_result', { requestId: b.requestId, status: 'unknown' }); return }
+            const operation = {}, source = client, connection = connectionId, expires = performance.now() + (b.remainingMs as number)
+            activeFocus = operation
+            const isCurrent = () => {
+              try { return activeFocus === operation && current === generation && !stopped && client === source
+                && connectionId === connection && performance.now() < expires && ctx?.sessionManager.getSessionId() === sessionId }
+              catch { return false } // a host-context failure must never reject an unobserved promise
+            }
+            void Promise.resolve().then(() => isCurrent() ? navigate(isCurrent) : 'unavailable' as const)
+              .then(result => { if (isCurrent()) send('focus_result', { requestId: b.requestId, status: result }) })
+              .catch(() => { if (isCurrent()) send('focus_result', { requestId: b.requestId, status: 'unknown' }) })
+              .finally(() => { if (activeFocus === operation) activeFocus = null })
+            return
+          }
           if (frame.type === 'input_received' && connectionId && challenge
               && frame.body.connectionId === connectionId && frame.body.connectionChallenge === challenge
               && frame.body.eventId === pendingInput) { pendingInput = null; return }
@@ -121,6 +147,7 @@ export function createPiBridgeExtension(options: { socketPath?: string; connect?
           if (b.acceptedRegistrationAttempt !== attempt || b.acceptedSourceSequence !== sequence) { client.close(); return }
           observedSessionId = b.observedSessionId as string
           sessionCode = typeof b.sessionCode === 'string' ? b.sessionCode : null
+          focusSequence = 0; activeFocus = null
           connectionId = b.connectionId as string; challenge = b.connectionChallenge as string
           handshakeTicks = 0; retryMs = 500; mode = b.mode as 'observed' | 'committed'
           if (committed && mode !== 'committed') { client.close(); return }
@@ -139,12 +166,12 @@ export function createPiBridgeExtension(options: { socketPath?: string; connect?
         })
         if (current !== generation || stopped) { channel.close(); return }
         client = channel; handshakeTicks = 0; attempt += 1; sequence += 1
-        channel.sendFrame('register', issue('message'), { processInstanceId, piSessionId: sessionId, extensionInstanceId, hostMode: 'tui', capabilities: [...BRIDGE_CAPABILITIES, SESSION_CODE_CAPABILITY], registrationAttempt: attempt, sourceSequence: sequence, lifecycle: 'running', activity: activity(), health: 'healthy' })
+        channel.sendFrame('register', issue('message'), { processInstanceId, piSessionId: sessionId, extensionInstanceId, hostMode: 'tui', capabilities: [...BRIDGE_CAPABILITIES, SESSION_CODE_CAPABILITY, ...(navigate ? [PANE_NAVIGATION_CAPABILITY] : [])], registrationAttempt: attempt, sourceSequence: sequence, lifecycle: 'running', activity: activity(), health: 'healthy' })
       } catch { retryMs = Math.min(5000, retryMs * 2) /* fail open; scheduled retry */ }
       finally { connecting = false }
     }
     const stop = (reason: string) => {
-      generation += 1; stopped = true; clearTimer()
+      generation += 1; stopped = true; activeFocus = null; clearTimer()
       if (client) { send('close', { reason }); client.close() }
       client = null; observedSessionId = null; sessionCode = null; connectionId = null; challenge = null; status(); ctx = null; sessionId = null
     }

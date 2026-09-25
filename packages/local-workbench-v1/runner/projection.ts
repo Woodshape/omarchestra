@@ -21,6 +21,19 @@ export interface ProjectionOptions {
   clock?: () => number
 }
 
+function terminalNavigation(agent: import('./bridge-registry.ts').ObservedPi | undefined): import('../console/schema.ts').TerminalNavigation {
+  const n = agent?.navigation, state = n?.state ?? 'unavailable'
+  const reasons = {
+    idle: 'Show terminal pane · checked navigation, not atomic focus.',
+    checking: 'Checking terminal navigation…',
+    shown: 'Pane and window matched in the post-check (best effort).',
+    unavailable: 'No verified local Herdr pane/window; nothing was focused.',
+    unknown: 'Navigation could not be verified; focus may have changed.',
+  }
+  return { target: n?.ticket ?? null, enabled: !!n?.ticket && state !== 'checking', state,
+    reason: n ? reasons[state] : 'Terminal navigation unavailable: no connected presentation-capable Pi.' }
+}
+
 function goalActions(selected: boolean): WorkbenchSnapshot['goals'][number]['actions'] {
   return [
     {
@@ -131,6 +144,8 @@ export function buildSnapshot(options: ProjectionOptions): WorkbenchSnapshot {
       return {
         agentRunId: binding.runId,
         sessionCode: currentAgent?.sessionCode ?? null,
+        terminalNavigation: terminalNavigation(currentAgent ?? registryAgents.find(agent => currentIdentity
+          && incarnationKey(agent.incarnation) === currentIdentity.incarnationKey)),
         role: binding.role ?? 'unknown',
         piStatus: takenOver ? 'manual_takeover' : binding.state,
         controlMode: takenOver ? 'manual_takeover' : connected ? 'managed' : 'reconciling',
@@ -165,7 +180,7 @@ export function buildSnapshot(options: ProjectionOptions): WorkbenchSnapshot {
       const proposal = proposals.find(p => p.stage === 'proposed' && p.goalId === selectedGoalId && p.observedSessionId === agent.observedSessionId)
       const problem = authority.observedAdoptionProblem(agent, proposal?.proposalId)
       return {
-        observedSessionId: agent.observedSessionId, sessionCode: agent.sessionCode, piStatus: proposal ? 'proposal_pending' : 'observed', lifecycle: agent.lifecycle,
+        observedSessionId: agent.observedSessionId, sessionCode: agent.sessionCode, terminalNavigation: terminalNavigation(agent), piStatus: proposal ? 'proposal_pending' : 'observed', lifecycle: agent.lifecycle,
         availability: agent.available ? 'available' : 'unavailable', activity: agent.activity, health: agent.health,
         adoptionReasonCode: problem?.code ?? null, adoptionReason: problem?.reason ?? null,
         choices: proposal ? [{ choiceId: proposal.proposalId, role: proposal.role, label: `Authorize adoption as ${proposal.role}`,

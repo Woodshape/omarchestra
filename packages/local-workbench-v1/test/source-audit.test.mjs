@@ -1,6 +1,6 @@
 // Local Workbench v1 — Phase 1 source audit.
 //
-// Proves the package is desktop/provider-free: no prototype/spike imports,
+// Audits bounded native leaves: no prototype/spike imports,
 // process supervision, external service commands, provider credentials or
 // runtime dependencies. S4's owner-only local Pi socket is tested only under
 // a disposable root with a fake host; no live Pi or desktop is launched.
@@ -31,6 +31,7 @@ const PHASE_2_GATE = join(PACKAGE_ROOT, 'scripts', 'phase-2-gate.sh')
 // non-test module may spawn, and the one that does must use a fixed argv.
 const ONLY_GIT_INSPECTOR = join(PACKAGE_ROOT, 'runner', 'git-context.ts')
 const FIXED_DESKTOP_PORT = join(PACKAGE_ROOT, 'runner', 'desktop-command.ts')
+const NAVIGATION_PORT = join(PACKAGE_ROOT, 'runner', 'local-pane-navigation.ts')
 
 function source(path) {
   return readFileSync(path, 'utf8')
@@ -78,7 +79,7 @@ test('no other non-test module spawns processes or invokes external desktop/serv
     ['PTY', /\bpty\b|\bpseudo-terminal\b/i],
   ]
   for (const path of allFiles) {
-    if (path === ONLY_GIT_INSPECTOR || path === FIXED_DESKTOP_PORT) continue
+    if (path === ONLY_GIT_INSPECTOR || path === FIXED_DESKTOP_PORT || path === NAVIGATION_PORT) continue
     const value = source(path)
     for (const [name, pattern] of liveTokens) {
       assert.doesNotMatch(value, pattern, `${name} token in ${path}`)
@@ -119,7 +120,8 @@ test('no module reads user configuration or provider state', () => {
   ]
   const bridgeAdapter = join(PACKAGE_ROOT, 'runner', 'pi-bridge-extension.ts')
   for (const path of allFiles) {
-    const value = path === FIXED_DESKTOP_PORT ? source(path).replace(/process\.env\.(OMARCHY_PATH|XDG_RUNTIME_DIR|WAYLAND_DISPLAY)/g, 'explicit-desktop-environment')
+    const value = path === NAVIGATION_PORT ? source(path).replace('process.env', 'explicit-local-routing-context')
+      : path === FIXED_DESKTOP_PORT ? source(path).replace(/process\.env\.(OMARCHY_PATH|XDG_RUNTIME_DIR|WAYLAND_DISPLAY)/g, 'explicit-desktop-environment')
       : path === bridgeAdapter
       // The explicitly installed Pi adapter locates the owner-only Unix
       // socket from XDG_RUNTIME_DIR; never transmit its path or any env value.
@@ -130,6 +132,22 @@ test('no module reads user configuration or provider state', () => {
     }
   }
   assert.equal((source(bridgeAdapter).match(/process\.env\./g) ?? []).length, 1)
+})
+
+test('checked navigation has one lazy bounded native leaf, not an Owner desktop escape', () => {
+  const code = source(NAVIGATION_PORT)
+  assert.match(code, /export async function showLocalTerminalPane/)
+  assert.equal((code.match(/process\.env/g) ?? []).length, 1)
+  assert.match(code, /commandArgv\(command, target\)/)
+  assert.match(code, /shell: false, encoding: 'utf8', timeout: 600/)
+  assert.match(code, /killSignal: 'SIGKILL', maxBuffer: 1024 \* 1024, signal/)
+  assert.match(code, /\['dispatch', 'focuswindow', `address:\$\{target\}`\]/)
+  assert.match(code, /\['agent', 'focus', target\]/)
+  assert.doesNotMatch(code, /sendUserMessage|sendText|sendKey|kill\(|spawn\(|shell: true|\.config\/omarchy|shell\.json/)
+  for (const path of allFiles) {
+    if (path.endsWith('/pi-bridge-extension.ts')) continue
+    assert.doesNotMatch(source(path), /from ['"].*local-pane-navigation\.ts['"]/, path)
+  }
 })
 
 test('the companion release module reads only its own plugin directory', () => {
