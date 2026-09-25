@@ -30,6 +30,13 @@ Owner-only restart loaded the correction at epoch 14, preserving history and
 reconnecting both manual-takeover Runs without shell/Pi reload or Companion asset
 changes. Native flicker verification remains pending.
 
+The subsequent [standalone-window/navigation correction](standalone-window-navigation.md)
+adds the operator-approved direct Foot-window path and fixes the old window-focus
+syntax rejected by Lua-configured Hyprland. Full disposable gate PASS includes
+native-entry/CLI parser and real bridge coverage; a read-only native API probe
+passes. No live focus or Pi reload was performed, and existing Pi extensions still
+need a separately planned reload with fresh observation identity.
+
 ## Evidence
 
 - Reviewed the current `packages/local-workbench-v1/runner/` composition, authority, Adoption, transport, host, entry, paths, backup, Git-context, schema and projection implementations, plus relevant adapter and acceptance-test paths.

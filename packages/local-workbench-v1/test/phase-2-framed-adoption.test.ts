@@ -10,6 +10,8 @@ import { BridgeRegistry } from '../runner/bridge-registry.ts'
 import { attachBridgeStream } from '../runner/bridge-channel.ts'
 import { decodeBridgeFrame, encodeBridgeFrame } from '../runner/bridge-protocol.ts'
 import { createPiBridgeExtension } from '../runner/pi-bridge-extension.ts'
+import { showLocalTerminalPane } from '../runner/local-pane-navigation.ts'
+import { navigationFixture } from './navigation-fixture.ts'
 import { WorkbenchAuthority } from '../runner/authority.ts'
 import { incarnationKey } from '../runner/binding-identity.ts'
 import { buildSnapshot } from '../runner/projection.ts'
@@ -125,6 +127,49 @@ test('navigation uses exact connection ticket, durable request receipt, real fra
   assert.equal(s.authority.currentRevision, initialRevision)
   assert.equal(s.runner.store.listBindings().length, 0); assert.equal(s.runner.store.listProposals().length, 0)
   assert.equal(snapshot().assignments.length, 0)
+})
+
+test('actual native entry handles standalone and Herdr navigation through adapter, receipt and challenged extension', async t => {
+  for (const herdr of [false, true]) {
+    const { f, runtime } = navigationFixture(herdr)
+    const s = fixture(t, guard => showLocalTerminalPane(guard, runtime)); await s.start()
+    const snapshot = () => buildSnapshot({ authority: s.authority, adoption: s.authority.adoption, connection: 'connected' })
+    const adapter = new WorkbenchAdapter({ source: { connect: async () => ({ send() {}, close() {} }) }, sink() {},
+      intentSink: intent => { s.authority.handleIntent(intent) }, clock: () => 0 })
+    const observed = s.registry.list()[0]
+    const mutations = herdr ? ['pane:w1:p1', 'window-lua:0xabc'] : ['window-lua:0xabc']
+    for (const managed of [false, true]) {
+      if (managed) {
+        const proposal = s.authority.adoption.propose({ projectId: s.projectId, goalId: s.goalId, role: 'implementer', observedSessionId: observed.observedSessionId })
+        s.authority.adoption.authorize(proposal.proposalId)
+        s.hooks.get('input')!({ source: 'interactive' }, s.host)
+        assert.equal(s.runner.store.getBinding(proposal.runId)?.state, 'manual_takeover')
+      }
+      const bindings = s.runner.store.listBindings(), revision = s.authority.currentRevision
+      let requestId = ''
+      s.streams[0].a.onWrite = frame => {
+        if (frame.type === 'focus_request') { requestId = frame.body.requestId as string; assert.ok(s.runner.store.getIntentResult(requestId)) }
+      }
+      f.onMutation = () => assert.ok(s.runner.store.getIntentResult(requestId), 'actual CLI dispatch follows durable receipt')
+      f.mutations.length = 0
+      adapter.applySnapshot(snapshot())
+      const intent = adapter.emitIntent('present', observed.navigation!.ticket!, {})
+      await turn()
+      assert.deepEqual(f.mutations, mutations)
+      assert.equal(s.registry.list()[0].navigation?.state, 'shown')
+      s.authority.handleIntent(intent); await turn()
+      assert.deepEqual(f.mutations, mutations, 'receipt replay never dispatches again')
+      assert.equal(s.authority.currentRevision, revision)
+      assert.deepEqual(s.runner.store.listBindings(), bindings)
+      assert.equal(snapshot().assignments.length, 0)
+    }
+    f.failMutation = 'window-lua'; f.mutations.length = 0
+    adapter.applySnapshot(snapshot())
+    adapter.emitIntent('present', observed.navigation!.ticket!, {}); await turn()
+    assert.equal(s.registry.list()[0].navigation?.state, 'unknown', 'a native dispatch failure stays uncertain through the bridge')
+    assert.deepEqual(f.mutations, mutations, 'no fallback or retry after failed dispatch')
+    assert.doesNotMatch(JSON.stringify(s.streams[0].b.frames.filter(frame => frame.type === 'focus_result')), /0xabc|window-lua|w1:p1|\/fixture/)
+  }
 })
 
 test('receipt failure and stale envelope never send a navigation request', async t => {

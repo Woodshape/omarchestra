@@ -5,6 +5,14 @@ restarted. The operator subsequently reports live navigation but rejects its
 latency and dense rows; UX acceptance and independent review remain pending.** The operator chose checked best-effort navigation to
 preserve the existing Herdr layout. This is not atomic exact-agent focus.
 
+**Subsequent correction:** the operator reports successful Herdr pane switching
+with `Focus unverified` and unavailable standalone navigation. The approved
+[standalone-window follow-up](standalone-window-navigation.md) identifies the
+legacy window dispatcher being rejected by Lua-configured Hyprland, repairs API
+selection and adds checked direct Foot-window navigation. That code is disposable-
+tested but existing Pi extensions have not been reloaded. The original native
+leaf description below is historical, not the corrected command contract.
+
 ## Contract and implementation
 
 - Overview observed and managed row headers expose **Show terminal pane**. One

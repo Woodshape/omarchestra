@@ -435,6 +435,20 @@ it never starts an Owner, Pi, service, terminal, or domain action on its own.
 Same-button confirmation, receipt-before-dispatch and current-target guards remain
 mandatory. Installation/reload and physical latency acceptance are separate.
 
+### Standalone-window navigation amendment
+
+The operator additionally approved checked navigation to standalone local Foot
+windows and repair of the partial-focus defect reported as `Focus unverified`
+in the Herdr path.
+An addressed Pi may focus its uniquely correlated original Foot window without a
+Herdr pane only when direct local foreground/TTY ancestry proves the supported
+standalone arrangement. Unsupported multiplexers, wrappers, ambiguous windows or
+partial Herdr routing must fail closed, not fall back to window-only focus.
+Negotiate the compositor's supported focus syntax before mutation; preserve all
+identity/currentness checks and post-focus verification. This adds no Adoption,
+input, process control, terminal launch, attachment or persistence authority.
+Implementation approval does not authorize live focus tests or Pi/shell reloads.
+
 ### Installation and runtime boundary
 
 **Locked.** Per the operator-approved [capability-over-version decision](../adr/0005-negotiate-companion-features-not-host-package-versions.md), active Local Workbench setup and presentation no longer require one exact Omarchy or Quickshell package version. Validate the supported plugin API and the loaded Companion's exact protocol, release, capability set, presentation contract and generation. Package versions remain audit/freshness facts, not an install allowlist. Historical prototype evidence below retains its original pins; it does not govern the new active release.
@@ -670,6 +684,11 @@ These are specification/spike outputs rather than product-feature choices, but e
 - **Companion Plugin packaging and Projection Sessions:** the bounded prototype now covers explicit plan-bound setup/update/rollback/uninstall, owned-asset and configuration validation, exact compatibility negotiation, incomplete recovery, persistent installation across Team Goals, stale-generation rejection, authoritative reconstruction, acknowledged intents, and byte-identical runtime cleanup. The separate human gate proved live rendering on the pinned host; production packaging and broader compatibility remain separate from this closed prototype milestone.
 
 ## Decision log
+
+- The operator approved standalone local Foot-window checked navigation alongside
+  the existing Herdr-pane path, and investigation/repair of `Focus unverified`.
+  Keep exact same-process routing, bounded pre/post checks, no automatic fallback
+  or retry after focus dispatch, and separate live acceptance/reload authorization.
 
 - The operator approved the responsive dock amendment above: event-triggered
   presentation wakeup, guarded single-operation IPC, heartbeat/render separation,

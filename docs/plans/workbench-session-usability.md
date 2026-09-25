@@ -176,3 +176,25 @@ and genuine source-loss coverage. It keeps the two-second stale deadline and all
 loaded the correction at epoch 14, preserving history and reconnecting both
 manual-takeover Runs. No Companion install or Pi/shell reload was needed. Physical
 flicker verification remains pending.
+
+## Approved standalone-window and focus-verification follow-up
+
+The operator reports Herdr-to-Herdr switching works but both rows say `Focus
+unverified`; a standalone observed Pi cannot be focused. They explicitly approve
+(1) checked standalone-window navigation and (2) investigation/repair of the
+unverified result. The bounded added path is direct local Foot/Hyprland, not an
+unverified window fallback for Herdr or other multiplexers. Preserve no-focus-on-
+failed-preflight, exact postchecks, private routing facts, receipt-before-send,
+current challenged connection and at-most-once dispatch. Exit gate: native-leaf
+failure regressions, composed bridge coverage and the full disposable Phase-2 gate.
+Live focus tests, installation/reload and physical acceptance remain separate.
+
+The [implementation checkpoint](../reviews/local-workbench-phase-2-verification/standalone-window-navigation.md)
+now passes the full disposable gate. The old Herdr result was a genuine partial
+failure: pane switching succeeded, but legacy `focuswindow` syntax was invalid in
+the active Lua-configured compositor. Read-only parser/API probes confirm the
+cause and corrected dispatcher construction. The native leaf now selects Lua or
+explicitly identified legacy syntax and supports separately proved standalone
+Foot windows. No verification was removed, no fallback was added and no installed
+Companion assets changed. Existing Pi imports remain unchanged until operator
+reload; managed identity/reconciliation implications must be handled separately.

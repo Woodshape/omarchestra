@@ -134,8 +134,17 @@ not success or automatic retry. A reconnect allocates a new ticket; no navigatio
 is recovered/replayed across Owner restart. “Shown” is a past post-check result,
 not atomic exact-agent or attachment attestation. No Adoption, Assignment, input,
 control-mode change, terminal creation or runtime installation follows navigation.
-The first native leaf supports only the original local Herdr → Foot → Hyprland
-arrangement; physical acceptance and independent review remain unrun.
+The first native leaf supported only original local Herdr → Foot → Hyprland.
+The separately approved [standalone-window follow-up](../reviews/local-workbench-phase-2-verification/standalone-window-navigation.md)
+adds direct foreground Pi/same-TTY shell → original Foot → Hyprland, without
+inventing a pane. Partial Herdr context or any failed Herdr proof never falls back
+to window-only focus. Unknown wrappers, other multiplexers and ambiguous windows
+refuse. A fixed read-only compositor probe selects supported Lua/explicit legacy
+focus syntax before any mutation and pins that mode in every proof. Both paths
+retain postchecks and the four-second bound; no fallback/retry after dispatch.
+No bridge-envelope or installed Companion change is needed. Existing Pi extensions
+need separately authorized reload with fresh observation identity; physical
+acceptance and independent review remain pending.
 
 ## C5. Assignment delivery and exact acknowledgement
 

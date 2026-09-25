@@ -1,0 +1,30 @@
+Baseline before native focus syntax correction; trailing blank-line whitespace omitted.
+
+✖ Lua-configured Hyprland uses its checked window dispatcher after Herdr pane focus (3.24665ms)
+ℹ tests 1
+ℹ suites 0
+ℹ pass 0
+ℹ fail 1
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 133.000721
+
+✖ failing tests:
+
+test at packages/local-workbench-v1/test/pane-navigation.test.ts:57:1
+✖ Lua-configured Hyprland uses its checked window dispatcher after Herdr pane focus (3.24665ms)
+  AssertionError [ERR_ASSERTION]: Expected values to be strictly equal:
+
+  'unknown' !== 'shown'
+
+      at TestContext.<anonymous> (file:///home/woodshape/claude/omarchestra/packages/local-workbench-v1/test/pane-navigation.test.ts:59:10)
+      at async Test.run (node:internal/test_runner/test:1409:7)
+      at async startSubtestAfterBootstrap (node:internal/test_runner/harness:387:3) {
+    generatedMessage: true,
+    code: 'ERR_ASSERTION',
+    actual: 'unknown',
+    expected: 'shown',
+    operator: 'strictEqual',
+    diff: 'simple'
+  }

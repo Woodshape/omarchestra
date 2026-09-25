@@ -144,6 +144,18 @@ and a disposable production-path trace identify the main delay; an offscreen Qt
 experiment narrows—but does not establish—the native flicker cause. No production
 or installed-system change was made during that investigation.
 
+## Standalone-window and Lua focus follow-up
+
+After live use, the operator explicitly approved adding standalone Foot navigation
+and fixing `Focus unverified` despite Herdr pane switching. The
+[implementation/evidence checkpoint](../../docs/reviews/local-workbench-phase-2-verification/standalone-window-navigation.md)
+records a read-only confirmation that the legacy window-focus arguments cannot
+parse under the active Hyprland Lua dispatch wrapper. The new native-leaf route
+probes supported syntax before mutation; direct standalone windows require their
+own foreground/TTY/original-Foot proof, not fallback from failed Herdr checks.
+Disposable native/bridge/Lua-parser coverage passes. No live focus or Pi reload
+was performed; atomicity and attachment limitations remain unchanged.
+
 ## Disposition
 
 Retain the probe, reduced public schema and failure tests as evidence only.

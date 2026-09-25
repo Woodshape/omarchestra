@@ -142,6 +142,13 @@ test('checked navigation has one lazy bounded native leaf, not an Owner desktop 
   assert.match(code, /shell: false, encoding: 'utf8', timeout: 600/)
   assert.match(code, /killSignal: 'SIGKILL', maxBuffer: 1024 \* 1024, signal/)
   assert.match(code, /\['dispatch', 'focuswindow', `address:\$\{target\}`\]/)
+  assert.match(code, /\['dispatch', `hl\.dsp\.focus\(\{window="address:\$\{target\}"\}\)`\]/)
+  assert.match(code, /\['eval', FOCUS_API_PROBE\]/)
+  assert.match(code, /FOCUS_API_PROBE = 'local d = hl\.dsp\.focus\(\{window="address:0x0"\}\); assert\(type\(d\) == "function" or getmetatable\(d\) == "HL\.Dispatcher"\)'/)
+  assert.match(code, /export function localWindowPort/)
+  assert.match(code, /route\.herdr \? localPanePort\(options\) : localWindowPort/)
+  assert.match(code, /self\.foregroundGroup !== self\.group/)
+  assert.match(code, /self\.group !== self\.pid/)
   assert.match(code, /\['agent', 'focus', target\]/)
   assert.doesNotMatch(code, /sendUserMessage|sendText|sendKey|kill\(|spawn\(|shell: true|\.config\/omarchy|shell\.json/)
   for (const path of allFiles) {

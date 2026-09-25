@@ -27,17 +27,19 @@ function fixture() {
     processes: { pane_id: 'w1:p1', shell_pid: 90, foreground_process_group_id: 100, foreground_processes: [{ pid: 100 }] },
     windows: [{ pid: 70, address: '0xabc', mapped: true, hidden: false, class: 'foot' }],
     active: '0xdef', mutations: [] as string[], inspections: 0,
-    change: (_n: number) => {}, failMutation: '', activeWrong: false }
+    change: (_n: number) => {}, failMutation: '', activeWrong: false, windowApi: 'legacy' as 'legacy' | 'lua' }
   const port = localPanePort({ pid: 100, chain: () => structuredClone(f.chain), endpoints: () => f.endpoint,
     command: async (command, target) => {
       if (command === 'current') { f.change(++f.inspections); return { result: { pane: f.pane } } }
       if (command === 'processes') return { result: { process_info: f.processes } }
       if (command === 'windows') return f.windows
       if (command === 'active') return { address: f.activeWrong ? '0xbad' : f.active }
+      if (command === 'focus-api') return f.windowApi
       f.mutations.push(`${command}:${target}`)
       if (f.failMutation === command) throw Error('command_timeout')
       if (command === 'pane') f.pane.focused = true
-      if (command === 'window') f.active = target!
+      if (command === 'window' && f.windowApi === 'lua') throw Error('legacy dispatcher is invalid Lua')
+      if (command === 'window' || command === 'window-lua') f.active = target!
       return null
     } })
   return { f, port }
@@ -50,6 +52,13 @@ test('same-window panes route pane first, exact window second; all pre/post chec
     assert.deepEqual(f.mutations, [`pane:${id}`, 'window:0xabc'])
     assert.equal(f.inspections, 4)
   }
+})
+
+test('Lua-configured Hyprland uses its checked window dispatcher after Herdr pane focus', async () => {
+  const { f, port } = fixture(); f.windowApi = 'lua'
+  assert.equal(await showTerminalPane(port, () => true), 'shown')
+  assert.deepEqual(f.mutations, ['pane:w1:p1', 'window-lua:0xabc'])
+  assert.equal(f.inspections, 4, 'do not suppress any pre/post verification to report success')
 })
 
 test('local correlation discards ancillary titles, arguments, paths and content', async () => {

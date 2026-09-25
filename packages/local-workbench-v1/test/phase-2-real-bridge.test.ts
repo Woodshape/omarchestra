@@ -9,6 +9,8 @@ import { attachBridgeStream } from '../runner/bridge-channel.ts'
 import { BridgeRegistry } from '../runner/bridge-registry.ts'
 import { openOwnerPiBridge } from '../runner/bridge-owner.ts'
 import { connectLocalPiBridge, createPiBridgeExtension } from '../runner/pi-bridge-extension.ts'
+import { showLocalTerminalPane } from '../runner/local-pane-navigation.ts'
+import { navigationFixture } from './navigation-fixture.ts'
 import { openWorkbenchRunner } from '../runner/runner.ts'
 import { incarnationKey } from '../runner/binding-identity.ts'
 
@@ -213,8 +215,9 @@ test('real owner-only Unix socket and fake Pi host: no content getters, fail-ope
   const statuses: Array<string | undefined> = []
   const ctx = { mode: 'tui', sessionManager: { getSessionId: () => 'session-1' }, isIdle: () => true, ui: { setStatus(_key: string, text: string | undefined) { statuses.push(text) } } }
   let navigationCalls = 0
+  const { f: navigation, runtime: navigationRuntime } = navigationFixture()
   const extension = createPiBridgeExtension({ socketPath: socket, navigate: async guard => {
-    assert.equal(guard(), true); navigationCalls++; return 'shown'
+    assert.equal(guard(), true); navigationCalls++; return showLocalTerminalPane(guard, navigationRuntime)
   } })
   t.after(() => hooks.get('session_shutdown')?.(null, ctx))
   extension({ on(name, handler) { hooks.set(name, handler as (event: unknown, ctx: unknown) => void) } })
@@ -231,6 +234,7 @@ test('real owner-only Unix socket and fake Pi host: no content getters, fail-ope
   while (owner.registry.list()[0].navigation?.state === 'checking' && Date.now() < focusDeadline) await new Promise(resolve => setTimeout(resolve, 10))
   assert.equal(owner.registry.list()[0].navigation?.state, 'shown')
   assert.equal(navigationCalls, 1)
+  assert.deepEqual(navigation.mutations, ['window-lua:0xabc'], 'real socket reaches actual standalone navigation entry and CLI formatter')
   const input = { source: 'interactive', get text() { throw Error('privacy violation') }, get length() { throw Error('privacy violation') } }
   hooks.get('input')!(input, ctx)
   assert.equal(runner.store.listBindings().length, 0)

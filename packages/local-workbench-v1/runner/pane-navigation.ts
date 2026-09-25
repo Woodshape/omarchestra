@@ -2,9 +2,9 @@
 export type NavigationResult = 'shown' | 'unavailable' | 'unknown'
 export interface PaneProof {
   identity: string // local-only fingerprint of endpoints, process chain, pane and window
-  paneId: string
+  paneId: string | null // null only for a proved standalone window; never a fallback
   windowAddress: string
-  paneFocused: boolean
+  paneFocused: boolean | null
 }
 export interface PaneNavigationPort {
   inspect(signal: AbortSignal): Promise<PaneProof>
@@ -14,7 +14,7 @@ export interface PaneNavigationPort {
 }
 
 /** No automatic retry or rollback of a presentation change. Recheck the entire
- * proof before EACH mutation and after both. The unguarded interval remains an
+ * proof before EACH mutation and after the final mutation. The unguarded interval remains an
  * explicitly accepted usability risk, not an atomic exact-agent guarantee.
  */
 export async function showTerminalPane(port: PaneNavigationPort, isCurrent: () => boolean, timeoutMs = 4000): Promise<NavigationResult> {
@@ -33,14 +33,17 @@ export async function showTerminalPane(port: PaneNavigationPort, isCurrent: () =
       return current
     }
     await verify(); live()
-    changed = true // failure/timeout after dispatch is uncertain, never “nothing happened”
-    await port.focusPane(original.paneId, abort.signal)
-    await verify(); live()
+    if (original.paneId !== null) {
+      changed = true // failure/timeout after dispatch is uncertain, never “nothing happened”
+      await port.focusPane(original.paneId, abort.signal)
+      await verify(); live()
+    }
+    changed = true
     await port.focusWindow(original.windowAddress, abort.signal)
     const after = await verify()
     const active = await port.activeWindow(abort.signal)
     live()
-    if (!after.paneFocused || active !== original.windowAddress) throw Error('navigation_not_shown')
+    if ((original.paneId !== null && after.paneFocused !== true) || active !== original.windowAddress) throw Error('navigation_not_shown')
     return 'shown'
   } catch { return changed ? 'unknown' : 'unavailable' }
   finally { clearTimeout(timer); abort.abort() }

@@ -15,7 +15,8 @@
 # launches Pi, opens a desktop, mutates a user Project, delivers an Assignment or
 # executes an acceptance check. Only disposable Git fixtures are changed.
 # The gate asserts both execution zeros explicitly.
-# Node's node:sqlite is the only store.
+# Node's node:sqlite is the only store. /usr/bin/lua is required only for the
+# isolated compositor-expression grammar test; no live compositor is contacted.
 
 set -euo pipefail
 
@@ -75,6 +76,7 @@ run_node "${flags[@]}" --test \
     "$root/test/session-eligibility.test.ts" \
     "$root/test/session-code.test.ts" \
     "$root/test/pane-navigation.test.ts" \
+    "$root/test/window-navigation.test.ts" \
     "$root/test/phase-2-native-owner.test.ts" \
     "$root/test/presentation-wake.test.ts" \
     "$root/test/presentation-wake-client.test.mjs" \

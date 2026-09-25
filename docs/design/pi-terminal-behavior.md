@@ -125,6 +125,18 @@ Stable process ancestry is not runtime attestation of the currently attached
 client: attachment changes that leave those facts intact may escape the checks.
 This limitation is not relabelled as verified attachment or exact-agent focus.
 
+The operator subsequently approved a second bounded local path: a standalone
+Foot window on Hyprland, without Herdr. Require the addressed Pi's direct
+foreground process group, interactive input/output on that controlling TTY, a stable bounded same-TTY
+shell ancestry to its original Foot process, and exactly one mapped/non-hidden
+Foot window for that process. Unknown wrappers/multiplexers, TTY hops, incomplete
+inherited Herdr context, and ambiguous/changed windows refuse; failure of a Herdr
+proof never falls back to standalone window focus. Focus only that checked window,
+then recheck the proof and active-window address. No pane identity is invented.
+Both paths probe supported compositor focus syntax read-only before dispatch;
+CLI success alone still cannot report `shown`. This is not general terminal-host
+support or attachment attestation. Live focus and extension reload remain separate.
+
 Navigation executes only inside the addressed same-process Pi extension after an
 explicit runner-issued, connection-bound request. A leaf adapter may locally use
 its inherited Herdr routing context, procfs process/start/TTY metadata and public
