@@ -154,4 +154,4 @@ Recorded collaboration failures and limits:
 
 The bounded Phase 3 entry condition is [the Phase 3 handoff](../plans/local-workbench-v1-phase-3-handoff.md), which states the open Phase 2 requirements, the Phase 3 scope for one gated Assignment, and the Phase 4 intervention prerequisites that must be decided before any live dispatch.
 
-Nothing was committed or pushed. `prototypes/` and `spikes/` are unchanged, and the retained 0.6.0 and 0.7.0 releases are preserved outside the active catalogue.
+At this historical closeout, the 0.6.0 and 0.7.0 release copies remained outside the active catalogue. The later operator-approved source-history policy in [ADR 0006](../adr/0006-use-git-history-for-companion-release-source.md) removed those copies from the current tree; Git history preserves the prior files.

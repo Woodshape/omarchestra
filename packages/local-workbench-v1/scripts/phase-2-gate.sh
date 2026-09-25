@@ -107,8 +107,7 @@ run_node "${flags[@]}" --test "$root/../../spikes/workbench-heartbeat-cadence/pr
 printf '%s\n' '== Phase 1 boundary audits against the updated tree =='
 run_node "${flags[@]}" --test \
     "$root/test/source-audit.test.mjs" \
-    "$root/test/qml-boundary.test.mjs" \
-    "$root/test/retained-release.test.mjs"
+    "$root/test/qml-boundary.test.mjs"
 
 printf '%s\n' '== disposable Companion migration, receipt and release tests =='
 run_node "${flags[@]}" --test \

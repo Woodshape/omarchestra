@@ -92,6 +92,17 @@ export async function startNativeOwner(options: WorkbenchRunnerOptions & {
   const clients = new Set<Socket>()
   const path = ownerSocket(runner.roots.runtimeDir!)
   const desktop = options.desktop ?? null
+  let refreshUnavailable = false
+  function tickPresentation(current: WorkbenchHost, tickOptions?: { heartbeat?: boolean }) {
+    const outcome = current.tick(tickOptions)
+    if (outcome === 'refresh_deferred') {
+      if (!refreshUnavailable) console.error('workbench Companion refresh temporarily unavailable; retaining the dock and deferring queued intents until the next tick')
+      refreshUnavailable = true
+    } else if (refreshUnavailable) {
+      console.info('workbench Companion refresh recovered')
+      refreshUnavailable = false
+    }
+  }
   try {
     bridge = await openOwnerPiBridge(runner, join(runner.roots.runtimeDir!, 'omarchestra-bridge.sock'), { now: options.monotonic })
     authority = new WorkbenchAuthority({ runner, registry: bridge.registry, sessionId: `owner-${randomUUID()}`, pluginGeneration: 1, clock: options.clock })
@@ -118,6 +129,7 @@ export async function startNativeOwner(options: WorkbenchRunnerOptions & {
               if (!desktop) throw new Error('Installed Companion command port unavailable. Enable a compatible Companion and use an owner with desktop access.')
               const generation = negotiateCompanion(desktop)
               if (host) { const old = host; host = null; old.stop() }
+              refreshUnavailable = false
               // The bridge manager outlives views; hide/reopen changes neither
               // runner epoch nor membership, Pi connection nor owner lock.
               authority = new WorkbenchAuthority({ runner, registry: bridge!.registry, framedAdoption: manager,
@@ -126,6 +138,7 @@ export async function startNativeOwner(options: WorkbenchRunnerOptions & {
               const next = createWorkbenchHost({ authority, view, clock: options.monotonic, onHide: () => {
                 if (host !== next) return // stale shell generation cannot hide its successor
                 host = null
+                refreshUnavailable = false
                 next.stop()
               } })
               try { await next.start() } catch (error) { next.stop(); throw error }
@@ -133,6 +146,7 @@ export async function startNativeOwner(options: WorkbenchRunnerOptions & {
               result = { status: 'opened', sessionId: authority.sessionId, runnerEpoch: runner.epoch }
             } else if (incoming.type === 'hide') {
               if (host) { const old = host; host = null; old.stop() }
+              refreshUnavailable = false
               result = { status: 'hidden', runnerEpoch: runner.epoch }
             } else if (incoming.type === 'wake') {
               // Notification only: no action payload, launch or domain identity.
@@ -140,10 +154,10 @@ export async function startNativeOwner(options: WorkbenchRunnerOptions & {
               if (!host || incoming.sessionId !== authority!.sessionId
                   || incoming.pluginGeneration !== authority!.pluginGeneration) throw new Error('stale_presentation_wake')
               const current = host
-              try { current.tick() } catch (error) {
+              try { tickPresentation(current) } catch (error) {
                 // Same failure policy as the liveness tick: revoke only this
                 // view, never leave a failed fast path claiming to be open.
-                if (host === current) { host = null; try { current.stop() } catch { /* stale view */ } }
+                if (host === current) { host = null; refreshUnavailable = false; try { current.stop() } catch { /* stale view */ } }
                 throw error
               }
               result = { status: 'woken' }
@@ -170,27 +184,29 @@ export async function startNativeOwner(options: WorkbenchRunnerOptions & {
     const { dev, ino } = lstatSync(path)
     const schedule = options.schedule ?? ((tick, ms) => { const timer = setInterval(tick, ms); return () => clearInterval(timer) })
     cancelTimer = schedule(() => {
-      try { if (host) host.tick({ heartbeat: true }); else bridge?.registry.expire() }
+      try { if (host) tickPresentation(host, { heartbeat: true }); else bridge?.registry.expire() }
       catch (error) {
         // An acknowledged open is not a durable presentation if the next
         // poll fails. Leave an actionable owner-side diagnostic instead of
         // silently hiding the workbench after one second.
         console.error('workbench presentation tick unavailable:', error instanceof Error ? error.message : 'unknown error')
         if (host) { try { host.stop() } catch { /* stale shell */ } host = null }
+        refreshUnavailable = false
       }
     }, 1000)
     return {
       runner, registry: bridge.registry, socketPath: path,
       currentAuthority: () => authority!,
       tick() {
-        try { host?.tick({ heartbeat: true }) }
-        catch { const failed = host; host = null; try { failed?.stop() } catch { /* stale desktop cannot be cleared */ } }
+        try { if (host) tickPresentation(host, { heartbeat: true }) }
+        catch { const failed = host; host = null; refreshUnavailable = false; try { failed?.stop() } catch { /* stale desktop cannot be cleared */ } }
       },
       async close() {
         if (closed) return
         closed = true
         cancelTimer?.()
         if (host) { const prior = host; host = null; try { prior.stop() } catch { /* loaded plugin may have disappeared */ } }
+        refreshUnavailable = false
         for (const client of clients) client.destroy()
         try {
           const current = lstatSync(path)

@@ -9,7 +9,7 @@ import { fileURLToPath } from 'node:url'
 import { startNativeOwner, requestOwner } from '../runner/native-owner.ts'
 import { WORKBENCH_PLUGIN_VERSION, WORKBENCH_PLUGIN_ID, WORKBENCH_PROTOCOL_ID,
   WORKBENCH_PRESENTATION_CONTRACT, WORKBENCH_PRESENTATION_DESTINATIONS } from '../companion/contracts.ts'
-import { createDesktopView, negotiateCompanion, systemDesktopCommand, type DesktopCommandPort } from '../runner/desktop-command.ts'
+import { createDesktopView, DesktopCommandUnavailableError, negotiateCompanion, systemDesktopCommand, type DesktopCommandPort } from '../runner/desktop-command.ts'
 import { openWorkbenchRunner } from '../runner/runner.ts'
 import { WorkbenchAuthority } from '../runner/authority.ts'
 import { buildSnapshot } from '../runner/projection.ts'
@@ -28,6 +28,10 @@ test('installed shell accepts only an empty idle takeIntent response, not empty 
   assert.deepEqual(argv[0], ['shell', 'call', WORKBENCH_PLUGIN_ID, 'takeIntent', '{}'])
   assert.throws(() => desktop.call(WORKBENCH_PLUGIN_ID, 'capabilities', '{}'), /shell unavailable/)
   assert.throws(() => desktop.call(WORKBENCH_PLUGIN_ID, 'open', '{}'), /shell unavailable/)
+  const timedOut = systemDesktopCommand(((_script: string, _args: string[]) =>
+    ({ status: 124, stdout: '', stderr: '', error: undefined })) as unknown as typeof spawnSync)
+  assert.throws(() => timedOut.call(WORKBENCH_PLUGIN_ID, 'dispatch', '{}'), DesktopCommandUnavailableError,
+    'the actual bounded shell-IPC timeout has a distinct recoverable transport error')
 })
 
 function fakeDesktop() {
@@ -141,6 +145,33 @@ test('Owner reports failed external hide as unavailable, not hidden success', as
   assert.equal((await requestOwner(runtimeDir, 'hide')).status, 'unavailable')
   assert.equal(desktop.hides.length, 0)
   assert.equal(owner.runner.store.listEvents().length, 0)
+})
+
+test('transient projection IPC miss retains the dock and does not drain a queued intent; next tick recovers', async t => {
+  const root = mkdtempSync(join(tmpdir(), 'n-refresh-')), runtimeDir = join(root, 'runtime'), desktop = fakeDesktop()
+  let scheduled: (() => void) | null = null, failHeartbeat = true
+  const calls: string[] = []
+  const port: DesktopCommandPort = { ...desktop.port, call(id, method, payload) {
+    const operation = method === 'dispatch' ? JSON.parse(payload).method as string : method
+    calls.push(operation)
+    if (operation === 'heartbeat' && failHeartbeat) { failHeartbeat = false; throw new DesktopCommandUnavailableError() }
+    return desktop.port.call(id, method, payload)
+  } }
+  const owner = await startNativeOwner({ roots: { stateDir: join(root, 'state'), runtimeDir }, desktop: port,
+    schedule(tick, intervalMs) { assert.equal(intervalMs, 1000); scheduled = tick; return () => { scheduled = null } } })
+  t.after(async () => { await owner.close(); rmSync(root, { recursive: true, force: true }) })
+  assert.equal((await requestOwner(runtimeDir, 'open')).status, 'opened')
+  calls.length = 0
+  desktop.intents.push(JSON.stringify({ kind: 'hide_workbench', target: null, payload: {} }))
+  assert.ok(scheduled); scheduled!()
+  assert.deepEqual(calls, ['heartbeat'], 'a failed view refresh occurs before intent draining')
+  assert.equal(desktop.intents.length, 1, 'the one-shot QML queue is not consumed under stale display state')
+  assert.equal((await requestOwner(runtimeDir, 'status')).presentation, 'open', 'transient shell transport loss does not hide the dock')
+  calls.length = 0
+  scheduled!()
+  assert.deepEqual(calls, ['heartbeat', 'takeIntent', 'close'], 'recovery publishes first, then drains the exact queued Close')
+  assert.equal(desktop.intents.length, 0)
+  assert.equal((await requestOwner(runtimeDir, 'status')).presentation, 'hidden')
 })
 
 test('native dock Close is presentation-only; reopened view has fresh session and unchanged owner history', async t => {

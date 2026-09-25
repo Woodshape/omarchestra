@@ -1,5 +1,11 @@
 import { WorkbenchAdapter, type WorkbenchSource, type WorkbenchIntentSink } from './live-projection-adapter.ts'
 
+/** A transient transport miss while refreshing visible projection state. The
+ * Owner may retain the panel, skip draining intents, and retry next tick. */
+export class PresentationRefreshUnavailable extends Error {
+  constructor() { super('presentation_refresh_unavailable'); this.name = 'PresentationRefreshUnavailable' }
+}
+
 /** Injected composition of the actual adapter and Companion method boundary. */
 export interface PresentationPort {
   pluginGeneration: number

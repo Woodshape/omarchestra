@@ -165,8 +165,8 @@ test('the companion release module reads only its own plugin directory', () => {
 
 test('durable SQLite usage is confined to the runner composition', () => {
   // Phase 2 introduces one runner/store/fence owner. SQLite and exclusive
-  // authority transactions must not leak into presentation, fixture,
-  // companion or retained-release modules.
+  // authority transactions must not leak into presentation, fixture or
+  // companion modules.
   const runnerDir = join(PACKAGE_ROOT, 'runner') + '/'
   const sqliteTokens = /node:sqlite|DatabaseSync|BEGIN IMMEDIATE|BEGIN EXCLUSIVE/
   let runnerOwners = 0

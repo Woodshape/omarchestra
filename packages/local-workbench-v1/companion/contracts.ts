@@ -1,14 +1,11 @@
 /**
  * Local Workbench v1 — Phase 1 Companion packaging constants.
  *
- * The workbench is an independently packaged additive Companion release. It
- * contains only its own release; it does not copy the historical prototype
- * catalog (0.2.0/0.3.0/0.4.0) and does not alter prototype release bytes or
- * defaults. Version 0.7.0 is the accepted task-first presentation; its exact
- * bytes are retained in `retained/0.7.0/`. Version 0.8.0 is the Phase 2
- * management workbench. The pre-redesign 0.6.0 bytes are retained separately
- * in `retained/0.6.0/`. Retained releases are never part of the active
- * production catalogue.
+ * The workbench is an independently packaged additive Companion release. Its
+ * active source lives directly in `console/plugin/`; the current release
+ * version is metadata, not a source directory. Historical source belongs to
+ * Git history, not copied bundles under `retained/`. The prototype catalog
+ * (0.2.0/0.3.0/0.4.0) remains separate and unchanged.
  */
 
 export const WORKBENCH_PLUGIN_ID = 'omarchestra.agent-console'

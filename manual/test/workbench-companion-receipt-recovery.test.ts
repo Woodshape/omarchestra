@@ -13,8 +13,12 @@ import { applyCompanionReceiptRecovery, inspectCompanionReceiptRecovery, recover
 const id = 'omarchestra.agent-console'
 const digest = (value: string) => createHash('sha256').update(value).digest('hex')
 const assets = (version: string) => {
-  const path = new URL(`../../packages/local-workbench-v1/companion/retained/${version}/`, import.meta.url)
-  return Object.fromEntries(fs.readdirSync(path).map(name => [name, fs.readFileSync(new URL(name, path), 'utf8')]))
+  const manifest = JSON.parse(WORKBENCH_PREVIEW_RELEASE.assets['manifest.json'])
+  return {
+    ...WORKBENCH_PREVIEW_RELEASE.assets,
+    'manifest.json': JSON.stringify({ ...manifest, version }),
+    'WorkbenchConsole.qml': `// synthetic ${version} recovery fixture\n`,
+  }
 }
 const release = (version: string) => ({ pluginId: id, version, protocol: 'omarchestra.companion/v1',
   compatibility: null, assets: assets(version) })
@@ -46,16 +50,16 @@ async function fixture(t: import('node:test').TestContext) {
   }
   // The injected host is a fake fact provider: no live Omarchy commands run.
   ports.host = { compatibility: async () => compat, currentOwner: async () => String(process.getuid()) } as typeof ports.host
-  const archived = assets('0.10.0')
-  for (const [name, bytes] of Object.entries(archived)) {
+  const installedAssets = assets('0.10.0')
+  for (const [name, bytes] of Object.entries(installedAssets)) {
     fs.writeFileSync(join(paths.pluginRoot, name), bytes, { mode: 0o644 })
   }
   const receipt = {
     schemaVersion: 1, pluginId: id, release: release('0.10.0'), previousRelease: release('0.9.0'),
     compatibility: compat, planDigest: 'a'.repeat(64), installedAt: '2026-09-24T16:00:00.000Z',
-    assets: Object.keys(archived).sort().map(relativePath => {
+    assets: Object.keys(installedAssets).sort().map(relativePath => {
       const identity = ports.filesystem.inspectNoFollow(join(paths.pluginRoot, relativePath))
-      return { relativePath, path: identity.path, sha256: digest(archived[relativePath]),
+      return { relativePath, path: identity.path, sha256: digest(installedAssets[relativePath]),
         owner: identity.owner, mode: identity.mode, device: identity.device, inode: identity.inode }
     }),
     shellJson: { preimageBytes: preimage, preimageHash: digest(preimage),
@@ -69,7 +73,7 @@ async function fixture(t: import('node:test').TestContext) {
   fs.writeFileSync(paths.failedPlanPath, JSON.stringify(candidate), { mode: 0o600 })
   // Model the real atomic writer's rollback mistake: bytes restored, all
   // identities replaced, receipt and shell configuration unchanged.
-  for (const [name, bytes] of Object.entries(archived)) {
+  for (const [name, bytes] of Object.entries(installedAssets)) {
     ports.filesystem.writeBytesAtomic(join(paths.pluginRoot, name), 'intermediate', String(process.getuid()), 0o644)
     ports.filesystem.writeBytesAtomic(join(paths.pluginRoot, name), bytes, String(process.getuid()), 0o644)
   }
@@ -79,12 +83,12 @@ async function fixture(t: import('node:test').TestContext) {
 }
 
 test('failed atomic rollback cannot update normally; exact plan rebinds only inodes with an external original receipt backup', async t => {
-  const { ports, paths, candidate, original, incident } = await fixture(t)
+  const { ports, paths, candidate, receipt, original, incident } = await fixture(t)
   await assert.rejects(() => new CompanionInstallation(ports).inspect({ operation: 'update', release: WORKBENCH_PREVIEW_RELEASE }), /identity|foreign/)
   const beforeAssets = fs.readdirSync(paths.pluginRoot).map(name => fs.readFileSync(join(paths.pluginRoot, name)))
   const beforeConfig = fs.readFileSync(paths.shellJsonPath)
   const plan = await inspectCompanionReceiptRecovery(ports, paths, incident)
-  assert.equal(plan.newIdentities.length, 15)
+  assert.equal(plan.newIdentities.length, Object.keys(receipt.release.assets).length)
   assert.equal(plan.oldTreeDigest, candidate.precondition.pluginTreeDigest)
   const result = await applyCompanionReceiptRecovery(ports, paths, plan, incident)
   assert.equal(fs.readFileSync(result.backupPath, 'utf8'), original)

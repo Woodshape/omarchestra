@@ -685,6 +685,15 @@ These are specification/spike outputs rather than product-feature choices, but e
 
 ## Decision log
 
+- The operator rejected retaining copied Companion release bundles in the
+  package. Remove `packages/local-workbench-v1/companion/retained/` entirely;
+  keep active source in `console/plugin/` with its current release version in
+  package metadata, and use Git history as the historical source archive. Preserve
+  current source/package parity and installer rollback/failure coverage using
+  generated fixtures, not copied historical bundles. This supersedes the former
+  0.6.0/0.7.0 retention clause in [ADR 0005](../adr/0005-negotiate-companion-features-not-host-package-versions.md)
+  and is recorded in [ADR 0006](../adr/0006-use-git-history-for-companion-release-source.md).
+
 - The operator approved standalone local Foot-window checked navigation alongside
   the existing Herdr-pane path, and investigation/repair of `Focus unverified`.
   Keep exact same-process routing, bounded pre/post checks, no automatic fallback

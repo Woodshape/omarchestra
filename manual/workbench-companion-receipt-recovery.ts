@@ -12,8 +12,6 @@ import { createLiveCompanionPorts, type LiveCompanionPorts } from '../prototypes
 import { CompanionInstallation } from '../prototypes/first-vertical-slice/companion/installation.ts'
 
 const PLUGIN_ID = 'omarchestra.agent-console'
-const ARCHIVE = fileURLToPath(new URL('../packages/local-workbench-v1/companion/retained/0.10.0/', import.meta.url))
-const ARCHIVE_DIGEST = 'bfdf06b49550e72df9a7884e3e1cf496d28f408382dd8469fe9e50aca80437c8'
 const FAILED_PLAN_DIGEST = '70c81d289cd242c9736184fab33da65c6c71467625f587121e240917d48d9a33'
 const FAILED_RECEIPT_DIGEST = 'bb81331b750bb705c9e77a3ba7f9e9f7c729376df6864e4317af81fa4b47c6ad'
 export interface IncidentEvidence { failedPlanDigest: string; failedReceiptDigest: string }
@@ -87,38 +85,21 @@ export async function inspectCompanionReceiptRecovery(ports: LiveCompanionPorts,
   const receiptBytes = privateFile(paths.receiptPath, 0o600).toString('utf8')
   const receipt = JSON.parse(receiptBytes)
   const config = ports.filesystem.readBytesNoFollow(paths.shellJsonPath)
-  const names = fs.readdirSync(ARCHIVE).sort()
-  const oldAssets = Object.fromEntries(names.map(name => {
-    const path = join(ARCHIVE, name)
-    refuse(fs.lstatSync(path).isFile() && !fs.lstatSync(path).isSymbolicLink(), `archive asset is unsafe: ${name}`)
-    return [name, fs.readFileSync(path, 'utf8')]
-  }))
-  const archiveHash = createHash('sha256')
-  for (const name of names) { archiveHash.update(name); archiveHash.update(oldAssets[name]) }
-  refuse(archiveHash.digest('hex') === ARCHIVE_DIGEST && names.length === 15, 'historical release archive changed')
-  refuse(receipt.schemaVersion === 1 && receipt.pluginId === PLUGIN_ID && receipt.release?.version === '0.10.0'
-    && receipt.previousRelease?.version === '0.9.0' && Array.isArray(receipt.assets)
-    && receipt.assets.length === names.length, 'receipt is not the exact 0.10.0 installation')
-  refuse(ports.digest.stableDigest(receipt.release.assets) === ports.digest.stableDigest(oldAssets),
-    'receipt release is not the archived 0.10.0')
+  const oldAssets = receipt.release?.assets
+  refuse(oldAssets && typeof oldAssets === 'object' && !Array.isArray(oldAssets), 'receipt release asset map is invalid')
+  const names = Object.keys(oldAssets).sort()
+  refuse(names.length > 0 && names.every(name => typeof oldAssets[name] === 'string'), 'receipt release assets are malformed')
+  refuse(receipt.schemaVersion === 1 && receipt.pluginId === PLUGIN_ID && receipt.release?.pluginId === PLUGIN_ID
+    && receipt.release?.version === '0.10.0' && receipt.previousRelease?.version === '0.9.0'
+    && Array.isArray(receipt.assets) && receipt.assets.length === names.length,
+    'receipt is not the exact 0.10.0 installation')
   refuse(hash(receiptBytes) === incident.failedReceiptDigest && hash(receiptBytes) === failedPlan.precondition?.receiptDigest,
     'receipt is not the one captured by the failed installation plan')
-  // The historical incident must not follow the active development release.
-  const attemptedRoot = new URL('../packages/local-workbench-v1/companion/retained/0.11.0/', import.meta.url)
-  const attemptedHash = createHash('sha256')
-  const attemptedAssets = Object.fromEntries(fs.readdirSync(attemptedRoot).sort().map(name => {
-    const path = new URL(name, attemptedRoot)
-    refuse(fs.lstatSync(path).isFile() && !fs.lstatSync(path).isSymbolicLink(), `attempted archive asset is unsafe: ${name}`)
-    const bytes = fs.readFileSync(path, 'utf8')
-    attemptedHash.update(name); attemptedHash.update(bytes)
-    return [name, bytes]
-  }))
-  refuse(attemptedHash.digest('hex') === '6b5f63d9054d14b4c383325f8d6c9381590f6e44daf0d21ffacebfc3fd89536e',
-    'historical attempted release archive changed')
-  const attemptedRelease = { pluginId: PLUGIN_ID, version: '0.11.0', protocol: 'omarchestra.companion/v1', compatibility: null, assets: attemptedAssets }
-  refuse(failedPlan.operation === 'update' && failedPlan.pluginId === PLUGIN_ID && failedPlan.release?.version === '0.11.0'
-    && failedPlan.planDigest === incident.failedPlanDigest
-    && ports.digest.stableDigest(failedPlan.release) === ports.digest.stableDigest(attemptedRelease),
+  // The receipt and failed plan carry their exact release bytes. Their full
+  // externally captured digests bind this one incident without source copies.
+  refuse(failedPlan.operation === 'update' && failedPlan.pluginId === PLUGIN_ID
+    && failedPlan.release?.pluginId === PLUGIN_ID && failedPlan.release?.version === '0.11.0'
+    && failedPlan.planDigest === incident.failedPlanDigest,
     'failed installation plan is not the exact 0.11.0 candidate')
   const { planDigest, ...planBody } = failedPlan
   refuse(ports.digest.stableDigest(planBody) === planDigest, 'failed plan digest changed')
@@ -220,7 +201,7 @@ async function main(): Promise<void> {
   if (!process.stdin.isTTY || !process.stdout.isTTY) throw Error('receipt recovery requires a visible operator TTY')
   const prompt = readline.createInterface({ input: process.stdin, output: process.stdout })
   try {
-    const answer = await prompt.question(`Rebind only these 15 restored 0.10.0 assets; backup receipt ${plan.receiptHash.slice(0, 12)}? [y/N] `)
+    const answer = await prompt.question(`Rebind only these ${plan.newIdentities.length} restored 0.10.0 assets; backup receipt ${plan.receiptHash.slice(0, 12)}? [y/N] `)
     if (!/^(?:y|yes)$/i.test(answer.trim())) throw Error('receipt recovery declined; no mutation')
   } finally { prompt.close() }
   const result = await applyCompanionReceiptRecovery(ports, paths, plan)

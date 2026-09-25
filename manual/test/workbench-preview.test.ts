@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict'
 import test from 'node:test'
 import vm from 'node:vm'
-import { readFileSync, readdirSync, writeFileSync, mkdtempSync, rmSync } from 'node:fs'
+import { readFileSync, writeFileSync, mkdtempSync, rmSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { spawnSync } from 'node:child_process'
@@ -53,11 +53,16 @@ test('native preview release passes installer validation without a package-versi
   assert.equal(WORKBENCH_PREVIEW_RELEASE.compatibility, null)
 })
 
-for (const previous of ['0.11.0', '0.12.0', '0.13.0']) test(`exact installed ${previous} assets upgrade to ${WORKBENCH_PLUGIN_VERSION} and roll back without touching other bar widgets`, async () => {
+test('a synthetic previous Companion upgrades and rolls back without touching other bar widgets', async () => {
   const { CompanionInstallation } = await import('../../prototypes/first-vertical-slice/companion/installation.ts')
   const { FakeOmarchy } = await import('../../prototypes/first-vertical-slice/companion/fake-omarchy.ts')
-  const archive = new URL(`../../packages/local-workbench-v1/companion/retained/${previous}/`, import.meta.url)
-  const oldAssets = Object.fromEntries(readdirSync(archive).map(name => [name, readFileSync(new URL(name, archive), 'utf8')]))
+  const previous = `${WORKBENCH_PLUGIN_VERSION}-fixture`
+  const manifest = JSON.parse(WORKBENCH_PREVIEW_RELEASE.assets['manifest.json'])
+  const oldAssets = {
+    ...WORKBENCH_PREVIEW_RELEASE.assets,
+    'manifest.json': JSON.stringify({ ...manifest, version: previous }),
+    'WorkbenchConsole.qml': '// synthetic previous-release fixture\n',
+  }
   const old = freezeCompanionRelease({ ...WORKBENCH_PREVIEW_RELEASE, version: previous, assets: oldAssets })
   const fake = new FakeOmarchy()
   const installer = new CompanionInstallation(fake.ports())

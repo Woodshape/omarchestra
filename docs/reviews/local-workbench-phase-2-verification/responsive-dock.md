@@ -125,6 +125,12 @@ read-only with the installed bytes. Aggregate SHA-256 (sorted filename + bytes):
 Tests pin it and cover 0.13.0 → 0.14.0 → exact 0.13.0 rollback, alongside older
 upgrade paths. At the disposable engineering checkpoint no installed state changed.
 
+This describes the gate and copied assets at that historical checkpoint. By the
+operator's later decision in [ADR 0006](../../adr/0006-use-git-history-for-companion-release-source.md),
+the copied bundle and historical-version assertions were removed from the current
+tree; rollback behavior is tested with generated fixtures and Git preserves prior
+source.
+
 ## Authorized live installation and reload — 2026-09-25
 
 The subsequent explicit **install and reload** request authorized the receipt-backed
@@ -171,6 +177,59 @@ This repair changes no Pi extension code and required no injected Pi `/reload`.
 Independent review, physical click latency/flicker acceptance and separate live
 Adoption acceptance are still outstanding. Checked-navigation race/attachment
 limitations are unchanged.
+
+## Operator report: successful focus, dock hidden on transient IPC timeout
+
+After the operator reloaded Pi sessions and used the new standalone focus action,
+they report **terminal switching succeeds but the dock disappears**. Read-only
+correlation on 2026-09-25 confirmed the focus request was acknowledged before the
+disappearance. The desktop shell's main Quickshell PID remained alive; no
+coredump, segfault, kernel OOM or Owner restart was recorded. The Owner stayed
+healthy at epoch 15/PID 766418, and read-only shell ping/plugin-list calls succeed
+now. This was not evidence that the focus command crashed the desktop shell.
+
+The log does establish why the panel hid. At 19:22:34 CEST a `qs ipc` request
+started but did not yield a command-line/result record; the last successful
+periodic heartbeat and queue poll were at 19:22:33.912/19:22:33.945. The Owner
+then logged `Companion shell unavailable` at 19:22:36.929. Under the old tick
+policy, any such error immediately stopped the presentation host; `host.stop()`
+issued the guarded Companion `close`, which sets `opened=false` and hides the
+PanelWindow. The timeline strongly indicates a bounded shell-IPC timeout during
+that refresh, although the missing subprocess argv means the exact failed method
+cannot be proven from this journal. Focus succeeded before this separate Owner
+failure; whether focus caused the transient IPC stall is unproven.
+
+Implemented follow-up in the checkout: the fixed desktop adapter now identifies
+transport unavailability separately. If the projection refresh/heartbeat call
+fails for that reason, Owner retains the open view, skips draining queued intents
+against a stale display, and retries on the next existing tick. The QML watchdog
+may mark the still-visible projection stale; a successful refresh recovers it.
+Other errors, especially uncertain intent reads, incompatible Companion
+contracts and generation changes, retain their fail-closed teardown policy. No
+navigation is retried and no action is inferred or replayed.
+
+Regression: `phase-2-native-owner.test.ts` injects one bounded transport timeout,
+proves the view stays open and the intent queue is untouched, then verifies the
+next successful tick refreshes before draining the queued Close. Focused Owner,
+presentation-shell and source tests pass; full Phase-2 gate passes at
+`/tmp/workbench-owner-transient-refresh-gate.log` (28 offscreen Qt rows, zero
+failures; five pre-existing future-execution TODOs). This source correction is
+**not yet loaded**: the currently running epoch-15 Owner predates this patch.
+The operator subsequently authorized an **Owner-only restart** after their Pi
+reload work. Fresh preflight verified the exact enabled service and PID 766418,
+hidden presentation, two Projects/Goals, **five retired Runs** (all writer states
+`uncertain`), no pending Adoption/management/delivery work, current 0.14.0 loaded
+Companion generation and matching installation receipt/assets. The Owner restarted
+successfully at epoch **16**, PID **803210**, revision **53**; it remains active,
+with presentation hidden. All 53 prior events, Project/Goal records and Run
+identity/membership digests are unchanged; no events were appended. Installed
+assets, receipt, ownership, shell configuration and loaded Companion generation
+are unchanged. Private preflight/restart/history evidence is at
+`~/.local/state/omarchestra/manual-gates/workbench-owner-refresh-restart-opVOH0/`.
+
+This loaded the Owner-side source correction. No Omarchy shell reload, Pi reload,
+focus test, Adoption or domain action was performed during the restart. The user
+will reload Pi sessions separately.
 
 ## Post-install flicker report and Owner-only cadence correction
 

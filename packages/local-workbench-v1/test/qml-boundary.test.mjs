@@ -7,7 +7,7 @@
 
 import assert from 'node:assert/strict'
 import { createHash } from 'node:crypto'
-import { readFileSync, readdirSync, statSync } from 'node:fs'
+import { existsSync, readFileSync, readdirSync, statSync } from 'node:fs'
 import { dirname, join, resolve } from 'node:path'
 import test from 'node:test'
 import { fileURLToPath } from 'node:url'
@@ -164,67 +164,10 @@ test('the additive 0.14.0 release packages QML byte-identical to the plugin sour
   for (const file of ['SessionText.js', 'workbench-wake.mjs']) assert.equal(WORKBENCH_RELEASE.assets[file], source(file))
 })
 
-test('the published 0.13.0 installed assets remain exactly retained before the responsive release', () => {
-  const retained = join(PACKAGE_ROOT, 'companion', 'retained', '0.13.0')
-  const names = readdirSync(retained).sort(), digest = createHash('sha256')
-  assert.equal(names.length, 15)
-  for (const name of names) digest.update(name).update(readFileSync(join(retained, name)))
-  assert.equal(digest.digest('hex'), '902ef962e38e29a2d8620ef7f5f69473f32ee0126eeecf2446f02587bfeac6fc')
-})
-
-test('the installed 0.12.0 Companion is preserved against its receipt-validated aggregate hash', () => {
-  const retained = join(PACKAGE_ROOT, 'companion', 'retained', '0.12.0')
-  const names = readdirSync(retained).sort(), digest = createHash('sha256')
-  assert.equal(names.length, 15)
-  assert.equal(JSON.parse(readFileSync(join(retained, 'manifest.json'), 'utf8')).version, '0.12.0')
-  for (const name of names) digest.update(name).update(readFileSync(join(retained, name)))
-  assert.equal(digest.digest('hex'), '9cc9480aaf40e6f820f62a53300485838fa920d57ddc0225be72f83952865f32')
-})
-
-test('the previous installed 0.11.0 Companion remains byte-for-byte archived for rollback', () => {
-  const retained = join(PACKAGE_ROOT, 'companion', 'retained', '0.11.0')
-  const names = readdirSync(retained).sort()
-  assert.equal(names.length, 15)
-  assert.equal(JSON.parse(readFileSync(join(retained, 'manifest.json'), 'utf8')).version, '0.11.0')
-  for (const name of names) assert.ok(readFileSync(join(retained, name)).length > 0, name)
-})
-
-test('the previous installed 0.10.0 Companion remains byte-for-byte archived for rollback', () => {
-  const retained = join(PACKAGE_ROOT, 'companion', 'retained', '0.10.0')
-  const names = readdirSync(retained).sort()
-  assert.equal(names.length, 15)
-  assert.equal(JSON.parse(readFileSync(join(retained, 'manifest.json'), 'utf8')).version, '0.10.0')
-  const digest = createHash('sha256')
-  for (const name of names) {
-    digest.update(name)
-    digest.update(readFileSync(join(retained, name)))
-  }
-  assert.equal(digest.digest('hex'), 'bfdf06b49550e72df9a7884e3e1cf496d28f408382dd8469fe9e50aca80437c8')
-})
-
-test('the former installed 0.9.0 Companion assets remain byte-for-byte archived', () => {
-  const retained = join(PACKAGE_ROOT, 'companion', 'retained', '0.9.0')
-  const hashes = {
-    'AgentConsole.qml': 'f3708e96cffdbce16e9b27fb46caf5311b2d1ac730a5a12d60bd4736716dee2e',
-    'manifest.json': 'ddb5b630c12613ff49a5c471dd7f813921cb7fac871c0ead299e3209ad808994',
-    'WorkbenchAction.qml': 'bb93ec2ae577fdef03233f1db25e4696cb0fed27870ac4b5debdeb63702b7658',
-    'WorkbenchAssignmentForm.qml': '44f406ea5bdcf53a924bf24f6fa63cda1f5cdf3b18a7bbeea3b18629ed78588d',
-    'WorkbenchBarWidget.qml': 'ad6cd6d1c7abe357cc81de51fe2cb64d312667964ed2c23fcd1e3a6d101d8cc5',
-    'WorkbenchBoard.qml': '024846413ece1e0d443fc6f6835d43ae9b0ea7ccbf578c1c8ff0776666c113c3',
-    'WorkbenchCards.qml': '40f385bdb01d0a7c224bb5a03fb3cdd2ac38bdb5f5995e0bc82eb2f763b9bd59',
-    'WorkbenchChecks.qml': '1978770ba176df799c62e27278a9306bfbb78fb54ff9306c32a4d57440354907',
-    'WorkbenchConsole.qml': '2567870a559b0dc1edcb947838ff4f25904d40e67a68650fe184f9ce41bfbab5',
-    'WorkbenchGoal.qml': 'bf2b1300df5642d6625c7a5b9c140d66d1104ebfbe6ac00bb3e59c2948c7154f',
-    'WorkbenchHost.qml': 'eec4ad150c257bfeb695cac049389372256aca2ad3a59d416574a2565bda4026',
-    'WorkbenchOverview.qml': 'f9079bb379f83357a27ee8accefa6cef9c5a31de3b455037eb78a32eb7557b14',
-    'WorkbenchReview.qml': 'dbc705d4e339ef9d484dae8f7ae52d98fe59b3310d29596f44abc2d35d0b367f',
-    'WorkbenchTextArea.qml': '0fefa1555f8a2e7a3ee4b22f828f28dff110d273dc19e4b164dafc6de03976e8',
-    'WorkbenchTextField.qml': '588bc2ca21ac6a14fe08632fd1f2d8cdcdd5f7e743aff00041c9e003dc2121f6',
-  }
-  assert.deepEqual(readdirSync(retained).sort(), Object.keys(hashes).sort())
-  for (const [name, digest] of Object.entries(hashes)) {
-    assert.equal(createHash('sha256').update(readFileSync(join(retained, name))).digest('hex'), digest, name)
-  }
+test('historical Workbench bundles are not copied into version-named package folders', () => {
+  const companion = join(PACKAGE_ROOT, 'companion')
+  assert.equal(existsSync(join(companion, 'retained')), false)
+  assert.deepEqual(readdirSync(companion).filter(name => /^\d+\.\d+\.\d+$/.test(name)), [])
 })
 
 test('the workbench release catalog contains only its own additive release', async () => {

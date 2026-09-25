@@ -2,7 +2,7 @@
  * installed desktop or Pi bridge; native-owner.ts supplies their composition.
  * Assignment delivery remains unavailable in Phase 2.
  */
-import { createPresentationShell, type PresentationPort } from '../console/presentation-shell.ts'
+import { createPresentationShell, PresentationRefreshUnavailable, type PresentationPort } from '../console/presentation-shell.ts'
 import type { WorkbenchSource, WorkbenchSourceHandler, WorkbenchIntent, WorkbenchIntentSink } from '../console/live-projection-adapter.ts'
 import { validateFeedback, type WorkbenchSnapshot, type WorkbenchFeedback } from '../console/schema.ts'
 import { sha256, type WorkbenchAuthority } from './authority.ts'
@@ -108,7 +108,7 @@ export interface WorkbenchHost {
   readonly shell: ReturnType<typeof createPresentationShell>
   readonly source: RunnerSource
   start(): Promise<void>
-  tick(options?: { heartbeat?: boolean }): void
+  tick(options?: { heartbeat?: boolean }): 'updated' | 'refresh_deferred'
   stop(): void
 }
 
@@ -133,7 +133,15 @@ export function createWorkbenchHost(options: WorkbenchHostOptions): WorkbenchHos
     // the source's 1000 ms throttle again after synchronous publication can
     // skip every other tick and race QML's 2000 ms watchdog. Periodic ticks
     // must publish; immediate wake/before-intent paths still coalesce normally.
-    tick(tickOptions) { source.publish(tickOptions?.heartbeat === true); shell.tick() },
+    tick(tickOptions) {
+      try { source.publish(tickOptions?.heartbeat === true) }
+      catch (error) {
+        if (error instanceof PresentationRefreshUnavailable) return 'refresh_deferred'
+        throw error
+      }
+      shell.tick()
+      return 'updated'
+    },
     stop() { try { shell.close() } finally { source.close(null) } },
   }
 }

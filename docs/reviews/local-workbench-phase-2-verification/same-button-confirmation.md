@@ -10,7 +10,7 @@ Red gate: the newly written offscreen QML same-button tests failed against the o
 
 ## Exact recovery and installed verification
 
-- `manual/workbench-companion-receipt-recovery.ts --plan` verifies the failed plan digest, receipt SHA-256 `bb81331b750bb705c9e77a3ba7f9e9f7c729376df6864e4317af81fa4b47c6ad`, **original full tree digest** reconstructed from the receipt's pinned inodes, the private setup failure chronology, the byte-identical archived 0.10.0 release, exact unchanged `shell.json`, and all 15 currently owned file identities/bytes/modes. It refuses unrelated or changed resources. The bounded disposable recovery regressions and full Phase-2 gate passed (`/tmp/omarchestra-samebutton-rebind-final-gate.log`; 21 offscreen QML rows).
+- At the time of recovery, `manual/workbench-companion-receipt-recovery.ts --plan` verified the failed plan digest, receipt SHA-256 `bb81331b750bb705c9e77a3ba7f9e9f7c729376df6864e4317af81fa4b47c6ad`, **original full tree digest** reconstructed from the receipt's pinned inodes, the private setup failure chronology, the byte-identical archived 0.10.0 release, exact unchanged `shell.json`, and all 15 currently owned file identities/bytes/modes. It refused unrelated or changed resources. The bounded disposable recovery regressions and full Phase-2 gate passed (`/tmp/omarchestra-samebutton-rebind-final-gate.log`; 21 offscreen QML rows).
 - In a visible TTY the operator approved this **separate receipt-only recovery**. The private `workbench-companion-rebind-20260925.tty.log` and `.result` show exit 0. Its original v0.10.0 receipt was preserved byte-for-byte at `manual-gates/companion-pre-rebind-bb81331b750bb705c9e77a3ba7f9e9f7c729376df6864e4317af81fa4b47c6ad.json` (0600). Readback proved every asset byte and its new receipt-pinned inode; `CompanionInstallation.inspect` then accepted a new, still-unexecuted 0.11.0 plan. No Pi/Owner restart, asset update or bar edit occurred in the recovery.
 - The operator **separately** approved the exact 0.10.0→0.11.0 installation in a second visible TTY. The private `workbench-same-button-update-retry-20260925.tty.log` and `.result` show exit 0; the receipt is 0.11.0 (SHA-256 `0a2efb7b0467b6774be5a6c51d422f8665a82aae6ecb7e9d7e13d140539c786b`), with previous release 0.10.0. All 15 installed assets match receipt bytes and inode identities. Current `shell.json` is **byte-for-byte identical** to the backed-up original v0.10.0 postimage; it retains its one right-hand Omarchestra bar widget and every unrelated widget. An independent read-only installer inspect passes.
 - `omarchy restart shell`, then a background service restart while presentation was hidden and no Pi was running, loaded Companion 0.11.0 with Owner epoch 10, 1 Project and 1 Goal. The exact installed bar command `gtk-launch omarchestra-workbench` returned `opened`; delayed Owner status remained `open` with the same service PID 80647. The loaded native `presentationContract` reports 0.11.0; the installed QML contains no `Review exact action`, `workbench-inline-confirmation`, separate Confirm button or hover tooltip. **This is command-path/native open plus source/offscreen two-press evidence, not a physical Adoption-button click or a live Pi Adoption.** No Pi process was launched; Assignment and check execution remain outside Phase 2.
@@ -18,3 +18,12 @@ Red gate: the newly written offscreen QML same-button tests failed against the o
 ## Version label follow-up (2026-09-26)
 
 The loaded Companion release version is now shown in small text beside the Runner connection state. This is an additive 0.12.0 release; the installed 0.11.0 assets are retained byte-for-byte under `companion/retained/0.11.0/`. Offscreen rendering and fake receipt-backed 0.11.0→0.12.0 update/rollback tests pass. **0.12.0 has not been installed or shell-reloaded by this change.**
+
+## Later release-source policy
+
+The archive paths and copied bytes above describe the historical checkpoints; they
+are no longer present in the current tree. The operator later directed that Git
+history be the sole source archive ([ADR 0006](../../adr/0006-use-git-history-for-companion-release-source.md)).
+The completed one-off recovery helper now binds the exact incident through its
+captured receipt and failed plan; its regression uses generated assets rather
+than checked-in historical bundles.

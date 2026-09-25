@@ -2,12 +2,15 @@
 import { spawnSync } from 'node:child_process'
 import { WORKBENCH_PLUGIN_ID, WORKBENCH_PLUGIN_VERSION, WORKBENCH_PROTOCOL_ID,
   WORKBENCH_PRESENTATION_CONTRACT, WORKBENCH_PRESENTATION_DESTINATIONS } from '../companion/contracts.ts'
-import type { PresentationPort } from '../console/presentation-shell.ts'
+import { PresentationRefreshUnavailable, type PresentationPort } from '../console/presentation-shell.ts'
 import { validateSnapshot, type WorkbenchSnapshot } from '../console/schema.ts'
 
 const METHODS = ['capabilities', 'presentationContract', 'open', 'applyProjection', 'takeIntent', 'intentResult', 'clear', 'dispatch'] as const
 type Method = typeof METHODS[number]
 class ChangedCompanion extends Error {}
+export class DesktopCommandUnavailableError extends Error {
+  constructor() { super('Companion shell unavailable. Start the compatible Omarchy shell and explicitly install/enable the workbench Companion before opening.'); this.name = 'DesktopCommandUnavailableError' }
+}
 const REQUIRED = ['session.open', 'session.update', 'session.intent', 'session.hide', 'session.clear', 'session.resnapshot']
 const id = (value: unknown) => typeof value === 'string' && /^[A-Za-z0-9_-]{1,128}$/.test(value)
 const validGeneration = (value: unknown): value is number => Number.isSafeInteger(value) && Number(value) > 0
@@ -31,7 +34,7 @@ export function systemDesktopCommand(spawn: typeof spawnSync = spawnSync): Deskt
       shell: false, env: { PATH: '/usr/bin:/bin', OMARCHY_PATH: process.env.OMARCHY_PATH ?? '',
         XDG_RUNTIME_DIR: process.env.XDG_RUNTIME_DIR ?? '', WAYLAND_DISPLAY: process.env.WAYLAND_DISPLAY ?? '' } })
     if (result.error || result.status !== 0 || (!allowEmpty && !result.stdout) || Buffer.byteLength(result.stdout ?? '') > 256 * 1024) {
-      throw new Error('Companion shell unavailable. Start the compatible Omarchy shell and explicitly install/enable the workbench Companion before opening.')
+      throw new DesktopCommandUnavailableError()
     }
     const output = (result.stdout ?? '').trimEnd()
     if (['unknown', 'error', 'Target not found.', 'Function not found.'].includes(output)) throw new Error('Companion method unavailable; check the installed release and reload it separately if needed.')
@@ -72,10 +75,18 @@ export function createDesktopView(port: DesktopCommandPort, generation: number, 
   let displayed = ''
   const visible = (snapshot: WorkbenchSnapshot) => JSON.stringify({ ...snapshot, cursor: 0 })
   const call = (method: Method | 'close' | 'heartbeat', payload: unknown): string => {
-    const response = exact(parse(port.call(WORKBENCH_PLUGIN_ID, 'dispatch', JSON.stringify({
-      protocol: WORKBENCH_PROTOCOL_ID, pluginId: WORKBENCH_PLUGIN_ID, version: WORKBENCH_PLUGIN_VERSION,
-      presentation: WORKBENCH_PRESENTATION_CONTRACT, pluginGeneration: generation, method, payload,
-    }))), ['protocol', 'version', 'pluginGeneration', 'result'])
+    let encoded: string
+    try {
+      encoded = port.call(WORKBENCH_PLUGIN_ID, 'dispatch', JSON.stringify({
+        protocol: WORKBENCH_PROTOCOL_ID, pluginId: WORKBENCH_PLUGIN_ID, version: WORKBENCH_PLUGIN_VERSION,
+        presentation: WORKBENCH_PRESENTATION_CONTRACT, pluginGeneration: generation, method, payload,
+      }))
+    } catch (error) {
+      if ((method === 'heartbeat' || method === 'applyProjection') && error instanceof DesktopCommandUnavailableError)
+        throw new PresentationRefreshUnavailable()
+      throw error
+    }
+    const response = exact(parse(encoded), ['protocol', 'version', 'pluginGeneration', 'result'])
     if (response.protocol !== WORKBENCH_PROTOCOL_ID || typeof response.version !== 'string'
         || !/^\d+\.\d+\.\d+$/.test(response.version) || !validGeneration(response.pluginGeneration)
         || !['string', 'boolean'].includes(typeof response.result)) throw new Error('companion_incompatible_response')

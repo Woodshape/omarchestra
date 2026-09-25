@@ -6,6 +6,10 @@ Part 1 of this document is the P2.1 foundation record: the durable runner in
 `packages/local-workbench-v1/runner/` and its gate
 `packages/local-workbench-v1/scripts/phase-2-foundation-gate.sh`. Part 2 (from D12) is the P2.2–P2.5 record.
 
+Release snapshots and `retained-release.test.mjs` mentioned below are historical
+checkpoint details. The operator-approved current policy removes copied bundles
+and uses Git history; see [ADR 0006](../adr/0006-use-git-history-for-companion-release-source.md).
+
 ## D1 — one foreground runner owns everything durable
 
 A single foreground composition owns the Project registry, the SQLite store,

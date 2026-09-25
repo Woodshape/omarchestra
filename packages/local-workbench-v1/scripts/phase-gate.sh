@@ -58,8 +58,7 @@ run_node "${flags[@]}" --test \
     "$root/test/rendered-layout.test.ts" \
     "$root/../../manual/test/workbench-preview.test.ts" \
     "$root/test/qml-boundary.test.mjs" \
-    "$root/test/source-audit.test.mjs" \
-    "$root/test/retained-release.test.mjs"
+    "$root/test/source-audit.test.mjs"
 
 printf '%s\n' '== static QML lint =='
 qml_lint="${QMLLINT_BIN:-}"

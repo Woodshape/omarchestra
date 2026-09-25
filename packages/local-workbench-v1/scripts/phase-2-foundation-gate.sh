@@ -61,7 +61,6 @@ run_node "${flags[@]}" --test \
 printf '%s\n' '== running Phase 1 boundary audits against the updated tree =='
 run_node "${flags[@]}" --test \
     "$root/test/source-audit.test.mjs" \
-    "$root/test/retained-release.test.mjs" \
     "$root/test/qml-boundary.test.mjs"
 
 printf '%s\n' '== S1 persistence foundation gate: PASS; not Phase 2 management acceptance =='

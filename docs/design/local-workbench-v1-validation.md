@@ -8,7 +8,7 @@ Canonical closeout and slot/task provenance: [collaboration result](local-workbe
 
 Current status: the 0.6.0 closeout below is superseded by the **task-first redesign** in the [screen and flow design](local-workbench-v1-screens.md) and [contract](local-workbench-v1-contract.md): Companion 0.7.0, nine task-first QML components, one default journey fixture with opt-in developer scenarios, 119 Node tests (114 pass, five deferred runtime TODOs) and twelve passing offscreen Qt rows. The native operator layout checkpoint remains pending. No durable execution claim.
 
-The original integration commands/counts and initial limitations below are historical; current dispositions are recorded under Remaining gaps.
+The original integration commands/counts and initial limitations below are historical; current dispositions are recorded under Remaining gaps. References below to `retained-release.test.mjs` and copied 0.6.0/0.7.0 bundles describe that historical checkpoint only. The current no-copy policy and replacement tests are specified in [ADR 0006](../adr/0006-use-git-history-for-companion-release-source.md).
 
 ## Delivered files and contracts
 
