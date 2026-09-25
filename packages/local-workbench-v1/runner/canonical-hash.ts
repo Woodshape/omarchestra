@@ -11,3 +11,8 @@ export function canonicalJson(value: unknown): string {
 export function sha256(value: unknown): string {
   return createHash('sha256').update(typeof value === 'string' ? value : canonicalJson(value)).digest('hex')
 }
+
+/** Opaque, domain-separated binding between a confirmed Project root and Pi's current ExtensionContext.cwd. */
+export function projectExecutionContextDigest(canonicalPath: string): string {
+  return sha256(`omarchestra.project-execution-context/v1\0${canonicalPath}`)
+}

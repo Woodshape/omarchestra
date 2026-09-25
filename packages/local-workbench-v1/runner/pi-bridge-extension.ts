@@ -1,13 +1,16 @@
 /** Pi-facing lifecycle adapter: only public, allow-listed source facts cross the wire. */
 import { connect as netConnect, type Socket } from 'node:net'
+import { realpathSync, statSync } from 'node:fs'
+import { isAbsolute } from 'node:path'
 import { join } from 'node:path'
 import { attachBridgeStream } from './bridge-channel.ts'
-import { BRIDGE_CAPABILITIES, SESSION_CODE_CAPABILITY, PANE_NAVIGATION_CAPABILITY, bridgeId, type BridgeFrame } from './bridge-protocol.ts'
+import { projectExecutionContextDigest } from './canonical-hash.ts'
+import { BRIDGE_CAPABILITIES, SESSION_CODE_CAPABILITY, PANE_NAVIGATION_CAPABILITY, PROJECT_CONTEXT_CAPABILITY, bridgeId, type BridgeFrame } from './bridge-protocol.ts'
 
 import { showLocalTerminalPane } from './local-pane-navigation.ts'
 import type { NavigationResult } from './pane-navigation.ts'
 
-type Context = { mode: string; sessionManager: { getSessionId(): string | undefined }; isIdle(): boolean; hasPendingMessages?(): boolean; ui: { setStatus(key: string, text: string | undefined): void } }
+type Context = { mode: string; cwd?: string; sessionManager: { getSessionId(): string | undefined }; isIdle(): boolean; hasPendingMessages?(): boolean; ui: { setStatus(key: string, text: string | undefined): void } }
 type PiAPI = { on(name: string, handler: (event: unknown, ctx: Context) => void): void }
 type Client = { sendFrame(type: 'register' | 'heartbeat' | 'input_observed' | 'close' | 'adoption_ack' | 'binding_receipt' | 'recovery_proof' | 'focus_result', id: string, body: Record<string, unknown>): void; close(): void }
 export function connectLocalPiBridge(path: string, onFrame: (frame: BridgeFrame) => void, onClose: () => void): Promise<Client> {
@@ -48,6 +51,17 @@ export function createPiBridgeExtension(options: { socketPath?: string; connect?
         ? `${sessionCode ? `Pi ${sessionCode}` : 'Session code unavailable'} · ${state}` : undefined)
     } catch { /* never disrupt Pi or replace other extensions' status slots */ } }
     const activity = () => { try { return ctx && ctx.isIdle() && !ctx.hasPendingMessages?.() ? 'idle' : 'busy' } catch { return 'unknown' } }
+    // `cwd` is a same-process execution-context fact, never Adoption identity.
+    // Resolve it locally and send only a domain-separated digest to the owner.
+    const executionContextDigest = () => {
+      const cwd = ctx?.cwd
+      if (typeof cwd !== 'string' || !cwd.isWellFormed() || !isAbsolute(cwd) || Buffer.byteLength(cwd) > 4096) return null
+      try {
+        const canonical = realpathSync.native(cwd)
+        if (!isAbsolute(canonical) || !statSync(canonical).isDirectory()) return null
+        return projectExecutionContextDigest(canonical)
+      } catch { return null }
+    }
     const clearTimer = () => { if (timer) cancel(timer); timer = null }
     const send = (type: 'heartbeat' | 'input_observed' | 'close' | 'adoption_ack' | 'binding_receipt' | 'recovery_proof' | 'focus_result', extra: Record<string, unknown> = {}) => {
       if (!client || !connectionId || !challenge) return false
@@ -58,7 +72,7 @@ export function createPiBridgeExtension(options: { socketPath?: string; connect?
     const heartbeat = () => {
       timer = null
       if (stopped) return
-      if (client && connectionId) send('heartbeat', { lifecycle: 'running', activity: activity(), health: 'healthy' })
+      if (client && connectionId) send('heartbeat', { lifecycle: 'running', activity: activity(), health: 'healthy', executionContextDigest: executionContextDigest() })
       else if (client && ++handshakeTicks > 2) client.close()
       else if (!client) void open()
       timer = schedule(heartbeat, client && connectionId ? 5000 : retryMs)
@@ -166,7 +180,7 @@ export function createPiBridgeExtension(options: { socketPath?: string; connect?
         })
         if (current !== generation || stopped) { channel.close(); return }
         client = channel; handshakeTicks = 0; attempt += 1; sequence += 1
-        channel.sendFrame('register', issue('message'), { processInstanceId, piSessionId: sessionId, extensionInstanceId, hostMode: 'tui', capabilities: [...BRIDGE_CAPABILITIES, SESSION_CODE_CAPABILITY, ...(navigate ? [PANE_NAVIGATION_CAPABILITY] : [])], registrationAttempt: attempt, sourceSequence: sequence, lifecycle: 'running', activity: activity(), health: 'healthy' })
+        channel.sendFrame('register', issue('message'), { processInstanceId, piSessionId: sessionId, extensionInstanceId, hostMode: 'tui', capabilities: [...BRIDGE_CAPABILITIES, SESSION_CODE_CAPABILITY, ...(navigate ? [PANE_NAVIGATION_CAPABILITY] : []), PROJECT_CONTEXT_CAPABILITY], registrationAttempt: attempt, sourceSequence: sequence, lifecycle: 'running', activity: activity(), health: 'healthy' })
       } catch { retryMs = Math.min(5000, retryMs * 2) /* fail open; scheduled retry */ }
       finally { connecting = false }
     }

@@ -8,10 +8,16 @@ export const BRIDGE_CAPABILITIES = ['observe.lifecycle', 'adoption.acknowledge',
 /** Optional presentation feature. Legacy peers receive the unchanged registered body. */
 export const SESSION_CODE_CAPABILITY = 'presentation.session-code'
 export const PANE_NAVIGATION_CAPABILITY = 'presentation.checked-pane'
-const validCapabilities = (v: unknown) => Array.isArray(v)
-  && (v.length === 3 || (v.length === 4 && v[3] === SESSION_CODE_CAPABILITY)
-    || (v.length === 5 && v[3] === SESSION_CODE_CAPABILITY && v[4] === PANE_NAVIGATION_CAPABILITY))
+/** Reports only a domain-separated digest of canonical ExtensionContext.cwd; never the path itself. */
+export const PROJECT_CONTEXT_CAPABILITY = 'management.project-context'
+const OPTIONAL_BRIDGE_CAPABILITIES = [SESSION_CODE_CAPABILITY, PANE_NAVIGATION_CAPABILITY, PROJECT_CONTEXT_CAPABILITY] as const
+const validCapabilities = (v: unknown) => Array.isArray(v) && v.length >= BRIDGE_CAPABILITIES.length
+  && v.length <= BRIDGE_CAPABILITIES.length + OPTIONAL_BRIDGE_CAPABILITIES.length
   && BRIDGE_CAPABILITIES.every((c, i) => v[i] === c)
+  && v.slice(BRIDGE_CAPABILITIES.length).every((value, index, suffix) =>
+    typeof value === 'string' && OPTIONAL_BRIDGE_CAPABILITIES.includes(value as typeof OPTIONAL_BRIDGE_CAPABILITIES[number])
+      && OPTIONAL_BRIDGE_CAPABILITIES.filter(capability => suffix.includes(capability)).indexOf(value as typeof OPTIONAL_BRIDGE_CAPABILITIES[number]) === index)
+  && new Set(v).size === v.length
 const id = (v: unknown): v is string => typeof v === 'string' && /^[A-Za-z0-9_-]{1,128}$/.test(v)
 const capability = (v: unknown): v is string => id(v) && v.length >= 32
 const counter = (v: unknown): v is number => Number.isSafeInteger(v) && (v as number) >= 0
@@ -57,9 +63,12 @@ export function validateBridgeFrame(value: unknown): BridgeFrame {
   const shape = bodies[record.type as BridgeType] as Record<string, (v: unknown) => boolean>
   const body = record.body as Record<string, unknown>
   const optionalCode = record.type === 'registered' && Object.hasOwn(body, 'sessionCode')
+  const optionalContext = record.type === 'heartbeat' && Object.hasOwn(body, 'executionContextDigest')
   if (optionalCode && body.sessionCode !== null && !isSessionCode(body.sessionCode)) invalid()
-  if (Object.keys(body).length !== Object.keys(shape).length + (optionalCode ? 1 : 0)
-      || Object.keys(body).some(key => !(optionalCode && key === 'sessionCode') && (!Object.hasOwn(shape, key) || !shape[key](body[key])))) invalid()
+  if (optionalContext && body.executionContextDigest !== null && !digest(body.executionContextDigest)) invalid()
+  if (Object.keys(body).length !== Object.keys(shape).length + (optionalCode ? 1 : 0) + (optionalContext ? 1 : 0)
+      || Object.keys(body).some(key => !((optionalCode && key === 'sessionCode') || (optionalContext && key === 'executionContextDigest'))
+        && (!Object.hasOwn(shape, key) || !shape[key](body[key])))) invalid()
   return { protocol: BRIDGE_PROTOCOL, type: record.type as BridgeType, messageId: record.messageId as string, body }
 }
 export function encodeBridgeFrame(type: BridgeType, messageId: string, body: Record<string, unknown>): Buffer {

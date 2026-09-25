@@ -1,5 +1,6 @@
 import { incarnationKey, type PiIncarnation } from './binding-identity.ts'
-import { bridgeId, encodeBridgeFrame, SESSION_CODE_CAPABILITY, PANE_NAVIGATION_CAPABILITY, type BridgeFrame } from './bridge-protocol.ts'
+import { projectExecutionContextDigest } from './canonical-hash.ts'
+import { bridgeId, encodeBridgeFrame, SESSION_CODE_CAPABILITY, PANE_NAVIGATION_CAPABILITY, PROJECT_CONTEXT_CAPABILITY, type BridgeFrame } from './bridge-protocol.ts'
 import { SessionCodes } from './session-code.ts'
 import type { WorkbenchStore } from './store.ts'
 import type { FenceLedger } from './fences.ts'
@@ -8,11 +9,11 @@ export const BRIDGE_LEASE_MS = 15_000
 export const BRIDGE_HEARTBEAT_MS = 5_000
 export interface BridgePeer { send(bytes: Buffer): void; close(): void }
 export type NavigationState = 'idle' | 'checking' | 'shown' | 'unavailable' | 'unknown'
-export interface ObservedPi { observedSessionId: string; sessionCode: string | null; navigation: { ticket: string | null; state: NavigationState } | null; incarnation: PiIncarnation; lifecycle: string; activity: string; health: string; available: boolean; mode: 'observed' | 'committed' }
+export interface ObservedPi { observedSessionId: string; sessionCode: string | null; navigation: { ticket: string | null; state: NavigationState } | null; incarnation: PiIncarnation; lifecycle: string; activity: string; health: string; available: boolean; mode: 'observed' | 'committed'; executionContextDigest: string | null; executionContextAt: number | null }
 export interface BridgeSourceInput { incarnation: PiIncarnation; observedSessionId: string; connectionId: string; connectionChallenge: string; sourceSequence: number; eventId: string }
 /** Trusted S5 callback, called only on the exact current transport object. */
 export interface BridgeAdoptionAck { incarnation: PiIncarnation; observedSessionId: string; connectionId: string; connectionChallenge: string; peer: BridgePeer; frame: BridgeFrame }
-type Entry = { key: string; sessionCode: string | null; navigation: { ticket: string; sequence: number; requestId: string | null; deadline: number; state: NavigationState } | null; identity: PiIncarnation; peer: BridgePeer | null; connectionId: string; challenge: string; observedId: string; attempt: number; sequence: number; deadline: number; lifecycle: string; activity: string; health: string; mode: 'observed' | 'committed'; dedup: Map<string, string> }
+type Entry = { key: string; sessionCode: string | null; navigation: { ticket: string; sequence: number; requestId: string | null; deadline: number; state: NavigationState } | null; identity: PiIncarnation; peer: BridgePeer | null; connectionId: string; challenge: string; observedId: string; attempt: number; sequence: number; deadline: number; lifecycle: string; activity: string; health: string; mode: 'observed' | 'committed'; executionContextSupported: boolean; executionContextDigest: string | null; executionContextAt: number | null; dedup: Map<string, string> }
 function refuse(code: string): never { throw new Error(code) }
 /** One instance belongs to one runner owner, not to a presentation client. */
 export class BridgeRegistry {
@@ -36,7 +37,9 @@ export class BridgeRegistry {
     return { observedSessionId: entry.observedId, sessionCode: available ? entry.sessionCode : null,
       navigation: available && n ? { ticket: n.ticket, state: n.state === 'checking' && this.now() >= n.deadline ? 'unknown' : n.state }
         : n?.state === 'checking' ? { ticket: null, state: 'unknown' } : null,
-      incarnation: { ...entry.identity }, lifecycle: entry.lifecycle, activity: entry.activity, health: entry.health, available, mode: entry.mode }
+      incarnation: { ...entry.identity }, lifecycle: entry.lifecycle, activity: entry.activity, health: entry.health, available, mode: entry.mode,
+      executionContextDigest: available && entry.executionContextSupported ? entry.executionContextDigest : null,
+      executionContextAt: available && entry.executionContextSupported ? entry.executionContextAt : null }
   }
   list(): ObservedPi[] { this.expire(); return this.listCurrent() }
   /** No callback/SQL effects; safe to inspect inside an operator transaction. */
@@ -57,6 +60,23 @@ export class BridgeRegistry {
   currentPeer(observedId: string, connectionId: string, challenge: string): BridgePeer | null {
     const entry = [...this.records.values()].find(e => e.observedId === observedId)
     return entry?.peer && this.now() < entry.deadline && entry.connectionId === connectionId && entry.challenge === challenge ? entry.peer : null
+  }
+  /** Fresh, challenged same-Pi context match for a committed Run. This is a
+   * momentary eligibility fact, never Adoption identity or a durable claim. */
+  projectContextMatches(runId: string, canonicalProjectPath: string, maxAgeMs = BRIDGE_HEARTBEAT_MS + 1000): boolean {
+    const binding = this.options.store.getBinding(runId)
+    const identity = this.options.store.getBindingIdentity(runId)
+    const project = binding?.projectId ? this.options.store.getProject(binding.projectId) : null
+    const goal = identity ? this.options.store.getGoal(identity.goalId) : null
+    if (!binding || binding.state !== 'ready' || !binding.projectId || !identity || !project || !goal
+        || identity.incarnation.executionNodeId !== this.options.nodeId || project.executionNodeId !== this.options.nodeId
+        || goal.projectId !== binding.projectId || project.canonicalPath !== canonicalProjectPath
+        || this.options.fences.isFenced(runId) || this.options.fences.isIncarnationFenced(identity.incarnationKey)
+        || !this.options.store.listMemberships(identity.goalId).some(member => member.runId === runId)) return false
+    const entry = this.records.get(identity.incarnationKey), now = this.now()
+    return !!entry && entry.mode === 'committed' && entry.peer !== null && now < entry.deadline
+      && entry.executionContextSupported && entry.executionContextDigest === projectExecutionContextDigest(canonicalProjectPath)
+      && entry.executionContextAt !== null && now >= entry.executionContextAt && now - entry.executionContextAt <= maxAgeMs
   }
   /** Prepare without sending. Caller persists the intent receipt before invoking
    * this one-shot effect. No automatic replay after failure or owner restart. */
@@ -86,6 +106,7 @@ export class BridgeRegistry {
     if (!entry || entry.peer !== peer || this.now() >= entry.deadline) refuse('connection_not_current')
     if (this.options.fences.isIncarnationFenced(entry.key)) refuse('fence_conflict')
     const body = frame.body
+    if (frame.type === 'heartbeat' && Object.hasOwn(body, 'executionContextDigest') && !entry.executionContextSupported) refuse('invalid_bridge_envelope')
     if (frame.type === 'registered' || frame.type === 'rejected' || frame.type === 'input_received'
         || frame.type === 'adoption_request' || frame.type === 'adoption_committed' || frame.type === 'recovery_request' || frame.type === 'focus_request') refuse('invalid_bridge_envelope')
     if (body.connectionId !== entry.connectionId || body.connectionChallenge !== entry.challenge) refuse('connection_not_current')
@@ -156,6 +177,11 @@ export class BridgeRegistry {
       }
     } else if (frame.type === 'heartbeat') {
       entry.lifecycle = body.lifecycle as string; entry.activity = body.activity as string; entry.health = body.health as string
+      if (entry.executionContextSupported) {
+        const digest = body.executionContextDigest
+        entry.executionContextDigest = typeof digest === 'string' ? digest : null
+        entry.executionContextAt = typeof digest === 'string' ? this.now() : null
+      }
     }
     if (frame.type === 'close') { this.disconnect(peer); return }
   }
@@ -188,11 +214,16 @@ export class BridgeRegistry {
     // No mutation before admission and identity/fence checks have completed.
     const former = existing?.peer
     if (former) this.peers.delete(former)
-    const codeSupported = (body.capabilities as string[]).includes(SESSION_CODE_CAPABILITY)
+    const capabilities = body.capabilities as string[]
+    const codeSupported = capabilities.includes(SESSION_CODE_CAPABILITY)
+    const contextSupported = capabilities.includes(PROJECT_CONTEXT_CAPABILITY)
+    // Register establishes only the transport identity. Context is accepted
+    // only on a later heartbeat carrying this connection's challenge.
     const sessionCode = codeSupported ? this.codes.forIdentity(key) : null
     const navigation: Entry['navigation'] = (body.capabilities as string[]).includes(PANE_NAVIGATION_CAPABILITY)
       ? { ticket: this.issue('navigate'), sequence: 0, requestId: null, deadline: 0, state: 'idle' } : null
-    const entry: Entry = { key, sessionCode, navigation, identity, peer, connectionId: this.issue('connection'), challenge: this.issue('challenge'), observedId: existing?.observedId ?? this.issue('observed'), attempt, sequence, deadline: this.now() + BRIDGE_LEASE_MS, lifecycle: body.lifecycle as string, activity: body.activity as string, health: body.health as string, mode, dedup: new Map() }
+    const entry: Entry = { key, sessionCode, navigation, identity, peer, connectionId: this.issue('connection'), challenge: this.issue('challenge'), observedId: existing?.observedId ?? this.issue('observed'), attempt, sequence, deadline: this.now() + BRIDGE_LEASE_MS, lifecycle: body.lifecycle as string, activity: body.activity as string, health: body.health as string, mode,
+      executionContextSupported: contextSupported, executionContextDigest: null, executionContextAt: null, dedup: new Map() }
     const response = encodeBridgeFrame('registered', frame.messageId, { observedSessionId: entry.observedId, executionNodeId: this.options.nodeId, connectionId: entry.connectionId, connectionChallenge: entry.challenge, acceptedRegistrationAttempt: attempt, acceptedSourceSequence: sequence, leaseDurationMs: BRIDGE_LEASE_MS, heartbeatIntervalMs: BRIDGE_HEARTBEAT_MS, mode, ...(codeSupported ? { sessionCode } : {}) })
     this.records.set(key, entry); this.peers.set(peer, entry)
     this.water.set(key, { attempt, sequence })

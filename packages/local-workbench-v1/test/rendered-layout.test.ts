@@ -115,6 +115,16 @@ Item {
     }
     // Qt runs test functions in name order, so every test establishes the
     // authoritative projection it needs instead of inheriting one.
+    function useRunnerProjectContext() {
+      var value = JSON.parse(JSON.stringify(host.snapshot))
+      for (var i = 0; i < value.projects.length; i++) {
+        if (value.projects[i].projectId === value.selectedProjectId) {
+          value.selectedProject = value.projects[i]
+          break
+        }
+      }
+      host.snapshot = value
+    }
     function openJourney() {
       consoleView.close()
       consoleView.pluginGeneration = host.snapshot.pluginGeneration
@@ -372,6 +382,7 @@ Item {
     }
 
     function test_zzSameRevisionReviewInvalidation() {
+      useRunnerProjectContext()
       openJourney()
       consoleView.selectAgent("${JOURNEY_AGENT_RUN_ID}")
       consoleView.selectCheck("${JOURNEY_CHECK_ID}", 3)
@@ -518,7 +529,64 @@ Item {
       compare(consoleView.pendingIntents.length, 0)
     }
 
+    function test_assignmentContextRequiresFreshRunnerMatch() {
+      var previousSnapshot = host.snapshot
+      useRunnerProjectContext()
+      openJourney()
+      consoleView.goTo("assignment")
+      wait(20)
+      consoleView.selectAgent("${JOURNEY_AGENT_RUN_ID}")
+      consoleView.selectCheck("${JOURNEY_CHECK_ID}", 3)
+      var task = findChild(consoleView, "workbench-assignment-task")
+      task.text = host.snapshot.details[1].goalText
+      wait(20)
+      var status = findChild(surfaceRoot(), "workbench-assignment-context-status")
+      verify(status !== null && status.visible)
+      verify(status.text.indexOf("Every current Run in this Goal is ready") === 0)
+      var start = findChild(consoleView, "workbench-start-review")
+      verify(start.enabled)
+      verify(consoleView.captureStartReview(), consoleView.reviewBlockedReason())
+      compare(consoleView.destination, "start_review")
+      var reviewStatus = findChild(surfaceRoot(), "workbench-start-context-status")
+      verify(reviewStatus !== null && reviewStatus.visible)
+      verify(reviewStatus.text.indexOf("Project context matches:") === 0)
+
+      var unavailable = JSON.parse(JSON.stringify(host.snapshot))
+      unavailable.revision += 1
+      unavailable.selectedProject.contextMatch = false
+      unavailable.projects[0].contextMatch = false
+      verify(consoleView.applyProjection(unavailable))
+      wait(20)
+      verify(reviewStatus.text.indexOf("Project context does not match or is unavailable") === 0)
+      verify(consoleView.reviewBlockedReason().indexOf("Every current Run in this Goal") >= 0)
+      consoleView.goTo("assignment")
+      wait(20)
+      var currentStatus = findChild(surfaceRoot(), "workbench-assignment-context-status")
+      var blockedStart = findChild(consoleView, "workbench-start-review")
+      verify(currentStatus !== null && currentStatus.visible)
+      verify(currentStatus.text.indexOf("Every Run must be ready") === 0)
+      compare(blockedStart.enabled, false)
+      compare(consoleView.pendingIntents.length, 0, "context presentation never emits an authority intent")
+
+      var missing = JSON.parse(JSON.stringify(unavailable))
+      missing.revision += 1
+      delete missing.selectedProject
+      verify(consoleView.applyProjection(missing))
+      wait(20)
+      currentStatus = findChild(surfaceRoot(), "workbench-assignment-context-status")
+      verify(currentStatus !== null && currentStatus.visible)
+      verify(currentStatus.text.indexOf("Project context is unavailable") === 0)
+      compare(findChild(consoleView, "workbench-start-review").enabled, false)
+      consoleView.goTo("start_review")
+      wait(20)
+      reviewStatus = findChild(surfaceRoot(), "workbench-start-context-status")
+      verify(reviewStatus !== null && reviewStatus.visible)
+      verify(reviewStatus.text.indexOf("Project context is unavailable") === 0)
+      host.snapshot = previousSnapshot
+    }
+
     function test_assignmentToExactStartReview() {
+      useRunnerProjectContext()
       openJourney()
       consoleView.goTo("assignment")
       wait(20)

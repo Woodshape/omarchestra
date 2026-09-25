@@ -359,3 +359,17 @@ local-workbench-v1-phase-2-check:
         PATH="$node_dir:/usr/bin:/bin" \
         NODE_BIN="$node_bin" \
         bash "$root/packages/local-workbench-v1/scripts/phase-2-gate.sh"
+
+# LOCAL WORKBENCH V1 — PHASE 3 PROJECT-CONTEXT PREFLIGHT. This bounded fake
+# gate exercises the same-process Pi digest, exact challenged Run match,
+# freshness and projection. It performs no Assignment delivery or gate run.
+local-workbench-v1-phase-3-context-check:
+    #!/usr/bin/env bash
+    set -euo pipefail
+    root='{{justfile_directory()}}'
+    node_bin="$(command -v node || true)"
+    node_dir="$(dirname "${node_bin:-/usr/bin/node}")"
+    env -i \
+        PATH="$node_dir:/usr/bin:/bin" \
+        NODE_BIN="$node_bin" \
+        bash "$root/packages/local-workbench-v1/scripts/phase-3-context-gate.sh"

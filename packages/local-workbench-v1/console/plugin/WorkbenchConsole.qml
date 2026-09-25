@@ -666,8 +666,13 @@ Item {
         selectedCheckVersion = version
     }
 
+    function currentGoalContextMatches() {
+        return projection !== null && typeof projection.selectedProject === "object"
+            && projection.selectedProject !== null && projection.selectedProject.contextMatch === true
+    }
+
     function captureStartReview() {
-        if (!projection || projection.connection !== "connected") return false
+        if (!projection || projection.connection !== "connected" || !currentGoalContextMatches()) return false
         if (!projection.managedAgents.some(function(card) { return card.agentRunId === root.selectedAgentRunId })) return false
         if (!selectedAgentRunId || !selectedCheckId) return false
         var check = checkById(selectedCheckId, selectedCheckVersion)
@@ -687,7 +692,7 @@ Item {
     }
 
     function reviewAvailable() {
-        if (!projection || projection.connection !== "connected") return false
+        if (!projection || projection.connection !== "connected" || !currentGoalContextMatches()) return false
         if (!projection.managedAgents.some(function(card) { return card.agentRunId === root.selectedAgentRunId })) return false
         if (!selectedAgentRunId || !selectedCheckId) return false
         var check = checkById(selectedCheckId, selectedCheckVersion)
@@ -697,6 +702,7 @@ Item {
     function reviewBlockedReason() {
         if (!projection || projection.connection !== "connected") return "Waiting for an authoritative projection."
         if (!selectedAgentRunId || !projection.managedAgents.some(function(card) { return card.agentRunId === root.selectedAgentRunId })) return "Choose a current target agent."
+        if (!currentGoalContextMatches()) return "Every current Run in this Goal must be ready and report this Project root on a fresh bridge. Omarchestra will not change Pi's working directory."
         if ((assignmentDraft().taskText || "").trim() === "") return "Describe the task before reviewing start."
         if (!selectedCheckId) return "Configure an acceptance check before starting."
         var check = checkById(selectedCheckId, selectedCheckVersion)

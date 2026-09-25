@@ -96,6 +96,25 @@ Control {
                 font.bold: true
             }
             Text {
+                objectName: "workbench-start-context-status"
+                Layout.fillWidth: true
+                visible: root.projection !== null && typeof root.projection.selectedProjectId === "string"
+                    && root.projection.selectedProjectId.length > 0
+                textFormat: Text.PlainText
+                wrapMode: Text.Wrap
+                text: !visible ? "" : typeof root.projection.selectedProject !== "object"
+                    || root.projection.selectedProject === null
+                    ? "Project context is unavailable in this snapshot. Start remains blocked until the Runner provides a fresh context report."
+                    : root.projection.selectedProject.contextMatch === true
+                        ? "Project context matches: every current Run in this Goal is ready and reports this Project root on a fresh bridge."
+                        : "Project context does not match or is unavailable. Start remains blocked; Omarchestra will not change Pi's working directory."
+                color: visible && typeof root.projection.selectedProject === "object"
+                    && root.projection.selectedProject !== null && root.projection.selectedProject.contextMatch === true
+                    ? root.mutedColor : Color.urgent
+                font.family: Style.font.family
+                font.pixelSize: Style.font.caption
+            }
+            Text {
                 Layout.fillWidth: true
                 visible: root.startDetail === null
                 textFormat: Text.PlainText

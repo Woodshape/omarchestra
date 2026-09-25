@@ -372,6 +372,22 @@ export class WorkbenchAuthority {
     return { ...(this.projectContexts.get(projectId) ?? { available: false, dirty: null, reason: 'repository_identity_unavailable' }) }
   }
 
+  /** A presentation fact only: every current Run in the selected Goal must
+   * report the exact canonical Project context on its fresh challenged bridge. */
+  projectContextMatches(projectId: string): boolean {
+    if (!this.registry || this.selectedProjectId !== projectId || !this.projectContext(projectId).available) return false
+    const project = this.runner.store.getProject(projectId)
+    const goal = this.selectedGoalId ? this.runner.store.getGoal(this.selectedGoalId) : null
+    if (!project || !goal || goal.projectId !== projectId) return false
+    const members = this.runner.store.listMemberships(goal.goalId)
+    if (members.length === 0) return false
+    return members.every(member => {
+      const binding = this.runner.store.getBinding(member.runId)
+      return !!binding && binding.projectId === projectId && binding.state === 'ready'
+        && this.registry!.projectContextMatches(member.runId, project.canonicalPath)
+    })
+  }
+
   private refreshProjectContext(project: ProjectRecord): ProjectContextStatus {
     let status: ProjectContextStatus = { available: false, dirty: null, reason: 'repository_identity_unavailable' }
     if (project.executionNodeId === this.executionNodeId && /^repo-v1:[a-f0-9]{64}$/.test(project.contextDigest ?? '')) {

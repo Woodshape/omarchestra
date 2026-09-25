@@ -72,7 +72,7 @@ function checkSummary(check: CheckRecord): WorkbenchSnapshot['checks'][number] {
   }
 }
 
-function projectSummary(project: ProjectRecord, dirty: boolean | null): WorkbenchSnapshot['projects'][number] {
+function projectSummary(project: ProjectRecord, dirty: boolean | null, contextMatch: boolean): WorkbenchSnapshot['projects'][number] {
   return {
     projectId: project.projectId,
     executionNodeId: project.executionNodeId,
@@ -80,9 +80,9 @@ function projectSummary(project: ProjectRecord, dirty: boolean | null): Workbenc
     gitCommonDir: project.gitCommonDir,
     revision: String(project.revision),
     dirty, // Last inspection fact; null when current context is unavailable.
-    // No Run has verified this Project's execution context in Phase 2, so the
-    // field stays the honest `false`. It is never repurposed as "is selected".
-    contextMatch: false,
+    // This is a momentary bridge-reported match for every ready Run in the
+    // selected Goal. It is never repurposed as "is selected" or as authority.
+    contextMatch,
   }
 }
 
@@ -335,13 +335,15 @@ export function buildSnapshot(options: ProjectionOptions): WorkbenchSnapshot {
     revision: authority.currentRevision,
     cursor: authority.currentCursor,
     connection: options.connection,
-    projects: page('projects', projects.map(project => projectSummary(project, authority.projectContext(project.projectId).dirty))),
+    projects: page('projects', projects.map(project => projectSummary(project, authority.projectContext(project.projectId).dirty,
+      authority.projectContextMatches(project.projectId)))),
     goals: page('goals', goals.map(goal => goalSummary(goal, goal.goalId === selectedGoalId))),
     selectedProjectId,
     selectedGoalId,
     selectedProject: selectedProjectId === null ? null : (() => {
       const selected = projects.find(project => project.projectId === selectedProjectId)
-      return selected ? projectSummary(selected, authority.projectContext(selected.projectId).dirty) : null
+      return selected ? projectSummary(selected, authority.projectContext(selected.projectId).dirty,
+        authority.projectContextMatches(selected.projectId)) : null
     })(),
     selectedGoal: selectedGoalId === null ? null : (() => {
       const selected = goals.find(goal => goal.goalId === selectedGoalId)
