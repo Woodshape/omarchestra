@@ -28,7 +28,6 @@ Control {
     property var startReview: null
     property var startDetail: null
     property var selectedCheck: null
-    property var armedConfirmation: null
     property bool technicalOpen: false
     onStartReviewChanged: technicalOpen = false
     onStartDetailChanged: technicalOpen = false
@@ -268,17 +267,16 @@ Control {
                                 readonly property var requestPayload: root.interventionPayload(workRow.rowAssignment)
                                 readonly property bool available: root.actionable && modelData.enabled
                                     && requestPayload !== null
-                                readonly property var requestIntent: ({ kind: modelData.kind,
-                                    target: modelData.target, payload: requestPayload })
                                 Layout.fillWidth: true
-                                confirmationIntent: requestIntent
-                                armedIntent: root.armedConfirmation
-                                highlighted: awaitingConfirmation
-                                text: confirmationText(modelData.label || modelData.kind)
+                                text: modelData.label || modelData.kind
                                 supportingText: available ? "" : (modelData.reason || "Unavailable")
                                 enabled: available
                                 focusPolicy: Qt.StrongFocus
-                                onClicked: root.intentRequested(requestIntent)
+                                onClicked: root.intentRequested({
+                                    kind: modelData.kind,
+                                    target: modelData.target,
+                                    payload: requestPayload
+                                })
                             }
                         }
                         Text {

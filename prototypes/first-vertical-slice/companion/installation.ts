@@ -1015,7 +1015,13 @@ export class CompanionInstallation {
       .filter((candidate) => candidate.identity.kind === 'directory' && candidate.identity.path !== this.ports.paths.pluginRoot)
       .filter((candidate) => !expectedDirectoriesForRelease.has(relativeTo(this.ports.paths.pluginRoot, candidate.identity.path)))
       .sort((left, right) => right.identity.path.length - left.identity.path.length)
-    await this.stageObsoleteEntries(plan, obsoleteFiles, obsoleteDirectories)
+    // Atomic file replacement allocates a new inode. Keep the exact original
+    // inode in receipt-owned staging until the new receipt is committed; on a
+    // failed update, recovery renames it back instead of recreating bytes with
+    // a different identity and leaving an unusable ownership receipt.
+    const replacedFiles = currentFiles.filter((entry) =>
+      expected.has(relativeTo(this.ports.paths.pluginRoot, entry.identity.path)))
+    await this.stageObsoleteEntries(plan, [...obsoleteFiles, ...replacedFiles], obsoleteDirectories)
     await this.ensureReleaseDirectories(release, plan)
     const owner = await this.ports.host.currentOwner()
     for (const relativePath of Object.keys(release.assets).sort()) {
@@ -1028,7 +1034,9 @@ export class CompanionInstallation {
       } else if (beforeEntry.identity.kind === 'directory') {
         if (current.kind !== 'missing') throw new CompanionInstallationError('stale_precondition', `directory replacement path is occupied at ${target}`)
       } else {
-        if (current.kind !== 'file' || !sameIdentity(current, beforeEntry.identity)) {
+        const stagedOriginal = this.activeStage?.entries.some((entry) => entry.source.identity.path === target)
+        if (stagedOriginal ? current.kind !== 'missing'
+          : current.kind !== 'file' || !sameIdentity(current, beforeEntry.identity)) {
           throw new CompanionInstallationError('stale_precondition', `asset identity changed at ${target}`)
         }
       }

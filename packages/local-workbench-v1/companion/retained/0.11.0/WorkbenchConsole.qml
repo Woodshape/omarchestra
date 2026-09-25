@@ -769,16 +769,6 @@ Item {
                                 font.pixelSize: Style.font.body
                                 font.bold: true
                             }
-                            Text {
-                                objectName: "workbench-version"
-                                visible: root.manifest !== null && typeof root.manifest.version === "string"
-                                text: visible ? "v" + root.manifest.version : ""
-                                textFormat: Text.PlainText
-                                color: root.mutedColor
-                                font.family: Style.font.family
-                                font.pixelSize: Style.font.caption
-                                Accessible.name: visible ? "Workbench version " + root.manifest.version : ""
-                            }
                             WorkbenchAction {
                                 objectName: "workbench-close"
                                 text: "×"

@@ -1,7 +1,7 @@
 // Local Workbench v1 — QML boundary and release audit.
 //
 // Proves the QML is presentation-only (no storage, process, PTY, SSH,
-// scraping, or label derivation), that the additive 0.10.0 release packages
+// scraping, or label derivation), that the additive 0.12.0 release packages
 // the QML byte-identical to the plugin source, and that the release does not
 // copy or alter historical prototype releases.
 
@@ -51,10 +51,10 @@ function allQmlSources() {
   return QML_FILES.map((name) => source(name))
 }
 
-test('the manifest exposes panel and bar-widget entry points at 0.10.0', () => {
+test('the manifest exposes panel and bar-widget entry points at 0.12.0', () => {
   const manifest = JSON.parse(source('manifest.json'))
   assert.equal(manifest.schemaVersion, 1)
-  assert.equal(manifest.version, '0.10.0')
+  assert.equal(manifest.version, '0.12.0')
   assert.equal(manifest.id, 'omarchestra.agent-console')
   assert.ok(Array.isArray(manifest.kinds) && manifest.kinds.includes('panel'))
   assert.equal(manifest.entryPoints?.panel, 'WorkbenchHost.qml')
@@ -81,12 +81,19 @@ test('all QML stays presentation-only with no forbidden runtime dependencies', (
   }
 })
 
-test('active dock uses only an inline exact-target review, never a transient dialog', () => {
+test('exact-target confirmation is a second press of the original action, never a separate surface', () => {
   const qml = source('WorkbenchConsole.qml')
-  assert.match(qml, /objectName: "workbench-inline-confirmation"/)
-  assert.doesNotMatch(qml, /\b(?:Dialog|Popup|DialogButtonBox)\s*\{/)
+  const action = source('WorkbenchAction.qml')
+  assert.doesNotMatch(qml, /workbench-inline-confirmation|workbench-confirm-review|\b(?:Dialog|Popup|DialogButtonBox)\s*\{/)
   assert.match(qml, /interval: 30000/)
-  assert.match(qml, /Review expired after 30 seconds/)
+  assert.match(qml, /confirmationAssociation === association/)
+  assert.match(qml, /JSON\.stringify\(confirmation\) === JSON\.stringify\(payload\)/)
+  assert.match(action, /Confirm: /)
+  assert.match(action, /awaitingConfirmation/)
+  assert.doesNotMatch(action, /ToolTip\./)
+  for (const qml of allQmlSources()) {
+    assert.doesNotMatch(qml, /ToolTip\./, 'disabled reasons stay inline or accessible, never in a hover popup')
+  }
 })
 
 test('bar button delegates to exactly the installed one-shot owner launcher', () => {
@@ -121,9 +128,9 @@ test('QML emits intents only and never computes authority', () => {
   assert.doesNotMatch(combined, /(?:derive|compute|validate|check)(?:Adoption|Eligibility|Expiry|Identity|Digest)/i)
 })
 
-test('the additive 0.10.0 release packages QML byte-identical to the plugin source', async () => {
+test('the additive 0.12.0 release packages QML byte-identical to the plugin source', async () => {
   const { WORKBENCH_RELEASE } = await import('../companion/releases.ts')
-  assert.equal(WORKBENCH_RELEASE.version, '0.10.0')
+  assert.equal(WORKBENCH_RELEASE.version, '0.12.0')
   for (const file of QML_FILES) {
     assert.equal(
       WORKBENCH_RELEASE.assets[file],
@@ -133,8 +140,29 @@ test('the additive 0.10.0 release packages QML byte-identical to the plugin sour
   }
   assert.equal(
     JSON.parse(WORKBENCH_RELEASE.assets['manifest.json']).version,
-    '0.10.0',
+    '0.12.0',
   )
+})
+
+test('the previous installed 0.11.0 Companion remains byte-for-byte archived for rollback', () => {
+  const retained = join(PACKAGE_ROOT, 'companion', 'retained', '0.11.0')
+  const names = readdirSync(retained).sort()
+  assert.equal(names.length, 15)
+  assert.equal(JSON.parse(readFileSync(join(retained, 'manifest.json'), 'utf8')).version, '0.11.0')
+  for (const name of names) assert.ok(readFileSync(join(retained, name)).length > 0, name)
+})
+
+test('the previous installed 0.10.0 Companion remains byte-for-byte archived for rollback', () => {
+  const retained = join(PACKAGE_ROOT, 'companion', 'retained', '0.10.0')
+  const names = readdirSync(retained).sort()
+  assert.equal(names.length, 15)
+  assert.equal(JSON.parse(readFileSync(join(retained, 'manifest.json'), 'utf8')).version, '0.10.0')
+  const digest = createHash('sha256')
+  for (const name of names) {
+    digest.update(name)
+    digest.update(readFileSync(join(retained, name)))
+  }
+  assert.equal(digest.digest('hex'), 'bfdf06b49550e72df9a7884e3e1cf496d28f408382dd8469fe9e50aca80437c8')
 })
 
 test('the former installed 0.9.0 Companion assets remain byte-for-byte archived', () => {
@@ -164,7 +192,7 @@ test('the former installed 0.9.0 Companion assets remain byte-for-byte archived'
 
 test('the workbench release catalog contains only its own additive release', async () => {
   const { WORKBENCH_RELEASE_CATALOG } = await import('../companion/releases.ts')
-  assert.deepEqual(Object.keys(WORKBENCH_RELEASE_CATALOG), ['0.10.0'])
+  assert.deepEqual(Object.keys(WORKBENCH_RELEASE_CATALOG), ['0.12.0'])
 })
 
 test('the workbench release does not copy historical prototype release bytes', async () => {

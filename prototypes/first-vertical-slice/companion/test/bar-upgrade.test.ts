@@ -55,9 +55,13 @@ test('same-ID bar-to-bar update and rollback preserve placement, exact previous 
   assert.deepEqual(barIds(fake).filter(id => id === COMPANION_PLUGIN_ID), [COMPANION_PLUGIN_ID])
   await run(fake, 'rollback', mixed)
   assert.deepEqual(fake.fingerprint().configuration, previous.configuration)
-  const pluginAssets = (entries: typeof previous.filesystem) => entries.filter(entry => entry.path.includes('/plugins/omarchestra.agent-console'))
-  assert.deepEqual(pluginAssets(fake.fingerprint().filesystem), pluginAssets(previous.filesystem))
+  const pluginAssets = (entries: typeof previous.filesystem) => entries
+    .filter(entry => entry.path.includes('/plugins/omarchestra.agent-console'))
+    .map(({ device, inode, ...entry }) => entry)
+  assert.deepEqual(pluginAssets(fake.fingerprint().filesystem), pluginAssets(previous.filesystem),
+    'explicit rollback restores exact bytes but creates new inode identities with a fresh receipt')
   assert.equal(JSON.parse(fake.receipts.inspectNoFollow(COMPANION_PLUGIN_ID)!.bytes).release.version, '0.9.0')
+  await new CompanionInstallation(fake.ports()).inspect({ operation: 'update', release: next })
   await run(fake, 'update', next)
   await run(fake, 'uninstall')
   assert.equal(fake.configuration.shellJsonBytes(), original)

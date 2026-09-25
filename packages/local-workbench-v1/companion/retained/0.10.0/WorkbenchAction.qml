@@ -9,11 +9,6 @@ Controls.Button {
     property bool prominent: false
     property string explanation: ""
     property string supportingText: ""
-    property var confirmationIntent: null
-    property var armedIntent: null
-    readonly property bool awaitingConfirmation: confirmationIntent !== null && armedIntent !== null
-        && JSON.stringify(confirmationIntent) === JSON.stringify(armedIntent)
-    function confirmationText(label) { return awaitingConfirmation ? "Confirm: " + label : label }
     focusPolicy: Qt.StrongFocus
     hoverEnabled: true
     padding: Style.space(8)
@@ -73,4 +68,6 @@ Controls.Button {
             font.pixelSize: Style.font.caption
         }
     }
+    Controls.ToolTip.visible: hovered && explanation !== ""
+    Controls.ToolTip.text: explanation
 }

@@ -12,7 +12,7 @@
  */
 
 export const WORKBENCH_PLUGIN_ID = 'omarchestra.agent-console'
-export const WORKBENCH_PLUGIN_VERSION = '0.10.0'
+export const WORKBENCH_PLUGIN_VERSION = '0.12.0'
 
 /**
  * Loaded-presentation contract. The running shell keeps the panel instance

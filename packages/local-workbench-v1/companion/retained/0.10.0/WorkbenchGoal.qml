@@ -30,7 +30,6 @@ Control {
     property string mode: "goal"
     property bool menuOpen: false
     property string goalDraft: ""
-    property var armedConfirmation: null
     signal draftChanged(string value)
     signal toggleMenu()
     signal changeProject()
@@ -264,17 +263,16 @@ Control {
                         readonly property var requestPayload: root.actionPayload(modelData)
                         readonly property bool available: root.connected && modelData.enabled
                             && requestPayload !== null
-                        readonly property var requestIntent: ({ kind: modelData.kind,
-                            target: modelData.target, payload: requestPayload })
                         Layout.fillWidth: true
-                        confirmationIntent: requestIntent
-                        armedIntent: root.armedConfirmation
-                        highlighted: awaitingConfirmation
-                        text: confirmationText(modelData.label || modelData.kind)
+                        text: modelData.label || modelData.kind
                         supportingText: available ? "" : (modelData.reason || "Unavailable")
                         enabled: available
                         focusPolicy: Qt.StrongFocus
-                        onClicked: root.intentRequested(requestIntent)
+                        onClicked: root.intentRequested({
+                            kind: modelData.kind,
+                            target: modelData.target,
+                            payload: requestPayload
+                        })
                     }
                 }
             }

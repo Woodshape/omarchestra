@@ -234,11 +234,9 @@ Item {
           verify(request !== null)
           compare(request.enabled, true)
           clickItem(request)
-          var adoptionConfirm = findChild(consoleView, "workbench-inline-confirmation")
-          verify(adoptionConfirm !== null && adoptionConfirm.visible)
-          var confirmButton = findChild(adoptionConfirm, "workbench-confirm-review")
-          verify(confirmButton !== null && confirmButton.enabled)
-          confirmButton.clicked()
+          compare(consoleView.takeIntent(session()), "", "the first press cannot request Adoption")
+          verify(request.text.indexOf("Confirm: Request adoption") === 0)
+          clickItem(request)
         } else {
           var review = findChild(consoleView, "workbench-add-agent-continue")
           compare(review.enabled, true)
@@ -252,13 +250,12 @@ Item {
         verify(adoptChoice !== null, "the observed session is rendered as an adoptable choice")
         compare(adoptChoice.enabled, true)
         clickItem(adoptChoice)
-        // Requesting adoption is a declared, confirmed action: the inline
-        // review must remain in the dock and its button carries the exact intent.
-        var review = findChild(consoleView, "workbench-inline-confirmation")
-        verify(review !== null && review.visible, "the review is in the dock")
-        var confirmButton = findChild(review, "workbench-confirm-review")
-        verify(confirmButton !== null && confirmButton.enabled)
-        confirmButton.clicked()
+        // The exact same button confirms the same observed session and Role.
+        // No separate review surface or focus jump may carry the intent.
+        compare(consoleView.takeIntent(session()), "", "first press only arms")
+        verify(adoptChoice.text.indexOf("Confirm: Adopt ") === 0 && adoptChoice.highlighted)
+        verify(findChild(consoleView, "workbench-inline-confirmation") === null)
+        clickItem(adoptChoice)
         wait(20)
         emit()
       } else if (${mode === 'authorize' ? 'true' : 'false'}) {

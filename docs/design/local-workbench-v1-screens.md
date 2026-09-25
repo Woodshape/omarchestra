@@ -102,8 +102,7 @@ Board backend is not available in this slice.
   never rebuilt from role/control/assignment fields. Disabled actions show the
   runner's exact reason and emit nothing.
 - Board is visible but disabled with a short reason and emits no intent.
-- Back: none (root). Escape closes an open dialog, menu or Project list;
-  otherwise no-op.
+- Back: none (root). Escape disarms an armed action first, then closes an open menu or Project list; otherwise no-op.
 
 ### D2. Goal
 
@@ -191,8 +190,7 @@ ACK and committed delivery must precede readiness. No Assignment is created by a
   a reason in this slice).
 - Same-process ACK, reconciliation, commit and readiness are preserved; no
   optimistic UI. Replacement shows its predecessor and retains every fence.
-- Confirmation shows meaningful session/Goal/Role context; exact IDs stay
-  inspectable for ambiguous cases.
+- The request control in Overview/Add agent requires two presses of the same button for the exact observed session, Goal and Role. The proposal authorization shown here remains a separate committed step with its literal IDs and same-process ACK; it is not a replacement confirmation pop-up.
 - The authorization action is unavailable until the runtime port exists and is
   labelled as such, and it emits nothing while disabled.
 - Back: Add agent.
@@ -358,8 +356,7 @@ change surface geometry.
 | Work and result | Goal when a Goal is selected, else Overview | returns to that parent |
 | Activity | Overview | returns to Overview |
 
-Escape always dismisses an open inline confirmation review, menu or Project list **before**
-navigating Back. No confirmation overlay or desktop notification is used.
+Escape disarms an armed action first, then dismisses a menu or Project list **before** navigating Back. No separate confirmation box, overlay or desktop notification is used.
 
 ## Draft keys
 
@@ -396,7 +393,7 @@ at most 512 characters, serialized draft text at most 24,000 characters each.
   and closed with Escape; focus returns to the trigger. When the only committed
   action is disabled, the menu shows the runner's exact reason and has no
   focusable entry.
-- Escape dismisses an inline confirmation review first, then closes an open menu or Project
+- Escape disarms an armed action first, then closes an open menu or Project
   list, then navigates Back. The handler lives inside the panel window on the
   panel surface: the layer-shell panel is a separate window, so a handler on the
   console root item would never receive a key event from panel focus.
@@ -451,12 +448,7 @@ belongs to an injected fake authority, never to QML or the production runner.
 - Intent feedback lifecycle: `submitted → acknowledged|rejected|unknown|stale|expired`.
   `acknowledged` means the runner committed the intent, not that Pi delivery
   succeeded.
-- Consequential actions show a focusable, scrollable exact-target review inline
-  in the fixed dock. It does not overlay other controls or auto-disappear on an
-  ordinary heartbeat. Authority confirmations expire after 30 seconds and are
-  invalidated by session/generation/epoch/target identity or relevant revision
-  changes; the review remains with confirmation disabled and a clear, dismissible
-  explanation until the user chooses the current action again.
+- Consequential enabled actions use their **original button** for explicit two-press confirmation. The first press only arms and relabels it `Confirm: <committed label>`; the second press on that same exact action emits the intent. No review box, focus jump, overlay or notification is created. The currently selected Goal remains in the header, the observed session in its row, and the Role in the committed action label. A cursor-only heartbeat keeps the button armed. After 30 seconds or a session/generation/epoch/selection/target/authority/relevant-revision change, it resets to its original label; a subsequent press only arms the current action anew. Escape disarms without emitting. Runner revalidation, the Adoption proposal's literal identity review, same-Pi ACK and durable commit still gate management.
 
 ## Privacy and authority
 

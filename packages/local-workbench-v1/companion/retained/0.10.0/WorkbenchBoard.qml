@@ -54,6 +54,8 @@ Control {
             Layout.fillWidth: true
             text: "Open Board"
             enabled: false
+            ToolTip.visible: hovered
+            ToolTip.text: "Board backend not available in this slice."
         }
     }
 }

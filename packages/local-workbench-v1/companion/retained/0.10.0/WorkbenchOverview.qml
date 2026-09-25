@@ -24,7 +24,6 @@ Control {
 
     property var projection: null
     property string mode: "overview"
-    property var armedConfirmation: null
     signal intentRequested(var payload)
     signal navigate(string destination)
     implicitHeight: overviewColumn.implicitHeight
@@ -161,7 +160,6 @@ Control {
                 observed: root.projection ? root.projection.observedSessions : []
                 retired: root.projection ? root.projection.retiredRuns : []
                 actionable: root.connected
-                armedConfirmation: root.armedConfirmation
                 onIntentRequested: function(payload) { root.intentRequested(payload) }
             }
 

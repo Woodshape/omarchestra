@@ -102,6 +102,7 @@ run_node "${flags[@]}" --test \
     "$root/../../prototypes/first-vertical-slice/companion/test/installation.test.ts" \
     "$root/../../prototypes/first-vertical-slice/companion/test/bar-upgrade.test.ts" \
     "$root/../../manual/test/workbench-preview.test.ts" \
+    "$root/../../manual/test/workbench-companion-receipt-recovery.test.ts" \
     "$root/../../manual/test/workbench-service-toggle.test.ts"
 
 printf '%s\n' '== actual QML render and intent capture (offscreen) =='

@@ -9,7 +9,6 @@ Control {
     property var cards: []
     property var observed: []
     property var retired: []
-    property var armedConfirmation: null
     property bool actionable: false
     property bool historyExpanded: false
     implicitHeight: cardsColumn.implicitHeight
@@ -120,19 +119,18 @@ Control {
                         readonly property var cardPayload: root.actionPayload(
                             modelData.kind, cardRow.modelData.agentRunId, cardRow.modelData.assignment)
                         readonly property bool available: root.actionable && modelData.enabled && cardPayload !== null
-                        readonly property var requestIntent: ({ kind: modelData.kind,
-                            target: modelData.target, payload: cardPayload })
                         Layout.fillWidth: true
                         spacing: 0
                         WorkbenchAction {
                             Layout.fillWidth: true
-                            confirmationIntent: actionRow.requestIntent
-                            armedIntent: root.armedConfirmation
-                            highlighted: awaitingConfirmation
-                            text: confirmationText(actionRow.modelData.label || actionRow.modelData.kind)
+                            text: actionRow.modelData.label || actionRow.modelData.kind
                             enabled: actionRow.available
                             explanation: actionRow.available ? "" : (actionRow.modelData.reason || "Unavailable")
-                            onClicked: root.intentRequested(actionRow.requestIntent)
+                            onClicked: root.intentRequested({
+                                kind: actionRow.modelData.kind,
+                                target: actionRow.modelData.target,
+                                payload: actionRow.cardPayload
+                            })
                         }
                         Caption {
                             Layout.fillWidth: true
@@ -163,14 +161,10 @@ Control {
                     model: observedRow.modelData.choices || []
                     delegate: WorkbenchAction {
                         required property var modelData
-                        readonly property var requestIntent: root.choiceIntent(modelData.choiceId, modelData.actionKind)
                         Layout.fillWidth: true
-                        confirmationIntent: requestIntent
-                        armedIntent: root.armedConfirmation
-                        highlighted: awaitingConfirmation
-                        text: confirmationText(modelData.label)
+                        text: modelData.label
                         enabled: root.actionable && modelData.enabled
-                        onClicked: root.intentRequested(requestIntent)
+                        onClicked: root.intentRequested(root.choiceIntent(modelData.choiceId, modelData.actionKind))
                     }
                 }
             }
@@ -198,14 +192,12 @@ Control {
                     Layout.fillWidth: true
                     visible: retiredRow.modelData.canPurge
                     enabled: root.actionable && retiredRow.modelData.canPurge
-                    readonly property var requestIntent: ({ kind: "purge",
+                    text: "Delete retired history"
+                    onClicked: root.intentRequested({
+                        kind: "purge",
                         target: retiredRow.modelData.agentRunId,
-                        payload: { agentRunId: retiredRow.modelData.agentRunId } })
-                    confirmationIntent: requestIntent
-                    armedIntent: root.armedConfirmation
-                    highlighted: awaitingConfirmation
-                    text: confirmationText("Delete retired history")
-                    onClicked: root.intentRequested(requestIntent)
+                        payload: { agentRunId: retiredRow.modelData.agentRunId }
+                    })
                 }
             }
         }

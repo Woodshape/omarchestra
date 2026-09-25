@@ -233,15 +233,15 @@ export class FakeFilesystem implements CompanionFilesystemPort {
     if (existing?.kind === 'symlink' || existing?.kind === 'directory') {
       throw new CompanionInstallationError('unsafe_path', `cannot replace non-file ${inputPath}`)
     }
-    // Preserve device/inode on an ordinary replacement. This models an
-    // atomic replacement whose identity has already been revalidated by the
-    // installer and makes exact fake recovery observable.
+    // The real no-follow atomic write renames a new file over the old one.
+    // It *changes* the inode, even when an update later fails and writes back
+    // identical bytes. Never let fake recovery pass on impossible inode reuse.
     this.nodes.set(inputPath, {
       kind: 'file',
       owner,
       mode,
-      device: existing?.device ?? this.device,
-      inode: existing?.inode ?? this.nextInode++,
+      device: this.device,
+      inode: this.nextInode++,
       bytes,
     })
   }

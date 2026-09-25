@@ -1,13 +1,13 @@
 import assert from 'node:assert/strict'
 import test from 'node:test'
 import vm from 'node:vm'
-import { readFileSync, writeFileSync, mkdtempSync, rmSync } from 'node:fs'
+import { readFileSync, readdirSync, writeFileSync, mkdtempSync, rmSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { spawnSync } from 'node:child_process'
 import { createPreviewController, DEFAULT_PREVIEW_FIXTURE, PREVIEW_STATES } from '../workbench-preview-controller.ts'
 import { WORKBENCH_PREVIEW_RELEASE } from '../workbench-preview-release.ts'
-import { LiveCompanionHost, LiveCompanionConfiguration } from '../../prototypes/first-vertical-slice/manual/live-companion-omarchy.ts'
+import { LiveCompanionHost, LiveCompanionConfiguration, LiveCompanionFilesystem } from '../../prototypes/first-vertical-slice/manual/live-companion-omarchy.ts'
 import { freezeCompanionRelease } from '../../prototypes/first-vertical-slice/companion/contracts.ts'
 import {
   WORKBENCH_PLUGIN_ID,
@@ -16,6 +16,20 @@ import {
   WORKBENCH_PRESENTATION_DESTINATIONS,
   WORKBENCH_PROTOCOL_ID,
 } from '../../packages/local-workbench-v1/companion/contracts.ts'
+
+test('real atomic asset replacement allocates a new inode even when restoring identical bytes', t => {
+  const dir = mkdtempSync(join(tmpdir(), 'workbench-atomic-'))
+  t.after(() => rmSync(dir, { recursive: true, force: true }))
+  const filesystem = new LiveCompanionFilesystem()
+  const file = join(dir, 'AgentConsole.qml')
+  filesystem.writeBytesAtomic(file, 'original', 'owner', 0o644)
+  const original = filesystem.inspectNoFollow(file)
+  filesystem.writeBytesAtomic(file, 'updated', 'owner', 0o644)
+  filesystem.writeBytesAtomic(file, 'original', 'owner', 0o644)
+  const restored = filesystem.inspectNoFollow(file)
+  assert.equal(filesystem.readBytesNoFollow(file), 'original')
+  assert.notEqual(restored.inode, original.inode, 'rewriting old bytes cannot repair an old receipt identity')
+})
 
 test('live shell.json adapter recognizes one exact owned bar entry and refuses duplicates/settings', t => {
   const root = mkdtempSync(join(tmpdir(), 'workbench-config-bar-'))
@@ -37,6 +51,33 @@ test('live shell.json adapter recognizes one exact owned bar entry and refuses d
 test('native preview release passes installer validation without a package-version pin', () => {
   assert.equal(freezeCompanionRelease(WORKBENCH_PREVIEW_RELEASE).version, WORKBENCH_PLUGIN_VERSION)
   assert.equal(WORKBENCH_PREVIEW_RELEASE.compatibility, null)
+})
+
+test('exact installed 0.11.0 assets upgrade to 0.12.0 and roll back without touching other bar widgets', async () => {
+  const { CompanionInstallation } = await import('../../prototypes/first-vertical-slice/companion/installation.ts')
+  const { FakeOmarchy } = await import('../../prototypes/first-vertical-slice/companion/fake-omarchy.ts')
+  const archive = new URL('../../packages/local-workbench-v1/companion/retained/0.11.0/', import.meta.url)
+  const oldAssets = Object.fromEntries(readdirSync(archive).map(name => [name, readFileSync(new URL(name, archive), 'utf8')]))
+  const old = freezeCompanionRelease({ ...WORKBENCH_PREVIEW_RELEASE, version: '0.11.0', assets: oldAssets })
+  const fake = new FakeOmarchy()
+  const installer = new CompanionInstallation(fake.ports())
+  const install = await installer.inspect({ operation: 'install', release: old })
+  await installer.execute(install, fake.authorization.grant(install))
+  const original = fake.installationFingerprint()
+  const update = await installer.inspect({ operation: 'update', release: WORKBENCH_PREVIEW_RELEASE })
+  await installer.execute(update, fake.authorization.grant(update))
+  const receipt = JSON.parse(fake.ports().receipts.inspectNoFollow(WORKBENCH_PLUGIN_ID)!.bytes)
+  assert.equal(receipt.previousRelease.version, '0.11.0')
+  assert.deepEqual(receipt.previousRelease.assets, oldAssets)
+  const rollback = await installer.inspect({ operation: 'update', release: old })
+  await installer.execute(rollback, fake.authorization.grant(rollback))
+  const restored = fake.installationFingerprint()
+  assert.equal(restored.shellJsonBytes, original.shellJsonBytes)
+  const ownedAssets = (fingerprint: typeof original) => fingerprint.pluginTree
+    .filter(entry => entry.relativePath && Object.hasOwn(oldAssets, entry.relativePath))
+    .map(entry => [entry.relativePath, entry.sha256])
+  assert.deepEqual(ownedAssets(restored), ownedAssets(original), 'rollback restores exact old asset bytes, not inode identities')
+  assert.equal(JSON.parse(fake.ports().receipts.inspectNoFollow(WORKBENCH_PLUGIN_ID)!.bytes).release.version, '0.11.0')
 })
 
 test('active release updates a historical owned installation on an unfamiliar host, survives a further host upgrade and refuses stale plans', async () => {
@@ -202,8 +243,8 @@ test('fixture controller composes actual QML session fences, updates, stale, hid
   const view: any = {
     activeSession: null, projection: null, pluginGeneration: 7, pendingIntents: [], opened: false,
     destination: 'overview', checksOrigin: 'overview', menuOpen: false, projectListOpen: false,
-    confirmation: null, lastIntentResult: null, drafts: {}, startReview: null, draftError: '', confirmationText: '', confirmationNotice: '', confirmationAssociation: '',
-    projectionWatchdog: { restart() {} }, confirmReview: { open() {}, close() { view.confirmation = null; view.confirmationNotice = ''; view.confirmationAssociation = '' }, visible: false },
+    confirmation: null, lastIntentResult: null, drafts: {}, startReview: null, draftError: '', confirmationAssociation: '',
+    projectionWatchdog: { restart() {} },
     confirmationTimer: { restart() {}, stop() {} }, intentRequested() {},
   }
   view.root = view; vm.createContext(view)

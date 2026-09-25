@@ -36,7 +36,6 @@ Control {
     property int selectedCheckVersion: 0
     property var assignmentDraft: ({})
     property var adoptionDetail: null
-    property var armedConfirmation: null
     property string reviewBlockedReason: ""
     signal draftChanged(string key, string value)
     signal navigate(string destination)
@@ -185,18 +184,15 @@ Control {
                 prominent: true
                 objectName: "workbench-request-adoption"
                 Layout.fillWidth: true
-                readonly property var requestIntent: root.adoptionRequestChoice === null ? null
-                    : ({ kind: "request_adoption", target: root.adoptionRequestChoice.choiceId,
-                        payload: { choiceId: root.adoptionRequestChoice.choiceId } })
                 visible: root.adoptionDetail === null
-                confirmationIntent: requestIntent
-                armedIntent: root.armedConfirmation
-                highlighted: awaitingConfirmation
-                text: confirmationText("Request adoption")
-                supportingText: "Selected session and Role; no work is dispatched."
-                enabled: root.connected && requestIntent !== null
+                text: "Request adoption"
+                supportingText: "Review and confirm the exact observed session and Role; this does not bind or dispatch work."
+                enabled: root.connected && root.adoptionRequestChoice !== null
                 focusPolicy: Qt.StrongFocus
-                onClicked: root.intentRequested(requestIntent)
+                onClicked: root.intentRequested({
+                    kind: "request_adoption", target: root.adoptionRequestChoice.choiceId,
+                    payload: { choiceId: root.adoptionRequestChoice.choiceId }
+                })
             }
             WorkbenchAction {
                 prominent: true
@@ -216,7 +212,7 @@ Control {
                 wrapMode: Text.Wrap
                 text: root.adoptionRequestChoice === null
                     ? "No eligible authoritative choice matches this session and Role. Nothing can be authorised."
-                    : "Press Request adoption twice to request the exact selected session and Role."
+                    : "Confirm the exact adoption request before reviewing its proposal."
                 color: Color.urgent
                 font.family: Style.font.family
                 font.pixelSize: Style.font.caption

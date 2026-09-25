@@ -20,9 +20,8 @@ function rootView() {
   const view: any = {
     pluginGeneration: 0, projection: null, activeSession: null, pendingIntents: [], drafts: {}, draftError: '',
     opened: false, destination: 'overview', checksOrigin: 'overview', menuOpen: false, projectListOpen: false,
-    confirmation: null, lastIntentResult: null, confirmationText: '', confirmationNotice: '', confirmationAssociation: '', startReview: null,
+    confirmation: null, lastIntentResult: null, confirmationAssociation: '', startReview: null,
     selectedAgentRunId: '', selectedObservedSessionId: '', selectedRole: '', selectedCheckId: '', selectedCheckVersion: 0,
-    confirmReview: { open() {}, close() { view.confirmation = null; view.confirmationNotice = ''; view.confirmationAssociation = '' }, visible: false },
     confirmationTimer: { restart() {}, stop() {} }, projectionWatchdog: { restart() {} },
     intentRequested() {},
   }
@@ -119,6 +118,50 @@ test('every committed Assignment gets its own bounded work row and its own detai
   view.projection = { ...view.projection, assignments: Array.from({ length: 11 }, (_, i) => ({ ...base, assignmentId: `assignment-${i + 1}` })) }
   assert.equal(view.workRows().length, 11)
   assert.match(view.workTruncationNote(), /Showing all 11 committed Assignments/)
+})
+
+test('same-button adoption requires two presses of the same exact choice; a heartbeat preserves the first', () => {
+  const view = rootView()
+  view.pluginGeneration = journeyFixture.pluginGeneration
+  assert.equal(view.open({ session: journeyFixture, projection: journeyFixture }), true)
+  const choice = journeyFixture.observedSessions[0].choices[0]
+  const action = { kind: 'request_adoption', target: choice.choiceId, payload: { choiceId: choice.choiceId } }
+  view.requestConfirmation(action)
+  assert.equal(view.pendingIntents.length, 0)
+  assert.equal(view.confirmation.target, choice.choiceId)
+  assert.equal(view.applyProjection({ ...journeyFixture, cursor: journeyFixture.cursor + 1 }), true)
+  assert.equal(view.confirmation.target, choice.choiceId)
+  view.requestConfirmation(action)
+  assert.equal(view.confirmation, null)
+  assert.equal(view.pendingIntents.length, 1)
+  assert.equal(view.pendingIntents[0].target, choice.choiceId)
+})
+
+test('expiry, changed revision, and another choice never turn a subsequent click into stale authority', () => {
+  const view = rootView()
+  view.pluginGeneration = journeyFixture.pluginGeneration
+  view.open({ session: journeyFixture, projection: journeyFixture })
+  const choice = journeyFixture.observedSessions[0].choices[0]
+  const action = { kind: 'request_adoption', target: choice.choiceId, payload: { choiceId: choice.choiceId } }
+  view.requestConfirmation(action)
+  view.invalidateConfirmation('Expired')
+  view.requestConfirmation(action)
+  assert.equal(view.pendingIntents.length, 0)
+  const changed = { ...journeyFixture, revision: journeyFixture.revision + 1 }
+  view.applyProjection(changed)
+  assert.equal(view.confirmation, null)
+  view.requestConfirmation(action)
+  assert.equal(view.pendingIntents.length, 0)
+  view.requestConfirmation({ ...action, target: 'another-choice' })
+  assert.equal(view.confirmation, null, 'a nonexistent choice cannot arm a confirmation')
+  assert.equal(view.pendingIntents.length, 0)
+  view.requestConfirmation(action)
+  assert.equal(view.pendingIntents.length, 0, 'after a different target, this action must be pressed twice again')
+  const newSession = { ...changed, sessionId: 'a-new-presentation-session' }
+  view.open({ session: newSession, projection: newSession })
+  assert.equal(view.confirmation, null, 'a new projection session cannot inherit an armed button')
+  view.requestConfirmation(action)
+  assert.equal(view.pendingIntents.length, 0)
 })
 
 test('presentation silence and same-revision detail changes revoke queued clicks and confirmations', () => {

@@ -129,6 +129,14 @@ Item {
       }
       return null
     }
+    function buttonWithTextPrefix(item, prefix) {
+      if (item.visible && item.text !== undefined && item.text.indexOf(prefix) === 0 && item.down !== undefined) return item
+      for (var i = 0; i < item.children.length; i++) {
+        var found = buttonWithTextPrefix(item.children[i], prefix)
+        if (found !== null) return found
+      }
+      return null
+    }
     function buttonsWithText(item, value, out) {
       if (item.visible && item.text === value && item.down !== undefined) out.push(item)
       for (var i = 0; i < item.children.length; i++) buttonsWithText(item.children[i], value, out)
@@ -418,59 +426,53 @@ Item {
       verify(menu.activeFocus, "closing the menu returns focus to the control that opened it")
     }
 
-    function test_confirmationUsesThemedActionsOnce() {
+    function test_loadedCompanionVersionAppearsBesideRunnerStatus() {
       openJourney()
-      var choice = host.snapshot.observedSessions[0].choices[0]
-      var request = {kind: "request_adoption", target: choice.choiceId, payload: {choiceId: choice.choiceId}}
-      consoleView.requestConfirmation(request)
-      wait(20)
-      var review = findChild(surfaceRoot(), "workbench-inline-confirmation")
-      verify(review !== null && review.visible, "review is part of the dock, not a popup")
-      if (${JSON.stringify(Boolean(process.env.WORKBENCH_VISUAL_EVIDENCE))}) {
-        var image = grabImage(surfaceRoot())
-        image.save(${JSON.stringify(process.env.WORKBENCH_VISUAL_EVIDENCE || '/tmp/unused')}.replace(/\\.png$/, "-inline-review.png"))
-      }
-      var cancel = findChild(review, "workbench-cancel-review")
-      verify(cancel !== null)
-      clickItem(cancel)
-      compare(consoleView.pendingIntents.length, 0)
-      verify(!review.visible)
-      consoleView.requestConfirmation(request)
-      wait(20)
-      verify(review.visible)
+      consoleView.manifest = { version: "0.12.0" }
+      var version = findChild(surfaceRoot(), "workbench-version")
+      verify(version !== null && version.visible)
+      compare(version.text, "v0.12.0")
+      verify(version.font.pixelSize < findChild(surfaceRoot(), "workbench-close").font.pixelSize,
+        "version is visually secondary to the Runner status")
+    }
+
+    function test_adoptionConfirmsOnTheSameButtonWithoutAnExtraSurface() {
+      openJourney()
+      var button = buttonWithTextPrefix(surfaceRoot(), "Adopt ")
+      verify(button !== null && button.enabled)
+      clickItem(button)
+      compare(consoleView.pendingIntents.length, 0, "the first press never grants adoption authority")
+      verify(button.text.indexOf("Confirm: Adopt ") === 0 && button.highlighted)
+      verify(findChild(surfaceRoot(), "workbench-inline-confirmation") === null)
       var heartbeat = JSON.parse(JSON.stringify(consoleView.projection))
       heartbeat.cursor += 1
       verify(consoleView.applyProjection(heartbeat))
-      verify(review.visible && consoleView.confirmation !== null, "a heartbeat cannot silently close the review")
-      var ok = findChild(review, "workbench-confirm-review")
-      verify(ok !== null && ok.enabled)
-      clickItem(ok)
+      verify(button.highlighted, "heartbeat cannot silently reset the same-button confirmation")
+      clickItem(button)
       compare(consoleView.pendingIntents.length, 1)
-      compare(consoleView.pendingIntents[0].target, choice.choiceId)
-      verify(!review.visible)
+      compare(consoleView.pendingIntents[0].target, host.snapshot.observedSessions[0].choices[0].choiceId)
+      verify(!button.highlighted)
     }
 
-    function test_inlineReviewExpiryAndChangedTargetStayVisibleButCannotSubmit() {
+    function test_expiryAndChangedTargetRequireTwoNewPresses() {
       openJourney()
-      var choice = host.snapshot.observedSessions[0].choices[0]
-      var request = {kind: "request_adoption", target: choice.choiceId, payload: {choiceId: choice.choiceId}}
-      consoleView.requestConfirmation(request)
-      var review = findChild(surfaceRoot(), "workbench-inline-confirmation")
-      var confirmButton = findChild(review, "workbench-confirm-review")
-      verify(review.visible && confirmButton.enabled)
-      consoleView.invalidateConfirmation("Review expired after 30 seconds. Select the current action again.")
-      verify(review.visible, "expiry cannot silently remove the in-dock review")
-      verify(!confirmButton.enabled, "expired review cannot grant Adoption authority")
+      var button = buttonWithTextPrefix(surfaceRoot(), "Adopt ")
+      clickItem(button)
+      verify(button.highlighted)
+      consoleView.invalidateConfirmation("Expired")
+      verify(!button.highlighted && button.text.indexOf("Adopt ") === 0)
       compare(consoleView.pendingIntents.length, 0)
-      clickItem(findChild(review, "workbench-cancel-review"))
-      verify(!review.visible)
-      consoleView.requestConfirmation(request)
-      verify(confirmButton.enabled)
+      clickItem(button)
+      verify(button.highlighted)
       var changed = JSON.parse(JSON.stringify(consoleView.projection))
       changed.revision += 1
       verify(consoleView.applyProjection(changed))
-      verify(review.visible && !confirmButton.enabled, "changed revision stays explained but not confirmable")
-      compare(consoleView.pendingIntents.length, 0)
+      verify(!button.highlighted, "relevant revision change disarms the button")
+      clickItem(button)
+      compare(consoleView.pendingIntents.length, 0, "a stale second press only arms the current choice")
+      verify(button.highlighted)
+      clickItem(button)
+      compare(consoleView.pendingIntents.length, 1)
     }
 
     function test_visualAffordancesAndPages() {

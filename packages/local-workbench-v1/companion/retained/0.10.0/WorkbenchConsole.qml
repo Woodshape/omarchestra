@@ -49,7 +49,10 @@ Item {
     property var confirmation: null
     property var drafts: ({})
     property string draftError: ""
+    property string confirmationText: ""
+    property string confirmationNotice: ""
     property string confirmationAssociation: ""
+    property bool confirmationDetailsOpen: false
     property var lastIntentResult: null
     property double pluginGeneration: 0 // Injected by the presentation host.
     // Presentation-only selection state. Never authority.
@@ -251,7 +254,7 @@ Item {
     }
 
     function back() {
-        if (confirmation !== null) { invalidateConfirmation(""); return }
+        if (confirmReview.visible) { confirmReview.close(); return }
         if (menuOpen) { menuOpen = false; return }
         if (projectListOpen) { projectListOpen = false; return }
         if (destination === "overview") return
@@ -260,7 +263,7 @@ Item {
     }
 
     function goTo(value) {
-        if (confirmation !== null && value !== destination) invalidateConfirmation("")
+        if (confirmReview.visible && value !== destination) confirmReview.close()
         if (value === "checks" && destination !== "checks") checksOrigin = destination
         menuOpen = false
         projectListOpen = false
@@ -371,7 +374,8 @@ Item {
         confirmationTimer.stop()
         confirmation = null
         confirmationAssociation = ""
-        // Changed or expired context disarms the original action button.
+        confirmationNotice = reason
+        confirmationDetailsOpen = false
     }
 
     function checkConfirmationAssociation() {
@@ -437,7 +441,6 @@ Item {
                 || session.pluginGeneration !== pluginGeneration
                 || typeof session.sessionId !== "string") return false
         var value = envelope.projection
-        if (activeSession !== null && !sessionMatches(envelope)) invalidateConfirmation("")
         if (!applyProjection(value)) return false
         pendingIntents = []
         activeSession = ({
@@ -463,7 +466,7 @@ Item {
 
     function close() {
         pendingGoalNavigation = ""
-        invalidateConfirmation("")
+        confirmReview.close()
         opened = false
         menuOpen = false
         projectListOpen = false
@@ -479,7 +482,7 @@ Item {
         if (!sessionMatches(value)) return false
         pendingGoalNavigation = ""
         projection = null
-        invalidateConfirmation("")
+        confirmReview.close()
         lastIntentResult = null
         pendingIntents = []
         activeSession = null
@@ -510,26 +513,56 @@ Item {
 
     function requestConfirmation(payload) {
         if (!projection || projection.connection !== "connected") return
-        if (payload.kind === "select_goal") { invalidateConfirmation(""); selectGoal(payload.target); return }
-        // Non-destructive declarations retain their existing single-click path.
+        confirmReview.close()
+        var descriptions = {
+            take_control: "Take control? Automatic work pauses. Running tools may continue.",
+            return_to_team: "Return to team? Request a handoff; work stays paused until reconciled.",
+            accept: "Submit this handoff for acceptance-check validation? This does not bypass the check.",
+            resume: "Resume this assignment after reconciliation?",
+            retry: "Retry this assignment within its existing limits?",
+            stop: "Stop orchestration? New work stops, but Pi and running tools may continue. Files are retained.",
+            retire: "Retire this agent binding permanently? This does not stop Pi or prove writer safety.",
+            purge: "Delete this retired history permanently? Pi conversations and external work are not deleted.",
+            request_adoption: "Request adoption of this session into the selected Goal? No work is dispatched."
+        }
+        confirmationText = descriptions[payload.kind] || "Confirm this action for the selected item?"
+        if (root.selectedGoal) confirmationText += "\nGoal: " + root.selectedGoal.goalText
+        var subjects = [].concat(projection.managedAgents || [], projection.assignments || [], projection.retiredRuns || [], projection.observedSessions || [])
+        for (var i = 0; i < subjects.length; i++) {
+            var item = subjects[i]
+            if (item.agentRunId === payload.target || item.assignmentId === payload.target || item.observedSessionId === payload.target) {
+                confirmationText += "\nFor: " + (item.goalText || item.role || item.piStatus || "selected item")
+                break
+            }
+        }
+        if (payload.kind === "request_adoption" && Array.isArray(projection.observedSessions)) {
+            for (var s = 0; s < projection.observedSessions.length; s++) {
+                var card = projection.observedSessions[s]
+                for (var c = 0; c < card.choices.length; c++) {
+                    if (card.choices[c].choiceId === payload.target && card.choices[c].role)
+                        confirmationText += "\nRole: " + card.choices[c].role
+                }
+            }
+        }
+        if (payload.target) confirmationText += "\nReference: …" + String(payload.target).slice(-8)
+        confirmationDetailsOpen = false
+        if (payload.kind === "select_goal") { selectGoal(payload.target); return }
+        // Non-destructive declarations need no additional review; the runner
+        // still validates and may reject them.
         if (["select_project", "create_goal", "configure_checks", "inspect_project",
                 "confirm_register_project", "create_check", "authorize_adoption"].indexOf(payload.kind) >= 0) {
-            invalidateConfirmation("")
             emitIntent(payload)
             return
         }
         var association = confirmationContext(payload, projection)
-        if (!association) { invalidateConfirmation("Unavailable"); return }
-        if (confirmation !== null && confirmationAssociation === association
-                && JSON.stringify(confirmation) === JSON.stringify(payload)) {
-            var pending = confirmation
-            invalidateConfirmation("")
-            emitIntent(pending)
+        if (!association) {
+            confirmationNotice = "The selected action is no longer available. Select a current target again."
+            confirmReview.open()
             return
         }
-        invalidateConfirmation("")
         confirmationAssociation = association
         confirmation = payload
+        confirmReview.open()
         confirmationTimer.restart()
     }
 
@@ -663,7 +696,7 @@ Item {
     // separate window, so a handler on this root item would never receive a key
     // event from panel focus; `surface` is the ancestor of every panel control.
     function handleEscape(event) {
-        if (confirmation !== null) { invalidateConfirmation(""); event.accepted = true; return }
+        if (confirmReview.visible) { confirmReview.close(); event.accepted = true; return }
         if (menuOpen) { menuOpen = false; event.accepted = true; return }
         if (projectListOpen) { projectListOpen = false; event.accepted = true; return }
         if (destination !== "overview") { back(); event.accepted = true; return }
@@ -697,7 +730,7 @@ Item {
         Timer {
             id: confirmationTimer
             interval: 30000
-            onTriggered: root.invalidateConfirmation("Expired")
+            onTriggered: root.invalidateConfirmation("Review expired after 30 seconds. Select the current action again.")
         }
 
         Native.BorderSurface {
@@ -768,16 +801,6 @@ Item {
                                 font.family: Style.font.family
                                 font.pixelSize: Style.font.body
                                 font.bold: true
-                            }
-                            Text {
-                                objectName: "workbench-version"
-                                visible: root.manifest !== null && typeof root.manifest.version === "string"
-                                text: visible ? "v" + root.manifest.version : ""
-                                textFormat: Text.PlainText
-                                color: root.mutedColor
-                                font.family: Style.font.family
-                                font.pixelSize: Style.font.caption
-                                Accessible.name: visible ? "Workbench version " + root.manifest.version : ""
                             }
                             WorkbenchAction {
                                 objectName: "workbench-close"
@@ -866,13 +889,119 @@ Item {
                         }
                     }
 
+                    // An exact-target review is part of the dock's normal scroll
+                    // and keyboard order. It never opens a transient overlay.
+                    ColumnLayout {
+                        id: confirmReview
+                        objectName: "workbench-inline-confirmation"
+                        Layout.fillWidth: true
+                        visible: root.confirmation !== null || root.confirmationNotice !== ""
+                        spacing: Style.space(8)
+                        function open() {
+                            Qt.callLater(function() {
+                                if (!confirmReview.visible) return
+                                scroll.contentY = 0
+                                if (root.confirmation !== null) confirmAction.forceActiveFocus()
+                                else cancelReview.forceActiveFocus()
+                            })
+                        }
+                        function close() {
+                            confirmationTimer.stop()
+                            root.confirmation = null
+                            root.confirmationNotice = ""
+                            root.confirmationAssociation = ""
+                            root.confirmationDetailsOpen = false
+                        }
+                        Rectangle {
+                            Layout.fillWidth: true
+                            implicitHeight: reviewContent.implicitHeight + Style.space(24)
+                            color: Color.popups.background
+                            radius: Style.cornerRadius
+                            border.width: 1
+                            border.color: Color.accent
+                            ColumnLayout {
+                                id: reviewContent
+                                anchors.left: parent.left
+                                anchors.right: parent.right
+                                anchors.top: parent.top
+                                anchors.margins: Style.space(12)
+                                spacing: Style.space(8)
+                                Label {
+                                    Layout.fillWidth: true
+                                    text: "Review exact action"
+                                    textFormat: Text.PlainText
+                                    color: root.textColor
+                                    font.family: Style.font.family
+                                    font.pixelSize: Style.font.body
+                                    font.bold: true
+                                }
+                                Label {
+                                    Layout.fillWidth: true
+                                    text: root.confirmationText
+                                    textFormat: Text.PlainText
+                                    wrapMode: Text.WrapAnywhere
+                                    color: root.textColor
+                                }
+                                Label {
+                                    Layout.fillWidth: true
+                                    visible: root.confirmationNotice !== ""
+                                    text: root.confirmationNotice
+                                    textFormat: Text.PlainText
+                                    wrapMode: Text.WrapAnywhere
+                                    color: Color.urgent
+                                }
+                                WorkbenchAction {
+                                    text: root.confirmationDetailsOpen ? "Hide exact target" : "Exact target"
+                                    Accessible.name: text
+                                    onClicked: root.confirmationDetailsOpen = !root.confirmationDetailsOpen
+                                }
+                                Label {
+                                    Layout.fillWidth: true
+                                    visible: root.confirmationDetailsOpen && root.confirmation !== null
+                                    text: root.confirmation ? JSON.stringify(root.confirmation) : ""
+                                    textFormat: Text.PlainText
+                                    wrapMode: Text.WrapAnywhere
+                                    color: root.mutedColor
+                                }
+                                RowLayout {
+                                    Layout.fillWidth: true
+                                    Item { Layout.fillWidth: true }
+                                    WorkbenchAction {
+                                        id: cancelReview
+                                        objectName: "workbench-cancel-review"
+                                        text: "Cancel"
+                                        Accessible.name: "Dismiss exact action review"
+                                        onClicked: confirmReview.close()
+                                    }
+                                    WorkbenchAction {
+                                        id: confirmAction
+                                        objectName: "workbench-confirm-review"
+                                        text: "Confirm"
+                                        Accessible.name: "Confirm exact action"
+                                        enabled: root.confirmation !== null && root.confirmationNotice === ""
+                                            && root.projection !== null && root.projection.connection === "connected"
+                                        onClicked: {
+                                            if (!root.confirmation || root.confirmationAssociation
+                                                    !== root.confirmationContext(root.confirmation, root.projection)) {
+                                                root.invalidateConfirmation("This exact target changed. Select the current action again.")
+                                                return
+                                            }
+                                            var pending = root.confirmation
+                                            confirmReview.close()
+                                            root.emitIntent(pending)
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    }
+
                     WorkbenchOverview {
                         id: overview
                         Layout.fillWidth: true
                         visible: root.destination === "overview" || root.destination === "activity"
                         mode: root.destination
                         projection: root.projection
-                        armedConfirmation: root.confirmation
                         onNavigate: function(value) { root.goTo(value) }
                         onIntentRequested: function(payload) { root.requestConfirmation(payload) }
                     }
@@ -884,7 +1013,6 @@ Item {
                         mode: root.destination
                         projection: root.projection
                         menuOpen: root.menuOpen
-                        armedConfirmation: root.confirmation
                         goalDraft: root.draftValue(root.goalDraftKey())
                         onDraftChanged: function(value) {
                             if (root.goalDraftKey() !== "") root.saveDraft(root.goalDraftKey(), value)
@@ -910,7 +1038,6 @@ Item {
                         assignmentDraft: root.assignmentDraft()
                         adoptionDetail: root.adoptionDetail()
                         reviewBlockedReason: root.reviewBlockedReason()
-                        armedConfirmation: root.confirmation
                         onDraftChanged: function(key, value) { if (key !== "") root.saveDraft(key, value) }
                         onNavigate: function(value) { root.goTo(value) }
                         onSelectObserved: function(sessionId) { root.selectObserved(sessionId) }
@@ -948,7 +1075,6 @@ Item {
                         agents: root.projection && Array.isArray(root.projection.managedAgents)
                             ? root.projection.managedAgents : []
                         truncationNote: root.workTruncationNote()
-                        armedConfirmation: root.confirmation
                         onNavigate: function(value) { root.goTo(value) }
                         onIntentRequested: function(payload) { root.requestConfirmation(payload) }
                     }
