@@ -1,8 +1,21 @@
 # Dock latency and refresh investigation
 
-Status: **shared click-path delay established; exact native flicker cause remains
-unconfirmed.** Investigation only: no production code, installed assets, Pi
-reload, focus, hide/open or service restart changed during these measurements.
+Baseline at **`5250c6a` / installed 0.13.0**: shared click-path delay established;
+exact native flicker cause unconfirmed. No production code or installed system
+changed during those original measurements. The subsequently approved
+[0.14.0 responsive repair](../../docs/reviews/local-workbench-phase-2-verification/responsive-dock.md)
+is now disposable-tested and **installed/loaded after separately authorized
+shell/Owner reload**; physical acceptance remains pending. The findings below are
+historical baseline evidence, not descriptions of the repaired current source.
+The scripts run against the current checkout and now report the new counts and
+stable changed rows; use the baseline commit to reproduce the original trace.
+
+After installing 0.14.0, the operator reports better reaction time but unchanged
+flicker. The [heartbeat-cadence follow-up](../workbench-heartbeat-cadence/README.md)
+now reproduces a distinct false-staleness/resnapshot defect with the real Owner
+scheduler and QML watchdog. Its Owner-only correction passes the disposable gate
+and is now loaded after authorized Owner-only restart; native visual verification
+remains pending.
 
 ## Question and operator evidence
 

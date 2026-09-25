@@ -1,21 +1,34 @@
 # Independent Phase 2 verification
 
-Status: **S1–S6 disposable engineering gate PASS; bounded independent integration review completed without remaining blocking findings; overall Phase 2 incomplete: the authorized [live setup/native-open walkthrough](live-setup-and-open.md) now passes through a stable visible dock. One live Project and Goal are registered; confirmed Pi Adoption remains pending. The [same-button confirmation correction](same-button-confirmation.md) is installed as 0.11.0 and command-path/native-open proven; a physical two-press click on a real observed Pi and live Adoption remain untested. The original [read-only host compatibility preflight](human-walkthrough-preflight.md) is historical; [ADR 0005](../../adr/0005-negotiate-companion-features-not-host-package-versions.md) replaced fixed-version gating.** The independent source review and negative reproductions below concern the **original Fusion-delivered tree**, not the later repairs. They are not a full security audit or live acceptance.
+Historical S6 status (later usability checkpoints below): **S1–S6 disposable engineering gate PASS; bounded independent integration review completed without remaining blocking findings; overall Phase 2 incomplete: the authorized [live setup/native-open walkthrough](live-setup-and-open.md) now passes through a stable visible dock. One live Project and Goal are registered; confirmed Pi Adoption remains pending. The [same-button confirmation correction](same-button-confirmation.md) is installed as 0.11.0 and command-path/native-open proven; a physical two-press click on a real observed Pi and live Adoption remain untested. The original [read-only host compatibility preflight](human-walkthrough-preflight.md) is historical; [ADR 0005](../../adr/0005-negotiate-companion-features-not-host-package-versions.md) replaced fixed-version gating.** The independent source review and negative reproductions below concern the **original Fusion-delivered tree**, not the later repairs. They are not a full security audit or live acceptance.
 
 The findings/reproductions below characterize the original Fusion-delivered tree. Later direct repairs are recorded separately in the [completion plan](../../plans/local-workbench-v1-phase-2-completion.md), including the passing S1 substrate, S2 command/source, S3 Project-context/check-resource, [S4 real bridge](real-pi-bridge-checkpoint.md), [S5 framed Adoption](framed-adoption-checkpoint.md) and [S6 native owner/composition](native-owner-composition-checkpoint.md) engineering checkpoints. The original table below is a **historical** defect inventory: do not treat its pre-repair F2–F5/F8 descriptions as current implementation facts. The later [independent integration review](independent-integration-review.md) inspects the S6 paths and their S1–S5 dependencies read-only; the host checkpoints and this historical defect reproducer are not substitutes for that review or a live acceptance gate.
 
 ## Subsequent session-usability work
 
 The operator-approved [three-slice sequence](../../plans/workbench-session-usability.md)
-now has development-only eligibility explanations and a [shared dock/Pi session
-code checkpoint](session-code-checkpoint.md). These direct changes have disposable
-host verification, not independent review, installed-release or physical-matching
-acceptance. The subsequent [checked pane-navigation checkpoint](checked-pane-navigation.md)
+records eligibility explanations and a [shared dock/Pi session
+code checkpoint](session-code-checkpoint.md). Their initial disposable host
+verification and the subsequent installations below do not establish independent
+review or physical shared-code matching. The subsequent [checked pane-navigation checkpoint](checked-pane-navigation.md)
 implements the operator-approved best-effort navigation policy, preserving Herdr:
 full disposable gate PASS with 25 offscreen Qt rows. A subsequent authorized
 installation now verifies Companion 0.13.0 loaded and Owner epoch 12, with config
-and history preserved. Pi observer `/reload` remains pending. No atomic exact-focus,
-live focus, shared-code physical acceptance or independent-review claim is made.
+and history preserved. The operator subsequently reports navigation usage but
+rejects latency, flicker and dense rows. The [responsive-dock checkpoint](responsive-dock.md)
+repairs the shared path in **0.14.0**: full gate PASS, 28 offscreen Qt rows and a
+real private Quickshell wake bridge. The subsequent separately authorized update
+now verifies 0.14.0 installed/loaded and Owner epoch 13, preserving two Projects,
+two Goals, three retired Runs and the existing manual-takeover Run, which
+reconnected without re-Adoption. No Pi reload or navigation request was performed.
+No atomic focus, physical latency/shared-code acceptance or independent-review
+claim is made. Post-install feedback confirms better reaction time but rejects
+flicker acceptance. The [cadence follow-up](../../../spikes/workbench-heartbeat-cadence/README.md)
+reproduces false stale/resnapshot cycles and adds an Owner-only correction plus
+real periodic watchdog regression to the passing gate. A subsequent authorized
+Owner-only restart loaded the correction at epoch 14, preserving history and
+reconnecting both manual-takeover Runs without shell/Pi reload or Companion asset
+changes. Native flicker verification remains pending.
 
 ## Evidence
 

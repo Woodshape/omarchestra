@@ -37,7 +37,6 @@ Item {
     readonly property int panelHeight: Style.space(560)
     property var shell: null
     property var manifest: null
-    readonly property string loadedVersion: "0.14.0"
     property bool opened: false
     property var projection: null
     property var activeSession: null
@@ -62,42 +61,7 @@ Item {
     // The captured exact start review. Cleared whenever its association moves.
     property var startReview: null
 
-    property string wakeSocket: ""
-    WorkbenchWake { id: wake }
     signal intentRequested(var payload)
-    onIntentRequested: wake.notify(root.wakeSocket, root.activeSession)
-
-    // The contract/generation check and operation run in one shell invocation.
-    // A reloaded instance cannot consume an old view's queue, clear it or hide it.
-    function dispatch(encoded) {
-        var request = parsePayload(encoded)
-        var result = false
-        if (request && manifest && manifest.companion
-                && Object.keys(request).sort().join(",") === "method,payload,pluginGeneration,pluginId,presentation,protocol,version"
-                && request.protocol === manifest.companion.protocol && request.pluginId === manifest.id
-                && request.version === loadedVersion && manifest.version === loadedVersion && request.pluginGeneration === pluginGeneration
-                && request.presentation === "task-first-v2") {
-            if (request.method === "open") result = open(request.payload)
-            else if (sessionMatches(request.payload)) {
-                if (request.method === "applyProjection") result = applyProjection(request.payload)
-                else if (request.method === "takeIntent") result = takeIntent(request.payload)
-                else if (request.method === "intentResult") result = intentResult(request.payload)
-                else if (request.method === "close" || request.method === "clear") result = clear(request.payload)
-                else if (request.method === "heartbeat") result = heartbeat(request.payload)
-            }
-        }
-        return JSON.stringify({ protocol: manifest && manifest.companion ? manifest.companion.protocol : "",
-            version: loadedVersion, pluginGeneration: pluginGeneration, result: result })
-    }
-
-    function heartbeat(value) {
-        if (!projection || projection.connection !== "connected" || projection.revision !== value.revision) return "resnapshot"
-        if (!Number.isSafeInteger(value.cursor) || value.cursor < projection.cursor) return false
-        // Cursor/liveness only: no replacement of any visible model or binding.
-        projection.cursor = value.cursor
-        projectionWatchdog.restart()
-        return true
-    }
 
     readonly property color textColor: Color.popups.text
     readonly property color mutedColor: Qt.darker(root.textColor, 1.45)
@@ -338,7 +302,7 @@ Item {
         return JSON.stringify({
             protocol: manifest.companion.protocol,
             pluginId: manifest.id,
-            version: loadedVersion,
+            version: manifest.version,
             pluginGeneration: pluginGeneration,
             capabilities: [
                 "session.open", "session.update", "session.intent",
@@ -356,7 +320,7 @@ Item {
         return JSON.stringify({
             protocol: manifest.companion.protocol,
             pluginId: manifest.id,
-            version: loadedVersion,
+            version: manifest.version,
             pluginGeneration: pluginGeneration,
             presentation: "task-first-v2",
             destinations: ["overview", "goal", "new_goal", "add_agent", "adoption_review",
@@ -439,11 +403,6 @@ Item {
         if (!Array.isArray(value.retiredRuns)) return false
         if (!Array.isArray(value.assignments)) return false
         if (!Array.isArray(value.checks)) return false
-        if (projection && JSON.stringify(projection) === JSON.stringify(value)) {
-            projectionWatchdog.restart()
-            return true
-        }
-        value = Object.assign({}, value)
         // Even a same-revision replacement may narrow action availability.
         // Never rebind a displayed confirmation or queued click to changed data.
         if (projection && JSON.stringify(projection) !== JSON.stringify(value)) {
@@ -453,32 +412,13 @@ Item {
             delete before.cursor
             delete after.cursor
             if (JSON.stringify(before) !== JSON.stringify(after)) {
-                // Drop captured clicks/reviews on changed facts, not ordinary
-                // disclosure state. Never retain an obsolete execution review.
-                pendingIntents = pendingIntents.filter(function(request) { return request.kind === "hide_workbench" })
                 startReview = null
-                if (before.sessionId !== after.sessionId || before.pluginGeneration !== after.pluginGeneration
-                        || before.runnerEpoch !== after.runnerEpoch || before.selectedProjectId !== after.selectedProjectId
-                        || before.selectedGoalId !== after.selectedGoalId || after.connection !== "connected") {
-                    menuOpen = false
-                    lastIntentResult = null
-                }
-            } else {
-                projection.cursor = value.cursor
-                projectionWatchdog.restart()
-                return true
+                menuOpen = false
+                pendingIntents = []
+                lastIntentResult = null
             }
             if (confirmation !== null && confirmationContext(confirmation, value) !== confirmationAssociation)
                 invalidateConfirmation("This exact target or its authority changed. Select the current action again.")
-        }
-        // Preserve equal subtrees too: unrelated Activity/cursor updates must
-        // not replace every array-backed delegate in the dock.
-        if (projection) {
-            var stable = Object.assign({}, value)
-            Object.keys(stable).forEach(function(key) {
-                if (JSON.stringify(projection[key]) === JSON.stringify(stable[key])) stable[key] = projection[key]
-            })
-            value = stable
         }
         projection = value
         if (root.pendingGoalNavigation && value.selectedGoalId === root.pendingGoalNavigation) {
@@ -494,7 +434,7 @@ Item {
         if (!projection || projection.connection !== "connected") return
         projection = Object.assign({}, projection, { connection: "stale" })
         invalidateConfirmation("Connection lost. Wait for the current state and select the action again.")
-        pendingIntents = pendingIntents.filter(function(request) { return request.kind === "hide_workbench" })
+        pendingIntents = []
         lastIntentResult = null
         startReview = null
     }
@@ -513,7 +453,6 @@ Item {
             sessionId: session.sessionId,
             pluginGeneration: session.pluginGeneration
         })
-        wakeSocket = typeof envelope.wakeSocket === "string" && envelope.wakeSocket.length <= 1024 ? envelope.wakeSocket : ""
         opened = true
         return true
     }
@@ -532,8 +471,6 @@ Item {
     }
 
     function close() {
-        wakeSocket = ""
-        wake.reset()
         pendingGoalNavigation = ""
         invalidateConfirmation("")
         opened = false
@@ -549,8 +486,6 @@ Item {
     function clear(payloadJson) {
         var value = parsePayload(payloadJson)
         if (!sessionMatches(value)) return false
-        wakeSocket = ""
-        wake.reset()
         pendingGoalNavigation = ""
         projection = null
         invalidateConfirmation("")
@@ -576,14 +511,9 @@ Item {
     // Hiding the view is presentation-only. It is available even if the
     // authority connection has gone stale; it never becomes a runner intent.
     function requestHide() {
-        if (activeSession === null) return
-        // Hide locally now. Discard only not-yet-read view clicks; accepted
-        // runner commands keep their own outcome. Retain the session until the
-        // Owner's guarded clear, and never let a heartbeat reopen this surface.
-        opened = false
-        invalidateConfirmation("")
+        if (activeSession === null || pendingIntents.length >= 16) return
         var request = { kind: "hide_workbench", target: null, payload: {} }
-        pendingIntents = [request]
+        pendingIntents = pendingIntents.concat([request])
         root.intentRequested(request)
     }
 

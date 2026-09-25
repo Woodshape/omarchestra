@@ -1,0 +1,143 @@
+{
+  "release": "0.14.0",
+  "scope": "disposable real Owner scheduler + guarded IPC + QML watchdog; substitute chrome, no Pi",
+  "staleTransitions": 3,
+  "resnapshots": 3,
+  "heartbeatGapsMs": [
+    2002,
+    2002,
+    2002,
+    2002,
+    2002
+  ],
+  "states": [
+    {
+      "at": 1790343228742,
+      "connection": "connected"
+    },
+    {
+      "at": 1790343232675,
+      "connection": "stale"
+    },
+    {
+      "at": 1790343232705,
+      "connection": "connected"
+    },
+    {
+      "at": 1790343236679,
+      "connection": "stale"
+    },
+    {
+      "at": 1790343236710,
+      "connection": "connected"
+    },
+    {
+      "at": 1790343240681,
+      "connection": "stale"
+    },
+    {
+      "at": 1790343240715,
+      "connection": "connected"
+    },
+    {
+      "at": 1790343240775,
+      "connection": "none"
+    }
+  ],
+  "windows": [
+    {
+      "at": 1790343228744,
+      "opened": true
+    },
+    {
+      "at": 1790343240776,
+      "opened": false
+    }
+  ],
+  "calls": [
+    {
+      "at": 1790343228463,
+      "elapsed": 166,
+      "method": "capabilities",
+      "result": null
+    },
+    {
+      "at": 1790343228647,
+      "elapsed": 29,
+      "method": "capabilities",
+      "result": null
+    },
+    {
+      "at": 1790343228676,
+      "elapsed": 29,
+      "method": "presentationContract",
+      "result": null
+    },
+    {
+      "at": 1790343228715,
+      "elapsed": 31,
+      "method": "open",
+      "result": true
+    },
+    {
+      "at": 1790343230647,
+      "elapsed": 29,
+      "method": "heartbeat",
+      "result": true
+    },
+    {
+      "at": 1790343232649,
+      "elapsed": 29,
+      "method": "heartbeat",
+      "result": "resnapshot"
+    },
+    {
+      "at": 1790343232678,
+      "elapsed": 31,
+      "method": "applyProjection",
+      "result": true
+    },
+    {
+      "at": 1790343234651,
+      "elapsed": 30,
+      "method": "heartbeat",
+      "result": true
+    },
+    {
+      "at": 1790343236653,
+      "elapsed": 29,
+      "method": "heartbeat",
+      "result": "resnapshot"
+    },
+    {
+      "at": 1790343236682,
+      "elapsed": 30,
+      "method": "applyProjection",
+      "result": true
+    },
+    {
+      "at": 1790343238655,
+      "elapsed": 28,
+      "method": "heartbeat",
+      "result": true
+    },
+    {
+      "at": 1790343240657,
+      "elapsed": 29,
+      "method": "heartbeat",
+      "result": "resnapshot"
+    },
+    {
+      "at": 1790343240686,
+      "elapsed": 31,
+      "method": "applyProjection",
+      "result": true
+    },
+    {
+      "at": 1790343240749,
+      "elapsed": 29,
+      "method": "close",
+      "result": true
+    }
+  ]
+}

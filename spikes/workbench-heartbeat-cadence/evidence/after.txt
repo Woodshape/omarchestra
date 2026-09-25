@@ -1,0 +1,10 @@
+✔ real periodic Owner keeps QML fresh; an actual stall still expires and requires resnapshot (15177.938527ms)
+ℹ {"release":"0.14.0","scope":"disposable real Owner scheduler + guarded IPC + QML watchdog; substitute chrome, no Pi","staleTransitions":0,"resnapshots":0,"heartbeatGapsMs":[1001,1000,1001,1001,1001,1000,1001,1002,1001,1001,1001],"states":[{"at":1790343468800,"connection":"connected"},{"at":1790343482738,"connection":"stale"},{"at":1790343483165,"connection":"connected"},{"at":1790343483634,"connection":"none"}],"windows":[{"at":1790343468802,"opened":true},{"at":1790343483634,"opened":false}],"fault":{"blockedMs":2300,"staleTransitions":1,"resnapshots":1,"recovered":true},"calls":[{"at":1790343468503,"elapsed":178,"method":"capabilities","result":null},{"at":1790343468701,"elapsed":30,"method":"capabilities","result":null},{"at":1790343468731,"elapsed":32,"method":"presentationContract","result":null},{"at":1790343468772,"elapsed":32,"method":"open","result":true},{"at":1790343469701,"elapsed":29,"method":"heartbeat","result":true},{"at":1790343470702,"elapsed":29,"method":"heartbeat","result":true},{"at":1790343471702,"elapsed":28,"method":"heartbeat","result":true},{"at":1790343472703,"elapsed":28,"method":"heartbeat","result":true},{"at":1790343473704,"elapsed":28,"method":"heartbeat","result":true},{"at":1790343474705,"elapsed":29,"method":"heartbeat","result":true},{"at":1790343475705,"elapsed":29,"method":"heartbeat","result":true},{"at":1790343476706,"elapsed":29,"method":"heartbeat","result":true},{"at":1790343477708,"elapsed":28,"method":"heartbeat","result":true},{"at":1790343478709,"elapsed":31,"method":"heartbeat","result":true},{"at":1790343479710,"elapsed":31,"method":"heartbeat","result":true},{"at":1790343480711,"elapsed":29,"method":"heartbeat","result":true},{"at":1790343483109,"elapsed":28,"method":"heartbeat","result":"resnapshot"},{"at":1790343483137,"elapsed":31,"method":"applyProjection","result":true},{"at":1790343483607,"elapsed":29,"method":"close","result":true}]}
+ℹ tests 1
+ℹ suites 0
+ℹ pass 1
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 15371.298135

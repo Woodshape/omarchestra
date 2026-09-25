@@ -53,7 +53,7 @@ test('native preview release passes installer validation without a package-versi
   assert.equal(WORKBENCH_PREVIEW_RELEASE.compatibility, null)
 })
 
-for (const previous of ['0.11.0', '0.12.0']) test(`exact installed ${previous} assets upgrade to ${WORKBENCH_PLUGIN_VERSION} and roll back without touching other bar widgets`, async () => {
+for (const previous of ['0.11.0', '0.12.0', '0.13.0']) test(`exact installed ${previous} assets upgrade to ${WORKBENCH_PLUGIN_VERSION} and roll back without touching other bar widgets`, async () => {
   const { CompanionInstallation } = await import('../../prototypes/first-vertical-slice/companion/installation.ts')
   const { FakeOmarchy } = await import('../../prototypes/first-vertical-slice/companion/fake-omarchy.ts')
   const archive = new URL(`../../packages/local-workbench-v1/companion/retained/${previous}/`, import.meta.url)
@@ -244,7 +244,7 @@ test('fixture controller composes actual QML session fences, updates, stale, hid
     activeSession: null, projection: null, pluginGeneration: 7, pendingIntents: [], opened: false,
     destination: 'overview', checksOrigin: 'overview', menuOpen: false, projectListOpen: false,
     confirmation: null, lastIntentResult: null, drafts: {}, startReview: null, draftError: '', confirmationAssociation: '',
-    projectionWatchdog: { restart() {} },
+    projectionWatchdog: { restart() {} }, wake: { reset() {} },
     confirmationTimer: { restart() {}, stop() {} }, intentRequested() {},
   }
   view.root = view; vm.createContext(view)

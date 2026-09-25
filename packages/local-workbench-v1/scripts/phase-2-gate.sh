@@ -7,6 +7,9 @@
 # restart durability, intent deduplication, and the composition of the durable
 # runner with the actual presentation adapter.
 #
+# Includes private offscreen Quickshell instances for click wake and real
+# periodic heartbeat/watchdog timing; never the installed shell or compositor.
+# Their exact child groups are bounded.
 # Every root is disposable under a temp directory created here. The runner
 # receives all roots, clocks and id sources by injection. Nothing installs,
 # launches Pi, opens a desktop, mutates a user Project, delivers an Assignment or
@@ -73,6 +76,8 @@ run_node "${flags[@]}" --test \
     "$root/test/session-code.test.ts" \
     "$root/test/pane-navigation.test.ts" \
     "$root/test/phase-2-native-owner.test.ts" \
+    "$root/test/presentation-wake.test.ts" \
+    "$root/test/presentation-wake-client.test.mjs" \
     "$root/test/owner-service.test.ts" \
     "$root/test/phase-2-command-transactions.test.ts" \
     "$root/test/phase-2-retirement-outcomes.test.ts" \
@@ -93,6 +98,9 @@ run_node "${flags[@]}" --test \
     "$root/test/acceptance.test.ts" \
     "$root/test/phase1-followup.test.ts" \
     "$root/test/stale-session.test.ts"
+
+printf '%s\n' '== real periodic Owner / QML watchdog cadence and lost-heartbeat control =='
+run_node "${flags[@]}" --test "$root/../../spikes/workbench-heartbeat-cadence/probe.test.mjs"
 
 printf '%s\n' '== Phase 1 boundary audits against the updated tree =='
 run_node "${flags[@]}" --test \

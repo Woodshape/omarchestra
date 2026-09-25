@@ -90,9 +90,15 @@ after observing indistinguishable rows with different Adoption choices:
   verification reports unknown. It neither launches a replacement nor promises
   atomic exact-agent focus, PTY persistence or reattachment.
 
-Slices 1 and 2 are implemented. Companion 0.13.0 is installed/loaded and the
-Owner reloaded; existing Pi observers still require `/reload` when idle.
-Physical shared-code matching remains unvalidated. The [shared-code contract](../reviews/local-workbench-phase-2-verification/session-code-checkpoint.md)
+Slices 1 and 2 are implemented. After Companion 0.13.0 installation/Owner reload,
+the operator reported using live pane navigation while rejecting its latency and
+dense rows. Physical shared-code matching remains unvalidated. The approved
+[responsive-dock repair](../reviews/local-workbench-phase-2-verification/responsive-dock.md)
+is disposable-tested and now installed/loaded as 0.14.0 after a separately
+authorized shell/Owner restart, preserving history and the existing manual-takeover
+Run through reconnect. It provides code/activity defaults, visible
+exceptions and inline facts, shared Project blockers once, stable rows and immediate
+presentation wakeup/Close. It changes no Pi extension or terminal-routing checks. The [shared-code contract](../reviews/local-workbench-phase-2-verification/session-code-checkpoint.md)
 uses independent collision-checked `Pi XXXX-XXXX` codes negotiated through the
 exact observer connection. Codes persist for that incarnation within the owner
 lifetime, including lease expiry/reconnect; a new owner renegotiates them. Only
@@ -100,8 +106,9 @@ the currently connected bridge projects a code. Legacy or disconnected rows
 explicitly show code unavailable. No stored conversation identity or connection
 capability is shortened into a display code, and codes never authorize an action.
 The linked sequence owns implementation checkpoints and evidence limits. Checked
-navigation is implemented and disposable-tested, with Companion 0.13.0 now
-installed/loaded. Pi observer reload and physical focus remain unrun. The [terminal-focus spike](../../spikes/terminal-focus/README.md)
+navigation is implemented and disposable-tested, with Companion 0.14.0 now
+installed/loaded. Navigation now has operator-reported use, but no independent
+physical focus/latency acceptance. The [terminal-focus spike](../../spikes/terminal-focus/README.md)
 found two current Pi panels in separate Herdr panes inside one Foot window.
 Window focus alone therefore does not satisfy exact Pi navigation. Herdr's public
 focus targets a pane/agent location without an expected-occupant guard, and its

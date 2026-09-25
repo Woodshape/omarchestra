@@ -22,7 +22,7 @@ function rootView() {
     opened: false, destination: 'overview', checksOrigin: 'overview', menuOpen: false, projectListOpen: false,
     confirmation: null, lastIntentResult: null, confirmationAssociation: '', startReview: null,
     selectedAgentRunId: '', selectedObservedSessionId: '', selectedRole: '', selectedCheckId: '', selectedCheckVersion: 0,
-    confirmationTimer: { restart() {}, stop() {} }, projectionWatchdog: { restart() {} },
+    confirmationTimer: { restart() {}, stop() {} }, projectionWatchdog: { restart() {} }, wake: { reset() {} },
     intentRequested() {},
   }
   view.root = view

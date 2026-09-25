@@ -84,6 +84,28 @@ test('idle source heartbeats preserve freshness, but absence still becomes stale
   assert.equal(s.host.shell.adapter.checkStaleness(), true)
 })
 
+test('periodic heartbeats are not suppressed by publication cost or timer jitter; wake ticks stay coalesced', async t => {
+  const s = fixture(t)
+  const open = s.view.open, apply = s.view.applyProjection
+  // Model the real synchronous shell IPC: publication advances the clock.
+  s.view.open = input => { const result = open(input); s.time(s.clock() + 40); return result }
+  s.view.applyProjection = input => { const result = apply(input); s.time(s.clock() + 40); return result }
+  await s.host.start()
+  let snapshots = 1
+  for (const at of [1000, 1995, 3001, 4000, 5002]) {
+    s.time(at)
+    s.host.tick({ heartbeat: true })
+    assert.equal(s.order.filter(value => value.startsWith('snapshot:')).length, ++snapshots,
+      'each periodic tick must renew liveness, even within 1000 ms of the last completed publication')
+    s.time(at + 80)
+    s.host.tick()
+    assert.equal(s.order.filter(value => value.startsWith('snapshot:')).length, snapshots,
+      'an immediate wake must not force another unchanged publication')
+  }
+  s.time(8000)
+  assert.equal(s.host.shell.adapter.checkStaleness(), true, 'actual source absence still expires')
+})
+
 test('closed channels cannot retain the subscriber or operate on its replacement', async t => {
   const s = fixture(t)
   const source = createRunnerSource(s.authority, 'connected', { clock: s.clock })

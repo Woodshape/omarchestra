@@ -101,11 +101,14 @@ Board backend is not available in this slice.
 - Every card label is an opaque committed presentation string; `piStatus` is
   never rebuilt from role/control/assignment fields. Disabled actions show the
   runner's exact reason and emit nothing.
-- Observed rows and Add agent selection rows show connection availability,
-  lifecycle, activity and health separately. An unavailable Adoption has a
-  persistently visible runner-owned `adoptionReason` (bounded plain text), not a
-  tooltip or popup. `available` describes the connection, never permission to
-  adopt. Busy/unknown activity, reservations and stale pending authorization do
+- The approved responsive dock defaults observed and Add agent rows to
+  `Pi CODE · activity`. Managed rows retain Role and opaque committed state.
+  Connection/lifecycle/health exceptions remain visible; normal facts are available
+  through inline Session details rather than repeated under every healthy row.
+  Unavailable Adoption keeps its runner-owned reason (bounded plain text), with
+  shared Project-context or Goal-selection blockers shown once per contextual
+  list, not beneath every agent. There is no tooltip or popup. `available`
+  describes the connection, never permission to adopt. Busy/unknown activity, reservations and stale pending authorization do
   not silently disappear behind identical labels. Connected observed and
   managed rows show `Pi XXXX-XXXX`, matching that same Pi's named status slot;
   Add agent and Assignment target rows repeat it. Missing/legacy/disconnected
@@ -113,10 +116,19 @@ Board backend is not available in this slice.
   target IDs and a changed visible code disarms an armed action. Overview row
   headers now expose **Show terminal pane**: one click emits `present` with only
   the runner-issued connection ticket and an empty payload. This is navigation,
-  not a consequential authority change. Literal checked/unknown/unavailable
-  explanations stay in the dock; there is no popup or automatic retry.
+  not a consequential authority change. Concise unavailable/unknown results stay
+  visible; full navigation reasons and the checked-focus caveat are available in
+  inline details rather than permanent normal-state paragraphs. There is no
+  popup or automatic retry.
   Disconnected/legacy/checking rows disable navigation. Lifetime and evidence are tracked in
   [session usability](../plans/workbench-session-usability.md).
+- Exact-ID keyed agent/action/choice rows retain focus and open disclosures across
+  heartbeat, field update and reordering. Replacement/context change still fences
+  the old row. Ordinary menu state is not authority confirmation.
+- Close hides immediately, discards only unsent view clicks and asks the Owner for
+  guarded session cleanup; accepted commands and Pi are not cancelled. Heartbeats
+  never reopen the locally closed dock. The [responsive checkpoint](../reviews/local-workbench-phase-2-verification/responsive-dock.md)
+  records the real disposable wake path and the separate live acceptance boundary.
 - Board is visible but disabled with a short reason and emits no intent.
 - Back: none (root). Escape disarms an armed action first, then closes an open menu or Project list; otherwise no-op.
 

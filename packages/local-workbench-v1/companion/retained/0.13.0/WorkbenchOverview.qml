@@ -9,7 +9,6 @@ import QtQuick
 import QtQuick.Layouts
 import qs.Commons
 import QtQuick.Controls
-import "SessionText.js" as SessionText
 
 Control {
     id: root
@@ -157,7 +156,6 @@ Control {
 
             WorkbenchCards {
                 Layout.fillWidth: true
-                contextKey: SessionText.scope(root.projection)
                 cards: root.projection && Array.isArray(root.projection.managedAgents)
                     ? root.projection.managedAgents : []
                 observed: root.projection ? root.projection.observedSessions : []

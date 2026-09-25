@@ -14,7 +14,6 @@ import QtQuick.Layouts
 import qs.Commons
 import qs.Ui as Native
 import QtQuick.Controls
-import "SessionText.js" as SessionText
 
 Control {
     id: root
@@ -59,19 +58,6 @@ Control {
             + root.projection.selectedGoalId + ":" + root.selectedAgentRunId
     }
     readonly property string taskText: root.assignmentDraft.taskText || ""
-    readonly property var commonBlocker: SessionText.sharedBlocker(projection ? projection.observedSessions : [])
-    WorkbenchRows {
-        id: managedRows
-        rows: root.projection ? root.projection.managedAgents : []
-        keyField: "agentRunId"
-        scope: SessionText.scope(root.projection)
-    }
-    WorkbenchRows {
-        id: observedRows
-        rows: root.projection ? root.projection.observedSessions : []
-        keyField: "observedSessionId"
-        scope: SessionText.scope(root.projection)
-    }
 
     function writeDraft(patch) {
         if (root.draftKey === "") return
@@ -161,28 +147,19 @@ Control {
                 font.family: Style.font.family
                 font.pixelSize: Style.font.caption
             }
-            Text {
-                objectName: "workbench-add-agent-shared-reason"
-                Layout.fillWidth: true
-                visible: text.length > 0
-                textFormat: Text.PlainText
-                wrapMode: Text.Wrap
-                text: root.commonBlocker.text
-                color: root.mutedColor
-                font.family: Style.font.family
-                font.pixelSize: Style.font.caption
-            }
             Repeater {
-                model: observedRows
+                model: root.projection && Array.isArray(root.projection.observedSessions)
+                    ? root.projection.observedSessions : []
                 delegate: WorkbenchAction {
-                    required property string rowJson
-                    readonly property var modelData: JSON.parse(rowJson)
+                    required property var modelData
                     Layout.fillWidth: true
                     highlighted: root.selectedObservedSessionId === modelData.observedSessionId
                     enabled: root.connected && modelData.availability === "available"
                     focusPolicy: Qt.StrongFocus
-                    text: SessionText.code(modelData) + " · " + modelData.activity
-                    supportingText: [SessionText.exception(modelData), SessionText.reason(modelData, root.commonBlocker)].filter(function(s) { return s.length > 0 }).join(" · ")
+                    text: (modelData.sessionCode ? "Pi " + modelData.sessionCode : "Session code unavailable")
+                        + " · " + modelData.piStatus + " · connection " + modelData.availability + " · " + modelData.lifecycle
+                        + " · " + modelData.activity + " · " + modelData.health
+                    supportingText: modelData.adoptionReason || ""
                     onClicked: root.selectObserved(modelData.observedSessionId)
                 }
             }
@@ -365,17 +342,16 @@ Control {
                 font.bold: true
             }
             Repeater {
-                model: managedRows
+                model: root.projection && Array.isArray(root.projection.managedAgents)
+                    ? root.projection.managedAgents : []
                 delegate: WorkbenchAction {
-                    required property string rowJson
-                    readonly property var modelData: JSON.parse(rowJson)
+                    required property var modelData
                     Layout.fillWidth: true
                     highlighted: root.selectedAgentRunId === modelData.agentRunId
                     enabled: root.connected
                     focusPolicy: Qt.StrongFocus
-                    text: SessionText.code(modelData) + " · " + modelData.role + " · " + modelData.piStatus
-                    supportingText: modelData.controlMode !== "managed" || modelData.connectionStatus !== "connected"
-                        ? modelData.controlMode + " · " + modelData.connectionStatus : ""
+                    text: (modelData.sessionCode ? "Pi " + modelData.sessionCode : "Session code unavailable")
+                        + " · " + modelData.role + " · " + modelData.piStatus + "  ·  " + modelData.controlMode
                     onClicked: root.selectAgent(modelData.agentRunId)
                 }
             }

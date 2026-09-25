@@ -3,16 +3,19 @@ import assert from 'node:assert/strict'
 import { mkdtempSync, mkdirSync, rmSync } from 'node:fs'
 import { join } from 'node:path'
 import { tmpdir } from 'node:os'
-import { spawnSync } from 'node:child_process'
+import { spawnSync, execFile } from 'node:child_process'
+import { promisify } from 'node:util'
+import { fileURLToPath } from 'node:url'
 import { startNativeOwner, requestOwner } from '../runner/native-owner.ts'
 import { WORKBENCH_PLUGIN_VERSION, WORKBENCH_PLUGIN_ID, WORKBENCH_PROTOCOL_ID,
   WORKBENCH_PRESENTATION_CONTRACT, WORKBENCH_PRESENTATION_DESTINATIONS } from '../companion/contracts.ts'
-import { negotiateCompanion, systemDesktopCommand, type DesktopCommandPort } from '../runner/desktop-command.ts'
+import { createDesktopView, negotiateCompanion, systemDesktopCommand, type DesktopCommandPort } from '../runner/desktop-command.ts'
 import { openWorkbenchRunner } from '../runner/runner.ts'
 import { WorkbenchAuthority } from '../runner/authority.ts'
 import { buildSnapshot } from '../runner/projection.ts'
 import { validateSnapshot } from '../console/schema.ts'
 import { createPiBridgeExtension } from '../runner/pi-bridge-extension.ts'
+import { emptyFixture } from '../fixtures/projections.ts'
 
 test('installed shell accepts only an empty idle takeIntent response, not empty negotiation or mutation acknowledgements', () => {
   const argv: string[][] = []
@@ -31,8 +34,17 @@ function fakeDesktop() {
   let generation = 17, session: { sessionId: string; pluginGeneration: number } | null = null
   const projections: unknown[] = [], results: unknown[] = [], intents: string[] = [], hides: string[] = []
   const port: DesktopCommandPort = {
-    call(pluginId, method, payload) {
+    call(pluginId, method: string, payload) {
       assert.equal(pluginId, WORKBENCH_PLUGIN_ID)
+      if (method === 'dispatch') {
+        const request = JSON.parse(payload)
+        const valid = request.protocol === WORKBENCH_PROTOCOL_ID && request.version === WORKBENCH_PLUGIN_VERSION
+          && request.pluginId === pluginId && request.pluginGeneration === generation
+          && request.presentation === WORKBENCH_PRESENTATION_CONTRACT
+        const result = valid ? port.call(pluginId, request.method, JSON.stringify(request.payload)) : false
+        return JSON.stringify({ protocol: WORKBENCH_PROTOCOL_ID, version: WORKBENCH_PLUGIN_VERSION,
+          pluginGeneration: generation, result: result === 'true' ? true : result === 'false' ? false : result })
+      }
       if (method === 'capabilities') return JSON.stringify({ protocol: WORKBENCH_PROTOCOL_ID, pluginId,
         version: WORKBENCH_PLUGIN_VERSION, pluginGeneration: generation,
         capabilities: ['session.open', 'session.update', 'session.intent', 'session.hide', 'session.clear', 'session.resnapshot'] })
@@ -44,13 +56,93 @@ function fakeDesktop() {
       if (method === 'applyProjection') { assert.equal(body.sessionId, session?.sessionId); projections.push(body); return 'true' }
       if (method === 'takeIntent') { assert.deepEqual(body, session); return intents.shift() ?? '' }
       if (method === 'intentResult') { results.push(body); return 'true' }
-      if (method === 'clear') { assert.deepEqual(body, session); session = null; return 'true' }
+      if (method === 'heartbeat') { assert.equal(body.sessionId, session?.sessionId); return 'true' }
+      if (method === 'clear' || method === 'close') {
+        assert.deepEqual(body, session); session = null
+        if (method === 'close') hides.push(pluginId)
+        return 'true'
+      }
       throw Error('unknown desktop method')
     },
     hide(pluginId) { hides.push(pluginId) },
   }
   return { port, projections, results, intents, hides, reload() { generation++ }, generation: () => generation }
 }
+test('packaged wake client drains Close without any scheduled tick; idle heartbeats do not resend the visible snapshot', async t => {
+  const root = mkdtempSync(join(tmpdir(), 'n-wake-')), runtimeDir = join(root, 'runtime')
+  const desktop = fakeDesktop(), calls: string[] = []
+  let now = 1000, ticks = 0
+  const owner = await startNativeOwner({ roots: { stateDir: join(root, 'state'), runtimeDir }, monotonic: () => now,
+    schedule(_tick, ms) { assert.equal(ms, 1000); ticks++; return () => {} },
+    desktop: { ...desktop.port, call(id, method, payload) {
+      calls.push(method === 'dispatch' ? JSON.parse(payload).method : method)
+      return desktop.port.call(id, method, payload)
+    } },
+  })
+  t.after(async () => { await owner.close(); rmSync(root, { recursive: true, force: true }) })
+  const opened = await requestOwner(runtimeDir, 'open')
+  calls.length = 0
+  now += 1000
+  owner.tick()
+  assert.deepEqual(calls, ['heartbeat', 'takeIntent'])
+  assert.equal(desktop.projections.length, 1, 'liveness is not a visible snapshot replacement')
+  calls.length = 0
+  desktop.intents.push(JSON.stringify({ kind: 'hide_workbench', target: null, payload: {} }))
+  const client = fileURLToPath(new URL('../console/plugin/workbench-wake.mjs', import.meta.url))
+  const wake = (sessionId = opened.sessionId, generation = desktop.generation()) => promisify(execFile)(process.execPath, [client, JSON.stringify({
+    socketPath: owner.socketPath, sessionId, pluginGeneration: generation,
+  })], { timeout: 2500, killSignal: 'SIGKILL', maxBuffer: 4096 })
+  await wake()
+  assert.deepEqual(calls, ['takeIntent', 'close'], 'no repeated negotiation, pre-dispatch feedback or unguarded hide')
+  assert.equal(ticks, 1, 'scheduler installed but no callback executed')
+  assert.equal(desktop.hides.length, 1)
+  assert.equal(owner.runner.store.listEvents().length, 0)
+  const reopened = await requestOwner(runtimeDir, 'open')
+  assert.notEqual(reopened.sessionId, opened.sessionId)
+  calls.length = 0
+  await assert.rejects(wake(), /Command failed/)
+  assert.deepEqual(calls, [], 'old wake cannot read or clear successor view')
+  desktop.reload()
+  await assert.rejects(wake(reopened.sessionId), /Command failed/)
+  assert.deepEqual(calls, [], 'mismatched wake metadata is refused before IPC')
+  await assert.rejects(wake(reopened.sessionId, desktop.generation() - 1), /Command failed/)
+  assert.deepEqual(calls, ['takeIntent', 'close'], 'loaded generation rejects the captured old view')
+  assert.equal(desktop.hides.length, 1, 'old generation did not hide the replacement')
+  assert.equal((await requestOwner(runtimeDir, 'status')).presentation, 'hidden')
+})
+
+test('refused, malformed or unacknowledged close never pretends cleanup succeeded', () => {
+  for (const patch of [{ result: false }, { result: 'ok' }, { pluginGeneration: 'bad' }, { version: 'bad' }, { protocol: 'foreign' }]) {
+    const desktop = fakeDesktop()
+    const port: DesktopCommandPort = { ...desktop.port, call(id, method, payload) {
+      if (method === 'dispatch' && JSON.parse(payload).method === 'close') return JSON.stringify({
+        protocol: WORKBENCH_PROTOCOL_ID, version: WORKBENCH_PLUGIN_VERSION, pluginGeneration: desktop.generation(), result: true, ...patch,
+      })
+      return desktop.port.call(id, method, payload)
+    } }
+    const view = createDesktopView(port, desktop.generation())
+    const snapshot = { ...emptyFixture, pluginGeneration: desktop.generation() }
+    view.open({ session: { sessionId: snapshot.sessionId, pluginGeneration: snapshot.pluginGeneration }, projection: snapshot })
+    assert.throws(() => view.close(), /[Cc]ompanion/)
+    assert.equal(desktop.hides.length, 0, 'no unguarded fallback hide')
+  }
+})
+
+test('Owner reports failed external hide as unavailable, not hidden success', async t => {
+  const root = mkdtempSync(join(tmpdir(), 'n-hide-')), runtimeDir = join(root, 'runtime'), desktop = fakeDesktop()
+  const owner = await startNativeOwner({ roots: { stateDir: join(root, 'state'), runtimeDir },
+    desktop: { ...desktop.port, call(id, method, payload) {
+      if (method === 'dispatch' && JSON.parse(payload).method === 'close') throw Error('private IPC unavailable')
+      return desktop.port.call(id, method, payload)
+    } },
+  })
+  t.after(async () => { await owner.close(); rmSync(root, { recursive: true, force: true }) })
+  assert.equal((await requestOwner(runtimeDir, 'open')).status, 'opened')
+  assert.equal((await requestOwner(runtimeDir, 'hide')).status, 'unavailable')
+  assert.equal(desktop.hides.length, 0)
+  assert.equal(owner.runner.store.listEvents().length, 0)
+})
+
 test('native dock Close is presentation-only; reopened view has fresh session and unchanged owner history', async t => {
   const root = mkdtempSync(join(tmpdir(), 'n-close-'))
   const stateDir = join(root, 'state'), runtimeDir = join(root, 'runtime')
@@ -105,7 +197,7 @@ test('slow installed-shell intent readback cannot strand a valid Project inspect
   const slow: DesktopCommandPort = {
     call(id, method, payload) {
       const response = desktop.port.call(id, method, payload)
-      if (method === 'takeIntent' && response !== '') now += 2500
+      if (method === 'dispatch' && JSON.parse(payload).method === 'takeIntent' && JSON.parse(response).result !== '') now += 2500
       return response
     },
     hide: id => desktop.port.hide(id),
@@ -131,7 +223,7 @@ test('a queued click is locally marked stale if authority changes during shell r
   const port: DesktopCommandPort = {
     call(id, method, payload) {
       const response = desktop.port.call(id, method, payload)
-      if (method === 'takeIntent' && response !== '' && !changed) {
+      if (method === 'dispatch' && JSON.parse(payload).method === 'takeIntent' && JSON.parse(response).result !== '' && !changed) {
         changed = true
         const inspected = owner.currentAuthority().inspect(project)
         owner.currentAuthority().confirmRegistration(inspected.inspectionId)

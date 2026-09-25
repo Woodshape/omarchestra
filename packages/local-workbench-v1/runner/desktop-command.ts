@@ -5,8 +5,9 @@ import { WORKBENCH_PLUGIN_ID, WORKBENCH_PLUGIN_VERSION, WORKBENCH_PROTOCOL_ID,
 import type { PresentationPort } from '../console/presentation-shell.ts'
 import { validateSnapshot, type WorkbenchSnapshot } from '../console/schema.ts'
 
-const METHODS = ['capabilities', 'presentationContract', 'open', 'applyProjection', 'takeIntent', 'intentResult', 'clear'] as const
+const METHODS = ['capabilities', 'presentationContract', 'open', 'applyProjection', 'takeIntent', 'intentResult', 'clear', 'dispatch'] as const
 type Method = typeof METHODS[number]
+class ChangedCompanion extends Error {}
 const REQUIRED = ['session.open', 'session.update', 'session.intent', 'session.hide', 'session.clear', 'session.resnapshot']
 const id = (value: unknown) => typeof value === 'string' && /^[A-Za-z0-9_-]{1,128}$/.test(value)
 const validGeneration = (value: unknown): value is number => Number.isSafeInteger(value) && Number(value) > 0
@@ -64,14 +65,24 @@ export function negotiateCompanion(port: DesktopCommandPort): number {
   }
   return capability.pluginGeneration
 }
-/** A synchronous presentation port; every call checks the loaded incarnation. */
-export function createDesktopView(port: DesktopCommandPort, generation: number): PresentationPort {
+/** One guarded IPC per operation. The loaded component checks the complete
+ * negotiated identity inside the same invocation as the requested operation. */
+export function createDesktopView(port: DesktopCommandPort, generation: number, wakeSocket?: string): PresentationPort {
   let session: { sessionId: string; pluginGeneration: number } | null = null
-  const call = (method: Method, payload: unknown): string => {
-    if (negotiateCompanion(port) !== generation) throw new Error('stale_plugin_generation')
-    const answer = port.call(WORKBENCH_PLUGIN_ID, method, JSON.stringify(payload))
-    if (answer === 'false') throw new Error(`Companion ${method} refused the current session`)
-    return answer
+  let displayed = ''
+  const visible = (snapshot: WorkbenchSnapshot) => JSON.stringify({ ...snapshot, cursor: 0 })
+  const call = (method: Method | 'close' | 'heartbeat', payload: unknown): string => {
+    const response = exact(parse(port.call(WORKBENCH_PLUGIN_ID, 'dispatch', JSON.stringify({
+      protocol: WORKBENCH_PROTOCOL_ID, pluginId: WORKBENCH_PLUGIN_ID, version: WORKBENCH_PLUGIN_VERSION,
+      presentation: WORKBENCH_PRESENTATION_CONTRACT, pluginGeneration: generation, method, payload,
+    }))), ['protocol', 'version', 'pluginGeneration', 'result'])
+    if (response.protocol !== WORKBENCH_PROTOCOL_ID || typeof response.version !== 'string'
+        || !/^\d+\.\d+\.\d+$/.test(response.version) || !validGeneration(response.pluginGeneration)
+        || !['string', 'boolean'].includes(typeof response.result)) throw new Error('companion_incompatible_response')
+    if (response.pluginGeneration !== generation) throw new ChangedCompanion('stale_plugin_generation')
+    if (response.version !== WORKBENCH_PLUGIN_VERSION || response.result === false)
+      throw new Error(`Companion ${method} refused the current session`)
+    return String(response.result)
   }
   return {
     pluginGeneration: generation,
@@ -79,23 +90,29 @@ export function createDesktopView(port: DesktopCommandPort, generation: number):
       const value = envelope as { session: { sessionId: string; pluginGeneration: number }; projection: WorkbenchSnapshot }
       if (!id(value?.session?.sessionId) || value.session.pluginGeneration !== generation) throw new Error('invalid_companion_session')
       validateSnapshot(value.projection)
-      const result = call('open', value)
+      const result = call('open', { ...value, wakeSocket: wakeSocket ?? null })
       if (result !== 'true') throw new Error('Companion open was not acknowledged')
       session = { ...value.session }
+      displayed = visible(value.projection)
       return true
     },
     applyProjection(snapshot) {
       if (!session) throw new Error('presentation_session_missing')
       const value = validateSnapshot(snapshot)
       if (value.sessionId !== session.sessionId || value.pluginGeneration !== generation) throw new Error('presentation_session_changed')
-      if (call('applyProjection', value) !== 'true') throw new Error('Companion update was not acknowledged')
+      const encoded = visible(value)
+      const unchanged = encoded === displayed
+      let result = unchanged ? call('heartbeat', { ...session, revision: value.revision, cursor: value.cursor })
+        : call('applyProjection', value)
+      if (result === 'resnapshot') result = call('applyProjection', value)
+      if (result !== 'true') throw new Error('Companion update was not acknowledged')
+      displayed = encoded // Only after the real loaded view acknowledged it.
       return true
     },
     takeIntent(value) {
       if (!session || JSON.stringify(value) !== JSON.stringify(session)) throw new Error('presentation_session_changed')
       const result = call('takeIntent', session)
-      if (result === '""') return '' // shell can return JSON-encoded empty string
-      if (result === '' || result === 'ok') return ''
+      if (result === '') return '' // The guarded reply has one exact empty value.
       if (Buffer.byteLength(result) > 32 * 1024) throw new Error('Companion intent exceeded bound')
       // The JSON returned by takeIntent is a plain bounded request; the adapter
       // validates it again against the authoritative projection.
@@ -104,19 +121,24 @@ export function createDesktopView(port: DesktopCommandPort, generation: number):
     },
     intentResult(feedback) {
       if (!session) throw new Error('presentation_session_missing')
+      // A local submitted indicator is not an acknowledgement. Avoid blocking
+      // real dispatch on this cosmetic round trip; committed outcomes still
+      // follow the successfully displayed snapshot barrier.
+      if ((feedback as { status?: string })?.status === 'submitted') return true
       if (call('intentResult', feedback) !== 'true') throw new Error('Companion outcome was not acknowledged')
       return true
     },
     close() {
       if (!session) return
       const old = session; session = null
-      // A shell reload may have replaced the loaded incarnation since open.
-      // Never clear or hide a different generation's presentation.
-      try { if (negotiateCompanion(port) !== generation) return } catch { return }
-      try { call('clear', old) } finally {
-        let stillOwned = false
-        try { stillOwned = negotiateCompanion(port) === generation } catch { /* unknown incarnation */ }
-        if (stillOwned) port.hide(WORKBENCH_PLUGIN_ID)
+      // Clear and hide only the addressed view, atomically with the generation
+      // check. Never issue an unguarded shell hide against a successor instance.
+      try {
+        if (call('close', old) !== 'true') throw new Error('Companion close was not acknowledged')
+      } catch (error) {
+        // A verified successor must be left alone. Other failures are unknown,
+        // not a successful hide; propagate them to the Owner's command result.
+        if (!(error instanceof ChangedCompanion)) throw error
       }
     },
   }

@@ -25,4 +25,6 @@ Each spike gets its own directory and records:
 
 7. **Ordinary-session terminal focus — read-only spike complete; checked-navigation policy approved.** The inspected Pi panels occupy distinct Herdr panes inside one Foot window. Public focus has no expected-occupant guard or attached-client/window relation. A bounded diagnostic and eleven offline failure tests preserve the evidence. The operator subsequently approved best-effort pre/post-checked navigation; a separate development adapter is disposable-tested, with no live focus or atomic exact-target claim. See [`terminal-focus/README.md`](terminal-focus/README.md).
 
+8. **Workbench heartbeat cadence — reproduced; Owner-only correction disposable-tested.** Real one-second Owner scheduling plus a second publication throttle delivered two-second heartbeats and repeatedly expired QML's watchdog. The correction retains the stale deadline, passes a real periodic Qt regression and genuine source-loss control, and is now loaded after authorized Owner-only restart; native acceptance remains pending. See [`workbench-heartbeat-cadence/README.md`](workbench-heartbeat-cadence/README.md).
+
 Broad implementation begins only after the relevant spike has produced a contract recorded in [`docs/design/mvp.md`](../docs/design/mvp.md).

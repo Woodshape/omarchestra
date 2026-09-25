@@ -3,7 +3,6 @@ import QtQuick
 import QtQuick.Layouts
 import QtQuick.Controls
 import qs.Commons
-import "SessionText.js" as SessionText
 
 Control {
     id: root
@@ -13,11 +12,6 @@ Control {
     property var armedConfirmation: null
     property bool actionable: false
     property bool historyExpanded: false
-    property string contextKey: ""
-    readonly property var commonBlocker: SessionText.sharedBlocker(observed)
-    WorkbenchRows { id: managedRows; rows: root.cards; keyField: "agentRunId"; scope: root.contextKey }
-    WorkbenchRows { id: observedRows; rows: root.observed; keyField: "observedSessionId"; scope: root.contextKey }
-    WorkbenchRows { id: retiredRows; rows: root.retired; keyField: "agentRunId"; scope: root.contextKey }
     implicitHeight: cardsColumn.implicitHeight
     signal intentRequested(var payload)
     readonly property color textColor: Color.popups.text
@@ -82,12 +76,10 @@ Control {
         Heading { Layout.fillWidth: true; text: "Managed agents" }
         Caption { Layout.fillWidth: true; visible: root.cards.length === 0; text: "No agents assigned yet." }
         Repeater {
-            model: managedRows
+            model: root.cards
             delegate: ColumnLayout {
                 id: cardRow
-                required property string rowJson
-                readonly property var modelData: JSON.parse(rowJson)
-                WorkbenchRows { id: actionRows; rows: cardRow.modelData.actions || []; keyField: "kind" }
+                required property var modelData
                 property bool actionsExpanded: false
                 Keys.onEscapePressed: function(event) {
                     if (actionsExpanded) {
@@ -103,8 +95,8 @@ Control {
                     WorkbenchAction {
                         objectName: "workbench-managed-show-pane"
                         Layout.fillWidth: true
-                        text: SessionText.code(cardRow.modelData) + " · " + cardRow.modelData.role + " · " + cardRow.modelData.piStatus
-                        Accessible.name: "Show terminal pane · " + text
+                        text: "Show terminal pane · " + (cardRow.modelData.sessionCode ? "Pi " + cardRow.modelData.sessionCode : "Session code unavailable")
+                            + " · " + cardRow.modelData.piStatus
                         enabled: root.actionable && !!cardRow.modelData.terminalNavigation && cardRow.modelData.terminalNavigation.enabled
                         onClicked: root.intentRequested({ kind: "present", target: cardRow.modelData.terminalNavigation.target, payload: ({}) })
                     }
@@ -121,30 +113,22 @@ Control {
                 Caption {
                     objectName: "workbench-managed-navigation-result"
                     Layout.fillWidth: true
-                    text: SessionText.navigation(cardRow.modelData)
-                    visible: text.length > 0
+                    text: cardRow.modelData.terminalNavigation ? cardRow.modelData.terminalNavigation.reason : "Terminal navigation unavailable."
                 }
                 Caption {
                     Layout.fillWidth: true
-                    visible: cardRow.actionsExpanded || cardRow.modelData.controlMode !== "managed" || cardRow.modelData.connectionStatus !== "connected"
-                    text: cardRow.modelData.controlMode + " · " + cardRow.modelData.connectionStatus
+                    text: cardRow.modelData.role + " · " + cardRow.modelData.controlMode + " · " + cardRow.modelData.connectionStatus
                 }
                 Caption {
                     Layout.fillWidth: true
                     visible: cardRow.modelData.assignment !== null
                     text: cardRow.modelData.assignment === null ? "" : "Assignment: " + cardRow.modelData.assignment
                 }
-                Caption {
-                    Layout.fillWidth: true
-                    visible: cardRow.actionsExpanded
-                    text: cardRow.modelData.terminalNavigation ? cardRow.modelData.terminalNavigation.reason : "Terminal navigation unavailable."
-                }
                 Repeater {
-                    model: cardRow.actionsExpanded ? actionRows : null
+                    model: cardRow.actionsExpanded ? (cardRow.modelData.actions || []) : []
                     delegate: ColumnLayout {
                         id: actionRow
-                        required property string rowJson
-                        readonly property var modelData: JSON.parse(rowJson)
+                        required property var modelData
                         readonly property var cardPayload: root.actionPayload(
                             modelData.kind, cardRow.modelData.agentRunId, cardRow.modelData.assignment)
                         readonly property bool available: root.actionable && modelData.enabled && cardPayload !== null
@@ -175,78 +159,43 @@ Control {
 
         Heading { Layout.fillWidth: true; text: "Unassigned sessions" }
         Caption { Layout.fillWidth: true; visible: root.observed.length === 0; text: "No observed sessions." }
-        Caption {
-            objectName: "workbench-shared-adoption-reason"
-            Layout.fillWidth: true
-            visible: text.length > 0
-            text: root.commonBlocker.text
-        }
         Repeater {
-            model: observedRows
+            model: root.observed
             delegate: ColumnLayout {
                 id: observedRow
-                required property string rowJson
-                readonly property var modelData: JSON.parse(rowJson)
-                property bool detailsExpanded: false
-                Keys.onEscapePressed: function(event) {
-                    if (detailsExpanded) {
-                        detailsExpanded = false
-                        observedDetailsMenu.forceActiveFocus()
-                        event.accepted = true
-                    } else event.accepted = false
-                }
-                WorkbenchRows { id: choiceRows; rows: observedRow.modelData.choices || []; keyField: "choiceId" }
+                required property var modelData
                 Layout.fillWidth: true
                 spacing: Style.space(3)
-                RowLayout {
+                WorkbenchAction {
+                    objectName: "workbench-observed-show-pane"
                     Layout.fillWidth: true
-                    WorkbenchAction {
-                        objectName: "workbench-observed-show-pane"
-                        Layout.fillWidth: true
-                        text: SessionText.code(observedRow.modelData) + " · " + observedRow.modelData.activity
-                        Accessible.name: "Show terminal pane · " + text
-                        enabled: root.actionable && !!observedRow.modelData.terminalNavigation && observedRow.modelData.terminalNavigation.enabled
-                        onClicked: root.intentRequested({ kind: "present", target: observedRow.modelData.terminalNavigation.target, payload: ({}) })
-                    }
-                    WorkbenchAction {
-                        id: observedDetailsMenu
-                        objectName: "workbench-observed-details"
-                        text: "···"
-                        Accessible.name: "Session details"
-                        highlighted: observedRow.detailsExpanded
-                        onClicked: observedRow.detailsExpanded = !observedRow.detailsExpanded
-                    }
+                    text: "Show terminal pane · " + (observedRow.modelData.sessionCode ? "Pi " + observedRow.modelData.sessionCode : "Session code unavailable")
+                        + " · " + observedRow.modelData.piStatus
+                    enabled: root.actionable && !!observedRow.modelData.terminalNavigation && observedRow.modelData.terminalNavigation.enabled
+                    onClicked: root.intentRequested({ kind: "present", target: observedRow.modelData.terminalNavigation.target, payload: ({}) })
                 }
                 Caption {
                     objectName: "workbench-observed-navigation-result"
                     Layout.fillWidth: true
-                    text: SessionText.navigation(observedRow.modelData)
-                    visible: text.length > 0
+                    text: observedRow.modelData.terminalNavigation ? observedRow.modelData.terminalNavigation.reason : "Terminal navigation unavailable."
                 }
                 Caption {
                     Layout.fillWidth: true
                     objectName: "workbench-observed-facts"
-                    text: observedRow.detailsExpanded ? "Observed · unmanaged · connection " + observedRow.modelData.availability
-                        + " · " + observedRow.modelData.lifecycle + " · " + observedRow.modelData.health
-                        : SessionText.exception(observedRow.modelData)
-                    visible: text.length > 0
+                    text: "Observed · unmanaged · connection " + observedRow.modelData.availability
+                        + " · " + observedRow.modelData.lifecycle + " · " + observedRow.modelData.activity
+                        + " · " + observedRow.modelData.health
                 }
                 Caption {
                     objectName: "workbench-observed-adoption-reason"
                     Layout.fillWidth: true
-                    visible: text.length > 0
-                    text: SessionText.reason(observedRow.modelData, root.commonBlocker)
-                }
-                Caption {
-                    Layout.fillWidth: true
-                    visible: observedRow.detailsExpanded
-                    text: observedRow.modelData.terminalNavigation ? observedRow.modelData.terminalNavigation.reason : "Terminal navigation unavailable."
+                    visible: !!observedRow.modelData.adoptionReason
+                    text: observedRow.modelData.adoptionReason || ""
                 }
                 Repeater {
-                    model: choiceRows
+                    model: observedRow.modelData.choices || []
                     delegate: WorkbenchAction {
-                        required property string rowJson
-                        readonly property var modelData: JSON.parse(rowJson)
+                        required property var modelData
                         readonly property var requestIntent: root.choiceIntent(modelData.choiceId, modelData.actionKind)
                         Layout.fillWidth: true
                         confirmationIntent: requestIntent
@@ -266,11 +215,10 @@ Control {
             onClicked: root.historyExpanded = !root.historyExpanded
         }
         Repeater {
-            model: root.historyExpanded ? retiredRows : null
+            model: root.historyExpanded ? root.retired : []
             delegate: ColumnLayout {
                 id: retiredRow
-                required property string rowJson
-                readonly property var modelData: JSON.parse(rowJson)
+                required property var modelData
                 Layout.fillWidth: true
                 spacing: Style.space(3)
                 Status { Layout.fillWidth: true; text: retiredRow.modelData.piStatus }

@@ -83,6 +83,40 @@ The [S2 authority-envelope checkpoint](../reviews/local-workbench-phase-2-verifi
 
 Authority confirmations expire after 30 seconds and are invalidated by session/generation/epoch/target identity or relevant revision changes. The exact-target review is an inline part of the fixed dock rather than a modal pop-up. A normal heartbeat that changes no relevant confirmation fact preserves it; expiry or relevant change disables the confirm action and leaves a dismissible inline explanation rather than silently closing the review. Form drafts survive ordinary projection updates and are keyed by Project/Goal/Run as applicable. Draft text may remain when authority changes, but it is never an active confirmation. Clear obsolete feedback on target/session changes and reject late feedback for an obsolete association. Escape cancels a confirmation without emitting an intent. Board is visible but disabled, emits no action, and has no simulated messages. Fixture mode is persistently labeled, and unsupported management/execution actions cannot pretend to be live.
 
+### Responsive dock transport and rendering amendment
+
+The [0.14.0 checkpoint](../reviews/local-workbench-phase-2-verification/responsive-dock.md)
+implements the operator-approved whole-dock repair. A coalesced, bounded packaged
+presentation client wakes only the existing owner-only endpoint on an explicit
+queued click. Its frame carries the exact Projection Session/generation, never a
+domain action. The Owner reads/revalidates the current loaded view itself. The
+one-second loop remains liveness and missed-wakeup recovery, not the normal click
+scheduler; no high-frequency idle CLI poll is introduced. Each periodic tick must
+publish liveness without passing through a second completion-relative throttle:
+synchronous IPC cost must not turn the one-second cadence into a two-second
+watchdog race. Immediate wake/before-intent checks still coalesce unchanged data.
+The [cadence regression](../../spikes/workbench-heartbeat-cadence/README.md) exercises
+the real scheduler/Qt watchdog, including genuine source loss; the two-second
+stale deadline and full-resnapshot requirement remain unchanged.
+
+Initial loaded negotiation is unchanged. Subsequent single-call `dispatch` checks
+protocol, plugin ID, compiled release, presentation contract, generation and
+session at the operation itself. A metadata refresh cannot relabel old loaded
+code. Snapshot publication and final feedback are still acknowledged in order;
+cosmetic submitted feedback is not a pre-dispatch IPC barrier. Close hides locally
+immediately, disarms confirmation and drops only unsent view clicks, retaining
+one session-bound close request until guarded cleanup. It neither cancels already
+accepted commands nor stops the Owner/Pi. A pulse cannot reopen it.
+
+Equal visible data receives a small revision/cursor heartbeat without replacing
+QML's projection or models. Stale views require full resnapshot, not heartbeat
+resurrection. Exact-ID keyed rows retain focus/disclosure across data changes and
+reorder, never across replacement or context scopes. Authority confirmations,
+queued domain clicks, drafts and captured execution reviews retain their existing
+separate guards. Normal observed rows show code/activity, managed rows retain Role
+and state, exceptions remain visible and shared Project/Goal Adoption blockers
+appear once per contextual list. Full facts remain inline-inspectable, not popups.
+
 ### Checked local pane navigation amendment
 
 The operator-approved [navigation checkpoint](../reviews/local-workbench-phase-2-verification/checked-pane-navigation.md)

@@ -1,0 +1,28 @@
+✖ periodic heartbeats are not suppressed by publication cost or timer jitter; wake ticks stay coalesced (23.617372ms)
+ℹ tests 1
+ℹ suites 0
+ℹ pass 0
+ℹ fail 1
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 185.031673
+
+✖ failing tests:
+
+test at packages/local-workbench-v1/test/phase-2-source-outcomes.test.ts:87:1
+✖ periodic heartbeats are not suppressed by publication cost or timer jitter; wake ticks stay coalesced (23.617372ms)
+  AssertionError [ERR_ASSERTION]: each periodic tick must renew liveness, even within 1000 ms of the last completed publication
+
+  1 !== 2
+
+      at TestContext.<anonymous> (file:///home/woodshape/claude/omarchestra/packages/local-workbench-v1/test/phase-2-source-outcomes.test.ts:98:12)
+      at async Test.run (node:internal/test_runner/test:1409:7)
+      at async startSubtestAfterBootstrap (node:internal/test_runner/harness:387:3) {
+    generatedMessage: false,
+    code: 'ERR_ASSERTION',
+    actual: 1,
+    expected: 2,
+    operator: 'strictEqual',
+    diff: 'simple'
+  }

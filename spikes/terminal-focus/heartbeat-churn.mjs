@@ -13,6 +13,7 @@ const scratch = mkdtempSync(join(tmpdir(), 'wb-heartbeat-churn-'))
 try {
   let source = readFileSync(new URL('test/rendered-layout.test.ts', packageUrl), 'utf8')
     .replace(/from '\.\.\/([^']+)'/g, (_, path) => `from '${new URL(path, packageUrl).href}'`)
+    .replace(/from '\.\/([^']+)'/g, (_, path) => `from '${new URL('test/' + path, packageUrl).href}'`)
     .replaceAll('../console/plugin/', new URL('console/plugin/', packageUrl).href)
   const anchor = '    function test_layout_data()'
   if (!source.includes(anchor)) throw Error('render harness changed')

@@ -31,13 +31,15 @@ const QT_RUNNER = '/usr/lib/qt6/bin/qmltestrunner'
 const QML_FILES = [
   'WorkbenchConsole.qml', 'WorkbenchHost.qml', 'WorkbenchOverview.qml', 'WorkbenchAction.qml',
   'WorkbenchTextArea.qml', 'WorkbenchTextField.qml', 'WorkbenchGoal.qml', 'WorkbenchCards.qml',
+  'WorkbenchRows.qml', 'SessionText.js',
   'WorkbenchAssignmentForm.qml', 'WorkbenchChecks.qml', 'WorkbenchReview.qml', 'WorkbenchBoard.qml',
 ]
 
 type HarnessMode = 'inspect' | 'confirm' | 'reconfirm' | 'check' | 'edit-check' | 'render' | 'observe' | 'authorize' | 'goal' | 'page' | 'add-agent' | 'add-agent-wrong-role' | 'adoption-review'
 
 function harness(snapshot: unknown, projectPath: string, mode: HarnessMode): Record<string, string> {
-  const files: Record<string, string> = {}
+  // Notification transport has its own real Quickshell/Owner integration test.
+  const files: Record<string, string> = { 'view/WorkbenchWake.qml': 'import QtQuick\nItem { function notify(path, session) {} function reset() {} }\n' }
   for (const name of QML_FILES) {
     const source = readFileSync(new URL(`../console/plugin/${name}`, import.meta.url), 'utf8')
     files[`view/${name}`] = name === 'WorkbenchConsole.qml'
@@ -98,7 +100,7 @@ Item {
       return null
     }
     function buttonWithTextPrefix(item, prefix) {
-      if (item.text !== undefined && String(item.text).indexOf(prefix) === 0 && item.down !== undefined) return item
+      if (item.visible && item.text !== undefined && String(item.text).indexOf(prefix) === 0 && item.down !== undefined) return item
       for (var i = 0; i < item.children.length; i++) {
         var found = buttonWithTextPrefix(item.children[i], prefix)
         if (found !== null) return found

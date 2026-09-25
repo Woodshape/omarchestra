@@ -11,7 +11,7 @@ import { validateAuthorityIntent } from './intent-envelope.ts'
 
 export interface RunnerSource {
   source: WorkbenchSource
-  publish(): void
+  publish(heartbeat?: boolean): void
   publishOutcome(feedback: WorkbenchFeedback): void
   close(error: Error | null): void
 }
@@ -87,7 +87,7 @@ export function createRunnerSource(authority: WorkbenchAuthority, connection: Wo
         }
       },
     },
-    publish: () => publish(),
+    publish: (heartbeat = false) => publish(heartbeat),
     publishOutcome,
     close(error) {
       const current = active
@@ -108,7 +108,7 @@ export interface WorkbenchHost {
   readonly shell: ReturnType<typeof createPresentationShell>
   readonly source: RunnerSource
   start(): Promise<void>
-  tick(): void
+  tick(options?: { heartbeat?: boolean }): void
   stop(): void
 }
 
@@ -129,7 +129,11 @@ export function createWorkbenchHost(options: WorkbenchHostOptions): WorkbenchHos
     // otherwise healthy owner may have spent >2s in shell IPC or scheduling;
     // polling a queued click first would treat that timing gap as lost source
     // authority, throw, and close the entire dock instead of refreshing it.
-    tick() { source.publish(); shell.tick() },
+    // The periodic Owner timer already sets the liveness cadence. Applying
+    // the source's 1000 ms throttle again after synchronous publication can
+    // skip every other tick and race QML's 2000 ms watchdog. Periodic ticks
+    // must publish; immediate wake/before-intent paths still coalesce normally.
+    tick(tickOptions) { source.publish(tickOptions?.heartbeat === true); shell.tick() },
     stop() { try { shell.close() } finally { source.close(null) } },
   }
 }

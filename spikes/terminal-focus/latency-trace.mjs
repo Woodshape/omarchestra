@@ -23,7 +23,14 @@ export async function traceClickPath() {
     version: WORKBENCH_PLUGIN_VERSION, pluginGeneration: 1,
     presentation: WORKBENCH_PRESENTATION_CONTRACT, destinations: WORKBENCH_PRESENTATION_DESTINATIONS }
   const desktop = {
-    call(_plugin, method) {
+    call(_plugin, method, encoded) {
+      if (method === 'dispatch') {
+        const request = JSON.parse(encoded)
+        trace.push(request.method)
+        let result = true
+        if (request.method === 'takeIntent') { const value = pending; pending = null; result = value ? JSON.stringify(value) : '' }
+        return JSON.stringify({ protocol: WORKBENCH_PROTOCOL_ID, version: WORKBENCH_PLUGIN_VERSION, pluginGeneration: 1, result })
+      }
       trace.push(method)
       if (method === 'capabilities') return JSON.stringify(capabilities)
       if (method === 'presentationContract') return JSON.stringify(contract)
@@ -60,7 +67,7 @@ export async function traceClickPath() {
     return { scope: 'Production composition; injected desktop and Pi peer; counts only, not elapsed time',
       idleTickShellCalls: idle, clickTick: click, shellCallsBeforeBridgeSend: sentAt,
       shellCallsAfterBridgeSend: click.length - sentAt - 1, closeTick: close,
-      shellCallsThroughHide: close.indexOf('hide') + 1 }
+      shellCallsThroughHide: close.indexOf('close') + 1 }
   } finally {
     try { await owner?.close() } finally { rmSync(root, { recursive: true, force: true }) }
   }

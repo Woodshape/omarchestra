@@ -14,11 +14,15 @@ export const OWNER_PROTOCOL = 'omarchestra.owner/v1'
 const MAX_REQUEST = 4096, MAX_RESPONSE = 32 * 1024
 export const ownerSocket = (runtimeDir: string) => join(runtimeDir, 'omarchestra-workbench.sock')
 const ident = (value: unknown) => typeof value === 'string' && /^[A-Za-z0-9_-]{1,128}$/.test(value)
-function request(value: unknown): { protocol: string; requestId: string; type: 'open' | 'hide' | 'status' } {
-  if (!value || typeof value !== 'object' || Array.isArray(value)
-      || Object.keys(value).sort().join(',') !== 'protocol,requestId,type') throw new Error('invalid_owner_request')
+type OwnerRequest = { protocol: string; requestId: string; type: 'open' | 'hide' | 'status' | 'wake'; sessionId?: string; pluginGeneration?: number }
+function request(value: unknown): OwnerRequest {
+  if (!value || typeof value !== 'object' || Array.isArray(value)) throw new Error('invalid_owner_request')
   const data = value as Record<string, unknown>
-  if (data.protocol !== OWNER_PROTOCOL || !ident(data.requestId) || !['open', 'hide', 'status'].includes(String(data.type))) throw new Error('invalid_owner_request')
+  const keys = data.type === 'wake' ? 'pluginGeneration,protocol,requestId,sessionId,type' : 'protocol,requestId,type'
+  if (Object.keys(data).sort().join(',') !== keys
+      || data.protocol !== OWNER_PROTOCOL || !ident(data.requestId) || !['open', 'hide', 'status', 'wake'].includes(String(data.type))) throw new Error('invalid_owner_request')
+  if (data.type === 'wake' && (!ident(data.sessionId) || !Number.isSafeInteger(data.pluginGeneration)
+      || Number(data.pluginGeneration) <= 0)) throw new Error('invalid_owner_request')
   return data as ReturnType<typeof request>
 }
 function privateRoot(path: string): void {
@@ -74,12 +78,14 @@ export interface NativeOwner {
 }
 export async function startNativeOwner(options: WorkbenchRunnerOptions & {
   desktop?: DesktopCommandPort | null; clock?: () => number; monotonic?: () => number
+  /** Injectable scheduler for disposable wake-path tests; not a CLI option. */
+  schedule?: (tick: () => void, intervalMs: number) => () => void
 }): Promise<NativeOwner> {
   if (!options.roots.runtimeDir) throw new Error('start requires an explicit owner-only runtime directory')
   const runner = openWorkbenchRunner(options)
   let bridge: Awaited<ReturnType<typeof openOwnerPiBridge>> | null = null
   let server: Server | null = null
-  let timer: ReturnType<typeof setInterval> | null = null
+  let cancelTimer: (() => void) | null = null
   let host: WorkbenchHost | null = null
   let authority: WorkbenchAuthority | null = null
   let closed = false
@@ -111,12 +117,12 @@ export async function startNativeOwner(options: WorkbenchRunnerOptions & {
             if (incoming.type === 'open') {
               if (!desktop) throw new Error('Installed Companion command port unavailable. Enable a compatible Companion and use an owner with desktop access.')
               const generation = negotiateCompanion(desktop)
-              if (host) { host.stop(); host = null }
+              if (host) { const old = host; host = null; old.stop() }
               // The bridge manager outlives views; hide/reopen changes neither
               // runner epoch nor membership, Pi connection nor owner lock.
               authority = new WorkbenchAuthority({ runner, registry: bridge!.registry, framedAdoption: manager,
                 sessionId: `session-${randomUUID()}`, pluginGeneration: generation, clock: options.clock })
-              const view = createDesktopView(desktop, generation)
+              const view = createDesktopView(desktop, generation, path)
               const next = createWorkbenchHost({ authority, view, clock: options.monotonic, onHide: () => {
                 if (host !== next) return // stale shell generation cannot hide its successor
                 host = null
@@ -128,6 +134,19 @@ export async function startNativeOwner(options: WorkbenchRunnerOptions & {
             } else if (incoming.type === 'hide') {
               if (host) { const old = host; host = null; old.stop() }
               result = { status: 'hidden', runnerEpoch: runner.epoch }
+            } else if (incoming.type === 'wake') {
+              // Notification only: no action payload, launch or domain identity.
+              // Drain the exact loaded view through its guarded IPC boundary.
+              if (!host || incoming.sessionId !== authority!.sessionId
+                  || incoming.pluginGeneration !== authority!.pluginGeneration) throw new Error('stale_presentation_wake')
+              const current = host
+              try { current.tick() } catch (error) {
+                // Same failure policy as the liveness tick: revoke only this
+                // view, never leave a failed fast path claiming to be open.
+                if (host === current) { host = null; try { current.stop() } catch { /* stale view */ } }
+                throw error
+              }
+              result = { status: 'woken' }
             } else {
               // Status does not poll the presentation or apply its pending
               // intents. It still must not claim a reloaded shell is open.
@@ -149,8 +168,9 @@ export async function startNativeOwner(options: WorkbenchRunnerOptions & {
     await new Promise<void>((resolve, reject) => { server!.once('error', reject); server!.listen(path, () => { server!.off('error', reject); resolve() }) })
     chmodSync(path, 0o600)
     const { dev, ino } = lstatSync(path)
-    timer = setInterval(() => {
-      try { if (host) host.tick(); else bridge?.registry.expire() }
+    const schedule = options.schedule ?? ((tick, ms) => { const timer = setInterval(tick, ms); return () => clearInterval(timer) })
+    cancelTimer = schedule(() => {
+      try { if (host) host.tick({ heartbeat: true }); else bridge?.registry.expire() }
       catch (error) {
         // An acknowledged open is not a durable presentation if the next
         // poll fails. Leave an actionable owner-side diagnostic instead of
@@ -163,13 +183,13 @@ export async function startNativeOwner(options: WorkbenchRunnerOptions & {
       runner, registry: bridge.registry, socketPath: path,
       currentAuthority: () => authority!,
       tick() {
-        try { host?.tick() }
+        try { host?.tick({ heartbeat: true }) }
         catch { const failed = host; host = null; try { failed?.stop() } catch { /* stale desktop cannot be cleared */ } }
       },
       async close() {
         if (closed) return
         closed = true
-        if (timer) clearInterval(timer)
+        cancelTimer?.()
         if (host) { const prior = host; host = null; try { prior.stop() } catch { /* loaded plugin may have disappeared */ } }
         for (const client of clients) client.destroy()
         try {
@@ -182,7 +202,7 @@ export async function startNativeOwner(options: WorkbenchRunnerOptions & {
       },
     }
   } catch (error) {
-    if (timer) clearInterval(timer)
+    cancelTimer?.()
     if (server?.listening) await new Promise<void>(resolve => server!.close(() => resolve()))
     try { await bridge?.close() } finally { runner.close() }
     throw error

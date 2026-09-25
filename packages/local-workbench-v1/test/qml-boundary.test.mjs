@@ -1,7 +1,7 @@
 // Local Workbench v1 — QML boundary and release audit.
 //
 // Proves the QML is presentation-only (no storage, process, PTY, SSH,
-// scraping, or label derivation), that the additive 0.13.0 release packages
+// scraping, or label derivation), that the additive 0.14.0 release packages
 // the QML byte-identical to the plugin source, and that the release does not
 // copy or alter historical prototype releases.
 
@@ -19,6 +19,8 @@ const PLUGIN_DIR = join(PACKAGE_ROOT, 'console', 'plugin')
 const QML_FILES = [
   'WorkbenchConsole.qml',
   'WorkbenchHost.qml',
+  'WorkbenchWake.qml',
+  'WorkbenchRows.qml',
   'WorkbenchBarWidget.qml',
   'WorkbenchOverview.qml',
   'WorkbenchGoal.qml',
@@ -51,10 +53,10 @@ function allQmlSources() {
   return QML_FILES.map((name) => source(name))
 }
 
-test('the manifest exposes panel and bar-widget entry points at 0.13.0', () => {
+test('the manifest exposes panel and bar-widget entry points at 0.14.0', () => {
   const manifest = JSON.parse(source('manifest.json'))
   assert.equal(manifest.schemaVersion, 1)
-  assert.equal(manifest.version, '0.13.0')
+  assert.equal(manifest.version, '0.14.0')
   assert.equal(manifest.id, 'omarchestra.agent-console')
   assert.ok(Array.isArray(manifest.kinds) && manifest.kinds.includes('panel'))
   assert.equal(manifest.entryPoints?.panel, 'WorkbenchHost.qml')
@@ -74,11 +76,28 @@ test('all QML stays presentation-only with no forbidden runtime dependencies', (
     ['storage or transport I/O', /\b(?:FileView|Settings|LocalStorage|XmlListModel|Socket|WebSocket|TcpSocket|UnixSocket|openFile|writeFile)\b/i],
   ]
   for (const path of QML_FILES) {
-    const value = stripQmlCommentsAndStrings(source(path))
+    const raw = stripQmlCommentsAndStrings(source(path))
+    // Only the separately audited notification leaf may own one Process. It
+    // sends no intent or domain command and never starts an Owner or Pi.
+    const value = path === 'WorkbenchWake.qml' ? raw.replace(/\bProcess\s*\{/, 'Item {') : raw
     for (const [name, pattern] of forbidden) {
       assert.doesNotMatch(value, pattern, `${name} dependency in ${path}`)
     }
   }
+})
+
+test('wake leaf has one fixed bounded client and no domain/process management surface', () => {
+  const qml = source('WorkbenchWake.qml'), client = source('workbench-wake.mjs')
+  assert.equal((qml.match(/\bProcess\s*\{/g) ?? []).length, 1)
+  assert.match(qml, /client\.command = \["\/usr\/bin\/node",/)
+  assert.match(qml, /Qt\.resolvedUrl\("workbench-wake\.mjs"\)/)
+  assert.match(qml, /client\.running \|\| nextWake === null/)
+  assert.match(qml, /clearEnvironment: true/)
+  assert.match(client, /type: 'wake'/)
+  assert.match(client, /1500/)
+  assert.match(client, /owner_endpoint_not_private/)
+  assert.doesNotMatch(client, /child_process|sendUserMessage|execFile|spawn\(|systemctl|takeIntent|adopt|create_goal/)
+  assert.doesNotMatch(qml, /execDetached|shell\.run|\/bin\/sh|systemctl|runner\/|\.config\//)
 })
 
 test('exact-target confirmation is a second press of the original action, never a separate surface', () => {
@@ -128,9 +147,9 @@ test('QML emits intents only and never computes authority', () => {
   assert.doesNotMatch(combined, /(?:derive|compute|validate|check)(?:Adoption|Eligibility|Expiry|Identity|Digest)/i)
 })
 
-test('the additive 0.13.0 release packages QML byte-identical to the plugin source', async () => {
+test('the additive 0.14.0 release packages QML byte-identical to the plugin source', async () => {
   const { WORKBENCH_RELEASE } = await import('../companion/releases.ts')
-  assert.equal(WORKBENCH_RELEASE.version, '0.13.0')
+  assert.equal(WORKBENCH_RELEASE.version, '0.14.0')
   for (const file of QML_FILES) {
     assert.equal(
       WORKBENCH_RELEASE.assets[file],
@@ -140,8 +159,17 @@ test('the additive 0.13.0 release packages QML byte-identical to the plugin sour
   }
   assert.equal(
     JSON.parse(WORKBENCH_RELEASE.assets['manifest.json']).version,
-    '0.13.0',
+    '0.14.0',
   )
+  for (const file of ['SessionText.js', 'workbench-wake.mjs']) assert.equal(WORKBENCH_RELEASE.assets[file], source(file))
+})
+
+test('the published 0.13.0 installed assets remain exactly retained before the responsive release', () => {
+  const retained = join(PACKAGE_ROOT, 'companion', 'retained', '0.13.0')
+  const names = readdirSync(retained).sort(), digest = createHash('sha256')
+  assert.equal(names.length, 15)
+  for (const name of names) digest.update(name).update(readFileSync(join(retained, name)))
+  assert.equal(digest.digest('hex'), '902ef962e38e29a2d8620ef7f5f69473f32ee0126eeecf2446f02587bfeac6fc')
 })
 
 test('the installed 0.12.0 Companion is preserved against its receipt-validated aggregate hash', () => {
@@ -201,7 +229,7 @@ test('the former installed 0.9.0 Companion assets remain byte-for-byte archived'
 
 test('the workbench release catalog contains only its own additive release', async () => {
   const { WORKBENCH_RELEASE_CATALOG } = await import('../companion/releases.ts')
-  assert.deepEqual(Object.keys(WORKBENCH_RELEASE_CATALOG), ['0.13.0'])
+  assert.deepEqual(Object.keys(WORKBENCH_RELEASE_CATALOG), ['0.14.0'])
 })
 
 test('the workbench release does not copy historical prototype release bytes', async () => {

@@ -1,12 +1,13 @@
 import assert from 'node:assert/strict'
 import test from 'node:test'
-import { mkdtempSync, mkdirSync, writeFileSync, copyFileSync, readFileSync, rmSync } from 'node:fs'
+import { mkdtempSync, writeFileSync, rmSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { spawnSync } from 'node:child_process'
 import { journeyFixture, JOURNEY_AGENT_RUN_ID, JOURNEY_CHECK_ID } from '../fixtures/journey.ts'
 import { gateFailScenario } from '../fixtures/scenarios.ts'
 import { WorkbenchAdapter } from '../console/live-projection-adapter.ts'
+import { prepareQtFixture } from './qt-fixture.ts'
 
 /** Controls that must never appear in the New Team Goal destination. */
 // The gate passes the resolved binary through the environment so its
@@ -24,67 +25,14 @@ const JOURNEY_DESTINATIONS = [
   'start_review', 'work', 'activity',
 ]
 
-const QML_FILES = [
-  'WorkbenchConsole.qml',
-  'WorkbenchHost.qml',
-  'WorkbenchOverview.qml',
-  'WorkbenchAction.qml',
-  'WorkbenchTextArea.qml',
-  'WorkbenchTextField.qml',
-  'WorkbenchGoal.qml',
-  'WorkbenchCards.qml',
-  'WorkbenchAssignmentForm.qml',
-  'WorkbenchChecks.qml',
-  'WorkbenchReview.qml',
-  'WorkbenchBoard.qml',
-]
-
-// Actual child components, Qt Quick Controls, layout and input. Only theme and
-// decorative surface ports are inert stand-ins. Never import the installed shell.
+// Actual child components, Qt Quick Controls, layout and input. Theme, native
+// surface and notification leaf are stand-ins; presentation-wake tests exercise
+// the real Quickshell leaf/client separately. Never import the installed shell.
 test('offscreen Qt renders the normal journey with literal text, keyboard editing and fixed geometry', (t) => {
   const scratch = mkdtempSync(join(tmpdir(), 'workbench-qt-'))
   const put = (path: string, text: string) => { writeFileSync(join(scratch, path), text) }
   try {
-    for (const path of ['view', 'imports/qs/Commons', 'imports/qs/Ui', 'home', 'runtime']) mkdirSync(join(scratch, path), { recursive: true, mode: 0o700 })
-    for (const name of QML_FILES) copyFileSync(new URL(`../console/plugin/${name}`, import.meta.url), join(scratch, 'view', name))
-    // Substitute only the native layer-shell host. The actual dialog, forms,
-    // scrolling, root methods and child components still execute in Qt.
-    const consoleQml = readFileSync(new URL('../console/plugin/WorkbenchConsole.qml', import.meta.url), 'utf8')
-      .replace(/^import Quickshell(?:\.Wayland)?\n/gm, '')
-      .replace('PanelWindow {', 'Window {')
-      .replace(/        anchors \{[\s\S]*?^        }\n/m, '')
-      .replace(/        implicitWidth:/, '        width:')
-      .replace(/        implicitHeight:/, '        height:')
-      .replace(/^        (?:WlrLayershell\.[^\n]+|exclusionMode:[^\n]+|mask:[^\n]+)\n/gm, '')
-    put('view/WorkbenchConsole.qml', consoleQml)
-    put('imports/qs/Commons/qmldir', 'module qs.Commons\nsingleton Style 1.0 Style.qml\nsingleton Color 1.0 Color.qml\nsingleton Border 1.0 Border.qml\n')
-    put('imports/qs/Commons/Style.qml', `pragma Singleton
-import QtQuick
-QtObject {
-  property int cornerRadius: 4
-  property QtObject font: QtObject { property string family: "monospace"; property int body: 12; property int caption: 10; property int title: 14; property int heading: 16 }
-  property QtObject spacing: QtObject { property int hairline: 1 }
-  function space(value) { return value }
-}`)
-    put('imports/qs/Commons/Color.qml', `pragma Singleton
-import QtQuick
-QtObject {
-  property color urgent: "#ff7070"; property color accent: "#80c0ff"
-  property QtObject popups: QtObject { property color text: "#eeeeee"; property color background: "#202020"; property color border: "#808080" }
-}`)
-    put('imports/qs/Commons/Border.qml', `pragma Singleton
-import QtQuick
-QtObject { function flat(color, width) { return {} } function surfaceSpec(a,b,c,d) { return {} } }`)
-    put('imports/qs/Ui/qmldir', 'module qs.Ui\nBorderSurface 1.0 BorderSurface.qml\nCursorSurface 1.0 CursorSurface.qml\n')
-    put('imports/qs/Ui/CursorSurface.qml', `import QtQuick
-Rectangle {
-  property color foreground: "#eeeeee"
-  property color accent: "#80c0ff"
-  property bool hasCursor: false
-  property bool current: false
-  color: hasCursor ? "#404040" : current ? "#303840" : "transparent"
-}`)
-    put('imports/qs/Ui/BorderSurface.qml', 'import QtQuick\nRectangle { property var borderSpec: ({}) }\n')
+    prepareQtFixture(scratch, true)
     put('tst_workbench.qml', `import QtQuick
 import QtQuick.Window
 import QtQuick.Controls
@@ -196,9 +144,9 @@ Item {
       updated.observedSessions.push(second)
       verify(consoleView.applyProjection(updated)); wait(30)
       var texts = []; visibleTexts(surfaceRoot(), texts)
-      verify(texts.indexOf("Show terminal pane · Pi AAAA-1111 · " + updated.observedSessions[0].piStatus) >= 0)
-      verify(texts.indexOf("Show terminal pane · Pi BBBB-2222 · " + second.piStatus) >= 0)
-      verify(texts.indexOf("Show terminal pane · Pi BEEF-1234 · " + updated.managedAgents[0].piStatus) >= 0)
+      verify(texts.indexOf("Pi AAAA-1111 · " + updated.observedSessions[0].activity) >= 0)
+      verify(texts.indexOf("Pi BBBB-2222 · " + second.activity) >= 0)
+      verify(texts.indexOf("Pi BEEF-1234 · " + updated.managedAgents[0].role + " · " + updated.managedAgents[0].piStatus) >= 0)
       var label = updated.observedSessions[0].choices[0].label
       clickItem(buttonsWithText(surfaceRoot(), label, [])[0])
       compare(consoleView.takeIntent(updated), "")
@@ -220,7 +168,7 @@ Item {
       updated.observedSessions[0].sessionCode = null
       verify(consoleView.applyProjection(updated)); wait(30)
       texts = []; visibleTexts(surfaceRoot(), texts)
-      verify(texts.indexOf("Show terminal pane · Session code unavailable · " + updated.observedSessions[0].piStatus) >= 0)
+      verify(texts.indexOf("Session code unavailable · " + updated.observedSessions[0].activity) >= 0)
     }
 
     function test_observedActivityAndIneligibilityAreVisibleWithoutPopups() {
@@ -238,8 +186,9 @@ Item {
       verify(consoleView.applyProjection(updated))
       wait(30)
       var texts = []; visibleTexts(surfaceRoot(), texts)
-      verify(texts.some(function(s) { return s.indexOf("running · busy · healthy") >= 0 }), texts.join("|"))
-      verify(texts.some(function(s) { return s.indexOf("running · idle · healthy") >= 0 }), texts.join("|"))
+      verify(texts.some(function(s) { return s.indexOf(" · busy") >= 0 }), texts.join("|"))
+      verify(texts.some(function(s) { return s.indexOf(" · idle") >= 0 }), texts.join("|"))
+      verify(!texts.some(function(s) { return s.indexOf(" · healthy") >= 0 }), "normal health is not repeated chrome")
       verify(texts.indexOf(busy.adoptionReason) >= 0, "runner reason is always visible")
       compare(buttonsWithText(surfaceRoot(), idle.choices[0].label, []).length, 1)
       compare(consoleView.takeIntent(updated), "", "projection never emits Adoption")
@@ -256,6 +205,116 @@ Item {
       compare(buttonsWithText(surfaceRoot(), idle.choices[0].label, []).length, 2)
       texts = []; visibleTexts(surfaceRoot(), texts)
       verify(texts.indexOf(busy.adoptionReason) < 0, "obsolete reason is removed")
+    }
+
+    function test_stableAgentRowsSurviveChangedFactsAndReorderButNotReplacement() {
+      openJourney()
+      var updated = JSON.parse(JSON.stringify(host.snapshot))
+      updated.observedSessions[0].sessionCode = "AAAA-1111"
+      var second = JSON.parse(JSON.stringify(updated.observedSessions[0]))
+      second.observedSessionId = "second-observed"; second.sessionCode = "BBBB-2222"
+      second.choices = []
+      updated.observedSessions.push(second)
+      verify(consoleView.applyProjection(updated)); wait(20)
+      var originalProjection = consoleView.projection
+      verify(consoleView.applyProjection(JSON.stringify(updated)))
+      verify(consoleView.projection === originalProjection, "identical heartbeat does not replace the visible projection")
+      var agent = visualNamed(surfaceRoot(), "workbench-managed-show-pane")
+      var menu = visualNamed(surfaceRoot(), "workbench-agent-actions")
+      var observed = buttonWithTextPrefix(surfaceRoot(), "Pi AAAA-1111")
+      var details = visualNamed(surfaceRoot(), "workbench-observed-details")
+      clickItem(menu); clickItem(details)
+      verify(menu.highlighted); verify(details.highlighted)
+      updated = JSON.parse(JSON.stringify(updated))
+      updated.managedAgents[0].lastEvent = "new bounded event"
+      updated.observedSessions[0].activity = "busy"
+      updated.observedSessions.reverse()
+      verify(consoleView.applyProjection(updated)); wait(30)
+      verify(agent === visualNamed(surfaceRoot(), "workbench-managed-show-pane"))
+      verify(observed === buttonWithTextPrefix(surfaceRoot(), "Pi AAAA-1111"))
+      verify(menu.highlighted, "event update does not collapse actions")
+      verify(details.highlighted, "activity/reorder does not collapse details")
+      verify(details.activeFocus, "keyboard focus survives row updates")
+      updated = JSON.parse(JSON.stringify(updated))
+      updated.observedSessions[1].observedSessionId = "replacement-observed"
+      verify(consoleView.applyProjection(updated)); wait(30)
+      verify(observed !== buttonWithTextPrefix(surfaceRoot(), "Pi AAAA-1111"), "equal display code is not row identity")
+      consoleView.goTo("add_agent"); wait(20)
+      var picker = buttonWithTextPrefix(surfaceRoot(), "Pi AAAA-1111")
+      clickItem(picker)
+      updated = JSON.parse(JSON.stringify(updated)); updated.observedSessions[1].health = "degraded"
+      verify(consoleView.applyProjection(updated)); wait(20)
+      verify(picker === buttonWithTextPrefix(surfaceRoot(), "Pi AAAA-1111"))
+      verify(picker.activeFocus, "Add agent picker preserves focus too")
+      consoleView.goTo("assignment"); wait(20)
+      var targetText = (updated.managedAgents[0].sessionCode ? "Pi " + updated.managedAgents[0].sessionCode : "Session code unavailable")
+      var target = buttonWithTextPrefix(surfaceRoot(), targetText)
+      clickItem(target)
+      updated = JSON.parse(JSON.stringify(updated)); updated.managedAgents[0].lastEvent = "another bounded event"
+      verify(consoleView.applyProjection(updated)); wait(20)
+      verify(target === buttonWithTextPrefix(surfaceRoot(), targetText))
+      verify(target.activeFocus, "Assignment target picker preserves focus too")
+      updated = JSON.parse(JSON.stringify(updated)); updated.sessionId = "replacement-projection-session"
+      verify(consoleView.open({session: updated, projection: updated})); wait(20)
+      verify(target !== buttonWithTextPrefix(surfaceRoot(), targetText), "new Projection Session resets row-local state")
+    }
+
+    function test_compactRowsShowSharedProjectBlockerOncePerDestination() {
+      openJourney()
+      var updated = JSON.parse(JSON.stringify(host.snapshot))
+      var first = updated.observedSessions[0]
+      first.sessionCode = "AAAA-1111"; first.choices = []
+      first.adoptionReasonCode = "project_context_unavailable"
+      first.adoptionReason = "Adoption unavailable: the selected Project context is unavailable."
+      first.terminalNavigation = { target: "nav-a", enabled: true, state: "idle", reason: "Checked navigation, not atomic focus." }
+      var second = JSON.parse(JSON.stringify(first))
+      second.observedSessionId = "second-observed"; second.sessionCode = "BBBB-2222"
+      updated.observedSessions.push(second)
+      verify(consoleView.applyProjection(updated)); wait(30)
+      for (var destination of ["overview", "add_agent"]) {
+        consoleView.goTo(destination); wait(20)
+        var texts = []; visibleTexts(surfaceRoot(), texts)
+        compare(texts.filter(function(s) { return s === first.adoptionReason }).length, 1)
+        verify(!texts.some(function(s) { return s.indexOf("connection available") >= 0 || s.indexOf(" · healthy") >= 0 }))
+        verify(texts.indexOf("Pi AAAA-1111 · " + first.activity) >= 0)
+        verify(texts.indexOf("Pi BBBB-2222 · " + second.activity) >= 0)
+        verify(texts.indexOf(first.terminalNavigation.reason) < 0, "no permanent navigation disclaimer")
+      }
+    }
+
+    function test_guardedDispatchRejectsLoadedIdentityDriftBeforeConsumingOrHiding() {
+      openJourney()
+      consoleView.manifest = { id: "omarchestra.agent-console", version: "0.14.0", companion: { protocol: "omarchestra.companion/v1" } }
+      consoleView.pendingIntents = [{kind: "hide_workbench", target: null, payload: {}}]
+      var request = { protocol: "omarchestra.companion/v1", pluginId: "omarchestra.agent-console", version: "0.14.0",
+        presentation: "task-first-v2", pluginGeneration: host.snapshot.pluginGeneration, method: "takeIntent",
+        payload: { sessionId: host.snapshot.sessionId, pluginGeneration: host.snapshot.pluginGeneration } }
+      for (var field of ["protocol", "pluginId", "version", "presentation", "pluginGeneration"]) {
+        var wrong = JSON.parse(JSON.stringify(request)); wrong[field] = "wrong"
+        compare(JSON.parse(consoleView.dispatch(JSON.stringify(wrong))).result, false)
+        compare(consoleView.pendingIntents.length, 1)
+      }
+      var wrongSession = JSON.parse(JSON.stringify(request)); wrongSession.payload.sessionId = "old-session"; wrongSession.method = "close"
+      compare(JSON.parse(consoleView.dispatch(wrongSession)).result, false)
+      compare(consoleView.opened, true)
+      var pulse = Object.assign({}, request, {method: "heartbeat", payload: Object.assign({}, request.payload, {revision: host.snapshot.revision, cursor: host.snapshot.cursor + 1})})
+      var original = consoleView.projection
+      compare(JSON.parse(consoleView.dispatch(pulse)).result, true)
+      verify(consoleView.projection === original)
+      compare(consoleView.pendingIntents.length, 1)
+      compare(JSON.parse(JSON.parse(consoleView.dispatch(request)).result).kind, "hide_workbench")
+      consoleView.markPresentationStale()
+      compare(JSON.parse(consoleView.dispatch(pulse)).result, "resnapshot", "heartbeat alone cannot revive stale data")
+      compare(consoleView.projection.connection, "stale")
+      request.method = "close"
+      consoleView.manifest = Object.assign({}, consoleView.manifest, {version: "0.15.0"})
+      request.version = "0.15.0"
+      compare(JSON.parse(consoleView.dispatch(request)).result, false, "manifest refresh cannot relabel old loaded code")
+      compare(JSON.parse(consoleView.capabilities()).version, "0.14.0")
+      request.version = "0.14.0"
+      consoleView.manifest = Object.assign({}, consoleView.manifest, {version: "0.14.0"})
+      compare(JSON.parse(consoleView.dispatch(request)).result, true)
+      compare(consoleView.opened, false)
     }
 
     function test_showTerminalPaneUsesOneClickAndOnlyRunnerTicketWithHonestResults() {
@@ -279,7 +338,7 @@ Item {
       updated.observedSessions[0].terminalNavigation = { target: "navigate-observed", enabled: true, state: "unknown", reason: "Navigation could not be verified; focus may have changed." }
       verify(consoleView.applyProjection(updated)); wait(30)
       var texts = []; visibleTexts(surfaceRoot(), texts)
-      verify(texts.indexOf(updated.observedSessions[0].terminalNavigation.reason) >= 0)
+      verify(texts.indexOf("Focus unverified — it may have changed") >= 0)
       compare(consoleView.takeIntent(updated), "", "unknown does not retry")
       updated = JSON.parse(JSON.stringify(updated)); updated.connection = "disconnected"
       verify(consoleView.applyProjection(updated)); wait(30)
@@ -288,12 +347,19 @@ Item {
 
     function test_closeDockSendsPresentationOnlyRequest() {
       openJourney()
+      consoleView.emitIntent({kind: "inspect_project", target: null, payload: {path: "/unsent"}})
       clickItem(findChild(consoleView, "workbench-close"))
+      var changed = JSON.parse(JSON.stringify(host.snapshot)); changed.revision += 1
+      verify(consoleView.applyProjection(changed))
+      consoleView.markPresentationStale()
       var request = JSON.parse(consoleView.takeIntent(host.snapshot))
       compare(request.kind, "hide_workbench")
       compare(request.target, null)
       compare(Object.keys(request.payload).length, 0)
-      compare(consoleView.opened, true, "view remains open until owner handles the request")
+      compare(consoleView.opened, false, "Close hides locally without waiting for any IPC")
+      compare(consoleView.takeIntent(host.snapshot), "", "only unsent clicks were discarded")
+      verify(consoleView.applyProjection(host.snapshot))
+      compare(consoleView.opened, false, "heartbeat cannot reopen a locally closed view")
     }
 
     function test_encodedProjectionUpdateUsesTheRealShellArgumentFormat() {
@@ -531,10 +597,10 @@ Item {
 
     function test_loadedCompanionVersionAppearsBesideRunnerStatus() {
       openJourney()
-      consoleView.manifest = { version: "0.13.0" }
+      consoleView.manifest = { version: "0.14.0" }
       var version = findChild(surfaceRoot(), "workbench-version")
       verify(version !== null && version.visible)
-      compare(version.text, "v0.13.0")
+      compare(version.text, "v0.14.0")
       verify(version.font.pixelSize < findChild(surfaceRoot(), "workbench-close").font.pixelSize,
         "version is visually secondary to the Runner status")
     }

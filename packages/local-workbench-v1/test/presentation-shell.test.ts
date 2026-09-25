@@ -15,7 +15,7 @@ test('actual QML methods compose with injected source, adapter, feedback and clo
     pluginGeneration: 0, projection: null, activeSession: null, pendingIntents: [],
     opened: false, destination: 'overview', checksOrigin: 'overview', menuOpen: false, projectListOpen: false,
     confirmation: null, lastIntentResult: null, drafts: {}, draftError: '', confirmationAssociation: '', startReview: null,
-    confirmationTimer: { restart() {}, stop() {} }, projectionWatchdog: { restart() {} },
+    confirmationTimer: { restart() {}, stop() {} }, projectionWatchdog: { restart() {} }, wake: { reset() {} },
     intentRequested() {},
   }
   view.root = view

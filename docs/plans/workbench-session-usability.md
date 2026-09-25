@@ -149,8 +149,30 @@ pane/process/window read pass measured ~13 ms. Identical heartbeat row destructi
 was **not** reproduced offscreen; changed row data did recreate delegates/reset
 inline state. The native flicker cause remains open.
 
-Recommended next slice: responsive action delivery, bounded generation-checked
-IPC batching/reuse, liveness separate from visible updates, stable rows and compact
-normal-state presentation. Keep uncertainty visible and all exact-target/receipt
-checks; do not simply remove safety checks or accelerate the existing expensive
-poll loop. No implementation or new installation is implied by these diagnostics.
+The operator subsequently explicitly approved repairing all three areas. The
+[responsive-dock checkpoint](../reviews/local-workbench-phase-2-verification/responsive-dock.md)
+records the implemented 0.14.0 slice: click-triggered notification of the existing
+Owner, single guarded IPC, immediate local Close, liveness-only pulses, exact-ID
+keyed rows and compact normal-state text with shared Project blockers once.
+
+Full disposable Phase-2 gate: **PASS, 28 offscreen Qt rows** plus a real isolated
+Quickshell → packaged client → native Owner → guarded IPC → fake Pi path with the
+periodic scheduler disabled. Exact targeting, receipts, two-press confirmation and
+Adoption checks remain. Published 0.13.0 is retained and byte-compared read-only
+with the then-installed assets; update/rollback tests pass. The subsequent explicit
+**install and reload** request installed/loaded **0.14.0**, restarted the shell and
+verified existing Owner (epoch 13), and preserved configuration and history. The
+existing manual-takeover Run reconnected without re-Adoption. See the checkpoint
+for receipt and loaded-generation evidence. No Pi reload or navigation request
+was performed; physical latency/flicker acceptance and independent review remain
+separate.
+
+After that update the operator reports better reaction time but unchanged
+whole-dock flicker every few seconds. The [cadence investigation](../../spikes/workbench-heartbeat-cadence/README.md)
+reproduces healthy presentation expiry from double-throttled heartbeats. An
+Owner-only correction now passes the full gate, including real periodic Qt timing
+and genuine source-loss coverage. It keeps the two-second stale deadline and all
+0.14.0 Companion assets unchanged. The subsequent authorized Owner-only restart
+loaded the correction at epoch 14, preserving history and reconnecting both
+manual-takeover Runs. No Companion install or Pi/shell reload was needed. Physical
+flicker verification remains pending.
