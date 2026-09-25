@@ -1,20 +1,22 @@
 import { incarnationKey, type PiIncarnation } from './binding-identity.ts'
-import { bridgeId, encodeBridgeFrame, type BridgeFrame } from './bridge-protocol.ts'
+import { bridgeId, encodeBridgeFrame, SESSION_CODE_CAPABILITY, type BridgeFrame } from './bridge-protocol.ts'
+import { SessionCodes } from './session-code.ts'
 import type { WorkbenchStore } from './store.ts'
 import type { FenceLedger } from './fences.ts'
 
 export const BRIDGE_LEASE_MS = 15_000
 export const BRIDGE_HEARTBEAT_MS = 5_000
 export interface BridgePeer { send(bytes: Buffer): void; close(): void }
-export interface ObservedPi { observedSessionId: string; incarnation: PiIncarnation; lifecycle: string; activity: string; health: string; available: boolean; mode: 'observed' | 'committed' }
+export interface ObservedPi { observedSessionId: string; sessionCode: string | null; incarnation: PiIncarnation; lifecycle: string; activity: string; health: string; available: boolean; mode: 'observed' | 'committed' }
 export interface BridgeSourceInput { incarnation: PiIncarnation; observedSessionId: string; connectionId: string; connectionChallenge: string; sourceSequence: number; eventId: string }
 /** Trusted S5 callback, called only on the exact current transport object. */
 export interface BridgeAdoptionAck { incarnation: PiIncarnation; observedSessionId: string; connectionId: string; connectionChallenge: string; peer: BridgePeer; frame: BridgeFrame }
-type Entry = { key: string; identity: PiIncarnation; peer: BridgePeer | null; connectionId: string; challenge: string; observedId: string; attempt: number; sequence: number; deadline: number; lifecycle: string; activity: string; health: string; mode: 'observed' | 'committed'; dedup: Map<string, string> }
+type Entry = { key: string; sessionCode: string | null; identity: PiIncarnation; peer: BridgePeer | null; connectionId: string; challenge: string; observedId: string; attempt: number; sequence: number; deadline: number; lifecycle: string; activity: string; health: string; mode: 'observed' | 'committed'; dedup: Map<string, string> }
 function refuse(code: string): never { throw new Error(code) }
 /** One instance belongs to one runner owner, not to a presentation client. */
 export class BridgeRegistry {
   private readonly records = new Map<string, Entry>()
+  private readonly codes = new SessionCodes()
   private readonly water = new Map<string, { attempt: number; sequence: number }>()
   private readonly peers = new Map<BridgePeer, Entry>()
   private management: { onAdoptionAck?: (event: BridgeAdoptionAck) => void; onBindingReceipt?: (event: BridgeAdoptionAck) => void; onRecoveryProof?: (event: BridgeAdoptionAck) => void; onRegistered?: (event: BridgeAdoptionAck) => void; onDisconnected?: (event: { incarnation: PiIncarnation; connectionId: string }) => void; onInput?: (event: BridgeSourceInput) => void } | null = null
@@ -27,7 +29,11 @@ export class BridgeRegistry {
   }
   private now() { return (this.options.now ?? (() => performance.now()))() }
   private issue(prefix: string) { const value = (this.options.issue ?? bridgeId)(prefix); if (!/^[A-Za-z0-9_-]{32,128}$/.test(value)) refuse('invalid_identity'); return value }
-  private snapshot(entry: Entry): ObservedPi { return { observedSessionId: entry.observedId, incarnation: { ...entry.identity }, lifecycle: entry.lifecycle, activity: entry.activity, health: entry.health, available: entry.peer !== null && this.now() < entry.deadline, mode: entry.mode } }
+  private snapshot(entry: Entry): ObservedPi {
+    const available = entry.peer !== null && this.now() < entry.deadline
+    return { observedSessionId: entry.observedId, sessionCode: available ? entry.sessionCode : null,
+      incarnation: { ...entry.identity }, lifecycle: entry.lifecycle, activity: entry.activity, health: entry.health, available, mode: entry.mode }
+  }
   list(): ObservedPi[] { this.expire(); return this.listCurrent() }
   /** No callback/SQL effects; safe to inspect inside an operator transaction. */
   listCurrent(): ObservedPi[] { return [...this.records.values()].map(entry => this.snapshot(entry)) }
@@ -152,8 +158,10 @@ export class BridgeRegistry {
     // No mutation before admission and identity/fence checks have completed.
     const former = existing?.peer
     if (former) this.peers.delete(former)
-    const entry: Entry = { key, identity, peer, connectionId: this.issue('connection'), challenge: this.issue('challenge'), observedId: existing?.observedId ?? this.issue('observed'), attempt, sequence, deadline: this.now() + BRIDGE_LEASE_MS, lifecycle: body.lifecycle as string, activity: body.activity as string, health: body.health as string, mode, dedup: new Map() }
-    const response = encodeBridgeFrame('registered', frame.messageId, { observedSessionId: entry.observedId, executionNodeId: this.options.nodeId, connectionId: entry.connectionId, connectionChallenge: entry.challenge, acceptedRegistrationAttempt: attempt, acceptedSourceSequence: sequence, leaseDurationMs: BRIDGE_LEASE_MS, heartbeatIntervalMs: BRIDGE_HEARTBEAT_MS, mode })
+    const codeSupported = (body.capabilities as string[]).includes(SESSION_CODE_CAPABILITY)
+    const sessionCode = codeSupported ? this.codes.forIdentity(key) : null
+    const entry: Entry = { key, sessionCode, identity, peer, connectionId: this.issue('connection'), challenge: this.issue('challenge'), observedId: existing?.observedId ?? this.issue('observed'), attempt, sequence, deadline: this.now() + BRIDGE_LEASE_MS, lifecycle: body.lifecycle as string, activity: body.activity as string, health: body.health as string, mode, dedup: new Map() }
+    const response = encodeBridgeFrame('registered', frame.messageId, { observedSessionId: entry.observedId, executionNodeId: this.options.nodeId, connectionId: entry.connectionId, connectionChallenge: entry.challenge, acceptedRegistrationAttempt: attempt, acceptedSourceSequence: sequence, leaseDurationMs: BRIDGE_LEASE_MS, heartbeatIntervalMs: BRIDGE_HEARTBEAT_MS, mode, ...(codeSupported ? { sessionCode } : {}) })
     this.records.set(key, entry); this.peers.set(peer, entry)
     this.water.set(key, { attempt, sequence })
     try { peer.send(response) } catch (error) {

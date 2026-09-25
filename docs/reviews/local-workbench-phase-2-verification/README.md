@@ -4,6 +4,14 @@ Status: **S1–S6 disposable engineering gate PASS; bounded independent integrat
 
 The findings/reproductions below characterize the original Fusion-delivered tree. Later direct repairs are recorded separately in the [completion plan](../../plans/local-workbench-v1-phase-2-completion.md), including the passing S1 substrate, S2 command/source, S3 Project-context/check-resource, [S4 real bridge](real-pi-bridge-checkpoint.md), [S5 framed Adoption](framed-adoption-checkpoint.md) and [S6 native owner/composition](native-owner-composition-checkpoint.md) engineering checkpoints. The original table below is a **historical** defect inventory: do not treat its pre-repair F2–F5/F8 descriptions as current implementation facts. The later [independent integration review](independent-integration-review.md) inspects the S6 paths and their S1–S5 dependencies read-only; the host checkpoints and this historical defect reproducer are not substitutes for that review or a live acceptance gate.
 
+## Subsequent session-usability work
+
+The operator-approved [three-slice sequence](../../plans/workbench-session-usability.md)
+now has development-only eligibility explanations and a [shared dock/Pi session
+code checkpoint](session-code-checkpoint.md). These direct changes have disposable
+host verification, not independent review, installed-release or physical-matching
+acceptance. Exact terminal focus remains the next slice.
+
 ## Evidence
 
 - Reviewed the current `packages/local-workbench-v1/runner/` composition, authority, Adoption, transport, host, entry, paths, backup, Git-context, schema and projection implementations, plus relevant adapter and acceptance-test paths.

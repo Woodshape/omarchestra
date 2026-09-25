@@ -156,7 +156,10 @@ Control {
                     highlighted: root.selectedObservedSessionId === modelData.observedSessionId
                     enabled: root.connected && modelData.availability === "available"
                     focusPolicy: Qt.StrongFocus
-                    text: modelData.piStatus + "  ·  " + modelData.availability + " · " + modelData.lifecycle
+                    text: (modelData.sessionCode ? "Pi " + modelData.sessionCode : "Session code unavailable")
+                        + " · " + modelData.piStatus + " · connection " + modelData.availability + " · " + modelData.lifecycle
+                        + " · " + modelData.activity + " · " + modelData.health
+                    supportingText: modelData.adoptionReason || ""
                     onClicked: root.selectObserved(modelData.observedSessionId)
                 }
             }
@@ -347,7 +350,8 @@ Control {
                     highlighted: root.selectedAgentRunId === modelData.agentRunId
                     enabled: root.connected
                     focusPolicy: Qt.StrongFocus
-                    text: modelData.role + " · " + modelData.piStatus + "  ·  " + modelData.controlMode
+                    text: (modelData.sessionCode ? "Pi " + modelData.sessionCode : "Session code unavailable")
+                        + " · " + modelData.role + " · " + modelData.piStatus + "  ·  " + modelData.controlMode
                     onClicked: root.selectAgent(modelData.agentRunId)
                 }
             }

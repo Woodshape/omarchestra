@@ -121,14 +121,16 @@ export function buildSnapshot(options: ProjectionOptions): WorkbenchSnapshot {
       && (!authority.registry || (selectedGoalId !== null && store.getBindingIdentity(binding.runId)?.goalId === selectedGoalId)))
     .map(binding => {
       const currentIdentity = store.getBindingIdentity(binding.runId)
-      const bridgeLive = registryAgents.some(agent => agent.available && currentIdentity
-        && incarnationKey(agent.incarnation) === currentIdentity.incarnationKey) ?? false
+      const currentAgent = registryAgents.find(agent => agent.available && currentIdentity
+        && incarnationKey(agent.incarnation) === currentIdentity.incarnationKey)
+      const bridgeLive = currentAgent !== undefined
       const connected = authority.registry ? bridgeLive : binding.state !== 'disconnected' && binding.state !== 'manual_takeover_disconnected'
       const takenOver = binding.state === 'manual_takeover' || binding.state === 'manual_takeover_disconnected'
       const canTakeControl = (binding.state === 'ready' || binding.state === 'committed') && connected
       const canRetire = !connected && (binding.state === 'disconnected' || binding.state === 'manual_takeover_disconnected')
       return {
         agentRunId: binding.runId,
+        sessionCode: currentAgent?.sessionCode ?? null,
         role: binding.role ?? 'unknown',
         piStatus: takenOver ? 'manual_takeover' : binding.state,
         controlMode: takenOver ? 'manual_takeover' : connected ? 'managed' : 'reconciling',
@@ -154,16 +156,20 @@ export function buildSnapshot(options: ProjectionOptions): WorkbenchSnapshot {
   // Transport-observed Pi sessions are rendered as their own adoptable cards.
   // A proposal is rendered as an authorization choice, never as an observed
   // session, so the emitted intent always matches the durable stage.
-  const observedChoices = authority.observedChoices
+  // Expire retained proposals before computing choices/reasons so a released
+  // reservation cannot leave a one-snapshot phantom blocker.
   const proposals = adoption.retainedProposals()
+  const observedChoices = authority.observedChoices
   const observedSessions: WorkbenchSnapshot['observedSessions'] = authority.registry ? [
     ...registryAgents.filter(agent => agent.mode === 'observed').map(agent => {
       const proposal = proposals.find(p => p.stage === 'proposed' && p.goalId === selectedGoalId && p.observedSessionId === agent.observedSessionId)
+      const problem = authority.observedAdoptionProblem(agent, proposal?.proposalId)
       return {
-        observedSessionId: agent.observedSessionId, piStatus: proposal ? 'proposal_pending' : 'observed', lifecycle: agent.lifecycle,
-        availability: agent.available ? 'available' : 'unavailable', health: agent.health,
+        observedSessionId: agent.observedSessionId, sessionCode: agent.sessionCode, piStatus: proposal ? 'proposal_pending' : 'observed', lifecycle: agent.lifecycle,
+        availability: agent.available ? 'available' : 'unavailable', activity: agent.activity, health: agent.health,
+        adoptionReasonCode: problem?.code ?? null, adoptionReason: problem?.reason ?? null,
         choices: proposal ? [{ choiceId: proposal.proposalId, role: proposal.role, label: `Authorize adoption as ${proposal.role}`,
-          enabled: agent.available, actionKind: 'authorize_adoption' as const }]
+          enabled: problem === null, actionKind: 'authorize_adoption' as const }]
           : observedChoices.filter(choice => choice.observedSessionId === agent.observedSessionId).map(choice => ({
             choiceId: choice.choiceId, role: choice.role, label: `Adopt as ${choice.role}`, enabled: agent.available, actionKind: 'request_adoption' as const,
           })),
@@ -175,7 +181,9 @@ export function buildSnapshot(options: ProjectionOptions): WorkbenchSnapshot {
       piStatus: 'observed',
       lifecycle: 'observed',
       availability: 'available',
+      activity: 'unknown',
       health: 'healthy',
+      adoptionReasonCode: null, adoptionReason: null,
       choices: [{
         choiceId: observation.choiceId,
         role: observation.role,
@@ -191,7 +199,9 @@ export function buildSnapshot(options: ProjectionOptions): WorkbenchSnapshot {
         piStatus: 'proposal_pending',
         lifecycle: 'proposed',
         availability: 'available',
+        activity: 'unknown',
         health: 'healthy',
+        adoptionReasonCode: null, adoptionReason: null,
         choices: [{
           choiceId: proposal.proposalId,
           role: proposal.role,

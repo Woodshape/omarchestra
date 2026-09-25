@@ -92,7 +92,11 @@ Control {
                 spacing: Style.space(3)
                 RowLayout {
                     Layout.fillWidth: true
-                    Status { Layout.fillWidth: true; text: cardRow.modelData.piStatus }
+                    Status {
+                        Layout.fillWidth: true
+                        text: (cardRow.modelData.sessionCode ? "Pi " + cardRow.modelData.sessionCode : "Session code unavailable")
+                            + " · " + cardRow.modelData.piStatus
+                    }
                     WorkbenchAction {
                         id: agentMenu
                         objectName: "workbench-agent-actions"
@@ -154,10 +158,23 @@ Control {
                 required property var modelData
                 Layout.fillWidth: true
                 spacing: Style.space(3)
-                Status { Layout.fillWidth: true; text: observedRow.modelData.piStatus }
+                Status {
+                    Layout.fillWidth: true
+                    text: (observedRow.modelData.sessionCode ? "Pi " + observedRow.modelData.sessionCode : "Session code unavailable")
+                        + " · " + observedRow.modelData.piStatus
+                }
                 Caption {
                     Layout.fillWidth: true
-                    text: "Observed · unmanaged · " + observedRow.modelData.availability + " · " + observedRow.modelData.lifecycle
+                    objectName: "workbench-observed-facts"
+                    text: "Observed · unmanaged · connection " + observedRow.modelData.availability
+                        + " · " + observedRow.modelData.lifecycle + " · " + observedRow.modelData.activity
+                        + " · " + observedRow.modelData.health
+                }
+                Caption {
+                    objectName: "workbench-observed-adoption-reason"
+                    Layout.fillWidth: true
+                    visible: !!observedRow.modelData.adoptionReason
+                    text: observedRow.modelData.adoptionReason || ""
                 }
                 Repeater {
                     model: observedRow.modelData.choices || []

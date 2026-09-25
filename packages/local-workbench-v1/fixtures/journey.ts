@@ -153,7 +153,9 @@ export const journeyFixture: WorkbenchSnapshot = {
     piStatus: 'pi-a1b2',
     lifecycle: 'running',
     availability: 'available',
+    activity: 'idle',
     health: 'healthy',
+    adoptionReasonCode: null, adoptionReason: null,
     choices: [{
       choiceId: 'adoption-choice-a1b2',
       role: 'Builder',

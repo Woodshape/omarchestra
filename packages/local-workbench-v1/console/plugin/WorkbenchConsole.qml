@@ -346,8 +346,8 @@ Item {
                 for (var j = 0; j < choices.length; j++) {
                     var choice = choices[j]
                     if (choice.choiceId !== payload.target) continue
-                    facts.push(card.observedSessionId, card.lifecycle, card.availability,
-                        card.health, choice.role, choice.label, choice.enabled, choice.actionKind)
+                    facts.push(card.observedSessionId, card.sessionCode, card.lifecycle, card.availability,
+                        card.activity, card.health, choice.role, choice.label, choice.enabled, choice.actionKind)
                     found = choice.enabled && (choice.actionKind === undefined || choice.actionKind === "request_adoption")
                 }
             }
@@ -356,6 +356,15 @@ Item {
             // Maintenance actions also bind the displayed committed detail and
             // targeted record. A same-revision replacement is not a heartbeat.
             facts.push(snapshot.details || [])
+            if (payload.kind === "authorize_adoption") {
+                var observed = snapshot.observedSessions || []
+                for (var o = 0; o < observed.length; o++) {
+                    var offered = observed[o].choices || []
+                    for (var c = 0; c < offered.length; c++) {
+                        if (offered[c].choiceId === payload.target) facts.push(observed[o])
+                    }
+                }
+            }
             var targets = [].concat(snapshot.managedAgents || [], snapshot.assignments || [], snapshot.retiredRuns || [])
             for (var t = 0; t < targets.length; t++) {
                 var item = targets[t]

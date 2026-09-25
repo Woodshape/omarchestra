@@ -61,6 +61,8 @@ test('exact current connection, high-water, duplicates, capacity, lease and fenc
   const first = link(registry); sendRegister(first.client)
   const registered = (first.received[0] as { body: Record<string, unknown> }).body
   assert.equal(registry.list()[0].mode, 'observed')
+  assert.equal(registry.list()[0].sessionCode, null, 'legacy extension has no invented matching footer')
+  assert.equal(Object.hasOwn(registered, 'sessionCode'), false, 'legacy registered envelope is unchanged')
   first.client.sendFrame('heartbeat', 'heartbeat-1', { connectionId: registered.connectionId, connectionChallenge: registered.connectionChallenge, sourceSequence: 2, lifecycle: 'running', activity: 'busy', health: 'healthy' })
   assert.equal(registry.list()[0].activity, 'busy')
   first.client.sendFrame('heartbeat', 'heartbeat-1', { connectionId: registered.connectionId, connectionChallenge: registered.connectionChallenge, sourceSequence: 2, lifecycle: 'running', activity: 'busy', health: 'healthy' })
@@ -212,9 +214,10 @@ test('real owner-only Unix socket and fake Pi host: no content getters, fail-ope
   extension({ on(name, handler) { hooks.set(name, handler as (event: unknown, ctx: unknown) => void) } })
   hooks.get('session_start')!(null, ctx)
   const deadline = Date.now() + 2000
-  while ((!owner.registry.list().length || !statuses.includes('Unassigned · observed')) && Date.now() < deadline) await new Promise(resolve => setTimeout(resolve, 10))
+  while ((!owner.registry.list().length || !statuses.includes(`Pi ${owner.registry.list()[0]?.sessionCode} · Unassigned · observed`)) && Date.now() < deadline) await new Promise(resolve => setTimeout(resolve, 10))
   assert.equal(owner.registry.list()[0]?.mode, 'observed')
-  assert.ok(statuses.includes('Unassigned · observed'))
+  assert.match(owner.registry.list()[0].sessionCode!, /^[A-F0-9]{4}-[A-F0-9]{4}$/)
+  assert.ok(statuses.includes(`Pi ${owner.registry.list()[0].sessionCode} · Unassigned · observed`))
   const input = { source: 'interactive', get text() { throw Error('privacy violation') }, get length() { throw Error('privacy violation') } }
   hooks.get('input')!(input, ctx)
   assert.equal(runner.store.listBindings().length, 0)

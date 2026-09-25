@@ -195,10 +195,10 @@ test('one owner survives two presentation clients, status has no lock/epoch muta
   desktop.intents.push(JSON.stringify({ kind: 'authorize_adoption', target: proposed.proposalId, payload: { proposalId: proposed.proposalId } }))
   owner.tick()
   const receiptDeadline = Date.now() + 2000
-  while ((owner.runner.store.getBinding(proposed.runId)?.state !== 'ready' || statuses.at(-1) !== 'implementer · ready')
+  while ((owner.runner.store.getBinding(proposed.runId)?.state !== 'ready' || statuses.at(-1) !== `Pi ${owner.registry.list()[0].sessionCode} · implementer · ready`)
       && Date.now() < receiptDeadline) await new Promise(resolve => setTimeout(resolve, 10))
   assert.equal(owner.runner.store.getBinding(proposed.runId)?.state, 'ready')
-  assert.equal(statuses.at(-1), 'implementer · ready')
+  assert.equal(statuses.at(-1), `Pi ${owner.registry.list()[0].sessionCode} · implementer · ready`)
   const hidden = await requestOwner(runtimeDir, 'hide')
   assert.equal(hidden.status, 'hidden')
   assert.equal(owner.runner.epoch, epoch)
@@ -226,12 +226,16 @@ test('one owner survives two presentation clients, status has no lock/epoch muta
   // The surviving extension retries with bounded exponential backoff (up to
   // 5s). Allow two retries under concurrent offscreen test load.
   const reconnectDeadline = Date.now() + 12_000
-  while ((successor.registry.list().length === 0 || successor.runner.store.getBinding(proposed.runId)?.state !== 'ready')
+  while ((successor.registry.list().length === 0 || successor.runner.store.getBinding(proposed.runId)?.state !== 'ready'
+      || statuses.at(-1) !== `Pi ${successor.registry.list()[0]?.sessionCode} · implementer · ready`)
       && Date.now() < reconnectDeadline) await new Promise(resolve => setTimeout(resolve, 20))
   assert.equal(successor.registry.list().length, 1, 'same surviving Pi reconnects to successor owner')
   assert.equal(successor.runner.store.getBinding(proposed.runId)?.state, 'ready', 'surviving extension proves the new owner epoch')
   assert.equal((await requestOwner(runtimeDir, 'open')).status, 'opened')
   successor.tick()
+  const recoveredCode = (desktop.projections.at(-1) as { managedAgents: Array<{ sessionCode: string }> }).managedAgents[0].sessionCode
+  assert.match(recoveredCode, /^[A-F0-9]{4}-[A-F0-9]{4}$/)
+  assert.equal(statuses.at(-1), `Pi ${recoveredCode} · implementer · ready`, 'new owner and surviving Pi agree on the current code')
   assert.equal(successor.runner.store.listMemberships(goal.goalId).length, 1)
   assert.equal(successor.runner.store.listBindings().length, 1)
   assert.equal(successor.runner.store.listEvents().filter(e => e.kind.startsWith('assignment')).length, 0)

@@ -220,7 +220,7 @@ Item {
       } else if (${mode === 'add-agent' || mode === 'add-agent-wrong-role' || mode === 'adoption-review' ? 'true' : 'false'}) {
         consoleView.goTo("add_agent")
         wait(20)
-        clickItem(buttonWithTextPrefix(surfaceRoot(), ${JSON.stringify(mode === 'adoption-review' ? 'proposal_pending  ·' : 'observed  ·')}))
+        clickItem(buttonWithTextPrefix(surfaceRoot(), "Pi " + consoleView.projection.observedSessions[0].sessionCode))
         clickItem(buttonWithText(surfaceRoot(), ${JSON.stringify(mode === 'add-agent-wrong-role' ? 'reviewer' : 'implementer')}))
         if (${mode === 'add-agent-wrong-role' ? 'true' : 'false'}) {
           var forbidden = findChild(consoleView, "workbench-request-adoption")
@@ -569,7 +569,7 @@ test('real QML intents traverse the adapter, one runner, framed fake Pi and back
     hooks.get('session_start')!(null, fakePi)
     await new Promise(resolve => setImmediate(resolve))
     host.tick()
-    assert.equal(statuses.at(-1), 'Unassigned · observed')
+    assert.equal(statuses.at(-1), `Pi ${registry.list()[0].sessionCode} · Unassigned · observed`)
     const afterObserve = composed.rendered.at(-1) as Record<string, unknown>
     assert.equal((afterObserve.observedSessions as unknown[]).length, 1)
 
@@ -607,14 +607,14 @@ test('real QML intents traverse the adapter, one runner, framed fake Pi and back
     const readyAgent = (composed.rendered.at(-1) as { managedAgents: Array<{ agentRunId: string; piStatus: string }> }).managedAgents[0]
     assert.ok(readyAgent)
     assert.equal(readyAgent.piStatus, 'ready')
-    assert.equal(statuses.at(-1), 'implementer · ready')
+    assert.equal(statuses.at(-1), `Pi ${registry.list()[0].sessionCode} · implementer · ready`)
     assert.deepEqual(runner.store.listMemberships(goalId).map(m => m.runId), [readyAgent.agentRunId])
     assert.equal(runner.store.listMemberships(runner.store.listGoals().find(g => g.goalId !== goalId)!.goalId).length, 0)
     assert.equal(runner.store.listDeliveries(readyAgent.agentRunId).length, 1)
     hooks.get('input')!({ source: 'interactive', get text() { throw Error('private Pi content accessed') } }, fakePi)
     host.tick()
     assert.equal((composed.rendered.at(-1) as { managedAgents: Array<{ piStatus: string }> }).managedAgents[0].piStatus, 'manual_takeover')
-    assert.equal(statuses.at(-1), 'implementer · manual takeover')
+    assert.equal(statuses.at(-1), `Pi ${registry.list()[0].sessionCode} · implementer · manual takeover`)
 
     // Phase 2 still delivers no Assignment and runs no acceptance check.
     assert.equal(runner.store.listEvents().filter(event => event.kind.startsWith('assignment')).length, 0)

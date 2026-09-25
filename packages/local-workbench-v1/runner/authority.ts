@@ -33,7 +33,7 @@ import { AdoptionManager } from './adoption.ts'
 import { FramedAdoptionManager } from './framed-adoption.ts'
 import { buildSnapshot } from './projection.ts'
 import { PAGE_COLLECTIONS, WORKBENCH_PAGE_SIZE, type PageCollection } from '../console/schema.ts'
-import type { BridgeRegistry } from './bridge-registry.ts'
+import type { BridgeRegistry, ObservedPi } from './bridge-registry.ts'
 import { validateAuthorityIntent } from './intent-envelope.ts'
 import type { WorkbenchIntent } from '../console/schema.ts'
 import type { ObserverPort, TransportEvent } from './transport.ts'
@@ -170,6 +170,57 @@ export class WorkbenchAuthority {
     this.observations.set(choiceId, { choiceId, observedSessionId, role: role ?? 'implementer' })
   }
 
+  /** Presentation eligibility only. Propose/authorize/ACK still revalidate authority. */
+  observedAdoptionProblem(agent: ObservedPi, proposalId?: string): { code: string; reason: string } | null {
+    const blocked = (code: string, reason: string) => ({ code, reason })
+    if (!agent.available) return blocked('session_unavailable', 'Adoption unavailable: the Pi connection is unavailable.')
+    if (agent.mode !== 'observed') return blocked('already_managed', 'Adoption unavailable: this Pi is already managed.')
+    if (agent.lifecycle !== 'running') return blocked('session_not_running', 'Adoption unavailable: this Pi is not running.')
+    if (agent.activity === 'busy') return blocked('session_busy', 'Adoption unavailable: Pi reports busy; wait until it is idle.')
+    if (agent.activity === 'waiting_for_user') return blocked('waiting_for_user', 'Adoption unavailable: Pi is waiting for user input in its terminal.')
+    if (agent.activity !== 'idle') return blocked('activity_unknown', 'Adoption unavailable: Pi activity is unknown.')
+    if (agent.health !== 'healthy') return blocked('session_unhealthy', 'Adoption unavailable: Pi reports degraded health.')
+    const key = incarnationKey(agent.incarnation)
+    if (agent.incarnation.executionNodeId !== this.executionNodeId || this.runner.fences.isIncarnationFenced(key)) {
+      return blocked('identity_ineligible', 'Adoption unavailable: this Pi identity is not eligible on this Node.')
+    }
+    const goalId = this.selectedGoalId, goal = goalId ? this.runner.store.getGoal(goalId) : null
+    if (!goal || goal.projectId !== this.selectedProjectId) return blocked('goal_required', 'Select a local Team Goal before Adoption.')
+    if (goal.state !== 'active') return blocked('goal_inactive', 'Adoption unavailable: the selected Team Goal is not active.')
+    if (!this.projectContext(goal.projectId).available) return blocked('project_context_unavailable', 'Adoption unavailable: the selected Project context is unavailable.')
+    if (this.runner.store.listBindings().some(b => this.runner.store.getBindingIdentity(b.runId)?.incarnationKey === key)) {
+      return blocked('already_managed', 'Adoption unavailable: this Pi already has a retained management binding.')
+    }
+    const proposals = this.runner.store.listProposals()
+    const pending = proposals.find(p => p.observedSessionId === agent.observedSessionId)
+    if (pending) {
+      if (pending.proposalId !== proposalId || pending.goalId !== goalId || pending.state !== 'proposed') {
+        return blocked('adoption_pending', 'Adoption is already pending for this Pi; wait for its outcome or expiry.')
+      }
+      const current = this.registry?.currentBinding(agent.observedSessionId)
+      if (!current || current.connectionId !== pending.connectionId || current.challenge !== pending.challenge
+          || incarnationKey(pending.incarnation) !== key) {
+        return blocked('proposal_stale', 'Adoption unavailable: the proposal names an obsolete Pi connection; wait for expiry.')
+      }
+      if (this.runner.store.listMemberships(goalId!).some(m => m.role === pending.role)) {
+        return blocked('roles_unavailable', 'Adoption unavailable: the proposed Role is occupied.')
+      }
+      return null
+    }
+    if (proposalId) return blocked('proposal_stale', 'Adoption unavailable: the proposal is no longer current.')
+    if (proposals.length >= 16) return blocked('adoption_capacity', 'Adoption unavailable: pending Adoption capacity is reached.')
+    if (this.availableObservedRoles(goalId!).length === 0) {
+      return blocked('roles_unavailable', 'Adoption unavailable: all offered Roles in this Goal are occupied or reserved.')
+    }
+    return null
+  }
+
+  private availableObservedRoles(goalId: string): readonly string[] {
+    const members = this.runner.store.listMemberships(goalId), proposals = this.runner.store.listProposals()
+    return this.offeredRoles.filter(role => !members.some(m => m.role === role)
+      && !proposals.some(p => p.goalId === goalId && p.role === role))
+  }
+
   get observedChoices(): Observation[] {
     if (this.registry) {
       const goalId = this.selectedGoalId
@@ -178,9 +229,8 @@ export class WorkbenchAuthority {
       const choices: Observation[] = []
       const retained = new Set<string>()
       for (const agent of this.registry.listCurrent()) {
-        if (!agent.available || agent.mode !== 'observed' || agent.lifecycle !== 'running' || agent.activity !== 'idle' || agent.health !== 'healthy') continue
-        for (const role of this.offeredRoles) {
-          if (this.runner.store.listMemberships(goalId!).some(member => member.role === role)) continue
+        if (this.observedAdoptionProblem(agent)) continue
+        for (const role of this.availableObservedRoles(goalId!)) {
           const existing = [...this.observations.values()].find(c => c.observedSessionId === agent.observedSessionId && c.role === role)
           const choice = existing ?? { choiceId: this.newId('choice-'), observedSessionId: agent.observedSessionId, role }
           this.observations.set(choice.choiceId, choice)

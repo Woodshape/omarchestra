@@ -74,6 +74,32 @@ accepts `ctx.isIdle()` plus its existing guards as best-effort reconciliation,
 without inspecting content; this R1 limitation is recorded for later hardening
 and is not a stronger Pi attestation.
 
+## Approved local-workbench usability slices
+
+The operator approved the [session-usability sequence](../plans/workbench-session-usability.md)
+after observing indistinguishable rows with different Adoption choices:
+
+- Expose structured activity and health independently of connection availability,
+  with a runner-owned reason when Adoption is unavailable.
+- Add a short collision-checked visual session code shared by the dock and that
+  Pi's named status slot. This supplements `Unassigned · observed` (and managed
+  Role/state); it is display identity only, never Adoption or connection authority.
+  Unrelated status slots and ordinary terminal titles remain unchanged.
+- Implement click-to-focus through verified current terminal correlation. Missing,
+  ambiguous or stale correlation reports unavailable. Ordinary-session focus
+  neither launches a replacement nor promises PTY persistence or reattachment.
+
+Slices 1 and 2 are implemented in the development tree, not installed or
+live-validated. The [shared-code contract](../reviews/local-workbench-phase-2-verification/session-code-checkpoint.md)
+uses independent collision-checked `Pi XXXX-XXXX` codes negotiated through the
+exact observer connection. Codes persist for that incarnation within the owner
+lifetime, including lease expiry/reconnect; a new owner renegotiates them. Only
+the currently connected bridge projects a code. Legacy or disconnected rows
+explicitly show code unavailable. No stored conversation identity or connection
+capability is shortened into a display code, and codes never authorize an action.
+The linked sequence owns implementation checkpoints and evidence limits; terminal
+focus remains unimplemented.
+
 ## Adoption
 
 Adoption is an explicit user action, not a side effect of discovery or focus:

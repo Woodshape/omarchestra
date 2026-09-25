@@ -112,6 +112,8 @@ export interface GoalSummary {
 
 export interface ManagedAgentCard {
   agentRunId: string
+  /** Display-only code shared with the currently connected Pi footer. */
+  sessionCode?: string | null
   role: string
   piStatus: string
   controlMode: ControlMode
@@ -134,10 +136,15 @@ export interface ObservedChoice {
 
 export interface ObservedSessionCard {
   observedSessionId: string
+  /** Absent/null means the current peer cannot supply a shared visual code. */
+  sessionCode?: string | null
   piStatus: string
   lifecycle: string
   availability: string
+  activity: string
   health: string
+  adoptionReasonCode: string | null
+  adoptionReason: string | null
   choices: ObservedChoice[]
 }
 
@@ -367,8 +374,8 @@ function requireObject(value: unknown, where: string): Record<string, unknown> {
     feedback: 'intentId sessionId target originRevision status reasonCode committedRevision',
     projects: 'projectId executionNodeId canonicalPath gitCommonDir revision dirty contextMatch',
     goals: 'goalId projectId goalText state outcome createdAt actions',
-    managedAgents: 'agentRunId role piStatus controlMode connectionStatus assignment lastEvent predecessorAgentRunId actions',
-    observedSessions: 'observedSessionId piStatus lifecycle availability health choices',
+    managedAgents: 'agentRunId sessionCode role piStatus controlMode connectionStatus assignment lastEvent predecessorAgentRunId actions',
+    observedSessions: 'observedSessionId sessionCode piStatus lifecycle availability activity health adoptionReasonCode adoptionReason choices',
     retiredRuns: 'agentRunId role piStatus retiredAt predecessorAgentRunId replacementAgentRunId canPurge purgeBlockedReason',
     assignments: 'assignmentId projectId goalId agentRunId goalText state attemptId gateId gateVersion gateResult candidateRef correctionCount correctionLimit diagnostics artifactRefs',
     activity: 'eventId cursor kind reasonCode label createdAt',
@@ -460,10 +467,17 @@ export function validateGoalSummary(value: unknown, where = 'goal'): GoalSummary
   }
 }
 
+function requireSessionCode(value: unknown, where: string): string | null {
+  if (value === undefined || value === null) return null
+  if (typeof value !== 'string' || !/^[A-F0-9]{4}-[A-F0-9]{4}$/.test(value)) throw new SchemaError(`${where}: invalid session code`)
+  return value
+}
+
 export function validateManagedAgentCard(value: unknown, where = 'managedAgent'): ManagedAgentCard {
   const obj = requireObject(value, where)
   return {
     agentRunId: requireId(obj.agentRunId, `${where}.agentRunId`),
+    sessionCode: requireSessionCode(obj.sessionCode, `${where}.sessionCode`),
     role: requireDisplay(obj.role, `${where}.role`),
     piStatus: requireDisplay(obj.piStatus, `${where}.piStatus`),
     controlMode: requireEnum(obj.controlMode, CONTROL_MODES, `${where}.controlMode`),
@@ -493,10 +507,14 @@ export function validateObservedSessionCard(value: unknown, where = 'observedSes
   const obj = requireObject(value, where)
   return {
     observedSessionId: requireId(obj.observedSessionId, `${where}.observedSessionId`),
+    sessionCode: requireSessionCode(obj.sessionCode, `${where}.sessionCode`),
     piStatus: requireDisplay(obj.piStatus, `${where}.piStatus`),
     lifecycle: requireDisplay(obj.lifecycle, `${where}.lifecycle`),
     availability: requireDisplay(obj.availability, `${where}.availability`),
+    activity: requireEnum(obj.activity, ['idle', 'busy', 'unknown', 'waiting_for_user'], `${where}.activity`),
     health: requireDisplay(obj.health, `${where}.health`),
+    adoptionReasonCode: requireNullableString(obj.adoptionReasonCode, `${where}.adoptionReasonCode`),
+    adoptionReason: requireNullableString(obj.adoptionReason, `${where}.adoptionReason`),
     choices: requireCollection(obj.choices, `${where}.choices`, validateObservedChoice),
   }
 }

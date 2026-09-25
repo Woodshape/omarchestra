@@ -231,7 +231,9 @@ export const observedFixture: WorkbenchSnapshot = base({
     piStatus: 'Unassigned · observed',
     lifecycle: 'running',
     availability: 'available',
+    activity: 'idle',
     health: 'healthy',
+    adoptionReasonCode: null, adoptionReason: null,
     choices: [{
       choiceId: 'adoption-choice-1',
       role: 'builder',

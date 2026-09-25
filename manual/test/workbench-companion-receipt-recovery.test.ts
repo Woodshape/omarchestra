@@ -63,7 +63,9 @@ async function fixture(t: import('node:test').TestContext) {
   }
   const original = JSON.stringify(receipt)
   fs.writeFileSync(paths.receiptPath, original, { mode: 0o600 })
-  const candidate = await new CompanionInstallation(ports).inspect({ operation: 'update', release: WORKBENCH_PREVIEW_RELEASE })
+  // This bounded incident belongs to 0.11.0 forever, not whichever release is
+  // currently in development. Do not widen production recovery authorization.
+  const candidate = await new CompanionInstallation(ports).inspect({ operation: 'update', release: release('0.11.0') })
   fs.writeFileSync(paths.failedPlanPath, JSON.stringify(candidate), { mode: 0o600 })
   // Model the real atomic writer's rollback mistake: bytes restored, all
   // identities replaced, receipt and shell configuration unchanged.

@@ -103,9 +103,22 @@ export async function inspectCompanionReceiptRecovery(ports: LiveCompanionPorts,
     'receipt release is not the archived 0.10.0')
   refuse(hash(receiptBytes) === incident.failedReceiptDigest && hash(receiptBytes) === failedPlan.precondition?.receiptDigest,
     'receipt is not the one captured by the failed installation plan')
+  // The historical incident must not follow the active development release.
+  const attemptedRoot = new URL('../packages/local-workbench-v1/companion/retained/0.11.0/', import.meta.url)
+  const attemptedHash = createHash('sha256')
+  const attemptedAssets = Object.fromEntries(fs.readdirSync(attemptedRoot).sort().map(name => {
+    const path = new URL(name, attemptedRoot)
+    refuse(fs.lstatSync(path).isFile() && !fs.lstatSync(path).isSymbolicLink(), `attempted archive asset is unsafe: ${name}`)
+    const bytes = fs.readFileSync(path, 'utf8')
+    attemptedHash.update(name); attemptedHash.update(bytes)
+    return [name, bytes]
+  }))
+  refuse(attemptedHash.digest('hex') === '6b5f63d9054d14b4c383325f8d6c9381590f6e44daf0d21ffacebfc3fd89536e',
+    'historical attempted release archive changed')
+  const attemptedRelease = { pluginId: PLUGIN_ID, version: '0.11.0', protocol: 'omarchestra.companion/v1', compatibility: null, assets: attemptedAssets }
   refuse(failedPlan.operation === 'update' && failedPlan.pluginId === PLUGIN_ID && failedPlan.release?.version === '0.11.0'
     && failedPlan.planDigest === incident.failedPlanDigest
-    && ports.digest.stableDigest(failedPlan.release) === ports.digest.stableDigest(WORKBENCH_PREVIEW_RELEASE),
+    && ports.digest.stableDigest(failedPlan.release) === ports.digest.stableDigest(attemptedRelease),
     'failed installation plan is not the exact 0.11.0 candidate')
   const { planDigest, ...planBody } = failedPlan
   refuse(ports.digest.stableDigest(planBody) === planDigest, 'failed plan digest changed')

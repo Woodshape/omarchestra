@@ -183,6 +183,81 @@ Item {
       wait(20)
     }
 
+    function test_sessionCodesMatchRowsAndChangedCodeDisarmsTheOriginalButton() {
+      openJourney()
+      var updated = JSON.parse(JSON.stringify(host.snapshot))
+      updated.revision += 1
+      updated.managedAgents[0].sessionCode = "BEEF-1234"
+      updated.observedSessions[0].sessionCode = "AAAA-1111"
+      var second = JSON.parse(JSON.stringify(updated.observedSessions[0]))
+      second.observedSessionId = "second-observed"
+      second.sessionCode = "BBBB-2222"
+      second.choices[0].choiceId = "second-choice"
+      updated.observedSessions.push(second)
+      verify(consoleView.applyProjection(updated)); wait(30)
+      var texts = []; visibleTexts(surfaceRoot(), texts)
+      verify(texts.indexOf("Pi AAAA-1111 · " + updated.observedSessions[0].piStatus) >= 0)
+      verify(texts.indexOf("Pi BBBB-2222 · " + second.piStatus) >= 0)
+      verify(texts.indexOf("Pi BEEF-1234 · " + updated.managedAgents[0].piStatus) >= 0)
+      var label = updated.observedSessions[0].choices[0].label
+      clickItem(buttonsWithText(surfaceRoot(), label, [])[0])
+      compare(consoleView.takeIntent(updated), "")
+      verify(buttonWithText(surfaceRoot(), "Confirm: " + label) !== null)
+      // Even a same-revision replacement of the visible identity must disarm.
+      updated = JSON.parse(JSON.stringify(updated))
+      updated.observedSessions[0].sessionCode = "CCCC-3333"
+      verify(consoleView.applyProjection(updated)); wait(30)
+      verify(buttonWithText(surfaceRoot(), "Confirm: " + label) === null)
+      clickItem(buttonsWithText(surfaceRoot(), label, [])[0])
+      compare(consoleView.takeIntent(updated), "", "new identity only re-arms")
+      consoleView.goTo("add_agent"); wait(30)
+      verify(buttonWithTextPrefix(surfaceRoot(), "Pi CCCC-3333") !== null)
+      verify(buttonWithTextPrefix(surfaceRoot(), "Pi BBBB-2222") !== null)
+      consoleView.goTo("assignment"); wait(30)
+      verify(buttonWithTextPrefix(surfaceRoot(), "Pi BEEF-1234") !== null)
+      consoleView.goTo("overview")
+      updated = JSON.parse(JSON.stringify(updated)); updated.revision += 1
+      updated.observedSessions[0].sessionCode = null
+      verify(consoleView.applyProjection(updated)); wait(30)
+      texts = []; visibleTexts(surfaceRoot(), texts)
+      verify(texts.indexOf("Session code unavailable · " + updated.observedSessions[0].piStatus) >= 0)
+    }
+
+    function test_observedActivityAndIneligibilityAreVisibleWithoutPopups() {
+      openJourney()
+      var updated = JSON.parse(JSON.stringify(host.snapshot))
+      var idle = updated.observedSessions[0]
+      var busy = JSON.parse(JSON.stringify(idle))
+      busy.observedSessionId = "busy-session"
+      busy.activity = "busy"
+      busy.adoptionReasonCode = "session_busy"
+      busy.adoptionReason = "Adoption unavailable: Pi reports busy; wait until it is idle."
+      busy.choices = []
+      updated.observedSessions = [busy, idle]
+      updated.revision += 1
+      verify(consoleView.applyProjection(updated))
+      wait(30)
+      var texts = []; visibleTexts(surfaceRoot(), texts)
+      verify(texts.some(function(s) { return s.indexOf("running · busy · healthy") >= 0 }), texts.join("|"))
+      verify(texts.some(function(s) { return s.indexOf("running · idle · healthy") >= 0 }), texts.join("|"))
+      verify(texts.indexOf(busy.adoptionReason) >= 0, "runner reason is always visible")
+      compare(buttonsWithText(surfaceRoot(), idle.choices[0].label, []).length, 1)
+      compare(consoleView.takeIntent(updated), "", "projection never emits Adoption")
+      consoleView.goTo("add_agent"); wait(30)
+      texts = []; visibleTexts(surfaceRoot(), texts)
+      verify(texts.indexOf(busy.adoptionReason) >= 0, "Add agent shows the same reason")
+      consoleView.goTo("overview")
+      updated = JSON.parse(JSON.stringify(updated)); updated.revision += 1
+      updated.observedSessions[0].activity = "idle"
+      updated.observedSessions[0].adoptionReason = null
+      updated.observedSessions[0].adoptionReasonCode = null
+      updated.observedSessions[0].choices = [Object.assign({}, idle.choices[0], {choiceId: "fresh-choice"})]
+      verify(consoleView.applyProjection(updated)); wait(30)
+      compare(buttonsWithText(surfaceRoot(), idle.choices[0].label, []).length, 2)
+      texts = []; visibleTexts(surfaceRoot(), texts)
+      verify(texts.indexOf(busy.adoptionReason) < 0, "obsolete reason is removed")
+    }
+
     function test_closeDockSendsPresentationOnlyRequest() {
       openJourney()
       clickItem(findChild(consoleView, "workbench-close"))

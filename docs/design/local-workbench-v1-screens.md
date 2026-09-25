@@ -101,6 +101,18 @@ Board backend is not available in this slice.
 - Every card label is an opaque committed presentation string; `piStatus` is
   never rebuilt from role/control/assignment fields. Disabled actions show the
   runner's exact reason and emit nothing.
+- Observed rows and Add agent selection rows show connection availability,
+  lifecycle, activity and health separately. An unavailable Adoption has a
+  persistently visible runner-owned `adoptionReason` (bounded plain text), not a
+  tooltip or popup. `available` describes the connection, never permission to
+  adopt. Busy/unknown activity, reservations and stale pending authorization do
+  not silently disappear behind identical labels. Connected observed and
+  managed rows show `Pi XXXX-XXXX`, matching that same Pi's named status slot;
+  Add agent and Assignment target rows repeat it. Missing/legacy/disconnected
+  codes explicitly show `Session code unavailable`. Codes never replace exact
+  target IDs and a changed visible code disarms an armed action. Lifetime and the
+  pending terminal-focus follow-up are tracked in
+  [session usability](../plans/workbench-session-usability.md).
 - Board is visible but disabled with a short reason and emits no intent.
 - Back: none (root). Escape disarms an armed action first, then closes an open menu or Project list; otherwise no-op.
 

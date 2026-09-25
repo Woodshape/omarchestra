@@ -44,9 +44,10 @@ function fixture(t: TestContext) {
   runner.store.setMeta('selected_goal_id', goalId)
   const hooks = new Map<string, (event: unknown, ctx: unknown) => void>()
   const statuses: Array<string | undefined> = []
+  const slots = new Map<string, string | undefined>([['unrelated-extension', 'Keep me']])
   let idle = true
   const host = { mode: 'tui', sessionManager: { getSessionId: () => 'pi-session' }, isIdle: () => idle,
-    ui: { setStatus(_key: string, value: string | undefined) { statuses.push(value) } } }
+    ui: { setStatus(key: string, value: string | undefined) { statuses.push(value); slots.set(key, value) } } }
   const streams: ReturnType<typeof pair>[] = []
   const ticks: Array<() => void> = []
   let serial = 0
@@ -59,13 +60,15 @@ function fixture(t: TestContext) {
       return attachBridgeStream(p.b, { onFrame: (_peer, frame) => onFrame(frame), onClose })
     },
   })({ on(name, fn) { hooks.set(name, fn as (event: unknown, ctx: unknown) => void) } })
-  return { root, runner, registry, authority, projectId, goalId, streams, hooks, host, statuses,
+  return { root, runner, registry, authority, projectId, goalId, streams, hooks, host, statuses, slots,
     time(v: number) { now = v }, idle(v: boolean) { idle = v }, async tick() { ticks.shift()?.(); await new Promise(resolve => setImmediate(resolve)) },
     async start() { hooks.get('session_start')!(null, host); await new Promise(resolve => setImmediate(resolve)) },
-    async second() {
+    async second(piSessionId = 'replacement-session') {
       const id = 'process-' + 'c'.repeat(32), extension = 'extension-' + 'd'.repeat(32)
       const secondHooks = new Map<string, (event: unknown, context: unknown) => void>()
-      const next = { mode: 'tui', sessionManager: { getSessionId: () => 'replacement-session' }, isIdle: () => true, ui: { setStatus() {} } }
+      const secondStatuses: Array<string | undefined> = []
+      const next = { mode: 'tui', sessionManager: { getSessionId: () => piSessionId }, isIdle: () => true,
+        ui: { setStatus(_key: string, value: string | undefined) { secondStatuses.push(value) } } }
       createPiBridgeExtension({ newId: prefix => prefix === 'process' ? id : prefix === 'extension' ? extension : `${prefix}-${(++serial).toString(16).padStart(32, '0')}`,
         schedule: () => 0 as unknown as ReturnType<typeof setTimeout>,
         connect: async (onFrame, onClose) => { const p = pair(); streams.push(p)
@@ -74,10 +77,75 @@ function fixture(t: TestContext) {
       })({ on(name, fn) { secondHooks.set(name, fn as (event: unknown, context: unknown) => void) } })
       secondHooks.get('session_start')!(null, next)
       await new Promise(resolve => setImmediate(resolve))
-      return registry.list().find(o => o.incarnation.processInstanceId === id)!
+      return { ...registry.list().find(o => o.incarnation.processInstanceId === id)!, statuses: secondStatuses }
     },
   }
 }
+test('two real extension adapters share their own exact code with observed and managed projections', async t => {
+  const s = fixture(t); await s.start(); const second = await s.second()
+  const snapshot = () => validateSnapshot(buildSnapshot({ authority: s.authority, adoption: s.authority.adoption, connection: 'connected' }))
+  const rows = snapshot().observedSessions
+  assert.equal(rows.length, 2)
+  assert.match(rows[0].sessionCode!, /^[A-F0-9]{4}-[A-F0-9]{4}$/)
+  assert.notEqual(rows[0].sessionCode, rows[1].sessionCode)
+  assert.equal(s.statuses.at(-1), `Pi ${rows[0].sessionCode} · Unassigned · observed`)
+  assert.equal(second.statuses.at(-1), `Pi ${rows[1].sessionCode} · Unassigned · observed`)
+  const code = rows[0].sessionCode!
+  const forged = s.authority.handleIntent({ protocol: 'omarchestra.workbench/v1', intentId: 'code-is-not-authority',
+    sessionId: s.authority.sessionId, pluginGeneration: 1, runnerEpoch: s.runner.epoch, expectedRevision: s.authority.currentRevision,
+    kind: 'request_adoption', target: code, payload: { choiceId: code } })
+  assert.equal(forged.status, 'rejected')
+  assert.equal(s.runner.store.listProposals().length, 0)
+  const proposal = s.authority.adoption.propose({ projectId: s.projectId, goalId: s.goalId,
+    role: 'implementer', observedSessionId: rows[0].observedSessionId })
+  s.authority.adoption.authorize(proposal.proposalId)
+  assert.equal(snapshot().managedAgents[0].sessionCode, code)
+  assert.equal(s.statuses.at(-1), `Pi ${code} · implementer · ready`)
+  s.hooks.get('input')!({ source: 'interactive', get text() { throw Error('private') } }, s.host)
+  assert.equal(snapshot().managedAgents[0].sessionCode, code)
+  assert.equal(s.statuses.at(-1), `Pi ${code} · implementer · manual takeover`)
+  s.streams[0].a.destroy()
+  assert.equal(snapshot().managedAgents[0].sessionCode, null, 'no currently matching footer when disconnected')
+  assert.equal(s.statuses.at(-1), undefined)
+  await s.tick()
+  assert.equal(snapshot().managedAgents[0].sessionCode, code, 'same surviving incarnation keeps its visual code')
+  assert.equal(s.statuses.at(-1), `Pi ${code} · implementer · manual takeover`)
+  assert.equal(s.slots.get('unrelated-extension'), 'Keep me')
+  assert.deepEqual([...s.slots.keys()].sort(), ['omarchestra-observer-status', 'unrelated-extension'])
+})
+
+test('resuming the same saved Pi session in a different incarnation does not reuse its display code', async t => {
+  const s = fixture(t); await s.start()
+  const original = s.registry.list()[0]
+  const replacement = await s.second(original.incarnation.piSessionId)
+  assert.equal(original.incarnation.piSessionId, replacement.incarnation.piSessionId)
+  assert.notEqual(original.sessionCode, replacement.sessionCode)
+  assert.notEqual(original.observedSessionId, replacement.observedSessionId)
+  assert.equal(replacement.statuses.at(-1), `Pi ${replacement.sessionCode} · Unassigned · observed`)
+  assert.equal(s.runner.store.listBindings().length, 0)
+})
+
+test('expiry, reconnect and session replacement never recycle another incarnation code', async t => {
+  const s = fixture(t); await s.start()
+  const original = s.registry.list()[0]
+  s.time(20_000); s.registry.expire()
+  assert.equal(s.registry.list().length, 0)
+  assert.equal(s.statuses.at(-1), undefined)
+  await s.tick()
+  assert.equal(s.registry.list()[0].sessionCode, original.sessionCode)
+  const otherContext = { ...s.host, sessionManager: { getSessionId: () => 'new-session-in-same-process' } }
+  s.hooks.get('session_switch')!(null, otherContext)
+  await new Promise(resolve => setImmediate(resolve))
+  const current = s.registry.list().find(o => o.available)!
+  assert.notEqual(current.sessionCode, original.sessionCode)
+  assert.equal(s.statuses.at(-1), `Pi ${current.sessionCode} · Unassigned · observed`)
+  assert.ok(s.registry.list().filter(o => !o.available).every(o => o.sessionCode === null))
+  s.hooks.get('session_shutdown')!(null, otherContext)
+  assert.equal(s.statuses.at(-1), undefined)
+  assert.equal(s.runner.store.listBindings().length, 0)
+  assert.equal(s.slots.get('unrelated-extension'), 'Keep me')
+})
+
 test('operator intent authorizes exact framed ACK; old intent replay is read-only and other Goal hides membership', async t => {
   const s = fixture(t); await s.start()
   let serial = 0, lastEnvelope: Record<string, unknown> = {}
@@ -129,7 +197,7 @@ test('framed same-Pi ACK atomically commits Goal-scoped membership before delive
   assert.deepEqual(s.runner.store.listMemberships(s.goalId), [{ goalId: s.goalId, role: 'implementer', runId: proposal.runId }])
   assert.equal(s.runner.store.listProposals().length, 0)
   assert.equal(s.runner.store.listDeliveries(proposal.runId).length, 1)
-  assert.equal(s.statuses.at(-1), 'implementer · ready')
+  assert.equal(s.statuses.at(-1), `Pi ${s.registry.list()[0].sessionCode} · implementer · ready`)
   validateSnapshot(buildSnapshot({ authority: s.authority, adoption: s.authority.adoption, connection: 'connected' }))
   assert.equal(s.runner.store.listBindings().length, 1)
   assert.throws(() => s.authority.adoption.propose({ projectId: s.projectId, goalId: s.goalId,
@@ -146,7 +214,7 @@ test('lost ACK expires pending-only state; no Run, Role or automatic resend', as
   assert.equal(s.runner.store.listProposals()[0]?.state, 'authorized')
   s.time(6000)
   assert.deepEqual(s.authority.adoption.retainedProposals(), [])
-  assert.equal(s.statuses.at(-1), 'Unassigned · observed', 'expiry clears Pi pending acknowledgement without pretending to manage it')
+  assert.equal(s.statuses.at(-1), `Pi ${s.registry.list()[0].sessionCode} · Unassigned · observed`, 'expiry clears Pi pending acknowledgement without pretending to manage it')
   assert.deepEqual(s.runner.store.listMemberships(s.goalId), [])
   assert.equal(s.streams[0].a.sent.filter(type => type === 'adoption_request').length, 1)
 })
@@ -381,7 +449,7 @@ test('offline interactive input on committed survivor reconciles to manual takeo
   s.hooks.get('input')!({ source: 'interactive', get text() { throw Error('private input leaked') } }, s.host)
   await s.tick()
   assert.equal(s.runner.store.getBinding(p.runId)?.state, 'manual_takeover')
-  assert.equal(s.statuses.at(-1), 'implementer · manual takeover')
+  assert.equal(s.statuses.at(-1), `Pi ${s.registry.list()[0].sessionCode} · implementer · manual takeover`)
   assert.equal(s.runner.store.listMemberships(s.goalId).length, 1)
   assert.equal(s.runner.store.listEvents().filter(e => e.kind === 'control_taken').length, 1)
   assert.equal(s.runner.store.listEvents().filter(e => e.kind === 'adoption_ready').length, 1, 'no second readiness after takeover')

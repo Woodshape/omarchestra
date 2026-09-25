@@ -69,6 +69,8 @@ run_node "${flags[@]}" --test \
     "$root/test/phase-2-real-bridge.test.ts" \
     "$root/test/phase-2-challenged-ack-seam.test.ts" \
     "$root/test/phase-2-framed-adoption.test.ts" \
+    "$root/test/session-eligibility.test.ts" \
+    "$root/test/session-code.test.ts" \
     "$root/test/phase-2-native-owner.test.ts" \
     "$root/test/owner-service.test.ts" \
     "$root/test/phase-2-command-transactions.test.ts" \

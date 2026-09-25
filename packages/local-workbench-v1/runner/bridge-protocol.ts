@@ -1,9 +1,15 @@
 /** Content-free Pi observer protocol. All payloads are closed, bounded and versioned. */
 import { randomBytes } from 'node:crypto'
+import { isSessionCode } from './session-code.ts'
 export const BRIDGE_PROTOCOL = 'omarchestra.bridge/v1'
 export const BRIDGE_FRAME_BYTES = 16_384
 export const BRIDGE_BUFFER_BYTES = 32_768
 export const BRIDGE_CAPABILITIES = ['observe.lifecycle', 'adoption.acknowledge', 'managed.activate'] as const
+/** Optional presentation feature. Legacy peers receive the unchanged registered body. */
+export const SESSION_CODE_CAPABILITY = 'presentation.session-code'
+const validCapabilities = (v: unknown) => Array.isArray(v)
+  && (v.length === 3 || (v.length === 4 && v[3] === SESSION_CODE_CAPABILITY))
+  && BRIDGE_CAPABILITIES.every((c, i) => v[i] === c)
 const id = (v: unknown): v is string => typeof v === 'string' && /^[A-Za-z0-9_-]{1,128}$/.test(v)
 const capability = (v: unknown): v is string => id(v) && v.length >= 32
 const counter = (v: unknown): v is number => Number.isSafeInteger(v) && (v as number) >= 0
@@ -14,7 +20,7 @@ const enums = {
   code: ['invalid_envelope', 'incompatible_extension', 'invalid_identity', 'stale_registration', 'invalid_sequence', 'connection_not_current', 'session_limit', 'fence_conflict'],
 } as const
 const bodies = {
-  register: { processInstanceId: capability, piSessionId: id, extensionInstanceId: capability, hostMode: (v: unknown) => enums.hostMode.includes(v as 'tui'), capabilities: (v: unknown) => Array.isArray(v) && v.length === 3 && BRIDGE_CAPABILITIES.every((c, i) => v[i] === c), registrationAttempt: counter, sourceSequence: counter, lifecycle: (v: unknown) => enums.lifecycle.includes(v as never), activity: (v: unknown) => enums.activity.includes(v as never), health: (v: unknown) => enums.health.includes(v as never) },
+  register: { processInstanceId: capability, piSessionId: id, extensionInstanceId: capability, hostMode: (v: unknown) => enums.hostMode.includes(v as 'tui'), capabilities: validCapabilities, registrationAttempt: counter, sourceSequence: counter, lifecycle: (v: unknown) => enums.lifecycle.includes(v as never), activity: (v: unknown) => enums.activity.includes(v as never), health: (v: unknown) => enums.health.includes(v as never) },
   registered: { observedSessionId: id, executionNodeId: id, connectionId: capability, connectionChallenge: capability, acceptedRegistrationAttempt: counter, acceptedSourceSequence: counter, leaseDurationMs: counter, heartbeatIntervalMs: counter, mode: (v: unknown) => enums.mode.includes(v as never) },
   heartbeat: { connectionId: capability, connectionChallenge: capability, sourceSequence: counter, lifecycle: (v: unknown) => enums.lifecycle.includes(v as never), activity: (v: unknown) => enums.activity.includes(v as never), health: (v: unknown) => enums.health.includes(v as never) },
   close: { connectionId: capability, connectionChallenge: capability, sourceSequence: counter, reason: (v: unknown) => enums.reason.includes(v as never) },
@@ -42,7 +48,10 @@ export function validateBridgeFrame(value: unknown): BridgeFrame {
   if (!record.body || typeof record.body !== 'object' || Array.isArray(record.body)) invalid()
   const shape = bodies[record.type as BridgeType] as Record<string, (v: unknown) => boolean>
   const body = record.body as Record<string, unknown>
-  if (Object.keys(body).length !== Object.keys(shape).length || Object.keys(body).some(key => !Object.hasOwn(shape, key) || !shape[key](body[key]))) invalid()
+  const optionalCode = record.type === 'registered' && Object.hasOwn(body, 'sessionCode')
+  if (optionalCode && body.sessionCode !== null && !isSessionCode(body.sessionCode)) invalid()
+  if (Object.keys(body).length !== Object.keys(shape).length + (optionalCode ? 1 : 0)
+      || Object.keys(body).some(key => !(optionalCode && key === 'sessionCode') && (!Object.hasOwn(shape, key) || !shape[key](body[key])))) invalid()
   return { protocol: BRIDGE_PROTOCOL, type: record.type as BridgeType, messageId: record.messageId as string, body }
 }
 export function encodeBridgeFrame(type: BridgeType, messageId: string, body: Record<string, unknown>): Buffer {
