@@ -50,6 +50,8 @@ Item {
     property var drafts: ({})
     property string draftError: ""
     property string confirmationText: ""
+    property string confirmationNotice: ""
+    property string confirmationAssociation: ""
     property bool confirmationDetailsOpen: false
     property var lastIntentResult: null
     property double pluginGeneration: 0 // Injected by the presentation host.
@@ -68,6 +70,7 @@ Item {
     readonly property color mutedColor: Qt.darker(root.textColor, 1.45)
 
     readonly property var selectedProject: {
+        if (projection && projection.selectedProject !== undefined) return projection.selectedProject
         if (!projection || !Array.isArray(projection.projects)) return null
         for (var i = 0; i < projection.projects.length; i++) {
             if (projection.projects[i].projectId === projection.selectedProjectId) return projection.projects[i]
@@ -75,6 +78,7 @@ Item {
         return null
     }
     readonly property var selectedGoal: {
+        if (projection && projection.selectedGoal !== undefined) return projection.selectedGoal
         if (!projection || !Array.isArray(projection.goals)) return null
         for (var i = 0; i < projection.goals.length; i++) {
             if (projection.goals[i].goalId === projection.selectedGoalId) return projection.goals[i]
@@ -97,10 +101,15 @@ Item {
     onReviewAssociationChanged: {
         if (startReview !== null && startReview.association !== reviewAssociation) {
             startReview = null
-            confirmation = null
-            confirmDialog.close()
+            if (confirmation !== null && confirmation.kind === "start_assignment")
+                invalidateConfirmation("The start review changed. Select the current action again.")
         }
     }
+    onSelectedObservedSessionIdChanged: checkConfirmationAssociation()
+    onSelectedRoleChanged: checkConfirmationAssociation()
+    onSelectedAgentRunIdChanged: checkConfirmationAssociation()
+    onSelectedCheckIdChanged: checkConfirmationAssociation()
+    onSelectedCheckVersionChanged: checkConfirmationAssociation()
 
     function getDraftState() {
         return JSON.parse(JSON.stringify(drafts))
@@ -245,7 +254,7 @@ Item {
     }
 
     function back() {
-        if (confirmDialog.opened) { confirmDialog.close(); confirmation = null; return }
+        if (confirmReview.visible) { confirmReview.close(); return }
         if (menuOpen) { menuOpen = false; return }
         if (projectListOpen) { projectListOpen = false; return }
         if (destination === "overview") return
@@ -254,6 +263,7 @@ Item {
     }
 
     function goTo(value) {
+        if (confirmReview.visible && value !== destination) confirmReview.close()
         if (value === "checks" && destination !== "checks") checksOrigin = destination
         menuOpen = false
         projectListOpen = false
@@ -321,8 +331,64 @@ Item {
         })
     }
 
+    // Capture the exact review context without heartbeat-only cursor noise.
+    // The runner still validates the submitted immutable target independently.
+    function confirmationContext(payload, snapshot) {
+        if (!payload || !snapshot || snapshot.connection !== "connected") return ""
+        var facts = [snapshot.sessionId, snapshot.pluginGeneration, snapshot.runnerEpoch,
+            snapshot.revision, snapshot.selectedProjectId, snapshot.selectedGoalId,
+            selectedObservedSessionId, selectedRole, selectedAgentRunId,
+            selectedCheckId, selectedCheckVersion, payload.kind, payload.target,
+            JSON.stringify(payload.payload)]
+        if (payload.kind === "request_adoption") {
+            var found = false
+            var sessions = snapshot.observedSessions || []
+            for (var i = 0; i < sessions.length; i++) {
+                var card = sessions[i]
+                var choices = card.choices || []
+                for (var j = 0; j < choices.length; j++) {
+                    var choice = choices[j]
+                    if (choice.choiceId !== payload.target) continue
+                    facts.push(card.observedSessionId, card.lifecycle, card.availability,
+                        card.health, choice.role, choice.label, choice.enabled, choice.actionKind)
+                    found = choice.enabled && (choice.actionKind === undefined || choice.actionKind === "request_adoption")
+                }
+            }
+            if (!found) return ""
+        } else {
+            // Maintenance actions also bind the displayed committed detail and
+            // targeted record. A same-revision replacement is not a heartbeat.
+            facts.push(snapshot.details || [])
+            var targets = [].concat(snapshot.managedAgents || [], snapshot.assignments || [], snapshot.retiredRuns || [])
+            for (var t = 0; t < targets.length; t++) {
+                var item = targets[t]
+                if (item.agentRunId === payload.target || item.assignmentId === payload.target
+                        || item.runId === payload.target) facts.push(item)
+            }
+        }
+        return JSON.stringify(facts)
+    }
+
+    function invalidateConfirmation(reason) {
+        if (confirmation === null) return
+        confirmationTimer.stop()
+        confirmation = null
+        confirmationAssociation = ""
+        confirmationNotice = reason
+        confirmationDetailsOpen = false
+    }
+
+    function checkConfirmationAssociation() {
+        if (confirmation !== null && confirmationContext(confirmation, projection) !== confirmationAssociation)
+            invalidateConfirmation("This exact target or its authority changed. Select the current action again.")
+    }
+
     // The host supplies a validated plain projection. QML only applies it.
     function applyProjection(value) {
+        // The installed shell invokes methods with an encoded JSON argv;
+        // open() already decodes its envelope, but subsequent updates arrive
+        // here directly as strings. Treat both paths identically.
+        value = parsePayload(value)
         if (!value || typeof value !== "object") return false
         if (typeof value.revision !== "number" || value.revision < 0) return false
         if (typeof value.cursor !== "number" || value.cursor < 0) return false
@@ -335,12 +401,19 @@ Item {
         // Even a same-revision replacement may narrow action availability.
         // Never rebind a displayed confirmation or queued click to changed data.
         if (projection && JSON.stringify(projection) !== JSON.stringify(value)) {
-            startReview = null
-            menuOpen = false
-            confirmation = null
-            pendingIntents = []
-            confirmDialog.close()
-            lastIntentResult = null
+            // A cursor-only heartbeat refresh is not a new choice or authority.
+            var before = Object.assign({}, projection)
+            var after = Object.assign({}, value)
+            delete before.cursor
+            delete after.cursor
+            if (JSON.stringify(before) !== JSON.stringify(after)) {
+                startReview = null
+                menuOpen = false
+                pendingIntents = []
+                lastIntentResult = null
+            }
+            if (confirmation !== null && confirmationContext(confirmation, value) !== confirmationAssociation)
+                invalidateConfirmation("This exact target or its authority changed. Select the current action again.")
         }
         projection = value
         if (root.pendingGoalNavigation && value.selectedGoalId === root.pendingGoalNavigation) {
@@ -355,11 +428,10 @@ Item {
         pendingGoalNavigation = ""
         if (!projection || projection.connection !== "connected") return
         projection = Object.assign({}, projection, { connection: "stale" })
-        confirmation = null
+        invalidateConfirmation("Connection lost. Wait for the current state and select the action again.")
         pendingIntents = []
         lastIntentResult = null
         startReview = null
-        confirmDialog.close()
     }
 
     function open(payloadJson) {
@@ -394,8 +466,7 @@ Item {
 
     function close() {
         pendingGoalNavigation = ""
-        confirmation = null
-        confirmDialog.close()
+        confirmReview.close()
         opened = false
         menuOpen = false
         projectListOpen = false
@@ -411,8 +482,7 @@ Item {
         if (!sessionMatches(value)) return false
         pendingGoalNavigation = ""
         projection = null
-        confirmation = null
-        confirmDialog.close()
+        confirmReview.close()
         lastIntentResult = null
         pendingIntents = []
         activeSession = null
@@ -432,8 +502,18 @@ Item {
         root.intentRequested(payload)
     }
 
+    // Hiding the view is presentation-only. It is available even if the
+    // authority connection has gone stale; it never becomes a runner intent.
+    function requestHide() {
+        if (activeSession === null || pendingIntents.length >= 16) return
+        var request = { kind: "hide_workbench", target: null, payload: {} }
+        pendingIntents = pendingIntents.concat([request])
+        root.intentRequested(request)
+    }
+
     function requestConfirmation(payload) {
         if (!projection || projection.connection !== "connected") return
+        confirmReview.close()
         var descriptions = {
             take_control: "Take control? Automatic work pauses. Running tools may continue.",
             return_to_team: "Return to team? Request a handoff; work stays paused until reconciled.",
@@ -455,18 +535,34 @@ Item {
                 break
             }
         }
+        if (payload.kind === "request_adoption" && Array.isArray(projection.observedSessions)) {
+            for (var s = 0; s < projection.observedSessions.length; s++) {
+                var card = projection.observedSessions[s]
+                for (var c = 0; c < card.choices.length; c++) {
+                    if (card.choices[c].choiceId === payload.target && card.choices[c].role)
+                        confirmationText += "\nRole: " + card.choices[c].role
+                }
+            }
+        }
         if (payload.target) confirmationText += "\nReference: …" + String(payload.target).slice(-8)
         confirmationDetailsOpen = false
         if (payload.kind === "select_goal") { selectGoal(payload.target); return }
-        // Non-destructive declarations commit without a modal confirmation; the
-        // runner still validates and may reject them.
+        // Non-destructive declarations need no additional review; the runner
+        // still validates and may reject them.
         if (["select_project", "create_goal", "configure_checks", "inspect_project",
                 "confirm_register_project", "create_check", "authorize_adoption"].indexOf(payload.kind) >= 0) {
             emitIntent(payload)
             return
         }
+        var association = confirmationContext(payload, projection)
+        if (!association) {
+            confirmationNotice = "The selected action is no longer available. Select a current target again."
+            confirmReview.open()
+            return
+        }
+        confirmationAssociation = association
         confirmation = payload
-        confirmDialog.open()
+        confirmReview.open()
         confirmationTimer.restart()
     }
 
@@ -600,7 +696,7 @@ Item {
     // separate window, so a handler on this root item would never receive a key
     // event from panel focus; `surface` is the ancestor of every panel control.
     function handleEscape(event) {
-        if (confirmDialog.opened) { confirmDialog.close(); confirmation = null; event.accepted = true; return }
+        if (confirmReview.visible) { confirmReview.close(); event.accepted = true; return }
         if (menuOpen) { menuOpen = false; event.accepted = true; return }
         if (projectListOpen) { projectListOpen = false; event.accepted = true; return }
         if (destination !== "overview") { back(); event.accepted = true; return }
@@ -634,77 +730,7 @@ Item {
         Timer {
             id: confirmationTimer
             interval: 30000
-            onTriggered: { root.confirmation = null; confirmDialog.close() }
-        }
-        Dialog {
-            id: confirmDialog
-            objectName: "workbench-confirmation"
-            title: "Confirm exact action"
-            palette: overview.palette
-            modal: true
-            anchors.centerIn: parent
-            width: Math.max(1, Math.min(parent.width - Style.space(24), Style.space(640)))
-            height: Math.max(1, Math.min(parent.height - Style.space(24), implicitHeight))
-            standardButtons: Dialog.Ok | Dialog.Cancel
-            padding: Style.space(12)
-            background: Rectangle {
-                color: Color.popups.background
-                radius: Style.cornerRadius
-                border.width: 1
-                border.color: Color.accent
-            }
-            header: Label {
-                text: confirmDialog.title
-                textFormat: Text.PlainText
-                wrapMode: Text.Wrap
-                padding: Style.space(12)
-                color: Color.popups.text
-                font.family: Style.font.family
-                font.pixelSize: Style.font.body
-                font.bold: true
-            }
-            footer: DialogButtonBox {
-                standardButtons: confirmDialog.standardButtons
-                padding: Style.space(8)
-                spacing: Style.space(8)
-                background: Item {}
-                delegate: WorkbenchAction {}
-                onAccepted: confirmDialog.accept()
-                onRejected: confirmDialog.reject()
-            }
-            closePolicy: Popup.CloseOnEscape
-            onAccepted: {
-                if (root.confirmation) root.emitIntent(root.confirmation)
-                root.confirmation = null
-            }
-            onRejected: root.confirmation = null
-            contentItem: ScrollView {
-                clip: true
-                contentWidth: availableWidth
-                Column {
-                    width: parent.width
-                    spacing: Style.space(8)
-                    Label {
-                        width: parent.width
-                        text: root.confirmation ? root.confirmationText : "Expired"
-                        textFormat: Text.PlainText
-                        wrapMode: Text.WrapAnywhere
-                        color: Color.popups.text
-                    }
-                    WorkbenchAction {
-                        text: root.confirmationDetailsOpen ? "Hide exact target" : "Exact target"
-                        onClicked: root.confirmationDetailsOpen = !root.confirmationDetailsOpen
-                    }
-                    Label {
-                        width: parent.width
-                        visible: root.confirmationDetailsOpen
-                        text: root.confirmation ? JSON.stringify(root.confirmation) : ""
-                        textFormat: Text.PlainText
-                        wrapMode: Text.WrapAnywhere
-                        color: Color.popups.text
-                    }
-                }
-            }
+            onTriggered: root.invalidateConfirmation("Review expired after 30 seconds. Select the current action again.")
         }
 
         Native.BorderSurface {
@@ -718,6 +744,7 @@ Item {
 
             Flickable {
                 id: scroll
+                objectName: "workbench-scroll"
                 ScrollBar.vertical: ScrollBar { }
                 function revealFocus(item) {
                     if (!item) return
@@ -774,6 +801,14 @@ Item {
                                 font.family: Style.font.family
                                 font.pixelSize: Style.font.body
                                 font.bold: true
+                            }
+                            WorkbenchAction {
+                                objectName: "workbench-close"
+                                text: "×"
+                                Accessible.name: "Close workbench dock"
+                                focusPolicy: Qt.StrongFocus
+                                enabled: root.opened && root.activeSession !== null
+                                onClicked: root.requestHide()
                             }
                         }
 
@@ -851,6 +886,113 @@ Item {
                             color: root.mutedColor
                             font.family: Style.font.family
                             font.pixelSize: Style.font.caption
+                        }
+                    }
+
+                    // An exact-target review is part of the dock's normal scroll
+                    // and keyboard order. It never opens a transient overlay.
+                    ColumnLayout {
+                        id: confirmReview
+                        objectName: "workbench-inline-confirmation"
+                        Layout.fillWidth: true
+                        visible: root.confirmation !== null || root.confirmationNotice !== ""
+                        spacing: Style.space(8)
+                        function open() {
+                            Qt.callLater(function() {
+                                if (!confirmReview.visible) return
+                                scroll.contentY = 0
+                                if (root.confirmation !== null) confirmAction.forceActiveFocus()
+                                else cancelReview.forceActiveFocus()
+                            })
+                        }
+                        function close() {
+                            confirmationTimer.stop()
+                            root.confirmation = null
+                            root.confirmationNotice = ""
+                            root.confirmationAssociation = ""
+                            root.confirmationDetailsOpen = false
+                        }
+                        Rectangle {
+                            Layout.fillWidth: true
+                            implicitHeight: reviewContent.implicitHeight + Style.space(24)
+                            color: Color.popups.background
+                            radius: Style.cornerRadius
+                            border.width: 1
+                            border.color: Color.accent
+                            ColumnLayout {
+                                id: reviewContent
+                                anchors.left: parent.left
+                                anchors.right: parent.right
+                                anchors.top: parent.top
+                                anchors.margins: Style.space(12)
+                                spacing: Style.space(8)
+                                Label {
+                                    Layout.fillWidth: true
+                                    text: "Review exact action"
+                                    textFormat: Text.PlainText
+                                    color: root.textColor
+                                    font.family: Style.font.family
+                                    font.pixelSize: Style.font.body
+                                    font.bold: true
+                                }
+                                Label {
+                                    Layout.fillWidth: true
+                                    text: root.confirmationText
+                                    textFormat: Text.PlainText
+                                    wrapMode: Text.WrapAnywhere
+                                    color: root.textColor
+                                }
+                                Label {
+                                    Layout.fillWidth: true
+                                    visible: root.confirmationNotice !== ""
+                                    text: root.confirmationNotice
+                                    textFormat: Text.PlainText
+                                    wrapMode: Text.WrapAnywhere
+                                    color: Color.urgent
+                                }
+                                WorkbenchAction {
+                                    text: root.confirmationDetailsOpen ? "Hide exact target" : "Exact target"
+                                    Accessible.name: text
+                                    onClicked: root.confirmationDetailsOpen = !root.confirmationDetailsOpen
+                                }
+                                Label {
+                                    Layout.fillWidth: true
+                                    visible: root.confirmationDetailsOpen && root.confirmation !== null
+                                    text: root.confirmation ? JSON.stringify(root.confirmation) : ""
+                                    textFormat: Text.PlainText
+                                    wrapMode: Text.WrapAnywhere
+                                    color: root.mutedColor
+                                }
+                                RowLayout {
+                                    Layout.fillWidth: true
+                                    Item { Layout.fillWidth: true }
+                                    WorkbenchAction {
+                                        id: cancelReview
+                                        objectName: "workbench-cancel-review"
+                                        text: "Cancel"
+                                        Accessible.name: "Dismiss exact action review"
+                                        onClicked: confirmReview.close()
+                                    }
+                                    WorkbenchAction {
+                                        id: confirmAction
+                                        objectName: "workbench-confirm-review"
+                                        text: "Confirm"
+                                        Accessible.name: "Confirm exact action"
+                                        enabled: root.confirmation !== null && root.confirmationNotice === ""
+                                            && root.projection !== null && root.projection.connection === "connected"
+                                        onClicked: {
+                                            if (!root.confirmation || root.confirmationAssociation
+                                                    !== root.confirmationContext(root.confirmation, root.projection)) {
+                                                root.invalidateConfirmation("This exact target changed. Select the current action again.")
+                                                return
+                                            }
+                                            var pending = root.confirmation
+                                            confirmReview.close()
+                                            root.emitIntent(pending)
+                                        }
+                                    }
+                                }
+                            }
                         }
                     }
 
@@ -935,6 +1077,42 @@ Item {
                         truncationNote: root.workTruncationNote()
                         onNavigate: function(value) { root.goTo(value) }
                         onIntentRequested: function(payload) { root.requestConfirmation(payload) }
+                    }
+
+                    // Authoritative collection navigation. Every page advertises
+                    // its total and adjacent offsets; QML never drops hidden
+                    // records or computes admission from a truncated list.
+                    Repeater {
+                        objectName: "workbench-pages"
+                        model: root.projection && root.projection.pages
+                            ? Object.keys(root.projection.pages).filter(function(key) {
+                                return root.projection.pages[key].total > root.projection.pages[key].limit
+                            }) : []
+                        delegate: RowLayout {
+                            required property string modelData
+                            Layout.fillWidth: true
+                            readonly property var page: root.projection.pages[modelData]
+                            Text {
+                                Layout.fillWidth: true
+                                textFormat: Text.PlainText
+                                color: root.mutedColor
+                                text: modelData + " " + (page.offset + 1) + "–" + Math.min(page.offset + page.limit, page.total) + " / " + page.total
+                            }
+                            WorkbenchAction {
+                                objectName: "workbench-page-previous"
+                                text: "Previous"
+                                enabled: page.hasPrevious && root.projection.connection === "connected"
+                                onClicked: root.emitIntent({ kind: "navigate_page", target: null,
+                                    payload: { collection: modelData, offset: page.offset - page.limit } })
+                            }
+                            WorkbenchAction {
+                                objectName: "workbench-page-next"
+                                text: "Next"
+                                enabled: page.hasNext && root.projection.connection === "connected"
+                                onClicked: root.emitIntent({ kind: "navigate_page", target: null,
+                                    payload: { collection: modelData, offset: page.offset + page.limit } })
+                            }
+                        }
                     }
 
                     Label {

@@ -234,6 +234,7 @@ export const observedFixture: WorkbenchSnapshot = base({
     health: 'healthy',
     choices: [{
       choiceId: 'adoption-choice-1',
+      role: 'builder',
       label: 'Adopt into goal-1 · builder',
       enabled: true,
     }],

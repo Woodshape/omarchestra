@@ -12,7 +12,7 @@
  */
 
 export const WORKBENCH_PLUGIN_ID = 'omarchestra.agent-console'
-export const WORKBENCH_PLUGIN_VERSION = '0.8.0'
+export const WORKBENCH_PLUGIN_VERSION = '0.10.0'
 
 /**
  * Loaded-presentation contract. The running shell keeps the panel instance
@@ -30,7 +30,8 @@ export interface WorkbenchRelease {
   pluginId: string
   version: string
   protocol: string
-  compatibility: { omarchy: string; quickshell: string }
+  /** Capability-negotiated release; package versions are recorded in the installation receipt. */
+  compatibility: null
   assets: Record<string, string>
 }
 

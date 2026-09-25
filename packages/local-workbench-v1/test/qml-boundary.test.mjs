@@ -1,13 +1,13 @@
 // Local Workbench v1 — QML boundary and release audit.
 //
 // Proves the QML is presentation-only (no storage, process, PTY, SSH,
-// scraping, or label derivation), that the additive 0.8.0 release packages
+// scraping, or label derivation), that the additive 0.10.0 release packages
 // the QML byte-identical to the plugin source, and that the release does not
 // copy or alter historical prototype releases.
 
 import assert from 'node:assert/strict'
 import { createHash } from 'node:crypto'
-import { readFileSync, statSync } from 'node:fs'
+import { readFileSync, readdirSync, statSync } from 'node:fs'
 import { dirname, join, resolve } from 'node:path'
 import test from 'node:test'
 import { fileURLToPath } from 'node:url'
@@ -19,6 +19,7 @@ const PLUGIN_DIR = join(PACKAGE_ROOT, 'console', 'plugin')
 const QML_FILES = [
   'WorkbenchConsole.qml',
   'WorkbenchHost.qml',
+  'WorkbenchBarWidget.qml',
   'WorkbenchOverview.qml',
   'WorkbenchGoal.qml',
   'WorkbenchCards.qml',
@@ -50,13 +51,15 @@ function allQmlSources() {
   return QML_FILES.map((name) => source(name))
 }
 
-test('the manifest exposes a schema-versioned panel entry point at 0.8.0', () => {
+test('the manifest exposes panel and bar-widget entry points at 0.10.0', () => {
   const manifest = JSON.parse(source('manifest.json'))
   assert.equal(manifest.schemaVersion, 1)
-  assert.equal(manifest.version, '0.8.0')
+  assert.equal(manifest.version, '0.10.0')
   assert.equal(manifest.id, 'omarchestra.agent-console')
   assert.ok(Array.isArray(manifest.kinds) && manifest.kinds.includes('panel'))
   assert.equal(manifest.entryPoints?.panel, 'WorkbenchHost.qml')
+  assert.ok(manifest.kinds.includes('bar-widget'))
+  assert.equal(manifest.entryPoints?.barWidget, 'WorkbenchBarWidget.qml')
   assert.equal(manifest.companion?.protocol, 'omarchestra.companion/v1')
 })
 
@@ -76,6 +79,21 @@ test('all QML stays presentation-only with no forbidden runtime dependencies', (
       assert.doesNotMatch(value, pattern, `${name} dependency in ${path}`)
     }
   }
+})
+
+test('active dock uses only an inline exact-target review, never a transient dialog', () => {
+  const qml = source('WorkbenchConsole.qml')
+  assert.match(qml, /objectName: "workbench-inline-confirmation"/)
+  assert.doesNotMatch(qml, /\b(?:Dialog|Popup|DialogButtonBox)\s*\{/)
+  assert.match(qml, /interval: 30000/)
+  assert.match(qml, /Review expired after 30 seconds/)
+})
+
+test('bar button delegates to exactly the installed one-shot owner launcher', () => {
+  const widget = source('WorkbenchBarWidget.qml')
+  assert.match(widget, /root\.bar\.run\("gtk-launch omarchestra-workbench"\)/)
+  assert.match(widget, /buttonCode === Qt\.LeftButton/)
+  assert.doesNotMatch(widget, /(?:runner\/main|setPluginEnabled|shell\.json|Process\s*\{)/)
 })
 
 test('QML contains no role/state label derivation', () => {
@@ -103,9 +121,9 @@ test('QML emits intents only and never computes authority', () => {
   assert.doesNotMatch(combined, /(?:derive|compute|validate|check)(?:Adoption|Eligibility|Expiry|Identity|Digest)/i)
 })
 
-test('the additive 0.8.0 release packages QML byte-identical to the plugin source', async () => {
+test('the additive 0.10.0 release packages QML byte-identical to the plugin source', async () => {
   const { WORKBENCH_RELEASE } = await import('../companion/releases.ts')
-  assert.equal(WORKBENCH_RELEASE.version, '0.8.0')
+  assert.equal(WORKBENCH_RELEASE.version, '0.10.0')
   for (const file of QML_FILES) {
     assert.equal(
       WORKBENCH_RELEASE.assets[file],
@@ -115,13 +133,38 @@ test('the additive 0.8.0 release packages QML byte-identical to the plugin sourc
   }
   assert.equal(
     JSON.parse(WORKBENCH_RELEASE.assets['manifest.json']).version,
-    '0.8.0',
+    '0.10.0',
   )
+})
+
+test('the former installed 0.9.0 Companion assets remain byte-for-byte archived', () => {
+  const retained = join(PACKAGE_ROOT, 'companion', 'retained', '0.9.0')
+  const hashes = {
+    'AgentConsole.qml': 'f3708e96cffdbce16e9b27fb46caf5311b2d1ac730a5a12d60bd4736716dee2e',
+    'manifest.json': 'ddb5b630c12613ff49a5c471dd7f813921cb7fac871c0ead299e3209ad808994',
+    'WorkbenchAction.qml': 'bb93ec2ae577fdef03233f1db25e4696cb0fed27870ac4b5debdeb63702b7658',
+    'WorkbenchAssignmentForm.qml': '44f406ea5bdcf53a924bf24f6fa63cda1f5cdf3b18a7bbeea3b18629ed78588d',
+    'WorkbenchBarWidget.qml': 'ad6cd6d1c7abe357cc81de51fe2cb64d312667964ed2c23fcd1e3a6d101d8cc5',
+    'WorkbenchBoard.qml': '024846413ece1e0d443fc6f6835d43ae9b0ea7ccbf578c1c8ff0776666c113c3',
+    'WorkbenchCards.qml': '40f385bdb01d0a7c224bb5a03fb3cdd2ac38bdb5f5995e0bc82eb2f763b9bd59',
+    'WorkbenchChecks.qml': '1978770ba176df799c62e27278a9306bfbb78fb54ff9306c32a4d57440354907',
+    'WorkbenchConsole.qml': '2567870a559b0dc1edcb947838ff4f25904d40e67a68650fe184f9ce41bfbab5',
+    'WorkbenchGoal.qml': 'bf2b1300df5642d6625c7a5b9c140d66d1104ebfbe6ac00bb3e59c2948c7154f',
+    'WorkbenchHost.qml': 'eec4ad150c257bfeb695cac049389372256aca2ad3a59d416574a2565bda4026',
+    'WorkbenchOverview.qml': 'f9079bb379f83357a27ee8accefa6cef9c5a31de3b455037eb78a32eb7557b14',
+    'WorkbenchReview.qml': 'dbc705d4e339ef9d484dae8f7ae52d98fe59b3310d29596f44abc2d35d0b367f',
+    'WorkbenchTextArea.qml': '0fefa1555f8a2e7a3ee4b22f828f28dff110d273dc19e4b164dafc6de03976e8',
+    'WorkbenchTextField.qml': '588bc2ca21ac6a14fe08632fd1f2d8cdcdd5f7e743aff00041c9e003dc2121f6',
+  }
+  assert.deepEqual(readdirSync(retained).sort(), Object.keys(hashes).sort())
+  for (const [name, digest] of Object.entries(hashes)) {
+    assert.equal(createHash('sha256').update(readFileSync(join(retained, name))).digest('hex'), digest, name)
+  }
 })
 
 test('the workbench release catalog contains only its own additive release', async () => {
   const { WORKBENCH_RELEASE_CATALOG } = await import('../companion/releases.ts')
-  assert.deepEqual(Object.keys(WORKBENCH_RELEASE_CATALOG), ['0.8.0'])
+  assert.deepEqual(Object.keys(WORKBENCH_RELEASE_CATALOG), ['0.10.0'])
 })
 
 test('the workbench release does not copy historical prototype release bytes', async () => {
@@ -162,8 +205,10 @@ test('the actual console wires observed and retired cards into the card surface'
   assert.match(overview, /retired\s*:/)
 })
 
-test('every QML intent kind exists in the adapter allow-list', () => {
+test('QML domain intents enter the adapter; view-only hide stays in the presentation host', () => {
   const adapter = readFileSync(join(PACKAGE_ROOT, 'console', 'live-projection-adapter.ts'), 'utf8')
+  const shell = readFileSync(join(PACKAGE_ROOT, 'console', 'presentation-shell.ts'), 'utf8')
+  const owner = readFileSync(join(PACKAGE_ROOT, 'runner', 'native-owner.ts'), 'utf8')
   const kinds = new Set()
   for (const file of QML_FILES) {
     // Literal kinds only: model-driven kinds come from committed runner actions,
@@ -175,7 +220,13 @@ test('every QML intent kind exists in the adapter allow-list', () => {
   }
   assert.ok(kinds.size >= 5, 'the console emits the journey intents')
   for (const kind of kinds) {
-    assert.match(adapter, new RegExp(`'${kind}'`), `${kind} must be accepted by the adapter`)
+    if (kind === 'hide_workbench') {
+      assert.match(shell, /request\.kind === 'hide_workbench'/, 'hide is handled before the domain adapter')
+      assert.match(owner, /onHide: \(\) =>/, 'hide disposes the exact native view')
+      assert.doesNotMatch(adapter, /'hide_workbench'/, 'hide must not gain Team Runner authority')
+    } else {
+      assert.match(adapter, new RegExp(`'${kind}'`), `${kind} must be accepted by the adapter`)
+    }
   }
 })
 

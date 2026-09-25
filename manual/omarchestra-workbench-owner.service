@@ -1,0 +1,23 @@
+# Development installation: the owner runs without a terminal. Explicitly link,
+# enable and start only after verifying this checkout, root and service plan.
+# This unit supervises no Pi or PTY and never installs the Companion plugin.
+[Unit]
+Description=Omarchestra Local Workbench owner (development checkout)
+Documentation=file:%h/claude/omarchestra/docs/design/mvp.md
+After=graphical-session.target
+PartOf=graphical-session.target
+StartLimitIntervalSec=60
+StartLimitBurst=3
+
+[Service]
+Type=exec
+WorkingDirectory=%h/claude/omarchestra
+ExecStart=%h/.local/share/mise/installs/node/latest/bin/node --experimental-strip-types --experimental-sqlite %h/claude/omarchestra/packages/local-workbench-v1/runner/main.ts start --state-dir %h/.local/state/omarchestra/workbench-phase2-live --runtime-dir %t/omarchestra-workbench-phase2-live
+Restart=on-failure
+RestartSec=3s
+TimeoutStopSec=15s
+UMask=0077
+NoNewPrivileges=true
+
+[Install]
+WantedBy=graphical-session.target

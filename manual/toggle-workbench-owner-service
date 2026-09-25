@@ -1,0 +1,5 @@
+#!/usr/bin/env bash
+# Installed desktop/bar one-shot. Does not supervise Pi or start Node directly as an owner.
+set -euo pipefail
+exec /home/woodshape/.local/share/mise/installs/node/latest/bin/node --experimental-strip-types \
+  /home/woodshape/claude/omarchestra/manual/workbench-service-toggle.ts

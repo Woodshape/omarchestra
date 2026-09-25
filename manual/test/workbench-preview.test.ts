@@ -1,10 +1,13 @@
 import assert from 'node:assert/strict'
 import test from 'node:test'
 import vm from 'node:vm'
-import { readFileSync } from 'node:fs'
+import { readFileSync, writeFileSync, mkdtempSync, rmSync } from 'node:fs'
+import { tmpdir } from 'node:os'
+import { join } from 'node:path'
 import { spawnSync } from 'node:child_process'
 import { createPreviewController, DEFAULT_PREVIEW_FIXTURE, PREVIEW_STATES } from '../workbench-preview-controller.ts'
 import { WORKBENCH_PREVIEW_RELEASE } from '../workbench-preview-release.ts'
+import { LiveCompanionHost, LiveCompanionConfiguration } from '../../prototypes/first-vertical-slice/manual/live-companion-omarchy.ts'
 import { freezeCompanionRelease } from '../../prototypes/first-vertical-slice/companion/contracts.ts'
 import {
   WORKBENCH_PLUGIN_ID,
@@ -14,8 +17,107 @@ import {
   WORKBENCH_PROTOCOL_ID,
 } from '../../packages/local-workbench-v1/companion/contracts.ts'
 
-test('native preview release passes existing installer release validation', () => {
+test('live shell.json adapter recognizes one exact owned bar entry and refuses duplicates/settings', t => {
+  const root = mkdtempSync(join(tmpdir(), 'workbench-config-bar-'))
+  t.after(() => rmSync(root, { recursive: true, force: true }))
+  const path = join(root, 'shell.json'), pluginRoot = join(root, 'plugin')
+  const adapter = new LiveCompanionConfiguration(path, pluginRoot)
+  const config = { bar: { layout: { left: [], center: [], right: [{ id: WORKBENCH_PLUGIN_ID }] } }, plugins: [] as Array<{ id: string }> }
+  writeFileSync(path, JSON.stringify(config))
+  assert.deepEqual(adapter.inspect().entries, [{ pluginId: WORKBENCH_PLUGIN_ID, source: pluginRoot, enabled: true }])
+  config.plugins.push({ id: WORKBENCH_PLUGIN_ID })
+  writeFileSync(path, JSON.stringify(config))
+  assert.equal(adapter.inspect().entries.filter(entry => entry.pluginId === WORKBENCH_PLUGIN_ID).length, 2)
+  config.plugins = []
+  config.bar.layout.right[0] = { id: WORKBENCH_PLUGIN_ID, unexpected: true } as any
+  writeFileSync(path, JSON.stringify(config))
+  assert.throws(() => adapter.inspect(), /unexpected settings/)
+})
+
+test('native preview release passes installer validation without a package-version pin', () => {
   assert.equal(freezeCompanionRelease(WORKBENCH_PREVIEW_RELEASE).version, WORKBENCH_PLUGIN_VERSION)
+  assert.equal(WORKBENCH_PREVIEW_RELEASE.compatibility, null)
+})
+
+test('active release updates a historical owned installation on an unfamiliar host, survives a further host upgrade and refuses stale plans', async () => {
+  const { CompanionInstallation } = await import('../../prototypes/first-vertical-slice/companion/installation.ts')
+  const { FakeOmarchy } = await import('../../prototypes/first-vertical-slice/companion/fake-omarchy.ts')
+  const { COMPANION_RELEASE } = await import('../../prototypes/first-vertical-slice/companion/releases.ts')
+  const fake = new FakeOmarchy({ compatibility: { omarchy: '4.0.3-1', quickshell: '0.3.1-1' } })
+  const installer = new CompanionInstallation(fake.ports())
+  const previous = await installer.inspect({ operation: 'install', release: COMPANION_RELEASE })
+  await installer.execute(previous, fake.authorization.grant(previous))
+  fake.host.setCompatibility({ omarchy: '4.0.4-1', quickshell: '0.3.1-1' })
+  const update = await installer.inspect({ operation: 'update', release: WORKBENCH_PREVIEW_RELEASE })
+  await installer.execute(update, fake.authorization.grant(update))
+  assert.deepEqual(JSON.parse(fake.receipts.inspectNoFollow(WORKBENCH_PLUGIN_ID)!.bytes).compatibility,
+    { omarchy: '4.0.4-1', quickshell: '0.3.1-1' })
+  fake.host.setCompatibility({ omarchy: '4.1.0-1', quickshell: '0.4.0-1' })
+  const plan = await installer.inspect({ operation: 'update', release: WORKBENCH_PREVIEW_RELEASE })
+  const before = fake.installationFingerprint()
+  fake.host.setCompatibility({ omarchy: '4.1.1-1', quickshell: '0.4.0-1' })
+  await assert.rejects(() => installer.execute(plan, fake.authorization.grant(plan)), /stale_precondition/)
+  assert.deepEqual(fake.installationFingerprint(), before)
+})
+
+test('an explicit update preserves unrelated bar widgets while adding only the owned Workbench widget', async () => {
+  const { CompanionInstallation } = await import('../../prototypes/first-vertical-slice/companion/installation.ts')
+  const { FakeOmarchy } = await import('../../prototypes/first-vertical-slice/companion/fake-omarchy.ts')
+  const { COMPANION_RELEASE } = await import('../../prototypes/first-vertical-slice/companion/releases.ts')
+  const fake = new FakeOmarchy()
+  fake.configuration.setShellJsonBytes(JSON.stringify({ ...JSON.parse(fake.configuration.shellJsonBytes()),
+    bar: { layout: { right: [{ id: 'omarchy.tray' }] } } }))
+  const installer = new CompanionInstallation(fake.ports())
+  const first = await installer.inspect({ operation: 'install', release: COMPANION_RELEASE })
+  await installer.execute(first, fake.authorization.grant(first))
+  const originalReceiptBytes = fake.receipts.inspectNoFollow(WORKBENCH_PLUGIN_ID)!.bytes
+  const addWidget = () => { const config = JSON.parse(fake.configuration.shellJsonBytes());
+    config.bar.layout.right.unshift({ id: 'omarchy.tailscale' }); fake.configuration.setShellJsonBytes(JSON.stringify(config)) }
+  addWidget()
+  const withWidget = fake.configuration.shellJsonBytes()
+  const unrelated = fake.installationFingerprint()
+  const plan = await installer.inspect({ operation: 'update', release: WORKBENCH_PREVIEW_RELEASE })
+  assert.equal(fake.receipts.inspectNoFollow(WORKBENCH_PLUGIN_ID)!.bytes, originalReceiptBytes)
+  assert.deepEqual(fake.installationFingerprint(), unrelated)
+  await installer.execute(plan, fake.authorization.grant(plan))
+  const receipt = JSON.parse(fake.receipts.inspectNoFollow(WORKBENCH_PLUGIN_ID)!.bytes)
+  assert.deepEqual(JSON.parse(receipt.shellJson.preimageBytes).bar, JSON.parse(withWidget).bar)
+  const postBar = JSON.parse(receipt.shellJson.postimageBytes).bar
+  assert.equal(postBar.layout.right.filter((entry: any) => entry.id === WORKBENCH_PLUGIN_ID).length, 1)
+  assert.deepEqual({ ...postBar, layout: { ...postBar.layout, right: postBar.layout.right.filter((entry: any) => entry.id !== WORKBENCH_PLUGIN_ID) } }, JSON.parse(withWidget).bar)
+  assert.equal(receipt.previousRelease.version, COMPANION_RELEASE.version)
+
+  for (const mutate of [
+    (config: any) => { config.plugins = [{ id: 'foreign' }] },
+    (config: any) => { config.idle = { lock: 1 } },
+    (config: any) => { config.bar.layout.right.push({ id: WORKBENCH_PLUGIN_ID }) },
+  ]) {
+    const original = fake.configuration.shellJsonBytes()
+    const config = JSON.parse(original); mutate(config)
+    fake.configuration.setShellJsonBytes(JSON.stringify(config))
+    const before = fake.installationFingerprint()
+    await assert.rejects(() => installer.inspect({ operation: 'update', release: WORKBENCH_PREVIEW_RELEASE }))
+    assert.deepEqual(fake.installationFingerprint(), before)
+    fake.configuration.setShellJsonBytes(original)
+  }
+})
+
+test('live host checks plugin discovery API, not a fixed package version, before setup', () => {
+  const observed: string[][] = []
+  const command = { run(argv: readonly string[]) {
+    observed.push([...argv])
+    return argv[0] === 'pacman'
+      ? { status: 0, stdout: 'omarchy 4.0.4-1\nquickshell 0.3.1-1\n', stderr: '' }
+      : { status: 0, stdout: '[]', stderr: '' }
+  } }
+  assert.deepEqual(new LiveCompanionHost(command).compatibility(), { omarchy: '4.0.4-1', quickshell: '0.3.1-1' })
+  assert.deepEqual(observed[1], ['omarchy-shell', 'shell', 'listPlugins'])
+  const unsupported = { run(argv: readonly string[]) {
+    return argv[0] === 'pacman'
+      ? { status: 0, stdout: 'omarchy 4.0.4-1\nquickshell 0.3.1-1\n', stderr: '' }
+      : { status: 0, stdout: 'unknown', stderr: '' }
+  } }
+  assert.throws(() => new LiveCompanionHost(unsupported).compatibility(), /listPlugins/)
 })
 
 test('existing installer installs the preview and updates back to a receipt-backed release through fake ports', async () => {
@@ -100,8 +202,9 @@ test('fixture controller composes actual QML session fences, updates, stale, hid
   const view: any = {
     activeSession: null, projection: null, pluginGeneration: 7, pendingIntents: [], opened: false,
     destination: 'overview', checksOrigin: 'overview', menuOpen: false, projectListOpen: false,
-    confirmation: null, lastIntentResult: null, drafts: {}, startReview: null, draftError: '', confirmationText: '',
-    projectionWatchdog: { restart() {} }, confirmDialog: { close() {}, opened: false }, intentRequested() {},
+    confirmation: null, lastIntentResult: null, drafts: {}, startReview: null, draftError: '', confirmationText: '', confirmationNotice: '', confirmationAssociation: '',
+    projectionWatchdog: { restart() {} }, confirmReview: { open() {}, close() { view.confirmation = null; view.confirmationNotice = ''; view.confirmationAssociation = '' }, visible: false },
+    confirmationTimer: { restart() {}, stop() {} }, intentRequested() {},
   }
   view.root = view; vm.createContext(view)
   vm.runInContext([...source.matchAll(/^    function [\s\S]*?^    }/gm)].map(m => m[0]).join('\n'), view)

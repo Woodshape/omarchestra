@@ -1,12 +1,13 @@
 /**
  * Local Workbench v1 — additive Companion release.
  *
- * This package contains only its own active release (0.8.0). It does not copy
+ * This package contains only its own active release (0.10.0). It does not copy
  * the historical prototype catalog (0.2.0/0.3.0/0.4.0) and does not alter
  * prototype release bytes or defaults. The active release assets are read from
  * the plugin directory so the packaged bytes are always identical to the
  * source. The accepted 0.6.0 and 0.7.0 assets are retained separately so they
- * stay reproducible after the source changes.
+ * stay reproducible after the source changes. The exact installed 0.9.0
+ * assets are likewise retained separately before publishing 0.10.0.
  */
 
 import fs from 'node:fs'
@@ -35,25 +36,25 @@ const MANIFEST = JSON.stringify({
   author: 'Omarchestra',
   license: 'MIT',
   description: 'Presentation-only Local Workbench console for a committed team projection.',
-  kinds: ['panel'],
+  kinds: ['panel', 'bar-widget'],
   activation: 'on-demand',
   keepLoaded: true,
   companion: { protocol: WORKBENCH_PROTOCOL_ID },
-  entryPoints: { panel: 'WorkbenchHost.qml' },
+  entryPoints: { panel: 'WorkbenchHost.qml', barWidget: 'WorkbenchBarWidget.qml' },
+  barWidget: { displayName: 'Omarchestra', description: 'Open or hide the Workbench dock',
+    category: 'Development', allowMultiple: false, defaultSection: 'right' },
 })
 
 export const WORKBENCH_RELEASE: WorkbenchRelease = freezeWorkbenchRelease({
   pluginId: WORKBENCH_PLUGIN_ID,
   version: WORKBENCH_PLUGIN_VERSION,
   protocol: WORKBENCH_PROTOCOL_ID,
-  compatibility: {
-    omarchy: '4.0.3-1',
-    quickshell: '0.3.1-1',
-  },
+  compatibility: null, // ADR 0005: shell/plugin API and loaded release, not a package-version pin.
   assets: {
     'manifest.json': MANIFEST,
     'WorkbenchConsole.qml': readQml('WorkbenchConsole.qml'),
     'WorkbenchHost.qml': readQml('WorkbenchHost.qml'),
+    'WorkbenchBarWidget.qml': readQml('WorkbenchBarWidget.qml'),
     'WorkbenchOverview.qml': readQml('WorkbenchOverview.qml'),
     'WorkbenchAction.qml': readQml('WorkbenchAction.qml'),
     'WorkbenchTextArea.qml': readQml('WorkbenchTextArea.qml'),

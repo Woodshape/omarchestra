@@ -8,7 +8,7 @@ export const WORKBENCH_PREVIEW_RELEASE = {
   ...WORKBENCH_RELEASE,
   assets: {
     ...WORKBENCH_RELEASE.assets,
-    'manifest.json': JSON.stringify({ ...manifest, entryPoints: { panel: 'AgentConsole.qml' } }),
+    'manifest.json': JSON.stringify({ ...manifest, entryPoints: { ...manifest.entryPoints, panel: 'AgentConsole.qml' } }),
     'AgentConsole.qml': 'import QtQuick\n\nWorkbenchHost { }\n',
   },
 }

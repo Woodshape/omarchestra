@@ -11,7 +11,7 @@ import type { BindingRecord } from './store.ts'
 const TTL = 30_000, ACK_MS = 5_000, MAX_PROPOSALS = 16
 function reject(message: string): never { throw workbenchError('invalid_input', message, 'refresh the current Goal and exact Pi observation, then request a new Adoption') }
 export class FramedAdoptionManager extends AdoptionManager {
-  private readonly owner: WorkbenchAuthority
+  private owner: WorkbenchAuthority
   private readonly registry: BridgeRegistry
   private readonly proofs = new Set<string>()
   constructor(owner: WorkbenchAuthority, registry: BridgeRegistry) {
@@ -21,6 +21,12 @@ export class FramedAdoptionManager extends AdoptionManager {
     registry.setManagementHandlers({ onAdoptionAck: event => this.onAck(event), onBindingReceipt: event => this.onReceipt(event),
       onRecoveryProof: event => this.onRecovery(event), onRegistered: event => this.onRegistered(event),
       onDisconnected: event => this.onDisconnected(event), onInput: event => this.onInput(event) })
+  }
+  /** A new presentation session may replace the authority without replacing
+   * the lifetime bridge manager or discarding surviving Pi connections. */
+  rebind(owner: WorkbenchAuthority): void {
+    if (owner.runner !== this.owner.runner || owner.registry !== this.registry) throw new Error('framed_owner_mismatch')
+    this.owner = owner
   }
   override bind(): void { /* Framed registry is bound for the lifetime of its owner. */ }
   override unbind(): void { /* The owner closes the registry separately. */ }

@@ -358,8 +358,8 @@ change surface geometry.
 | Work and result | Goal when a Goal is selected, else Overview | returns to that parent |
 | Activity | Overview | returns to Overview |
 
-Escape always cancels an open confirmation, menu or Project list **before**
-navigating Back.
+Escape always dismisses an open inline confirmation review, menu or Project list **before**
+navigating Back. No confirmation overlay or desktop notification is used.
 
 ## Draft keys
 
@@ -396,7 +396,7 @@ at most 512 characters, serialized draft text at most 24,000 characters each.
   and closed with Escape; focus returns to the trigger. When the only committed
   action is disabled, the menu shows the runner's exact reason and has no
   focusable entry.
-- Escape cancels a confirmation/dialog first, then closes an open menu or Project
+- Escape dismisses an inline confirmation review first, then closes an open menu or Project
   list, then navigates Back. The handler lives inside the panel window on the
   panel surface: the layer-shell panel is a separate window, so a handler on the
   console root item would never receive a key event from panel focus.
@@ -451,8 +451,12 @@ belongs to an injected fake authority, never to QML or the production runner.
 - Intent feedback lifecycle: `submitted → acknowledged|rejected|unknown|stale|expired`.
   `acknowledged` means the runner committed the intent, not that Pi delivery
   succeeded.
-- Authority confirmations expire after 30 seconds and are invalidated by
-  session/generation/epoch/target identity or relevant revision changes.
+- Consequential actions show a focusable, scrollable exact-target review inline
+  in the fixed dock. It does not overlay other controls or auto-disappear on an
+  ordinary heartbeat. Authority confirmations expire after 30 seconds and are
+  invalidated by session/generation/epoch/target identity or relevant revision
+  changes; the review remains with confirmation disabled and a clear, dismissible
+  explanation until the user chooses the current action again.
 
 ## Privacy and authority
 

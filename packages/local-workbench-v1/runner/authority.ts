@@ -31,6 +31,8 @@ import type { WorkbenchRunner } from './runner.ts'
 import type { CheckRecord, EventRecord, GoalRecord, ProjectRecord } from './store.ts'
 import { AdoptionManager } from './adoption.ts'
 import { FramedAdoptionManager } from './framed-adoption.ts'
+import { buildSnapshot } from './projection.ts'
+import { PAGE_COLLECTIONS, WORKBENCH_PAGE_SIZE, type PageCollection } from '../console/schema.ts'
 import type { BridgeRegistry } from './bridge-registry.ts'
 import { validateAuthorityIntent } from './intent-envelope.ts'
 import type { WorkbenchIntent } from '../console/schema.ts'
@@ -96,6 +98,7 @@ export interface AuthorityOptions {
   transport?: () => ObserverPort | null
   /** Owner-only S4 registry; legacy injected object port is tests-only. */
   registry?: BridgeRegistry
+  framedAdoption?: FramedAdoptionManager
 }
 
 export interface Observation {
@@ -119,6 +122,8 @@ export class WorkbenchAuthority {
   private readonly transport: () => ObserverPort | null
   readonly registry: BridgeRegistry | null
   private observations = new Map<string, Observation>()
+  private pages = new Map<PageCollection, number>()
+  pageOffset(collection: PageCollection): number | null { return this.pages.get(collection) ?? null }
   private registrations = new Map<string, RegistrationRecord>()
   private projectContexts = new Map<string, ProjectContextStatus>()
   private revision: number
@@ -141,7 +146,9 @@ export class WorkbenchAuthority {
     this.cursor = Math.max(0, options.runner.store.maxCursor())
     // Startup revalidation changes availability, never the saved repository binding.
     for (const project of this.runner.store.listProjects()) this.refreshProjectContext(project)
-    this.adoption = this.registry ? new FramedAdoptionManager(this, this.registry) : new AdoptionManager(this, () => this.transport(), options.ackDeadlineMs)
+    if (options.framedAdoption && !this.registry) throw new Error('framed_manager_requires_registry')
+    this.adoption = options.framedAdoption ?? (this.registry ? new FramedAdoptionManager(this, this.registry) : new AdoptionManager(this, () => this.transport(), options.ackDeadlineMs))
+    options.framedAdoption?.rebind(this)
     const port = this.transport()
     if (port !== null) {
       port.subscribe(event => this.onTransportEvent(event))
@@ -356,6 +363,8 @@ export class WorkbenchAuthority {
       this.runner.store.setMeta('selected_project_id', project.projectId)
       this.runner.store.setMeta('selected_goal_id', goal.goalId)
     })
+    const index = this.runner.store.listGoals(project.projectId).findIndex(item => item.goalId === goal.goalId)
+    this.pages.set('goals', Math.floor(index / WORKBENCH_PAGE_SIZE) * WORKBENCH_PAGE_SIZE)
     return goal
   }
 
@@ -431,6 +440,7 @@ export class WorkbenchAuthority {
       this.runner.store.setMeta('selected_project_id', project.projectId)
       this.runner.store.setMeta('selected_goal_id', '')
     })
+    for (const collection of ['goals', 'managedAgents', 'observedSessions', 'retiredRuns', 'checks'] as const) this.pages.delete(collection)
   }
 
   selectGoal(goalId: unknown): void {
@@ -448,6 +458,9 @@ export class WorkbenchAuthority {
     this.commit('goal_selected', { goalId: goalIdText }, () => {
       this.runner.store.setMeta('selected_goal_id', goalIdText)
     })
+    for (const collection of ['managedAgents', 'observedSessions', 'retiredRuns'] as const) this.pages.delete(collection)
+    const index = this.runner.store.listGoals(goal.projectId).findIndex(item => item.goalId === goalIdText)
+    this.pages.set('goals', Math.floor(index / WORKBENCH_PAGE_SIZE) * WORKBENCH_PAGE_SIZE)
   }
 
   // -------------------------------------------------------------------------
@@ -521,11 +534,12 @@ export class WorkbenchAuthority {
     }
     let committed = false
     try {
-      if (['inspect_project', 'confirm_register_project', 'select_project', 'select_goal', 'create_goal', 'create_check', 'configure_checks', 'request_adoption', 'authorize_adoption', 'take_control'].includes(intent.kind)) {
+      if (['inspect_project', 'confirm_register_project', 'select_project', 'select_goal', 'create_goal', 'create_check', 'configure_checks', 'request_adoption', 'authorize_adoption', 'take_control', 'navigate_page'].includes(intent.kind)) {
         const context = { revision: this.revision, cursor: this.cursor, afterCommit: [] as Array<() => void> }
         const registrations = new Map(this.registrations)
         const previousProjectContexts = new Map(this.projectContexts)
         const observations = new Map(this.observations)
+        const pages = new Map(this.pages)
         const restoreAdoption = this.adoption.checkpointCommandState()
         this.commandContext = context
         let outcome: IntentOutcome
@@ -548,6 +562,7 @@ export class WorkbenchAuthority {
             else if (status.available) this.projectContexts.set(id, previous)
           }
           this.observations = observations
+          this.pages = pages
           restoreAdoption()
           throw error
         } finally { this.commandContext = null }
@@ -638,6 +653,21 @@ export class WorkbenchAuthority {
         this.adoption.authorize(String(intent.payload.proposalId))
         return { status: 'acknowledged', reasonCode: null, reason: null, committedRevision: this.revision }
       }
+      case 'navigate_page': {
+        const collection = intent.payload.collection as PageCollection
+        const offset = Number(intent.payload.offset)
+        if (!PAGE_COLLECTIONS.includes(collection) || !Number.isSafeInteger(offset) || offset < 0 || offset % WORKBENCH_PAGE_SIZE !== 0) {
+          throw workbenchError('invalid_input', 'invalid collection page', 'use a current enabled page action')
+        }
+        const current = buildSnapshot({ authority: this, adoption: this.adoption, connection: 'connected' }).pages?.[collection]
+        if (!current || (offset !== current.offset - WORKBENCH_PAGE_SIZE && offset !== current.offset + WORKBENCH_PAGE_SIZE)
+            || (offset < current.offset ? !current.hasPrevious : !current.hasNext)) {
+          throw workbenchError('invalid_input', 'requested page is not adjacent or no longer available', 'refresh the current projection')
+        }
+        this.pages.set(collection, offset)
+        this.commit('page_selected', { collection, offset }, () => {})
+        return { status: 'acknowledged', reasonCode: null, reason: null, committedRevision: this.revision }
+      }
       case 'take_control': {
         this.adoption.takeControl(String(intent.payload.agentRunId))
         return { status: 'acknowledged', reasonCode: null, reason: null, committedRevision: this.revision }
@@ -645,7 +675,7 @@ export class WorkbenchAuthority {
       case 'present':
       case 'recover':
         return { status: 'rejected', reasonCode: 'handler_unavailable', reason: intent.kind === 'recover'
-          ? 'Challenged surviving-process recovery is not implemented; reconnecting is not recovery proof.'
+          ? 'Manual recovery is unavailable. A surviving Pi extension must prove its exact identity on a fresh bridge connection; reconnect alone grants no authority.'
           : 'Exact native terminal presentation is not implemented; no window was opened.', committedRevision: null }
       default:
         return {

@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Local Workbench v1 Phase 2 acceptance gate (P2.2-P2.5).
+# Local Workbench v1 Phase 2 disposable engineering acceptance gate (P2.2-P2.5, S6).
 #
 # One foreground run over the runnable bounded management journey: Project
 # inspection and confirmed registration, Team Goals, Project-scoped checks,
@@ -58,6 +58,7 @@ printf '%s\n' '== durable runner foundation (P2.1) =='
 run_node "${flags[@]}" --test \
     "$root/test/runner-foundation.test.ts" \
     "$root/test/phase-2-owned-resources.test.ts" \
+    "$root/test/phase-2-runtime-reboot.test.ts" \
     "$root/test/phase-2-fence-operations.test.ts"
 
 printf '%s\n' '== runnable management and adoption journey (P2.2-P2.5) =='
@@ -68,6 +69,8 @@ run_node "${flags[@]}" --test \
     "$root/test/phase-2-real-bridge.test.ts" \
     "$root/test/phase-2-challenged-ack-seam.test.ts" \
     "$root/test/phase-2-framed-adoption.test.ts" \
+    "$root/test/phase-2-native-owner.test.ts" \
+    "$root/test/owner-service.test.ts" \
     "$root/test/phase-2-command-transactions.test.ts" \
     "$root/test/phase-2-retirement-outcomes.test.ts" \
     "$root/test/phase-2-adoption-outcomes.test.ts" \
@@ -94,17 +97,23 @@ run_node "${flags[@]}" --test \
     "$root/test/qml-boundary.test.mjs" \
     "$root/test/retained-release.test.mjs"
 
+printf '%s\n' '== disposable Companion migration, receipt and release tests =='
+run_node "${flags[@]}" --test \
+    "$root/../../prototypes/first-vertical-slice/companion/test/installation.test.ts" \
+    "$root/../../prototypes/first-vertical-slice/companion/test/bar-upgrade.test.ts" \
+    "$root/../../manual/test/workbench-preview.test.ts" \
+    "$root/../../manual/test/workbench-service-toggle.test.ts"
+
 printf '%s\n' '== actual QML render and intent capture (offscreen) =='
 qt_runner="${QMLTESTRUNNER_BIN:-/usr/lib/qt6/bin/qmltestrunner}"
 if [[ -x "$qt_runner" ]]; then
     QT_BIN="$qt_runner" run_node "${flags[@]}" --test \
-        "$root/test/rendered-layout.test.ts"
+        "$root/test/rendered-layout.test.ts" \
+    "$root/test/bar-widget.test.ts"
 else
     echo 'QML offscreen render: UNAVAILABLE (qmltestrunner not found) - limitation, not PASS' >&2
     exit 1
 fi
 
-printf '%s\n' '== Phase 2 automated subset: PASS =='
-printf '%s\n' 'Phase 2 acceptance gate: BLOCKED. S5 framed management is fake-host tested; native owner entry, Companion negotiation and complete composed acceptance remain unavailable.' >&2
-printf '%s\n' 'See docs/design/local-workbench-v1-phase-2-integration-result.md. Passing the subset is not complete management acceptance.' >&2
-exit 1
+printf '%s\n' 'Phase 2 acceptance gate: S6 engineering PASS (native owner, exact Companion negotiation, framed fake Pi and real offscreen QML)'
+printf '%s\n' 'Human management walkthrough and independent review are separate; no live Pi or Companion was installed or contacted.'

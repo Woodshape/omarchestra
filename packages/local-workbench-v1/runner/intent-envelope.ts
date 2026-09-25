@@ -151,7 +151,7 @@ const TARGET_PAYLOAD_FIELDS: Readonly<Record<string, string>> = {
   retire: 'agentRunId',
   purge: 'agentRunId',
 }
-const NULL_TARGET_KINDS = ['inspect_project', 'create_goal', 'create_check']
+const NULL_TARGET_KINDS = ['inspect_project', 'create_goal', 'create_check', 'navigate_page']
 // Assignment actions retain a Run target plus a separate Assignment reference.
 // Phase 2 has no Assignment resolver: all of these actions remain unavailable.
 const EXACT_TARGET_KINDS = [

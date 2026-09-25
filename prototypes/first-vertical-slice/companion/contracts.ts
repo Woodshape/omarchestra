@@ -31,10 +31,8 @@ export const SUPPORTED_COMPATIBILITY = Object.freeze({
 } as const)
 
 /**
- * Host pairs accepted in receipts and historical release records: the
- * currently supported pair plus its immediate prototype predecessor.
- * Receipts are immutable historical records, so a host bump must not
- * invalidate receipts written under the prior pin.
+ * Historical prototype pairs, retained for evidence. These are NOT an
+ * install allowlist for the capability-negotiated active Workbench release.
  */
 export const ACCEPTED_COMPATIBILITIES = Object.freeze([
   SUPPORTED_COMPATIBILITY,
@@ -328,16 +326,12 @@ export interface CompanionShellPort {
 }
 
 export function assertSupportedCompatibility(value: CompanionCompatibility): void {
-  const accepted = ACCEPTED_COMPATIBILITIES.some(
-    (pair) => pair.omarchy === value.omarchy && pair.quickshell === value.quickshell,
-  )
-  if (!accepted) {
-    throw new CompanionCompatibilityError(
-      `unsupported host compatibility Omarchy ${String(value.omarchy)}, Quickshell ${String(value.quickshell)}; ` +
-      `this prototype accepts exactly ${ACCEPTED_COMPATIBILITIES.map(
-        (pair) => `Omarchy ${pair.omarchy} and Quickshell ${pair.quickshell}`,
-      ).join(' or ')}`,
-    )
+  // A version is an audit/freshness fact, not evidence of a working plugin API.
+  // The live adapter probes the read-only shell API; loaded component methods
+  // are negotiated separately. Keep receipt values bounded and unambiguous.
+  if (typeof value?.omarchy !== 'string' || !/^[0-9A-Za-z][0-9A-Za-z.+_-]{0,63}$/.test(value.omarchy)
+      || typeof value?.quickshell !== 'string' || !/^[0-9A-Za-z][0-9A-Za-z.+_-]{0,63}$/.test(value.quickshell)) {
+    throw new CompanionCompatibilityError('host package versions must be bounded identifiers')
   }
 }
 
@@ -558,7 +552,8 @@ export interface CompanionRelease {
   pluginId: string
   version: string
   protocol: typeof COMPANION_PROTOCOL_ID
-  compatibility: CompanionCompatibility
+  /** null means capability-negotiated; non-null preserves historical release pins. */
+  compatibility: CompanionCompatibility | null
   assets: Readonly<Record<string, string>>
 }
 
@@ -768,12 +763,13 @@ export interface CompanionRecoverySink {
 export function validateCompanionRelease(input: unknown): CompanionRelease {
   const value = exactObject(input, ['pluginId', 'version', 'protocol', 'compatibility', 'assets'], 'Companion release')
   requireProtocol(value.protocol, 'release protocol')
-  const compatibilityValue = exactObject(value.compatibility, ['omarchy', 'quickshell'], 'release compatibility')
-  const compatibility = {
+  const compatibilityValue = value.compatibility === null ? null
+    : exactObject(value.compatibility, ['omarchy', 'quickshell'], 'release compatibility')
+  const compatibility = compatibilityValue === null ? null : {
     omarchy: requireVersion(compatibilityValue.omarchy, 'release Omarchy compatibility'),
     quickshell: requireVersion(compatibilityValue.quickshell, 'release Quickshell compatibility'),
   }
-  assertSupportedCompatibility(compatibility)
+  if (compatibility !== null) assertSupportedCompatibility(compatibility)
   const assetsValue = requirePlainObject(value.assets, 'release assets')
   const entries = Object.entries(assetsValue)
   if (entries.length === 0 || entries.length > COMPANION_LIMITS.releaseAssetCount) {
@@ -810,7 +806,7 @@ export function validateCompanionRelease(input: unknown): CompanionRelease {
 
 export function freezeCompanionRelease(input: unknown): CompanionRelease {
   const release = validateCompanionRelease(input)
-  Object.freeze(release.compatibility)
+  if (release.compatibility !== null) Object.freeze(release.compatibility)
   Object.freeze(release.assets)
   return Object.freeze(release)
 }

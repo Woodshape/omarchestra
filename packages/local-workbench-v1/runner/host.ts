@@ -1,5 +1,6 @@
-/** Runner/presentation composition. No installed desktop or Pi bridge is
- * implied by this injected port; native entry and delivery remain gated.
+/** Runner/presentation composition. This injected port alone implies no
+ * installed desktop or Pi bridge; native-owner.ts supplies their composition.
+ * Assignment delivery remains unavailable in Phase 2.
  */
 import { createPresentationShell, type PresentationPort } from '../console/presentation-shell.ts'
 import type { WorkbenchSource, WorkbenchSourceHandler, WorkbenchIntent, WorkbenchIntentSink } from '../console/live-projection-adapter.ts'
@@ -101,6 +102,7 @@ export interface WorkbenchHostOptions {
   view: PresentationPort
   connection?: WorkbenchSnapshot['connection']
   clock?: () => number
+  onHide?: () => void
 }
 export interface WorkbenchHost {
   readonly shell: ReturnType<typeof createPresentationShell>
@@ -118,12 +120,17 @@ export function createWorkbenchHost(options: WorkbenchHostOptions): WorkbenchHos
     source.publishOutcome({ intentId: intent.intentId, sessionId: intent.sessionId, target: intent.target,
       originRevision: intent.expectedRevision, status: outcome.status, reasonCode: outcome.reasonCode, committedRevision: outcome.committedRevision })
   }
-  const shell = createPresentationShell({ source: source.source, intentSink, view: options.view, clock: options.clock })
+  const shell = createPresentationShell({ source: source.source, intentSink, view: options.view,
+    clock: options.clock, beforeIntent: () => source.publish(), onHide: options.onHide })
   return {
     shell, source,
     start: () => shell.start(),
-    tick() { shell.tick(); source.publish() },
-    stop() { shell.close(); source.close(null) },
+    // Reconcile the authoritative source before draining user clicks. An
+    // otherwise healthy owner may have spent >2s in shell IPC or scheduling;
+    // polling a queued click first would treat that timing gap as lost source
+    // authority, throw, and close the entire dock instead of refreshing it.
+    tick() { source.publish(); shell.tick() },
+    stop() { try { shell.close() } finally { source.close(null) } },
   }
 }
 export function snapshotOf(authority: WorkbenchAuthority, connection: WorkbenchSnapshot['connection'] = 'connected'): WorkbenchSnapshot {

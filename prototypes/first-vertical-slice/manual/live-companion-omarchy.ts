@@ -335,6 +335,9 @@ export class LiveCompanionShell implements CompanionInstallationShellPort, Compa
     return this.commandLog.map((argv) => [...argv])
   }
 
+  /** Read-only discovery probe required before any authorized setup. */
+  probeDiscovery(): void { this.listPlugins() }
+
   private listPlugins(): ListedPlugin[] {
     const argv = ['omarchy-shell', 'shell', 'listPlugins']
     this.commandLog.push([...argv])
@@ -654,6 +657,27 @@ export class LiveCompanionConfiguration implements CompanionConfigurationPort {
       throw new CompanionInstallationError('configuration_conflict', 'live shell.json plugins must be an array')
     }
 
+    // The same Companion may move from plugins[] to an Omarchy bar-widget
+    // entry during an explicitly authorized release update. Count both
+    // locations so duplicate or foreign placements fail the receipt check.
+    const bar = value.bar as Record<string, unknown> | undefined
+    const layout = bar && typeof bar === 'object' && !Array.isArray(bar)
+      ? bar.layout as Record<string, unknown> | undefined : undefined
+    if (layout && typeof layout === 'object' && !Array.isArray(layout)) {
+      for (const section of ['left', 'center', 'right']) {
+        const widgets = layout[section]
+        if (!Array.isArray(widgets)) continue
+        for (const widget of widgets) {
+          if (widget && typeof widget === 'object' && !Array.isArray(widget)
+              && (widget as Record<string, unknown>).id === COMPANION_PLUGIN_ID) {
+            const fields = Object.keys(widget as Record<string, unknown>)
+            if (fields.length !== 1) throw new CompanionInstallationError('configuration_conflict', 'owned bar widget has unexpected settings')
+            add(COMPANION_PLUGIN_ID, undefined, true)
+          }
+        }
+      }
+    }
+
     if (Array.isArray(value.enabledPlugins)) {
       for (const pluginId of value.enabledPlugins) add(pluginId, undefined, true)
     } else if (value.enabledPlugins !== undefined) {
@@ -726,9 +750,14 @@ export class LiveCompanionHost implements CompanionHostPort {
     if (omarchy === undefined || quickshell === undefined) {
       throw new CompanionInstallationError(
         'unsupported_compatibility',
-        'pacman did not report exact omarchy and quickshell package versions',
+        'pacman did not report omarchy and quickshell package versions for audit/freshness',
       )
     }
+    // Package versions alone do not establish compatibility. This is a
+    // read-only probe of the installed shell's third-party plugin discovery
+    // API; the installer verifies ownership, then runtime negotiates the
+    // loaded panel's exact methods and presentation contract.
+    new LiveCompanionShell(this.command).probeDiscovery()
     return { omarchy, quickshell }
   }
 

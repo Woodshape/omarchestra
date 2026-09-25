@@ -90,6 +90,8 @@ type InstallationPorts = CompanionInstallationPorts & { faults?: FaultPort }
 interface ValidatedReceipt {
   value: CompanionInstallationReceipt
   observation: ReceiptObservation
+  /** Only an explicitly authorized update may carry a verified unrelated bar change forward. */
+  rebasedPreimageBytes: string | null
 }
 
 function isPlainObject(value: unknown): value is Record<string, unknown> {
@@ -136,6 +138,52 @@ function stableJson(value: unknown): string {
   const encoded = JSON.stringify(stableValue(value))
   if (encoded === undefined) throw new CompanionInstallationError('invalid_plan', 'value is not JSON serializable')
   return encoded
+}
+
+/** A receipt is never rewritten to excuse drift. For an authorized update only,
+ * derive the *next* uninstall preimage from a verified bar-only edit. Reject any
+ * other shell/config change, including edits to our plugin entry or formatting.
+ */
+function rebaseUnrelatedBar(
+  beforeBytes: string, afterBytes: string, currentBytes: string, pluginRoot: string,
+): string | null {
+  try {
+    const before = JSON.parse(beforeBytes), after = JSON.parse(afterBytes), current = JSON.parse(currentBytes)
+    if (!isPlainObject(before) || !isPlainObject(after) || !isPlainObject(current)
+        || !isPlainObject(after.bar) || !isPlainObject(current.bar)
+        || stableJson(after.bar) === stableJson(current.bar)
+        || JSON.stringify(current.bar).includes(COMPANION_PLUGIN_ID)) return null
+    const mode = [
+      (value: unknown) => JSON.stringify(value),
+      (value: unknown) => `${JSON.stringify(value, null, 2)}\n`,
+    ].find(render => render(before) === beforeBytes && render(after) === afterBytes && render(current) === currentBytes)
+    if (!mode) return null
+    const withoutBar = (doc: Record<string, unknown>) => {
+      const { bar, ...rest } = doc
+      return stableJson(rest)
+    }
+    if (withoutBar(after) !== withoutBar(current)) return null
+    // The previous installation must have changed only our own plugin entry.
+    const removeOwned = (doc: Record<string, unknown>) => {
+      const copy = structuredClone(doc)
+      if (Array.isArray(copy.plugins)) copy.plugins = copy.plugins.filter((entry: unknown) =>
+        !isPlainObject(entry) || entry.id !== COMPANION_PLUGIN_ID)
+      if (Array.isArray(copy.enabledPlugins)) copy.enabledPlugins = copy.enabledPlugins.filter((id: unknown) => id !== COMPANION_PLUGIN_ID)
+      if (isPlainObject(copy.pluginSources)) delete copy.pluginSources[COMPANION_PLUGIN_ID]
+      return copy
+    }
+    const ownedInPost = (Array.isArray(after.plugins) && after.plugins.some((entry: unknown) =>
+      isPlainObject(entry) && Object.keys(entry).length === 1 && entry.id === COMPANION_PLUGIN_ID))
+      || (Array.isArray(after.enabledPlugins) && after.enabledPlugins.includes(COMPANION_PLUGIN_ID))
+    if (!ownedInPost || stableJson(removeOwned(after)) !== stableJson(before)) return null
+    if (Array.isArray(after.plugins) && after.plugins.filter((entry: unknown) =>
+      isPlainObject(entry) && entry.id === COMPANION_PLUGIN_ID).length > 1) return null
+    if (isPlainObject(after.pluginSources) && Object.hasOwn(after.pluginSources, COMPANION_PLUGIN_ID)
+        && after.pluginSources[COMPANION_PLUGIN_ID] !== pluginRoot) return null
+    const rebased = structuredClone(before)
+    rebased.bar = current.bar
+    return mode(rebased)
+  } catch { return null }
 }
 
 function requireObject(
@@ -302,6 +350,42 @@ function shellEntryIsExact(snapshot: CompanionConfigurationSnapshot, pluginId: s
   return entries.length === 1 && entries[0].enabled && entries[0].source === pluginRoot
 }
 
+function hasOwnedBarWidget(release: CompanionRelease | null): boolean {
+  if (!release) return false
+  try {
+    const manifest = JSON.parse(release.assets['manifest.json'] ?? '')
+    return manifest?.id === release.pluginId && manifest?.version === release.version
+      && Array.isArray(manifest.kinds) && manifest.kinds.includes('bar-widget')
+  } catch { return false }
+}
+
+/** Only a uniquely placed, settings-free owned widget can be subtracted when
+ * validating the prior receipt's unrelated bar edit. Never erase foreign data. */
+function barWithoutOwnedWidget(bytes: string, pluginRoot: string): string | null {
+  try {
+    const value = JSON.parse(bytes)
+    if (!isPlainObject(value) || !isPlainObject(value.bar) || !isPlainObject(value.bar.layout)) return null
+    const layout = value.bar.layout
+    let count = 0
+    for (const section of ['left', 'center', 'right']) {
+      if (layout[section] === undefined) continue
+      if (!Array.isArray(layout[section])) return null
+      layout[section] = layout[section].filter((entry: unknown) => {
+        if (!isPlainObject(entry) || entry.id !== COMPANION_PLUGIN_ID) return true
+        if (Object.keys(entry).length !== 1) throw new Error('widget settings drift')
+        count++
+        return false
+      })
+    }
+    if (count !== 1 || (Array.isArray(value.plugins) && value.plugins.some((entry: unknown) => isPlainObject(entry) && entry.id === COMPANION_PLUGIN_ID))) return null
+    if (isPlainObject(value.pluginSources) && Object.hasOwn(value.pluginSources, COMPANION_PLUGIN_ID)) {
+      if (value.pluginSources[COMPANION_PLUGIN_ID] !== pluginRoot) return null
+      delete value.pluginSources[COMPANION_PLUGIN_ID]
+    }
+    return bytes === JSON.stringify(JSON.parse(bytes)) ? JSON.stringify(value) : `${JSON.stringify(value, null, 2)}\n`
+  } catch { return null }
+}
+
 function releaseDigest(ports: InstallationPorts, release: CompanionRelease | null): string {
   return ports.digest.stableDigest(release)
 }
@@ -335,7 +419,7 @@ export class CompanionInstallation {
     let release: CompanionRelease | null = null
     if (operation !== 'uninstall') {
       release = freezeCompanionRelease(request.release)
-      if (!sameCompatibility(release.compatibility, compatibility)) {
+      if (release.compatibility !== null && !sameCompatibility(release.compatibility, compatibility)) {
         throw new CompanionCompatibilityError(
           `release compatibility does not match host compatibility`,
         )
@@ -354,7 +438,13 @@ export class CompanionInstallation {
       inspectedAt: this.ports.clock.now(),
     }
     const planDigest = this.ports.digest.stableDigest(base)
-    return deepFreeze({ ...base, planDigest })
+    const plan = deepFreeze({ ...base, planDigest })
+    // Fail before the human confirmation, not after it, for an active release
+    // update whose owned receipt or shell configuration cannot be reconciled.
+    if (operation === 'update' && release?.compatibility === null) {
+      await this.validateOperationState(plan, state)
+    }
+    return plan
   }
 
   /** Execute one exact authorized plan, recovering or reporting incomplete recovery on failure. */
@@ -591,7 +681,8 @@ export class CompanionInstallation {
       return null
     }
 
-    const receipt = await this.validateReceipt(state.receipt, state)
+    const receipt = await this.validateReceipt(state.receipt, state,
+      plan.operation === 'update' && plan.release?.compatibility === null)
     if (!shellEntryIsExact(state.configuration, plan.pluginId, this.ports.paths.pluginRoot)) {
       throw new CompanionInstallationError('configuration_conflict', 'owned plugin enablement is absent or conflicts')
     }
@@ -612,6 +703,7 @@ export class CompanionInstallation {
   private async validateReceipt(
     observation: ReceiptObservation | null,
     state: StateSnapshot,
+    allowUnrelatedBarRebase = false,
   ): Promise<ValidatedReceipt> {
     if (observation === null) throw new CompanionInstallationError('foreign_installation', 'installation receipt is missing')
     await this.assertNoSymlinkComponents(this.ports.paths.receiptPath)
@@ -648,15 +740,13 @@ export class CompanionInstallation {
       quickshell: requireString(compatibilityValue.quickshell, 'receipt Quickshell compatibility'),
     }
     this.assertHostCompatibility(compatibility)
-    if (!sameCompatibility(compatibility, release.compatibility)) {
+    if (release.compatibility !== null && !sameCompatibility(compatibility, release.compatibility)) {
       throw new CompanionInstallationError('invalid_receipt', 'receipt compatibility differs from its release')
     }
-    // The receipt compatibility is a historical record validated against the
-    // accepted set above; the CURRENT host is separately asserted against the
-    // plan's release compatibility in inspect(). Comparing the receipt's
-    // recorded host to the live host here would make every operation —
-    // including the very update that adopts a new host version — impossible
-    // after a host bump.
+    // For a capability-negotiated release the receipt records the host at
+    // installation, not a version pin. Its ownership/assets remain verifiable
+    // after a host upgrade. The current host is probed and recorded separately
+    // on each inspect; execute checks that exact observation for freshness.
     const planDigest = assertSha256(requireString(value.planDigest, 'receipt plan digest'), 'receipt plan digest')
     const installedAt = requireString(value.installedAt, 'receipt installedAt')
     const shellJsonValue = requireObject(value.shellJson, 'receipt shellJson must be an object', 'invalid_receipt')
@@ -674,8 +764,17 @@ export class CompanionInstallation {
     if (state.configuration.shellJsonSha256 !== this.ports.digest.sha256(state.configuration.shellJsonBytes)) {
       throw new CompanionInstallationError('configuration_conflict', 'configuration adapter returned an invalid shell.json digest')
     }
+    let rebasedPreimageBytes: string | null = null
     if (state.configuration.shellJsonBytes !== shellJson.postimageBytes) {
-      throw new CompanionInstallationError('stale_precondition', 'shell.json no longer matches the receipt postimage')
+      if (allowUnrelatedBarRebase) {
+        rebasedPreimageBytes = rebaseUnrelatedBar(
+          shellJson.preimageBytes, shellJson.postimageBytes,
+          state.configuration.shellJsonBytes, this.ports.paths.pluginRoot,
+        )
+      }
+      if (rebasedPreimageBytes === null) {
+        throw new CompanionInstallationError('stale_precondition', 'shell.json no longer matches the receipt postimage (not a safe unrelated bar edit)')
+      }
     }
 
     if (!Array.isArray(value.assets) || value.assets.length !== Object.keys(release.assets).length) {
@@ -736,7 +835,7 @@ export class CompanionInstallation {
       shellJson,
     }
     await this.validateInstalledTree(state.tree, normalized)
-    return { value: normalized, observation }
+    return { value: normalized, observation, rebasedPreimageBytes }
   }
 
   private async validateInstalledTree(tree: TreeSnapshot, receipt: CompanionInstallationReceipt): Promise<void> {
@@ -804,10 +903,13 @@ export class CompanionInstallation {
       || manifest.id !== release.pluginId
       || manifest.version !== release.version
       || !Array.isArray(manifest.kinds)
-      || manifest.kinds.length !== 1
-      || manifest.kinds[0] !== 'panel'
+      || !(['panel'].join(',') === manifest.kinds.join(',')
+        || ['panel', 'bar-widget'].join(',') === manifest.kinds.join(','))
       || !isPlainObject(manifest.entryPoints)
       || manifest.entryPoints.panel !== 'AgentConsole.qml'
+      || (manifest.kinds.includes('bar-widget')
+        && (manifest.entryPoints.barWidget !== 'WorkbenchBarWidget.qml'
+          || typeof release.assets['WorkbenchBarWidget.qml'] !== 'string'))
     ) {
       throw new CompanionInstallationError('invalid_release', 'release manifest does not describe the exact panel release')
     }
@@ -898,6 +1000,11 @@ export class CompanionInstallation {
   ): Promise<void> {
     const release = plan.release
     if (release === null || previousReceipt === null) throw new CompanionInstallationError('invalid_plan', `${operation} release or receipt is missing`)
+    // Omarchy's supported enable/put keeps an already-enabled panel in
+    // plugins[] even when its new manifest gains bar-widget. Remove only the
+    // exact receipt-owned old entry before replacing assets, so enable places
+    // the new manifest in bar.layout. Failure recovery restores the old entry.
+    if (hasOwnedBarWidget(release) !== hasOwnedBarWidget(previousReceipt.value.release)) await this.supportedDisable(plan)
     const currentFiles = fileEntries(prior.tree, this.ports.paths.pluginRoot)
     const expected = expectedAssetPaths(release)
     const expectedDirectoriesForRelease = expectedDirectories(release)
@@ -934,10 +1041,20 @@ export class CompanionInstallation {
     this.checkpoint('after-shell-enable')
     const afterEnable = await this.ports.configuration.inspect()
     this.assertEnabledConfiguration(afterEnable)
+    if (previousReceipt.rebasedPreimageBytes !== null) {
+      const unchangedBar = hasOwnedBarWidget(release)
+        ? barWithoutOwnedWidget(afterEnable.shellJsonBytes, this.ports.paths.pluginRoot)
+        : rebaseUnrelatedBar(previousReceipt.value.shellJson.preimageBytes,
+          previousReceipt.value.shellJson.postimageBytes,
+          afterEnable.shellJsonBytes, this.ports.paths.pluginRoot)
+      if (unchangedBar !== previousReceipt.rebasedPreimageBytes) {
+        throw new CompanionInstallationError('postcondition_failed', 'shell changed outside the authorized bar rebase during update')
+      }
+    }
     const receipt = await this.buildReceipt(
       plan,
       previousReceipt.value.release,
-      previousReceipt.value.shellJson.preimageBytes,
+      previousReceipt.rebasedPreimageBytes ?? previousReceipt.value.shellJson.preimageBytes,
       afterEnable.shellJsonBytes,
     )
     await this.writeReceipt(plan, receipt, previousReceipt.observation)
@@ -1466,14 +1583,10 @@ export class CompanionInstallation {
     expected: StateSnapshot,
     restoredStagePaths: ReadonlySet<string> = new Set(),
   ): Promise<void> {
-    if (expected.configuration.shellJsonBytes !== prior.configuration.shellJsonBytes) {
-      const priorEnabled = shellHasPlugin(prior.configuration, plan.pluginId)
-      if (priorEnabled) await this.supportedEnable(plan)
-      else await this.supportedDisable(plan)
-      const configuration = await this.ports.configuration.inspect()
-      if (configuration.shellJsonBytes !== prior.configuration.shellJsonBytes) {
-        throw new CompanionError('incomplete_recovery', 'supported shell operation did not restore shell.json bytes')
-      }
+    const configurationChanged = expected.configuration.shellJsonBytes !== prior.configuration.shellJsonBytes
+    if (configurationChanged) {
+      const current = await this.ports.configuration.inspect()
+      if (shellHasPlugin(current, plan.pluginId)) await this.supportedDisable(plan)
     }
 
     const currentTree = await this.captureTree()
@@ -1557,6 +1670,17 @@ export class CompanionInstallation {
         }
       } else {
         throw new CompanionError('incomplete_recovery', `cannot restore non-file path ${priorEntry.identity.path}`)
+      }
+    }
+
+    if (configurationChanged) {
+      if (shellHasPlugin(prior.configuration, plan.pluginId)) {
+        await this.supportedRescan(plan)
+        await this.supportedEnable(plan)
+      }
+      const configuration = await this.ports.configuration.inspect()
+      if (configuration.shellJsonBytes !== prior.configuration.shellJsonBytes) {
+        throw new CompanionError('incomplete_recovery', 'supported shell operation did not restore shell.json bytes')
       }
     }
 

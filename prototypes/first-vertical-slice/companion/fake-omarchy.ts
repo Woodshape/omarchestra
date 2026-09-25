@@ -400,18 +400,22 @@ class FakeConfiguration implements CompanionConfigurationPort {
     const document = this.parse()
     const enabled = document.enabledPlugins as unknown[]
     const sources = document.pluginSources as Record<string, unknown>
+    const bar = document.bar as { layout?: Record<string, Array<{ id: string }>> } | undefined
+    const barIds = bar?.layout ? Object.values(bar.layout).flat().map(entry => entry.id) : []
     const ids = [...new Set([
       ...enabled.map((value) => String(value)),
       ...Object.keys(sources),
+      ...barIds,
     ])]
     const entries: PluginConfigurationEntry[] = []
     for (const pluginId of ids) {
       entries.push({
         pluginId,
         source: typeof sources[pluginId] === 'string' ? sources[pluginId] as string : null,
-        enabled: enabled.some((value) => value === pluginId),
+        enabled: enabled.some((value) => value === pluginId) || barIds.includes(pluginId),
       })
-      const duplicateCount = enabled.filter((value) => value === pluginId).length - 1
+      const duplicateCount = enabled.filter((value) => value === pluginId).length
+        + barIds.filter(value => value === pluginId).length - 1
       for (let index = 0; index < duplicateCount; index += 1) {
         entries.push({
           pluginId,
@@ -464,7 +468,9 @@ class FakeConfiguration implements CompanionConfigurationPort {
   enabledPluginCount(pluginId: string): number {
     try {
       const document = this.parse()
+      const bar = document.bar as { layout?: Record<string, Array<{ id: string }>> } | undefined
       return (document.enabledPlugins as unknown[]).filter((value) => value === pluginId).length
+        + (bar?.layout ? Object.values(bar.layout).flat().filter(entry => entry.id === pluginId).length : 0)
     } catch {
       return 0
     }
@@ -485,14 +491,21 @@ class FakeConfiguration implements CompanionConfigurationPort {
     return { ...document, enabledPlugins: enabled, pluginSources: sources }
   }
 
-  enable(pluginId: string): void {
+  enable(pluginId: string, asBarWidget = false): void {
     const document = this.parse()
     const enabled = document.enabledPlugins as unknown[]
     const sources = document.pluginSources as Record<string, unknown>
+    const bar = document.bar as { layout?: Record<string, Array<{ id: string }>> } | undefined
+    const hasBar = !!bar?.layout && Object.values(bar.layout).some(section => section.some(entry => entry.id === pluginId))
     const count = enabled.filter((value) => value === pluginId).length
-    if (count === 0) {
+    if (count === 0 && !hasBar) {
       this.enableRestoreBytes.set(pluginId, this.bytes)
-      enabled.push(pluginId)
+      if (asBarWidget) {
+        const layout = bar?.layout ?? { left: [], center: [], right: [] }
+        layout.right ??= []
+        layout.right.push({ id: pluginId })
+        document.bar = { ...bar, layout }
+      } else enabled.push(pluginId)
     }
     sources[pluginId] = this.pluginRoot
     this.bytes = jsonBytes(document)
@@ -500,16 +513,22 @@ class FakeConfiguration implements CompanionConfigurationPort {
 
   disable(pluginId: string): void {
     const restore = this.enableRestoreBytes.get(pluginId)
-    if (restore !== undefined) {
-      this.bytes = restore
-      this.enableRestoreBytes.delete(pluginId)
-    } else {
-      const document = this.parse()
-      document.enabledPlugins = (document.enabledPlugins as unknown[]).filter((value) => value !== pluginId)
-      const sources = document.pluginSources as Record<string, unknown>
-      delete sources[pluginId]
-      this.bytes = jsonBytes(document)
+    const document = this.parse()
+    document.enabledPlugins = (document.enabledPlugins as unknown[]).filter((value) => value !== pluginId)
+    const bar = document.bar as { layout?: Record<string, Array<{ id: string }>> } | undefined
+    if (bar?.layout) for (const section of Object.values(bar.layout)) {
+      const index = section.findIndex(entry => entry.id === pluginId)
+      if (index >= 0) section.splice(index, 1)
     }
+    const sources = document.pluginSources as Record<string, unknown>
+    delete sources[pluginId]
+    if (restore !== undefined) {
+      const original = JSON.parse(restore) as Record<string, unknown>
+      if (bar && JSON.stringify(bar) === JSON.stringify({ layout: { left: [], center: [], right: [] } })
+          && original.bar === undefined) delete document.bar
+      this.enableRestoreBytes.delete(pluginId)
+    }
+    this.bytes = jsonBytes(document)
     if (this.disableRewriteOnce !== null) {
       const transform = this.disableRewriteOnce
       this.disableRewriteOnce = null
@@ -538,10 +557,14 @@ class FakeConfiguration implements CompanionConfigurationPort {
 
 class FakeShell implements CompanionInstallationShellPort {
   private readonly configuration: FakeConfiguration
+  private readonly filesystem: FakeFilesystem
+  private readonly manifestPath: string
   private readonly callLog: Array<{ operation: string; pluginId: string }> = []
 
-  constructor(configuration: FakeConfiguration) {
+  constructor(configuration: FakeConfiguration, filesystem: FakeFilesystem, manifestPath: string) {
     this.configuration = configuration
+    this.filesystem = filesystem
+    this.manifestPath = manifestPath
   }
 
   rescan(pluginId: string): void {
@@ -550,7 +573,8 @@ class FakeShell implements CompanionInstallationShellPort {
 
   enable(pluginId: string): void {
     this.callLog.push({ operation: 'enable', pluginId })
-    this.configuration.enable(pluginId)
+    const manifest = JSON.parse(this.filesystem.readBytesNoFollow(this.manifestPath)) as { kinds: string[] }
+    this.configuration.enable(pluginId, manifest.kinds.includes('bar-widget'))
   }
 
   disable(pluginId: string): void {
@@ -787,7 +811,7 @@ export class FakeOmarchy {
       unrelatedSetting: 'preserve-byte-for-byte',
     }
     this.configuration = new FakeConfiguration(pluginRoot, jsonBytes(initialShell))
-    this.shell = new FakeShell(this.configuration)
+    this.shell = new FakeShell(this.configuration, this.filesystem, this.paths.manifestPath)
     this.receipts = new FakeReceipts(this.filesystem, receiptPath)
     this.digest = new FakeDigest()
     this.authorization = new FakeAuthorization(this.digest)

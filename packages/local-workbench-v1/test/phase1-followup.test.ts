@@ -20,9 +20,10 @@ function rootView() {
   const view: any = {
     pluginGeneration: 0, projection: null, activeSession: null, pendingIntents: [], drafts: {}, draftError: '',
     opened: false, destination: 'overview', checksOrigin: 'overview', menuOpen: false, projectListOpen: false,
-    confirmation: null, lastIntentResult: null, confirmationText: '', startReview: null,
+    confirmation: null, lastIntentResult: null, confirmationText: '', confirmationNotice: '', confirmationAssociation: '', startReview: null,
     selectedAgentRunId: '', selectedObservedSessionId: '', selectedRole: '', selectedCheckId: '', selectedCheckVersion: 0,
-    confirmDialog: { open() {}, close() {}, opened: false }, confirmationTimer: { restart() {} }, projectionWatchdog: { restart() {} },
+    confirmReview: { open() {}, close() { view.confirmation = null; view.confirmationNotice = ''; view.confirmationAssociation = '' }, visible: false },
+    confirmationTimer: { restart() {}, stop() {} }, projectionWatchdog: { restart() {} },
     intentRequested() {},
   }
   view.root = view

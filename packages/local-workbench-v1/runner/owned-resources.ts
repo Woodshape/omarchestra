@@ -1,63 +1,79 @@
-/** Exact local resource identities. A matching filename is not ownership.
- * This receipt is local to one state root, not a portable backup/restore recipe.
- * Incomplete bootstrap is refused; no automatic reconstruction of lost evidence.
+/** Exact durable identities and owner-lifetime runtime identities.
+ * An XDG_RUNTIME_DIR is recreated at login; its inodes cannot be a durable
+ * receipt. The persistent store, lock, fence ledger and state parents can.
+ * No receipt authorizes a missing/replaced durable file or a stale socket.
  */
 import { constants, closeSync, fsyncSync, lstatSync, openSync, readFileSync, writeFileSync } from 'node:fs'
 import { dirname, join } from 'node:path'
 import { workbenchError } from './errors.ts'
 import { ensureOwnedFileTarget, type WorkbenchRoots } from './paths.ts'
 
-interface Identity { dev: string; ino: string; uid: string; kind: 'file' | 'directory' }
-interface Receipt { version: 1; resources: Record<string, Identity> }
+export interface OwnedIdentity { dev: string; ino: string; uid: string; kind: 'file' | 'directory' }
+interface ReceiptV2 { version: 2; resources: Record<string, OwnedIdentity>; runtimePath: string | null }
 const RECEIPT = 'ownership.json'
-function refused(detail: string): never {
+export function refuseOwnedIdentity(detail: string): never {
   throw workbenchError('identity_drift', detail, 'preserve this root and its ownership evidence; do not recreate missing files or copy another root over it')
 }
-function identity(path: string): Identity {
+export function ownedIdentity(path: string): OwnedIdentity {
   let s
-  try { s = lstatSync(path, { bigint: true }) } catch { return refused(`owned resource missing: ${path}`) }
-  if (s.isSymbolicLink() || (!s.isFile() && !s.isDirectory())) refused(`unsupported owned resource: ${path}`)
-  if (s.isFile() && s.nlink !== 1n) refused(`owned file has multiple links: ${path}`)
+  try { s = lstatSync(path, { bigint: true }) } catch { return refuseOwnedIdentity(`owned resource missing: ${path}`) }
+  if (s.isSymbolicLink() || (!s.isFile() && !s.isDirectory())) refuseOwnedIdentity(`unsupported owned resource: ${path}`)
+  if (s.isFile() && s.nlink !== 1n) refuseOwnedIdentity(`owned file has multiple links: ${path}`)
   return { dev: String(s.dev), ino: String(s.ino), uid: String(s.uid), kind: s.isFile() ? 'file' : 'directory' }
 }
-function paths(roots: WorkbenchRoots): string[] {
-  const result = [roots.manifestPath, roots.ownerDatabasePath, roots.databasePath, roots.fenceDatabasePath]
-  for (const start of [roots.stateDir, roots.runtimeDir].filter((p): p is string => p !== null)) {
-    let p = start
-    for (;;) { if (!result.includes(p)) result.push(p); const parent = dirname(p); if (parent === p) break; p = parent }
-  }
-  return result.sort()
+function ancestorPaths(start: string): string[] {
+  const result: string[] = []
+  let p = start
+  for (;;) { result.push(p); const parent = dirname(p); if (parent === p) break; p = parent }
+  return result
 }
-function capture(roots: WorkbenchRoots): Receipt {
-  return { version: 1, resources: Object.fromEntries(paths(roots).map(p => [p, identity(p)])) }
+/** Stable, disk-backed evidence. The runtime tree is deliberately excluded. */
+export function durableOwnedPaths(roots: WorkbenchRoots): string[] {
+  return Array.from(new Set([
+    roots.manifestPath, roots.ownerDatabasePath, roots.databasePath, roots.fenceDatabasePath,
+    ...ancestorPaths(roots.stateDir),
+  ])).sort()
+}
+/** Not persisted: this identity is re-acquired at every owner start. */
+export function runtimeOwnedPaths(roots: WorkbenchRoots): string[] {
+  return roots.runtimeDir === null ? [] : ancestorPaths(roots.runtimeDir).sort()
+}
+export function captureOwnedPaths(paths: readonly string[]): Record<string, OwnedIdentity> {
+  return Object.fromEntries(paths.map(path => [path, ownedIdentity(path)]))
+}
+function capture(roots: WorkbenchRoots): ReceiptV2 {
+  return { version: 2, resources: captureOwnedPaths(durableOwnedPaths(roots)), runtimePath: roots.runtimeDir }
 }
 function encoded(value: unknown): string { return JSON.stringify(value) }
-function verify(roots: WorkbenchRoots, receipt: Receipt): void {
-  if (encoded(capture(roots)) !== encoded(receipt)) refused('owned file or parent identity changed')
+function verify(roots: WorkbenchRoots, receipt: ReceiptV2, runtimeAtOpen: Record<string, OwnedIdentity>): void {
+  if (encoded(capture(roots)) !== encoded(receipt)) refuseOwnedIdentity('owned durable file or parent identity changed')
+  if (encoded(captureOwnedPaths(runtimeOwnedPaths(roots))) !== encoded(runtimeAtOpen)) refuseOwnedIdentity('owned runtime directory or parent identity changed during owner lifetime')
   for (const p of [roots.manifestPath, roots.ownerDatabasePath, roots.databasePath, roots.fenceDatabasePath]) ensureOwnedFileTarget(p)
   for (const p of [roots.stateDir, roots.runtimeDir].filter((p): p is string => p !== null)) {
     const s = lstatSync(p)
-    if ((s.mode & 0o777) !== 0o700 || (process.getuid && s.uid !== process.getuid())) refused(`owned directory permissions changed: ${p}`)
+    if ((s.mode & 0o777) !== 0o700 || (process.getuid && s.uid !== process.getuid())) refuseOwnedIdentity(`owned directory permissions changed: ${p}`)
   }
 }
 export function verifyOwnedReceipt(roots: WorkbenchRoots): () => void {
   const path = join(roots.stateDir, RECEIPT)
   ensureOwnedFileTarget(path)
-  let bytes: string, receipt: Receipt
+  let bytes: string, receipt: ReceiptV2
   try {
     const stats = lstatSync(path)
-    if (stats.size > 65536) refused('ownership receipt exceeds bound')
+    if (stats.size > 65536) refuseOwnedIdentity('ownership receipt exceeds bound')
     bytes = readFileSync(path, 'utf8')
     receipt = JSON.parse(bytes)
-  } catch { return refused('missing or invalid exact-resource receipt; incomplete or older root requires explicit recovery') }
-  verify(roots, receipt)
-  const receiptIdentity = identity(path)
+  } catch { return refuseOwnedIdentity('missing or invalid exact-resource receipt; incomplete or older root requires explicit recovery') }
+  if (!receipt || typeof receipt !== 'object' || Array.isArray(receipt) || receipt.version !== 2) refuseOwnedIdentity('legacy or malformed ownership receipt requires explicit, lock-held runtime migration; never edit or recreate it by name')
+  const runtimeAtOpen = captureOwnedPaths(runtimeOwnedPaths(roots))
+  verify(roots, receipt, runtimeAtOpen)
+  const receiptIdentity = ownedIdentity(path)
   const manifestBytes = readFileSync(roots.manifestPath, 'utf8')
   return () => {
     ensureOwnedFileTarget(path)
-    if (encoded(identity(path)) !== encoded(receiptIdentity) || readFileSync(path, 'utf8') !== bytes) refused('ownership receipt changed')
-    verify(roots, receipt)
-    if (readFileSync(roots.manifestPath, 'utf8') !== manifestBytes) refused('ownership manifest changed')
+    if (encoded(ownedIdentity(path)) !== encoded(receiptIdentity) || readFileSync(path, 'utf8') !== bytes) refuseOwnedIdentity('ownership receipt changed')
+    verify(roots, receipt, runtimeAtOpen)
+    if (readFileSync(roots.manifestPath, 'utf8') !== manifestBytes) refuseOwnedIdentity('ownership manifest changed')
   }
 }
 export function createOwnedReceipt(roots: WorkbenchRoots): () => void {
@@ -69,8 +85,8 @@ export function createOwnedReceipt(roots: WorkbenchRoots): () => void {
   try { fsyncSync(directory) } finally { closeSync(directory) }
   return verifyOwnedReceipt(roots)
 }
-/** Recheck before every durable read/write, not only at startup. close must
- * still release descriptors after a drift failure and never unlinks anything.
+/** Recheck before every durable read/write, not only at startup. Close still
+ * releases descriptors after a drift failure and never unlinks anything.
  */
 export function guardOwned<T extends object>(value: T, check: () => void): T {
   return new Proxy(value, {

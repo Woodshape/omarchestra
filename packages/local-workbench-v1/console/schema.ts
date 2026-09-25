@@ -124,6 +124,8 @@ export interface ManagedAgentCard {
 
 export interface ObservedChoice {
   choiceId: string
+  /** Authoritatively assigned Role; never parse the display label for authority. */
+  role?: string
   label: string
   enabled: boolean
   /** Which committed intent this choice emits. Defaults to `request_adoption`. */
@@ -182,6 +184,11 @@ export interface FixtureMarker {
   label: string
 }
 
+export const WORKBENCH_PAGE_SIZE = 64
+export const PAGE_COLLECTIONS = ['projects', 'goals', 'managedAgents', 'observedSessions', 'retiredRuns', 'activity', 'checks'] as const
+export type PageCollection = typeof PAGE_COLLECTIONS[number]
+export interface PageDescriptor { offset: number; total: number; limit: number; hasNext: boolean; hasPrevious: boolean }
+export type SnapshotPages = Record<PageCollection, PageDescriptor>
 export interface WorkbenchSnapshot {
   protocol: typeof WORKBENCH_PROTOCOL
   sessionId: string
@@ -194,6 +201,9 @@ export interface WorkbenchSnapshot {
   goals: GoalSummary[]
   selectedProjectId: string | null
   selectedGoalId: string | null
+  /** Exact selected context remains available independently of collection pages. */
+  selectedProject?: ProjectSummary | null
+  selectedGoal?: GoalSummary | null
   managedAgents: ManagedAgentCard[]
   observedSessions: ObservedSessionCard[]
   retiredRuns: RetiredRunCard[]
@@ -206,6 +216,7 @@ export interface WorkbenchSnapshot {
   /** Project-scoped configured acceptance checks (contract C14). */
   checks: CheckSummary[]
   fixture: FixtureMarker
+  pages?: SnapshotPages
   details?: WorkbenchDetail[]
 }
 
@@ -348,7 +359,9 @@ function requireObject(value: unknown, where: string): Record<string, unknown> {
   if (keys.length > MAX_KEYS) throw new SchemaError(`${where} exceeds ${MAX_KEYS} keys`)
   const name = where.replace(/\[\d+\]/g, '').split('.').at(-1)!
   const fields: Record<string, string> = {
-    snapshot: 'protocol sessionId pluginGeneration runnerEpoch revision cursor connection projects goals selectedProjectId selectedGoalId managedAgents observedSessions retiredRuns assignments activity capabilities actions roles checks fixture details',
+    snapshot: 'protocol sessionId pluginGeneration runnerEpoch revision cursor connection projects goals selectedProjectId selectedGoalId selectedProject selectedGoal managedAgents observedSessions retiredRuns assignments activity capabilities actions roles checks fixture pages details',
+    pages: PAGE_COLLECTIONS.join(' '),
+    page: 'offset total limit hasNext hasPrevious',
     event: 'protocol sessionId runnerEpoch eventId cursor baseRevision revision kind payload',
     intent: 'protocol sessionId pluginGeneration runnerEpoch intentId expectedRevision kind target payload',
     feedback: 'intentId sessionId target originRevision status reasonCode committedRevision',
@@ -361,7 +374,7 @@ function requireObject(value: unknown, where: string): Record<string, unknown> {
     activity: 'eventId cursor kind reasonCode label createdAt',
     actions: 'kind target label enabled reasonCode reason',
     action: 'kind target label enabled reasonCode reason',
-    choices: 'choiceId label enabled actionKind', fixture: 'active label',
+    choices: 'choiceId role label enabled actionKind', fixture: 'active label',
     checks: 'checkId version digest name summary mode commandSummary availability reason',
     check: 'checkId version digest name summary mode commandSummary availability reason',
   }
@@ -469,6 +482,7 @@ export function validateObservedChoice(value: unknown, where = 'choice'): Observ
     : requireEnum(obj.actionKind, ['request_adoption', 'authorize_adoption'], `${where}.actionKind`)
   return {
     choiceId: requireId(obj.choiceId, `${where}.choiceId`),
+    ...(obj.role === undefined ? {} : { role: requireDisplay(obj.role, `${where}.role`) }),
     label: requireDisplay(obj.label, `${where}.label`),
     enabled: obj.enabled === true,
     ...(actionKind === undefined ? {} : { actionKind }),
@@ -550,6 +564,24 @@ export function validateFixtureMarker(value: unknown, where = 'fixture'): Fixtur
 // Snapshot / event / intent / feedback validators
 // ---------------------------------------------------------------------------
 
+function validatePages(value: unknown, snapshot: Record<string, unknown>): SnapshotPages {
+  const pages = requireObject(value, 'snapshot.pages')
+  if (Object.keys(pages).sort().join(',') !== [...PAGE_COLLECTIONS].sort().join(',')) throw new SchemaError('snapshot.pages must name every collection')
+  const result = {} as SnapshotPages
+  for (const collection of PAGE_COLLECTIONS) {
+    const entry = requireObject(pages[collection], 'page')
+    if (Object.keys(entry).sort().join(',') !== 'hasNext,hasPrevious,limit,offset,total') throw new SchemaError('invalid page descriptor')
+    const offset = requireNonNegativeInt(entry.offset, `${collection}.offset`), total = requireNonNegativeInt(entry.total, `${collection}.total`)
+    const limit = requireNonNegativeInt(entry.limit, `${collection}.limit`)
+    if (limit !== WORKBENCH_PAGE_SIZE || offset % limit !== 0 || offset > total
+        || entry.hasPrevious !== (offset > 0) || entry.hasNext !== (offset + limit < total)
+        || !Array.isArray(snapshot[collection]) || (snapshot[collection] as unknown[]).length !== Math.min(limit, Math.max(0, total - offset))) {
+      throw new SchemaError(`inconsistent ${collection} page`)
+    }
+    result[collection] = { offset, total, limit, hasPrevious: offset > 0, hasNext: offset + limit < total }
+  }
+  return result
+}
 export function validateSnapshot(value: unknown): WorkbenchSnapshot {
   const obj = requireObject(value, 'snapshot')
   requireProtocol(obj.protocol, 'snapshot')
@@ -561,6 +593,16 @@ export function validateSnapshot(value: unknown): WorkbenchSnapshot {
   const connection = requireEnum(obj.connection, CONNECTION_STATUSES, 'snapshot.connection')
   const selectedProjectId = requireNullableId(obj.selectedProjectId, 'snapshot.selectedProjectId')
   const selectedGoalId = requireNullableId(obj.selectedGoalId, 'snapshot.selectedGoalId')
+  const selectedProject = obj.selectedProject === undefined || obj.selectedProject === null ? null
+    : validateProjectSummary(obj.selectedProject, 'snapshot.selectedProject')
+  const selectedGoal = obj.selectedGoal === undefined || obj.selectedGoal === null ? null
+    : validateGoalSummary(obj.selectedGoal, 'snapshot.selectedGoal')
+  if (obj.pages !== undefined && ((selectedProjectId === null) !== (selectedProject === null)
+      || (selectedGoalId === null) !== (selectedGoal === null))) throw new SchemaError('paged selection must include exact selected context')
+  if (selectedProject !== null && selectedProject.projectId !== selectedProjectId) throw new SchemaError('selected Project identity mismatch')
+  if (selectedGoal !== null && (selectedGoal.goalId !== selectedGoalId || selectedGoal.projectId !== selectedProjectId)) {
+    throw new SchemaError('selected Goal identity mismatch')
+  }
   return {
     protocol: WORKBENCH_PROTOCOL,
     sessionId,
@@ -573,6 +615,8 @@ export function validateSnapshot(value: unknown): WorkbenchSnapshot {
     goals: requireCollection(obj.goals, 'snapshot.goals', validateGoalSummary),
     selectedProjectId,
     selectedGoalId,
+    ...(obj.selectedProject === undefined ? {} : { selectedProject }),
+    ...(obj.selectedGoal === undefined ? {} : { selectedGoal }),
     managedAgents: requireCollection(obj.managedAgents, 'snapshot.managedAgents', validateManagedAgentCard),
     observedSessions: requireCollection(obj.observedSessions, 'snapshot.observedSessions', validateObservedSessionCard),
     retiredRuns: requireCollection(obj.retiredRuns, 'snapshot.retiredRuns', validateRetiredRunCard),
@@ -583,6 +627,7 @@ export function validateSnapshot(value: unknown): WorkbenchSnapshot {
     roles: requireCollection(obj.roles, 'snapshot.roles', (v, w) => requireDisplay(v, w)),
     checks: requireCollection(obj.checks, 'snapshot.checks', validateCheckSummary),
     fixture: validateFixtureMarker(obj.fixture, 'snapshot.fixture'),
+    ...(obj.pages === undefined ? {} : { pages: validatePages(obj.pages, obj) }),
     ...(obj.details === undefined ? {} : { details: requireCollection(obj.details, 'snapshot.details', validateDetail) }),
   }
 }
@@ -613,6 +658,7 @@ export function validateIntent(value: unknown): WorkbenchIntent {
     inspect_project: ['path'], confirm_register_project: ['registrationId'],
     create_check: ['projectId', 'name', 'summary', 'mode', 'commandSummary', 'definitionDraft'],
     request_adoption: ['choiceId'], authorize_adoption: ['proposalId'],
+    navigate_page: ['collection', 'offset'],
     start_assignment: ['goalText', 'checkId', 'checkVersion'],
     configure_checks: ['projectId', 'checkId', 'checkVersion', 'name', 'summary', 'mode', 'commandSummary', 'definitionDraft'],
     take_control: ['agentRunId'], return_to_team: ['assignmentId'], accept: ['assignmentId'],
@@ -629,6 +675,8 @@ export function validateIntent(value: unknown): WorkbenchIntent {
   }
   for (const [key, item] of Object.entries(payload)) {
     if (key === 'definitionDraft') validateCheckDraft(item)
+    else if (key === 'collection') requireEnum(item, PAGE_COLLECTIONS, 'intent.payload.collection')
+    else if (key === 'offset') requireNonNegativeInt(item, 'intent.payload.offset')
     else if (key === 'checkVersion') { requireNonNegativeInt(item, `intent.payload.${key}`); if (item === 0) throw new SchemaError('check version must be positive') }
     else if (key === 'mode') requireEnum(item, CHECK_MODES, `intent.payload.${key}`)
     else if (key === 'goalText') requireManagedText(item, `intent.payload.${key}`)

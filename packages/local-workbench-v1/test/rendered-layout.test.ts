@@ -175,6 +175,25 @@ Item {
       wait(20)
     }
 
+    function test_closeDockSendsPresentationOnlyRequest() {
+      openJourney()
+      clickItem(findChild(consoleView, "workbench-close"))
+      var request = JSON.parse(consoleView.takeIntent(host.snapshot))
+      compare(request.kind, "hide_workbench")
+      compare(request.target, null)
+      compare(Object.keys(request.payload).length, 0)
+      compare(consoleView.opened, true, "view remains open until owner handles the request")
+    }
+
+    function test_encodedProjectionUpdateUsesTheRealShellArgumentFormat() {
+      openJourney()
+      var updated = JSON.parse(JSON.stringify(host.snapshot))
+      updated.revision += 1
+      verify(consoleView.applyProjection(JSON.stringify(updated)), "encoded shell update is accepted")
+      compare(consoleView.projection.revision, updated.revision)
+      verify(!consoleView.applyProjection('{bad json'), "malformed shell update is rejected")
+    }
+
     function test_zzSameRevisionReviewInvalidation() {
       openJourney()
       consoleView.selectAgent("${JOURNEY_AGENT_RUN_ID}")
@@ -405,21 +424,53 @@ Item {
       var request = {kind: "request_adoption", target: choice.choiceId, payload: {choiceId: choice.choiceId}}
       consoleView.requestConfirmation(request)
       wait(20)
-      var dialog = findChild(consoleView, "workbench-confirmation")
-      verify(dialog.opened)
-      var cancel = dialog.footer.standardButton(Dialog.Cancel)
+      var review = findChild(surfaceRoot(), "workbench-inline-confirmation")
+      verify(review !== null && review.visible, "review is part of the dock, not a popup")
+      if (${JSON.stringify(Boolean(process.env.WORKBENCH_VISUAL_EVIDENCE))}) {
+        var image = grabImage(surfaceRoot())
+        image.save(${JSON.stringify(process.env.WORKBENCH_VISUAL_EVIDENCE || '/tmp/unused')}.replace(/\\.png$/, "-inline-review.png"))
+      }
+      var cancel = findChild(review, "workbench-cancel-review")
       verify(cancel !== null)
       clickItem(cancel)
       compare(consoleView.pendingIntents.length, 0)
-      verify(!dialog.opened)
+      verify(!review.visible)
       consoleView.requestConfirmation(request)
       wait(20)
-      var ok = dialog.footer.standardButton(Dialog.Ok)
-      verify(ok !== null)
+      verify(review.visible)
+      var heartbeat = JSON.parse(JSON.stringify(consoleView.projection))
+      heartbeat.cursor += 1
+      verify(consoleView.applyProjection(heartbeat))
+      verify(review.visible && consoleView.confirmation !== null, "a heartbeat cannot silently close the review")
+      var ok = findChild(review, "workbench-confirm-review")
+      verify(ok !== null && ok.enabled)
       clickItem(ok)
       compare(consoleView.pendingIntents.length, 1)
       compare(consoleView.pendingIntents[0].target, choice.choiceId)
-      verify(!dialog.opened)
+      verify(!review.visible)
+    }
+
+    function test_inlineReviewExpiryAndChangedTargetStayVisibleButCannotSubmit() {
+      openJourney()
+      var choice = host.snapshot.observedSessions[0].choices[0]
+      var request = {kind: "request_adoption", target: choice.choiceId, payload: {choiceId: choice.choiceId}}
+      consoleView.requestConfirmation(request)
+      var review = findChild(surfaceRoot(), "workbench-inline-confirmation")
+      var confirmButton = findChild(review, "workbench-confirm-review")
+      verify(review.visible && confirmButton.enabled)
+      consoleView.invalidateConfirmation("Review expired after 30 seconds. Select the current action again.")
+      verify(review.visible, "expiry cannot silently remove the in-dock review")
+      verify(!confirmButton.enabled, "expired review cannot grant Adoption authority")
+      compare(consoleView.pendingIntents.length, 0)
+      clickItem(findChild(review, "workbench-cancel-review"))
+      verify(!review.visible)
+      consoleView.requestConfirmation(request)
+      verify(confirmButton.enabled)
+      var changed = JSON.parse(JSON.stringify(consoleView.projection))
+      changed.revision += 1
+      verify(consoleView.applyProjection(changed))
+      verify(review.visible && !confirmButton.enabled, "changed revision stays explained but not confirmable")
+      compare(consoleView.pendingIntents.length, 0)
     }
 
     function test_visualAffordancesAndPages() {

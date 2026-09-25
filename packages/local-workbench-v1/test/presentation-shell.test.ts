@@ -14,8 +14,9 @@ test('actual QML methods compose with injected source, adapter, feedback and clo
   const view: any = {
     pluginGeneration: 0, projection: null, activeSession: null, pendingIntents: [],
     opened: false, destination: 'overview', checksOrigin: 'overview', menuOpen: false, projectListOpen: false,
-    confirmation: null, lastIntentResult: null, drafts: {}, draftError: '', confirmationText: '', startReview: null,
-    confirmDialog: { open() {}, close() {}, opened: false }, confirmationTimer: { restart() {} }, projectionWatchdog: { restart() {} },
+    confirmation: null, lastIntentResult: null, drafts: {}, draftError: '', confirmationText: '', confirmationNotice: '', confirmationAssociation: '', startReview: null,
+    confirmReview: { open() {}, close() { view.confirmation = null; view.confirmationNotice = ''; view.confirmationAssociation = '' }, visible: false },
+    confirmationTimer: { restart() {}, stop() {} }, projectionWatchdog: { restart() {} },
     intentRequested() {},
   }
   view.root = view

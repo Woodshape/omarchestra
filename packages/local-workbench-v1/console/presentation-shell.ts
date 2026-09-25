@@ -17,6 +17,10 @@ export function createPresentationShell(options: {
   intentSink: WorkbenchIntentSink
   view: PresentationPort
   clock?: () => number
+  /** Revalidate the source after a potentially slow installed-shell readback. */
+  beforeIntent?: () => void
+  /** Owner-only view lifecycle; never forwarded to the Team Runner. */
+  onHide?: () => void
 }) {
   let session: { sessionId: string; pluginGeneration: number } | null = null
   const adapter = new WorkbenchAdapter({
@@ -57,6 +61,32 @@ export function createPresentationShell(options: {
         if (!encoded) break
         const request = JSON.parse(encoded)
         if (!request || Object.keys(request).some(key => !['kind', 'target', 'payload'].includes(key))) throw new Error('invalid presentation request')
+        if (request.kind === 'hide_workbench') {
+          if (request.target !== null || !request.payload || typeof request.payload !== 'object'
+              || Array.isArray(request.payload) || Object.keys(request.payload).length !== 0 || !options.onHide) {
+            options.view.intentResult({ ...session, intentId: 'unsent-presentation-request',
+              status: 'rejected', reasonCode: 'invalid_presentation_request' })
+            continue
+          }
+          options.onHide()
+          return
+        }
+        const old = adapter.handoff?.snapshot
+        options.beforeIntent?.()
+        const current = adapter.handoff?.snapshot
+        const contextChanged = !old || !current || old.sessionId !== current.sessionId
+          || old.pluginGeneration !== current.pluginGeneration || old.runnerEpoch !== current.runnerEpoch
+          || old.revision !== current.revision || old.selectedProjectId !== current.selectedProjectId
+          || old.selectedGoalId !== current.selectedGoalId
+        if (contextChanged || adapter.isStale || adapter.handoff?.connection !== 'connected') {
+          adapter.checkStaleness()
+          // This queued click was never forwarded to the runner. Show a local
+          // stale response, not a fabricated runner acknowledgement or a dock
+          // crash, and let the operator review the refreshed projection.
+          options.view.intentResult({ ...session, intentId: 'unsent-presentation-request',
+            status: 'stale', reasonCode: 'refresh_required' })
+          break
+        }
         adapter.emitIntent(request.kind, request.target, request.payload)
       }
     },

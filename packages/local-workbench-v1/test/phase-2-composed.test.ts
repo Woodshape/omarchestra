@@ -12,6 +12,10 @@
 import assert from 'node:assert/strict'
 import test from 'node:test'
 import { execFileSync, spawnSync } from 'node:child_process'
+import { EventEmitter } from 'node:events'
+import { BridgeRegistry } from '../runner/bridge-registry.ts'
+import { attachBridgeStream } from '../runner/bridge-channel.ts'
+import { createPiBridgeExtension } from '../runner/pi-bridge-extension.ts'
 import { existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync, renameSync, cpSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
@@ -19,7 +23,8 @@ import { openWorkbenchRunner } from '../runner/runner.ts'
 import { WorkbenchAuthority, sha256 } from '../runner/authority.ts'
 import { readResolvedCheck } from '../runner/check-definition.ts'
 import { createWorkbenchHost } from '../runner/host.ts'
-import type { ObserverPort, TransportEvent, WorkbenchFrame } from '../runner/transport.ts'
+import { buildSnapshot } from '../runner/projection.ts'
+import { validateSnapshot } from '../console/schema.ts'
 import { validateDetail } from '../console/detail-schema.ts'
 
 const QT_RUNNER = '/usr/lib/qt6/bin/qmltestrunner'
@@ -29,7 +34,7 @@ const QML_FILES = [
   'WorkbenchAssignmentForm.qml', 'WorkbenchChecks.qml', 'WorkbenchReview.qml', 'WorkbenchBoard.qml',
 ]
 
-type HarnessMode = 'inspect' | 'confirm' | 'reconfirm' | 'check' | 'edit-check' | 'render' | 'observe' | 'authorize'
+type HarnessMode = 'inspect' | 'confirm' | 'reconfirm' | 'check' | 'edit-check' | 'render' | 'observe' | 'authorize' | 'goal' | 'page' | 'add-agent' | 'add-agent-wrong-role' | 'adoption-review'
 
 function harness(snapshot: unknown, projectPath: string, mode: HarnessMode): Record<string, string> {
   const files: Record<string, string> = {}
@@ -142,6 +147,15 @@ Item {
         compare(confirm.enabled, true)
         clickItem(confirm)
         emit()
+      } else if (${mode === 'goal' ? 'true' : 'false'}) {
+        consoleView.goTo("new_goal")
+        wait(20)
+        var goalField = findChild(consoleView, "workbench-goal-text")
+        verify(goalField !== null)
+        goalField.text = ${JSON.stringify(projectPath)}
+        wait(20)
+        clickItem(findChild(consoleView, "workbench-create-goal"))
+        emit()
       } else if (${mode === 'check' ? 'true' : 'false'}) {
         consoleView.goTo("checks")
         wait(20)
@@ -189,20 +203,62 @@ Item {
         compare(save.enabled, true)
         clickItem(save)
         emit()
+      } else if (${mode === 'page' ? 'true' : 'false'}) {
+        var pages = findChild(consoleView, "workbench-pages")
+        verify(pages !== null)
+        compare(pages.count, 1)
+        var nextPage = pages.itemAt(0).children.filter(function(item) {
+          return item.objectName === "workbench-page-next"
+        })[0]
+        verify(nextPage !== undefined)
+        compare(nextPage.enabled, true)
+        var scroll = findChild(consoleView, "workbench-scroll")
+        scroll.contentY = Math.max(0, scroll.contentHeight - scroll.height)
+        wait(30)
+        clickItem(nextPage)
+        emit()
+      } else if (${mode === 'add-agent' || mode === 'add-agent-wrong-role' || mode === 'adoption-review' ? 'true' : 'false'}) {
+        consoleView.goTo("add_agent")
+        wait(20)
+        clickItem(buttonWithTextPrefix(surfaceRoot(), ${JSON.stringify(mode === 'adoption-review' ? 'proposal_pending  ·' : 'observed  ·')}))
+        clickItem(buttonWithText(surfaceRoot(), ${JSON.stringify(mode === 'add-agent-wrong-role' ? 'reviewer' : 'implementer')}))
+        if (${mode === 'add-agent-wrong-role' ? 'true' : 'false'}) {
+          var forbidden = findChild(consoleView, "workbench-request-adoption")
+          verify(forbidden !== null)
+          compare(forbidden.enabled, false)
+          compare(consoleView.takeIntent(session()), "")
+          return
+        }
+        if (${mode === 'add-agent' ? 'true' : 'false'}) {
+          var request = findChild(consoleView, "workbench-request-adoption")
+          verify(request !== null)
+          compare(request.enabled, true)
+          clickItem(request)
+          var adoptionConfirm = findChild(consoleView, "workbench-inline-confirmation")
+          verify(adoptionConfirm !== null && adoptionConfirm.visible)
+          var confirmButton = findChild(adoptionConfirm, "workbench-confirm-review")
+          verify(confirmButton !== null && confirmButton.enabled)
+          confirmButton.clicked()
+        } else {
+          var review = findChild(consoleView, "workbench-add-agent-continue")
+          compare(review.enabled, true)
+          clickItem(review)
+          clickItem(findChild(consoleView, "workbench-authorize-adoption"))
+        }
+        emit()
       } else if (${mode === 'observe' ? 'true' : 'false'}) {
         wait(20)
         var adoptChoice = buttonWithTextPrefix(surfaceRoot(), "Adopt ")
         verify(adoptChoice !== null, "the observed session is rendered as an adoptable choice")
         compare(adoptChoice.enabled, true)
         clickItem(adoptChoice)
-        // Requesting adoption is a declared, confirmed action: the real dialog
-        // must appear and its OK button must carry the captured intent.
-        var dialog = findChild(consoleView, "workbench-confirmation")
-        verify(dialog !== null, "the confirmation dialog exists")
-        verify(dialog.opened, "the confirmation dialog opened for the adoption request")
-        var okButton = dialog.standardButton(Dialog.Ok)
-        verify(okButton !== null)
-        okButton.clicked()
+        // Requesting adoption is a declared, confirmed action: the inline
+        // review must remain in the dock and its button carries the exact intent.
+        var review = findChild(consoleView, "workbench-inline-confirmation")
+        verify(review !== null && review.visible, "the review is in the dock")
+        var confirmButton = findChild(review, "workbench-confirm-review")
+        verify(confirmButton !== null && confirmButton.enabled)
+        confirmButton.clicked()
         wait(20)
         emit()
       } else if (${mode === 'authorize' ? 'true' : 'false'}) {
@@ -253,27 +309,12 @@ function capturedIntents(log: string): Array<{ kind: string; target: string | nu
   return [...log.matchAll(/COMPOSED_INTENT (\{[^\n]+\})/g)].map(match => JSON.parse(match[1]))
 }
 
-/** Injected observer transport: records every frame and delivers test events. */
-class ComposedPort implements ObserverPort {
-  readonly transportId = 'composed-port'
-  readonly sent: WorkbenchFrame[] = []
-  private handlers: Array<(event: TransportEvent) => void> = []
-  send(frame: WorkbenchFrame): void { this.sent.push(frame) }
-  subscribe(handler: (event: TransportEvent) => void): () => void {
-    this.handlers.push(handler)
-    return () => { this.handlers = this.handlers.filter(item => item !== handler) }
-  }
-  close(): void { this.handlers = [] }
-  emit(event: Partial<TransportEvent> & { type: TransportEvent['type'] }): void {
-    const full: TransportEvent = {
-      runId: '', bindingDigest: '', transportId: this.transportId, source: 'extension', detail: '', ...event,
-    }
-    for (const handler of [...this.handlers]) handler(full)
-  }
-  last(kind: string): WorkbenchFrame | undefined {
-    return [...this.sent].reverse().find(frame => frame.kind === kind)
-  }
+class FakeStream extends EventEmitter {
+  other!: FakeStream; closed = false
+  write(bytes: Buffer) { if (this.closed) throw new Error('closed'); this.other.emit('data', bytes); return true }
+  destroy() { if (this.closed) return; this.closed = true; this.emit('close'); if (!this.other.closed) this.other.destroy() }
 }
+function paired() { const a = new FakeStream(), b = new FakeStream(); a.other = b; b.other = a; return { a, b } }
 
 /** Collects what the real adapter pushed at the QML host. */
 function composedView(rendered: Array<Record<string, unknown>>) {
@@ -417,24 +458,53 @@ test('the real runner, real adapter and real QML host complete one management jo
     assert.equal(runner.store.listChecks(updated.projectId).length, 2)
     assert.equal((rendered.at(-1)!.assignments as unknown[]).length, 0)
 
+    // The actual Qt pager emits a bounded intent for records after page one;
+    // the adapter and runner advance the page rather than silently dropping.
+    for (let i = 0; i < 130; i++) runner.store.putProject({ projectId: `page-project-${i}`,
+      executionNodeId: runner.nodeId, canonicalPath: join(base, `page-project-${i}`), gitCommonDir: join(base, `page-project-${i}/.git`),
+      headOid: null, dirty: false, contextDigest: null, revision: 1, createdAt: i + 1 })
+    authority.selectProject('page-project-0')
+    host.tick()
+    const firstPage = rendered.at(-1)!
+    assert.equal((firstPage.projects as unknown[]).length, 64)
+    const nextPage = capturedIntents(runQml(harness(firstPage, project, 'page')))[0]
+    assert.equal(nextPage.kind, 'navigate_page')
+    assert.deepEqual(nextPage.payload, { collection: 'projects', offset: 64 })
+    queue.push(JSON.stringify(nextPage)); host.tick()
+    assert.equal((rendered.at(-1)!.pages as { projects: { offset: number } }).projects.offset, 64)
+
     host.stop()
     // Each terminal acknowledgement reached the view, and every durable commit
     // reported the revision the runner actually wrote.
     const acknowledged = results.filter(result => result.status === 'acknowledged')
     const submitted = results.filter(result => result.status === 'submitted')
-    assert.equal(acknowledged.length, 6, 'every intent was acknowledged')
-    assert.equal(submitted.length, 6, 'the view also saw each intent in flight')
+    assert.equal(acknowledged.length, 7, 'every intent was acknowledged')
+    assert.equal(submitted.length, 7, 'the view also saw each intent in flight')
     const revisions = acknowledged.map(result => result.committedRevision).filter(value => typeof value === 'number') as number[]
-    assert.equal(revisions.length, 4, 'registration, check creation/edit and reconfirmation report committed revisions')
+    assert.equal(revisions.length, 5, 'registration, check creation/edit, reconfirmation and page navigation report committed revisions')
     assert.ok(revisions.every(value => value >= 1))
     assert.equal(results[results.length - 1].status, 'acknowledged')
+
+    // A fresh presentation must still show the durable context when the
+    // selected Project/Goal live past the first bounded collection page.
+    authority.selectProject('page-project-99')
+    for (let i = 0; i < 130; i++) authority.createGoal('page-project-99', `Selected goal ${i}`)
+    const fresh = new WorkbenchAuthority({ runner, sessionId: 'composed-reopen', pluginGeneration: 1, clock, newId })
+    const selected = validateSnapshot(buildSnapshot({ authority: fresh, adoption: fresh.adoption, connection: 'connected' }))
+    assert.equal(selected.pages?.projects.offset, 64)
+    assert.equal(selected.pages?.goals.offset, 128)
+    assert.equal(selected.selectedProject?.projectId, 'page-project-99')
+    assert.equal(selected.selectedGoal?.goalId, fresh.selectedGoalId)
+    const selectedIntent = capturedIntents(runQml(harness(selected, 'Goal from reopened selection', 'goal')))[0]
+    assert.equal(selectedIntent.kind, 'create_goal')
+    assert.equal(selectedIntent.payload.projectId, 'page-project-99')
   } finally {
     try { runner?.close() } catch { /* already closed */ }
     rmSync(base, { recursive: true, force: true })
   }
 })
 
-test('the real QML host requests and authorizes one adoption over a real transport', async () => {
+test('real QML intents traverse the adapter, one runner, framed fake Pi and back to rendered readiness', async () => {
   if (!existsSync(QT_RUNNER)) {
     assert.fail('qmltestrunner is required for the composed QML path; this gate refuses to pass without it')
   }
@@ -452,9 +522,9 @@ test('the real QML host requests and authorizes one adoption over a real transpo
     let counter = 0
     const newId = (prefix: string) => `${prefix}${(counter += 1).toString().padStart(4, '0')}-${'0'.repeat(20)}`
     runner = openWorkbenchRunner({ roots: { stateDir: stateRoot }, clock, newId })
-    const port = new ComposedPort()
+    const registry = new BridgeRegistry({ nodeId: runner.nodeId, store: runner.store, fences: runner.fences, now: () => tick })
     const authority = new WorkbenchAuthority({
-      runner, sessionId: 'sess-adopt', pluginGeneration: 1, clock, newId, transport: () => port,
+      runner, sessionId: 'sess-adopt', pluginGeneration: 1, clock, newId, registry,
     })
     const composed = composedView([])
     const host = createWorkbenchHost({ authority, view: composed.view, clock })
@@ -473,17 +543,46 @@ test('the real QML host requests and authorizes one adoption over a real transpo
     host.tick()
     assert.equal(((composed.rendered.at(-1)?.projects as unknown[]).length), 1)
 
-    // The extension reports one visible Pi; the observer sees no adoptable card
-    // rendered by the fixture path.
-    port.emit({ type: 'session_observed', observedSessionId: 'pi-session-composed', role: 'implementer' })
+    // Two real QML creations persist separate Goals; Adoption names the
+    // second selected Goal rather than borrowing an observation's cwd/title.
+    for (const goalText of ['First team goal', 'Second team goal']) {
+      const created = capturedIntents(runQml(harness(composed.rendered.at(-1), goalText, 'goal')))[0]
+      assert.equal(created.kind, 'create_goal')
+      composed.queue.push(JSON.stringify(created)); host.tick()
+      assert.equal(composed.results.at(-1)?.status, 'acknowledged')
+    }
+    assert.equal(runner.store.listGoals().length, 2)
+    const goalId = authority.selectedGoalId!
+    const statuses: Array<string | undefined> = []
+    const hooks = new Map<string, (event: unknown, ctx: unknown) => void>()
+    const fakePi = { mode: 'tui', sessionManager: { getSessionId: () => 'pi-session-composed' }, isIdle: () => true,
+      ui: { setStatus(_key: string, value: string | undefined) { statuses.push(value) } } }
+    const links: ReturnType<typeof paired>[] = []
+    let sequence = 0
+    createPiBridgeExtension({
+      newId: prefix => prefix === 'process' ? 'process-' + 'a'.repeat(32) : prefix === 'extension'
+        ? 'extension-' + 'b'.repeat(32) : `${prefix}-${(++sequence).toString(16).padStart(32, '0')}`,
+      schedule: () => 0 as unknown as ReturnType<typeof setTimeout>,
+      connect: async (onFrame, onClose) => {
+        const pair = paired(); links.push(pair)
+        attachBridgeStream(pair.a, { onFrame: (peer, frame) => registry.receive(peer, frame), onClose: peer => registry.disconnect(peer) })
+        return attachBridgeStream(pair.b, { onFrame: (_peer, frame) => onFrame(frame), onClose })
+      },
+    })({ on(name, handler) { hooks.set(name, handler as (event: unknown, ctx: unknown) => void) } })
+    hooks.get('session_start')!(null, fakePi)
+    await new Promise(resolve => setImmediate(resolve))
     host.tick()
+    assert.equal(statuses.at(-1), 'Unassigned · observed')
     const afterObserve = composed.rendered.at(-1) as Record<string, unknown>
     assert.equal((afterObserve.observedSessions as unknown[]).length, 1)
 
     // Step 1: the operator clicks the rendered observation. The intent names the
     // observation choiceId, so the runner accepts it rather than reporting a
     // missing resource.
-    const observeRun = runQml(harness(afterObserve, project, 'observe'))
+    const roleUnavailable = { ...afterObserve, observedSessions: (afterObserve.observedSessions as Array<{ choices: Array<{ role?: string }> }>)
+      .map(card => ({ ...card, choices: card.choices.filter(choice => choice.role !== 'reviewer') })) }
+    runQml(harness(validateSnapshot(roleUnavailable), project, 'add-agent-wrong-role'))
+    const observeRun = runQml(harness(afterObserve, project, 'add-agent'))
     const observeIntent = capturedIntents(observeRun)[0]
     assert.equal(observeIntent.kind, 'request_adoption')
     assert.equal(typeof observeIntent.payload.choiceId, 'string')
@@ -498,33 +597,36 @@ test('the real QML host requests and authorizes one adoption over a real transpo
     const proposalCards = (afterProposal.observedSessions as Array<{ choices: Array<{ actionKind?: string }> }>)
       .filter(card => card.choices.some(choice => choice.actionKind === 'authorize_adoption'))
     assert.equal(proposalCards.length, 1, 'the pending Proposal must be rendered for authorization')
-    const authorizeRun = runQml(harness(afterProposal, project, 'authorize'))
+    const authorizeRun = runQml(harness(afterProposal, project, 'adoption-review'))
     const authorizeIntent = capturedIntents(authorizeRun)[0]
     assert.equal(authorizeIntent.kind, 'authorize_adoption')
     composed.queue.push(JSON.stringify(authorizeIntent))
     host.tick()
     assert.equal(composed.results.at(-1)?.status, 'acknowledged')
 
-    // The exact transport was asked to adopt, and only the committed delivery
-    // makes the Run ready.
-    const adoptFrame = port.last('adopt')
-    assert.ok(adoptFrame, 'authorization must send the exact adopt frame')
-    port.emit({ type: 'adopt_ack', runId: adoptFrame?.runId ?? '', bindingDigest: adoptFrame?.bindingDigest ?? '', nonce: adoptFrame?.nonce ?? '' })
+    // A same-Pi ACK and framed commit/receipt occurred synchronously after
+    // operator authorization. No test injects a fabricated readiness event.
     host.tick()
-    const afterCommit = composed.rendered.at(-1) as Record<string, unknown>
-    const committedAgent = (afterCommit.managedAgents as Array<{ agentRunId: string; piStatus: string }>)[0]
-    assert.equal(committedAgent.piStatus, 'committed')
-    port.emit({ type: 'readiness', runId: committedAgent.agentRunId, bindingDigest: adoptFrame?.bindingDigest ?? '' })
-    host.tick()
-    const readyAgent = (composed.rendered.at(-1) as { managedAgents: Array<{ piStatus: string }> }).managedAgents[0]
+    const readyAgent = (composed.rendered.at(-1) as { managedAgents: Array<{ agentRunId: string; piStatus: string }> }).managedAgents[0]
+    assert.ok(readyAgent)
     assert.equal(readyAgent.piStatus, 'ready')
+    assert.equal(statuses.at(-1), 'implementer · ready')
+    assert.deepEqual(runner.store.listMemberships(goalId).map(m => m.runId), [readyAgent.agentRunId])
+    assert.equal(runner.store.listMemberships(runner.store.listGoals().find(g => g.goalId !== goalId)!.goalId).length, 0)
+    assert.equal(runner.store.listDeliveries(readyAgent.agentRunId).length, 1)
+    hooks.get('input')!({ source: 'interactive', get text() { throw Error('private Pi content accessed') } }, fakePi)
+    host.tick()
+    assert.equal((composed.rendered.at(-1) as { managedAgents: Array<{ piStatus: string }> }).managedAgents[0].piStatus, 'manual_takeover')
+    assert.equal(statuses.at(-1), 'implementer · manual takeover')
 
     // Phase 2 still delivers no Assignment and runs no acceptance check.
     assert.equal(runner.store.listEvents().filter(event => event.kind.startsWith('assignment')).length, 0)
     assert.equal((composed.rendered.at(-1)?.assignments as unknown[]).length, 0)
     assert.ok(runner.store.listEvents().some(event => event.kind === 'adoption_committed'))
     assert.ok(runner.store.listEvents().some(event => event.kind === 'adoption_ready'))
+    assert.equal(links.length, 1)
     host.stop()
+    hooks.get('session_shutdown')!(null, fakePi)
   } finally {
     try { runner?.close() } catch { /* already closed */ }
     rmSync(base, { recursive: true, force: true })

@@ -32,6 +32,7 @@ import { WorkbenchProjection } from './projection-core.ts'
 export const INTENT_KINDS = [
   'select_project',
   'select_goal',
+  'navigate_page',
   'create_goal',
   'inspect_project',
   'confirm_register_project',

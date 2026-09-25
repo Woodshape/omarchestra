@@ -7,7 +7,7 @@
  * disabled with a committed reason because Phase 2 does not execute work.
  */
 
-import { WORKBENCH_PROTOCOL, type WorkbenchSnapshot } from '../console/schema.ts'
+import { WORKBENCH_PROTOCOL, WORKBENCH_PAGE_SIZE, type PageCollection, type WorkbenchSnapshot } from '../console/schema.ts'
 import type { WorkbenchAuthority } from './authority.ts'
 import { incarnationKey } from './binding-identity.ts'
 import { EXECUTION_UNAVAILABLE_REASON, OFFERED_ROLES, START_UNAVAILABLE_REASON } from './authority.ts'
@@ -104,11 +104,21 @@ export function buildSnapshot(options: ProjectionOptions): WorkbenchSnapshot {
   const context = selectedProjectId === null ? null : authority.projectContext(selectedProjectId)
   const contextReason = context?.available ? null : `Project context unavailable: ${context?.reason ?? 'no_project_selected'}.`
   const registryAgents = authority.registry?.list() ?? []
+  const descriptors = {} as NonNullable<WorkbenchSnapshot['pages']>
+  function page<T>(collection: PageCollection, records: T[]): T[] {
+    const limit = WORKBENCH_PAGE_SIZE
+    const selectedIndex = collection === 'projects' ? projects.findIndex(project => project.projectId === selectedProjectId)
+      : collection === 'goals' ? goals.findIndex(goal => goal.goalId === selectedGoalId) : -1
+    const requested = authority.pageOffset(collection)
+      ?? (selectedIndex < 0 ? 0 : Math.floor(selectedIndex / limit) * limit)
+    const offset = records.length === 0 ? 0 : Math.min(requested, Math.floor((records.length - 1) / limit) * limit)
+    descriptors[collection] = { offset, total: records.length, limit, hasPrevious: offset > 0, hasNext: offset + limit < records.length }
+    return records.slice(offset, offset + limit)
+  }
 
   const managedAgents: WorkbenchSnapshot['managedAgents'] = store.listBindings()
     .filter(binding => ['ready', 'committed', 'manual_takeover', 'manual_takeover_disconnected', 'disconnected'].includes(binding.state)
       && (!authority.registry || (selectedGoalId !== null && store.getBindingIdentity(binding.runId)?.goalId === selectedGoalId)))
-    .slice(0, 100)
     .map(binding => {
       const currentIdentity = store.getBindingIdentity(binding.runId)
       const bridgeLive = registryAgents.some(agent => agent.available && currentIdentity
@@ -152,15 +162,15 @@ export function buildSnapshot(options: ProjectionOptions): WorkbenchSnapshot {
       return {
         observedSessionId: agent.observedSessionId, piStatus: proposal ? 'proposal_pending' : 'observed', lifecycle: agent.lifecycle,
         availability: agent.available ? 'available' : 'unavailable', health: agent.health,
-        choices: proposal ? [{ choiceId: proposal.proposalId, label: `Authorize adoption as ${proposal.role}`,
+        choices: proposal ? [{ choiceId: proposal.proposalId, role: proposal.role, label: `Authorize adoption as ${proposal.role}`,
           enabled: agent.available, actionKind: 'authorize_adoption' as const }]
           : observedChoices.filter(choice => choice.observedSessionId === agent.observedSessionId).map(choice => ({
-            choiceId: choice.choiceId, label: `Adopt as ${choice.role}`, enabled: agent.available, actionKind: 'request_adoption' as const,
+            choiceId: choice.choiceId, role: choice.role, label: `Adopt as ${choice.role}`, enabled: agent.available, actionKind: 'request_adoption' as const,
           })),
       }
     }),
   ] : [
-    ...observedChoices.slice(0, 100).map(observation => ({
+    ...observedChoices.map(observation => ({
       observedSessionId: observation.observedSessionId,
       piStatus: 'observed',
       lifecycle: 'observed',
@@ -168,6 +178,7 @@ export function buildSnapshot(options: ProjectionOptions): WorkbenchSnapshot {
       health: 'healthy',
       choices: [{
         choiceId: observation.choiceId,
+        role: observation.role,
         label: `Adopt ${observation.observedSessionId} as ${observation.role}`,
         enabled: true,
         actionKind: 'request_adoption' as const,
@@ -175,7 +186,6 @@ export function buildSnapshot(options: ProjectionOptions): WorkbenchSnapshot {
     })),
     ...proposals
       .filter(proposal => proposal.stage === 'proposed')
-      .slice(0, 100)
       .map(proposal => ({
         observedSessionId: proposal.observedSessionId,
         piStatus: 'proposal_pending',
@@ -184,6 +194,7 @@ export function buildSnapshot(options: ProjectionOptions): WorkbenchSnapshot {
         health: 'healthy',
         choices: [{
           choiceId: proposal.proposalId,
+          role: proposal.role,
           label: `Authorize adoption as ${proposal.role}`,
           enabled: true,
           actionKind: 'authorize_adoption' as const,
@@ -194,7 +205,6 @@ export function buildSnapshot(options: ProjectionOptions): WorkbenchSnapshot {
   const retiredRuns: WorkbenchSnapshot['retiredRuns'] = store.listBindings()
     .filter(binding => binding.state === 'retired'
       && (!authority.registry || (selectedGoalId !== null && store.getBindingIdentity(binding.runId)?.goalId === selectedGoalId)))
-    .slice(0, 100)
     .map(binding => {
       const successor = store.listBindings().find(other => other.predecessorRunId === binding.runId && other.state !== 'purged')
       const canPurge = successor === undefined
@@ -248,7 +258,7 @@ export function buildSnapshot(options: ProjectionOptions): WorkbenchSnapshot {
         reasonCode: null,
         reason: null,
       })),
-    ...checks.map(check => ({
+    ...page('checks', checks).map(check => ({
       kind: 'configure_checks',
       target: check.checkId,
       label: `Edit ${check.name}`,
@@ -258,7 +268,9 @@ export function buildSnapshot(options: ProjectionOptions): WorkbenchSnapshot {
     })),
   ]
 
-  const activity: WorkbenchSnapshot['activity'] = store.listEvents().slice(-100).map(event => ({
+  // View-page bookkeeping is not user activity. Excluding it also keeps
+  // history offsets stable while the operator navigates its own pages.
+  const activity: WorkbenchSnapshot['activity'] = store.listEvents().filter(event => event.kind !== 'page_selected').reverse().map(event => ({
     eventId: event.eventId,
     cursor: event.cursor,
     kind: event.kind,
@@ -298,19 +310,33 @@ export function buildSnapshot(options: ProjectionOptions): WorkbenchSnapshot {
     revision: authority.currentRevision,
     cursor: authority.currentCursor,
     connection: options.connection,
-    projects: projects.slice(0, 100).map(project => projectSummary(project, authority.projectContext(project.projectId).dirty)),
-    goals: goals.slice(0, 100).map(goal => goalSummary(goal, goal.goalId === selectedGoalId)),
+    projects: page('projects', projects.map(project => projectSummary(project, authority.projectContext(project.projectId).dirty))),
+    goals: page('goals', goals.map(goal => goalSummary(goal, goal.goalId === selectedGoalId))),
     selectedProjectId,
     selectedGoalId,
-    managedAgents,
-    observedSessions,
-    retiredRuns,
+    selectedProject: selectedProjectId === null ? null : (() => {
+      const selected = projects.find(project => project.projectId === selectedProjectId)
+      return selected ? projectSummary(selected, authority.projectContext(selected.projectId).dirty) : null
+    })(),
+    selectedGoal: selectedGoalId === null ? null : (() => {
+      const selected = goals.find(goal => goal.goalId === selectedGoalId)
+      return selected ? goalSummary(selected, true) : null
+    })(),
+    managedAgents: page('managedAgents', managedAgents),
+    observedSessions: page('observedSessions', observedSessions),
+    retiredRuns: page('retiredRuns', retiredRuns),
     assignments: [],
-    activity,
-    capabilities: ['inspect_project', 'confirm_register_project', 'create_goal', 'select_goal', 'select_project', 'create_check', 'configure_checks', 'request_adoption', 'authorize_adoption', 'retire', 'purge'],
-    actions,
+    activity: page('activity', activity),
+    capabilities: ['inspect_project', 'confirm_register_project', 'create_goal', 'select_goal', 'select_project', 'create_check', 'configure_checks', 'request_adoption', 'authorize_adoption', 'retire', 'purge', 'navigate_page'],
+    actions: [...actions, ...Object.entries(descriptors).flatMap(([collection, descriptor]) => [
+      { kind: 'navigate_page', target: null, label: `Previous ${collection}`, enabled: descriptor.hasPrevious,
+        reasonCode: descriptor.hasPrevious ? null : 'page_start', reason: descriptor.hasPrevious ? null : 'Already on the first page.' },
+      { kind: 'navigate_page', target: null, label: `Next ${collection}`, enabled: descriptor.hasNext,
+        reasonCode: descriptor.hasNext ? null : 'page_end', reason: descriptor.hasNext ? null : 'No more records.' },
+    ])],
     roles: [...(OFFERED_ROLES)],
-    checks: checkSummaries,
+    checks: page('checks', checkSummaries),
+    pages: descriptors,
     fixture: { active: false, label: '' },
     ...(details.length === 0 ? {} : { details }),
   }

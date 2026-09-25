@@ -30,6 +30,7 @@ const PHASE_2_GATE = join(PACKAGE_ROOT, 'scripts', 'phase-2-gate.sh')
 // Phase 2 needs exactly one bounded, read-only local Git inspection. No other
 // non-test module may spawn, and the one that does must use a fixed argv.
 const ONLY_GIT_INSPECTOR = join(PACKAGE_ROOT, 'runner', 'git-context.ts')
+const FIXED_DESKTOP_PORT = join(PACKAGE_ROOT, 'runner', 'desktop-command.ts')
 
 function source(path) {
   return readFileSync(path, 'utf8')
@@ -51,7 +52,17 @@ test('no module imports prototype or spike evidence', () => {
   }
 })
 
-test('no non-test module spawns processes or invokes external desktop/services', () => {
+test('only the fixed bounded desktop-command adapter may call the installed shell', () => {
+  const code = source(FIXED_DESKTOP_PORT)
+  assert.match(code, /systemDesktopCommand\(spawn: typeof spawnSync = spawnSync\)/)
+  assert.match(code, /spawn\(script, argv, \{ encoding: 'utf8', timeout: 4000, killSignal: 'SIGKILL'/)
+  assert.match(code, /const script = '\/usr\/share\/omarchy\/bin\/omarchy-shell'/)
+  assert.match(code, /invoke\(\['shell', 'call', pluginId, method, payloadJson\], method === 'takeIntent'\)/)
+  assert.match(code, /shell: false/)
+  assert.doesNotMatch(code, /\['shell', '(?:setup|reload)'|install\(|reload\(|\.config\/omarchy|sendUserMessage/)
+})
+
+test('no other non-test module spawns processes or invokes external desktop/services', () => {
   const liveTokens = [
     ['Pi', /\bpi[ \t]+(?:-{1,2}|"|')|\bpi[ \t]*$/],
     ['Ghostty', /\bghostty\b/],
@@ -67,7 +78,7 @@ test('no non-test module spawns processes or invokes external desktop/services',
     ['PTY', /\bpty\b|\bpseudo-terminal\b/i],
   ]
   for (const path of allFiles) {
-    if (path === ONLY_GIT_INSPECTOR) continue
+    if (path === ONLY_GIT_INSPECTOR || path === FIXED_DESKTOP_PORT) continue
     const value = source(path)
     for (const [name, pattern] of liveTokens) {
       assert.doesNotMatch(value, pattern, `${name} token in ${path}`)
@@ -108,7 +119,8 @@ test('no module reads user configuration or provider state', () => {
   ]
   const bridgeAdapter = join(PACKAGE_ROOT, 'runner', 'pi-bridge-extension.ts')
   for (const path of allFiles) {
-    const value = path === bridgeAdapter
+    const value = path === FIXED_DESKTOP_PORT ? source(path).replace(/process\.env\.(OMARCHY_PATH|XDG_RUNTIME_DIR|WAYLAND_DISPLAY)/g, 'explicit-desktop-environment')
+      : path === bridgeAdapter
       // The explicitly installed Pi adapter locates the owner-only Unix
       // socket from XDG_RUNTIME_DIR; never transmit its path or any env value.
       ? source(path).replace('process.env.XDG_RUNTIME_DIR', 'private-runtime-directory')

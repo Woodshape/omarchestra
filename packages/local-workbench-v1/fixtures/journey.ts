@@ -156,6 +156,7 @@ export const journeyFixture: WorkbenchSnapshot = {
     health: 'healthy',
     choices: [{
       choiceId: 'adoption-choice-a1b2',
+      role: 'Builder',
       label: 'Adopt pi-a1b2 into Ship the parser fix as Builder',
       enabled: true,
     }],
