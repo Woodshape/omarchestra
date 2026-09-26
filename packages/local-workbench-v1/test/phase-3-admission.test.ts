@@ -110,12 +110,15 @@ function fixture(t: test.TestContext, admissionFault?: (phase: AdmissionPhase) =
   }
   const registry = {
     setManagementHandlers(): void {},
+    setHandoffHandler(): void {},
+    controlTarget() { return null },
     list() { return [observation] },
     listCurrent() { return [observation] },
     currentBinding(observedSessionId: string) {
       if (observedSessionId !== observation.observedSessionId) return null
       return { observation, connectionId: CONNECTION, challenge: CHALLENGE, peer: { send(): void {}, close(): void {} } }
     },
+    assignmentLoopAvailable() { return true },
     projectContextMatches(runId: string, canonicalPath: string) {
       return runId === 'run-1' && canonicalPath === project.canonicalPath
     },

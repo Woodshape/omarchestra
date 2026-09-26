@@ -93,6 +93,7 @@ function fixture(t: test.TestContext) {
         observation: this.listCurrent()[0], connectionId: live.connectionId, challenge: live.challenge, peer,
       }
     },
+    assignmentLoopAvailable() { return true },
     projectContextMatches(runId: string, canonicalPath: string) {
       return runId === binding.runId && canonicalPath === project.canonicalPath && live.matchesContext && live.available
     },
@@ -124,6 +125,13 @@ function fixture(t: test.TestContext) {
 function assertCode(code: string, fn: () => unknown) {
   assert.throws(fn, error => (error as { code?: string }).code === code)
 }
+
+test('legacy observer/Adoption support cannot authorize an incomplete Assignment loop', t => {
+  const f = fixture(t)
+  f.authority.registry!.assignmentLoopAvailable = () => false
+  assert.throws(() => prepareStartProposal(f.authority, f.request, f.options), /native Candidate, fresh quiescence or operator intervention/)
+  assert.equal(f.sends(), 0)
+})
 
 test('prepares and revalidates an immutable transient snapshot without persistence or dispatch', t => {
   const f = fixture(t)

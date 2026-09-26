@@ -2,7 +2,7 @@
   "schemaVersion": 1,
   "id": "omarchestra.agent-console",
   "name": "Local Workbench",
-  "version": "0.14.0",
+  "version": "0.15.0",
   "author": "Omarchestra",
   "license": "MIT",
   "description": "Presentation-only Local Workbench console for a committed team projection.",

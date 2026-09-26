@@ -140,13 +140,18 @@ for (const [kind, field] of Object.entries({ select_project: 'projectId', select
   assert.equal(s.authority.handleIntent({ ...s.intent, kind, target: 'first', payload: { [field]: 'second' } }).reasonCode, 'invalid_envelope')
 })
 
-test('unavailable Assignment actions retain their real Run-target presentation shape without execution', t => {
+test('unavailable or missing Assignment targets reject without execution', t => {
   const s = fixture(t)
-  for (const kind of ['return_to_team', 'accept', 'resume', 'retry', 'stop']) {
-    const result = s.authority.handleIntent({ ...s.intent, intentId: kind, kind, target: 'run', payload: { assignmentId: 'assignment' } })
+  for (const kind of ['return_to_team', 'accept', 'resume', 'retry', 'reconcile_writer', 'stop']) {
+    const target = 'assignment'
+    const payload = { assignmentId: 'assignment', ...(['resume', 'retry', 'reconcile_writer'].includes(kind)
+      ? { reconciliationNotes: 'Reviewed prior effects.', acknowledgeRisk: true } : {}) }
+    const result = s.authority.handleIntent({ ...s.intent, intentId: kind, kind, target, payload })
     assert.equal(result.status, 'rejected')
-    assert.equal(result.reasonCode, 'handler_unavailable')
+    assert.equal(result.reasonCode, kind === 'stop' ? 'missing_resource' : kind === 'accept' ? 'handler_unavailable' : 'invalid_input')
   }
+  assert.equal(s.authority.handleIntent({ ...s.intent, intentId: 'mismatched-accept', kind: 'accept', target: 'run', payload: { assignmentId: 'assignment' } }).reasonCode, 'invalid_envelope')
+  assert.equal(s.runner.store.getIntentResult('mismatched-accept'), null)
   assert.equal(s.runner.store.listEvents().length, 0)
   assert.equal(s.runner.store.listGoals().length, 0)
 })

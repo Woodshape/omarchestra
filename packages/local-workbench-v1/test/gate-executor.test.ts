@@ -140,6 +140,17 @@ test('an output-cap breach is output_limit with capped evidence', async t => {
   assert.equal(execution.scratchCleaned, true)
 })
 
+test('output obeys both the per-stream ceiling and the configured combined allowance', async t => {
+  const f = fixture(t)
+  for (const [stdout, stderr, limit] of [[40000, 40000, 65536], [120, 120, 200], [32768, 32768, 65536]]) {
+    f.writeChecker(`process.stdout.write('a'.repeat(${stdout})); process.stderr.write('b'.repeat(${stderr}))`)
+    const result = await executeGate(f.definition({ outputBytes: limit }), options(f))
+    assert.equal(result.outcome, stdout === 32768 ? 'pass' : 'output_limit')
+    assert.ok(result.stdoutBytes <= 32768 && result.stderrBytes <= 32768)
+    assert.ok(result.stdoutBytes + result.stderrBytes <= limit)
+  }
+})
+
 test('a timeout requests cooperative termination and reports timeout, never a pass', async t => {
   const f = fixture(t)
   f.writeChecker('setTimeout(() => {}, 5000)')

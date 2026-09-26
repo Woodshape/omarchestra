@@ -11,6 +11,7 @@ import { WORKBENCH_PLUGIN_VERSION, WORKBENCH_PLUGIN_ID, WORKBENCH_PROTOCOL_ID,
   WORKBENCH_PRESENTATION_CONTRACT, WORKBENCH_PRESENTATION_DESTINATIONS } from '../companion/contracts.ts'
 import { createDesktopView, DesktopCommandUnavailableError, negotiateCompanion, systemDesktopCommand, type DesktopCommandPort } from '../runner/desktop-command.ts'
 import { openWorkbenchRunner } from '../runner/runner.ts'
+import { armAssignmentBudget } from '../runner/assignment-budget.ts'
 import { WorkbenchAuthority } from '../runner/authority.ts'
 import { buildSnapshot } from '../runner/projection.ts'
 import { validateSnapshot } from '../console/schema.ts'
@@ -112,6 +113,29 @@ test('packaged wake client drains Close without any scheduled tick; idle heartbe
   await assert.rejects(wake(reopened.sessionId, desktop.generation() - 1), /Command failed/)
   assert.deepEqual(calls, ['takeIntent', 'close'], 'loaded generation rejects the captured old view')
   assert.equal(desktop.hides.length, 1, 'old generation did not hide the replacement')
+  assert.equal((await requestOwner(runtimeDir, 'status')).presentation, 'hidden')
+})
+
+test('native owner enforces persisted monotonic Assignment budgets with the dock hidden', async t => {
+  const root = mkdtempSync(join(tmpdir(), 'n-budget-')), runtimeDir = join(root, 'runtime')
+  let monotonic = 1000, tick!: () => void
+  const owner = await startNativeOwner({ roots: { stateDir: join(root, 'state'), runtimeDir },
+    clock: () => 999999, monotonic: () => monotonic, schedule(callback) { tick = callback; return () => {} } })
+  t.after(async () => { await owner.close(); rmSync(root, { recursive: true, force: true }) })
+  const store = owner.runner.store
+  store.putProject({ projectId: 'budget-project', executionNodeId: owner.runner.nodeId, canonicalPath: join(root, 'project'), gitCommonDir: join(root, 'project/.git'), headOid: null, dirty: false, contextDigest: null, revision: 0, createdAt: 1 })
+  store.insertGoal({ goalId: 'budget-goal', projectId: 'budget-project', goalText: 'bounded', state: 'active', outcome: null, createdAt: 1 })
+  store.putBinding({ runId: 'budget-run', projectId: 'budget-project', role: 'implementer', state: 'ready', bindingDigest: 'a'.repeat(64), controlEpoch: 1, writerState: 'none', predecessorRunId: null, generation: 1, updatedAt: 1 })
+  store.transaction(() => {
+    store.putAssignment({ assignmentId: 'budget-assignment', projectId: 'budget-project', goalId: 'budget-goal', agentRunId: 'budget-run', bindingDigest: 'a'.repeat(64), goalText: 'bounded', taskText: 'bounded task', writeAuthority: true, state: 'admitted', limits: { maxCorrections: 1, elapsedMs: 1000 }, attemptCount: 0, revision: 1, createdAt: 999999, updatedAt: 999999 })
+    armAssignmentBudget(store, store.getAssignment('budget-assignment')!, monotonic)
+  })
+  tick()
+  assert.equal(store.getStop('budget-assignment'), null, 'wall time never expires a monotonic budget')
+  monotonic = 2000
+  tick()
+  assert.equal(store.getStop('budget-assignment')!.trigger, 'elapsed_limit')
+  assert.equal(store.getAssignment('budget-assignment')!.state, 'stopped')
   assert.equal((await requestOwner(runtimeDir, 'status')).presentation, 'hidden')
 })
 

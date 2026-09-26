@@ -294,9 +294,9 @@ Item {
 
     function test_guardedDispatchRejectsLoadedIdentityDriftBeforeConsumingOrHiding() {
       openJourney()
-      consoleView.manifest = { id: "omarchestra.agent-console", version: "0.14.0", companion: { protocol: "omarchestra.companion/v1" } }
+      consoleView.manifest = { id: "omarchestra.agent-console", version: "0.15.0", companion: { protocol: "omarchestra.companion/v1" } }
       consoleView.pendingIntents = [{kind: "hide_workbench", target: null, payload: {}}]
-      var request = { protocol: "omarchestra.companion/v1", pluginId: "omarchestra.agent-console", version: "0.14.0",
+      var request = { protocol: "omarchestra.companion/v1", pluginId: "omarchestra.agent-console", version: "0.15.0",
         presentation: "task-first-v2", pluginGeneration: host.snapshot.pluginGeneration, method: "takeIntent",
         payload: { sessionId: host.snapshot.sessionId, pluginGeneration: host.snapshot.pluginGeneration } }
       for (var field of ["protocol", "pluginId", "version", "presentation", "pluginGeneration"]) {
@@ -317,12 +317,12 @@ Item {
       compare(JSON.parse(consoleView.dispatch(pulse)).result, "resnapshot", "heartbeat alone cannot revive stale data")
       compare(consoleView.projection.connection, "stale")
       request.method = "close"
-      consoleView.manifest = Object.assign({}, consoleView.manifest, {version: "0.15.0"})
-      request.version = "0.15.0"
+      consoleView.manifest = Object.assign({}, consoleView.manifest, {version: "0.16.0"})
+      request.version = "0.16.0"
       compare(JSON.parse(consoleView.dispatch(request)).result, false, "manifest refresh cannot relabel old loaded code")
-      compare(JSON.parse(consoleView.capabilities()).version, "0.14.0")
-      request.version = "0.14.0"
-      consoleView.manifest = Object.assign({}, consoleView.manifest, {version: "0.14.0"})
+      compare(JSON.parse(consoleView.capabilities()).version, "0.15.0")
+      request.version = "0.15.0"
+      consoleView.manifest = Object.assign({}, consoleView.manifest, {version: "0.15.0"})
       compare(JSON.parse(consoleView.dispatch(request)).result, true)
       compare(consoleView.opened, false)
     }
@@ -676,10 +676,10 @@ Item {
 
     function test_loadedCompanionVersionAppearsBesideRunnerStatus() {
       openJourney()
-      consoleView.manifest = { version: "0.14.0" }
+      consoleView.manifest = { version: "0.15.0" }
       var version = findChild(surfaceRoot(), "workbench-version")
       verify(version !== null && version.visible)
-      compare(version.text, "v0.14.0")
+      compare(version.text, "v0.15.0")
       verify(version.font.pixelSize < findChild(surfaceRoot(), "workbench-close").font.pixelSize,
         "version is visually secondary to the Runner status")
     }
@@ -761,6 +761,43 @@ Item {
       wait(10)
     }
 
+    function recordPriorEffects(assignmentId) {
+      var notes = findChild(surfaceRoot(), "workbench-reconciliation-notes-" + assignmentId)
+      var risk = findChild(surfaceRoot(), "workbench-reconciliation-risk-" + assignmentId)
+      verify(notes !== null && risk !== null)
+      notes.text = "Reviewed prior effects and checked for outstanding tools."
+      if (!risk.checked) clickItem(risk)
+      compare(risk.checked, true)
+    }
+
+    function test_reconciliationAcknowledgementDoesNotCarryToAnotherHandoffOrAttempt() {
+      openFailure()
+      consoleView.goTo("work")
+      wait(20)
+      recordPriorEffects("assignment-1")
+      var updated = JSON.parse(JSON.stringify(consoleView.projection))
+      var assignment = updated.assignments.filter(function(row) { return row.assignmentId === "assignment-1" })[0]
+      updated.revision += 1
+      updated.details = (updated.details || []).filter(function(detail) { return detail.kind !== "handoff" })
+      updated.details.push({kind: "handoff", handoffId: "fresh-handoff", assignmentId: assignment.assignmentId,
+        attemptId: assignment.attemptId, agentRunId: assignment.agentRunId, controlEpoch: 2,
+        claimedState: "partial", outstandingEffects: "none_reported", summary: "Fresh explicit report", artifactRefs: []})
+      verify(consoleView.applyProjection(updated))
+      wait(20)
+      compare(findChild(surfaceRoot(), "workbench-reconciliation-risk-assignment-1").checked, false)
+      compare(findChild(surfaceRoot(), "workbench-reconciliation-notes-assignment-1").text, "")
+      recordPriorEffects("assignment-1")
+      updated = JSON.parse(JSON.stringify(consoleView.projection)); updated.revision += 1
+      verify(consoleView.applyProjection(updated))
+      wait(20)
+      compare(findChild(surfaceRoot(), "workbench-reconciliation-risk-assignment-1").checked, true, "ordinary refresh preserves review draft")
+      updated = JSON.parse(JSON.stringify(consoleView.projection)); updated.revision += 1
+      updated.assignments[0].attemptId = "next-attempt"
+      verify(consoleView.applyProjection(updated))
+      wait(20)
+      compare(findChild(surfaceRoot(), "workbench-reconciliation-risk-assignment-1").checked, false)
+    }
+
     function test_workAndResultShowsCommittedFacts() {
       openFailure()
       consoleView.goTo("work")
@@ -768,11 +805,13 @@ Item {
       var texts = []; visibleTexts(surfaceRoot(), texts)
       var joined = texts.join("\\n")
       verify(joined.indexOf("Work and result") >= 0)
-      verify(joined.indexOf("Assignment: assignment-1 · failed") >= 0)
+      verify(joined.indexOf("Assignment: assignment-1 · attention") >= 0)
       verify(joined.indexOf("result fail") >= 0)
       verify(joined.indexOf("not tool/process termination") >= 0)
       var retry = buttonWithText(surfaceRoot(), "Retry with a new attempt")
-      verify(retry !== null && retry.enabled)
+      verify(retry !== null && !retry.enabled, "review and acknowledgement are required")
+      recordPriorEffects("assignment-1")
+      verify(retry.enabled)
       clickItem(retry)
       compare(consoleView.confirmation.kind, "retry")
       compare(consoleView.confirmation.payload.assignmentId, "assignment-1")
@@ -796,22 +835,33 @@ Item {
       second.state = "running"
       var projection = {}
       for (var m in consoleView.projection) projection[m] = consoleView.projection[m]
+      second.agentRunId = "second-run"
+      var secondCard = JSON.parse(JSON.stringify(projection.managedAgents[0]))
+      secondCard.agentRunId = second.agentRunId
+      secondCard.actions = secondCard.actions.map(function(action) {
+        action.target = action.kind === "take_control" ? second.agentRunId : second.assignmentId
+        return action
+      })
+      projection.managedAgents = projection.managedAgents.concat([secondCard])
       projection.assignments = [base, second]
       verify(consoleView.applyProjection(projection))
       consoleView.goTo("work")
       wait(20)
       var texts = []; visibleTexts(surfaceRoot(), texts)
       var joined = texts.join("\\n")
-      verify(joined.indexOf("Assignment: assignment-1 · failed") >= 0)
+      verify(joined.indexOf("Assignment: assignment-1 · attention") >= 0)
       verify(joined.indexOf("Assignment: assignment-2 · running") >= 0)
       verify(joined.indexOf("Goal: Ship the second parser fix") >= 0)
       verify(joined.indexOf("Task: " + second.taskText) >= 0)
       verify(joined.indexOf("not tool/process termination") >= 0)
       var retries = buttonsWithText(surfaceRoot(), "Retry with a new attempt", [])
       compare(retries.length, 2)
+      recordPriorEffects("assignment-2")
       clickItem(retries[1])
       compare(consoleView.confirmation.kind, "retry")
       compare(consoleView.confirmation.payload.assignmentId, "assignment-2")
+      compare(consoleView.confirmation.target, "assignment-2")
+      compare(consoleView.confirmation.payload.acknowledgeRisk, true)
       panel().requestActivate()
       wait(20)
       keyClick(Qt.Key_Escape)

@@ -73,6 +73,23 @@ function rowToFence(row: Record<string, unknown>): BindingFence {
     bindingDigest: text('binding_digest'), incarnationKey: text('incarnation_key'), generation: Number(row.generation),
     predecessorRunId: text('predecessor_run_id'), retiredAt: Number(row.retired_at), purgedAt: row.purged_at === null ? null : Number(row.purged_at) }
 }
+/** Read-only validation shared by startup and explicit upgrade inspection. */
+export function assertFenceSchema(db: DatabaseSync): void {
+  if (db.prepare('PRAGMA journal_mode').get()?.journal_mode !== 'delete') throw workbenchError('schema_drift', 'fence ledger requires DELETE journal mode', 'preserve the ledger')
+  if (db.prepare('PRAGMA user_version').get()?.user_version !== FENCE_LEDGER_SCHEMA_VERSION) throw workbenchError('unsupported_schema', 'unsupported fence ledger schema', 'use its original workbench version; never reconstruct lost revocations')
+  const reference = new DatabaseSync(':memory:')
+  try {
+    reference.exec(FENCE_DDL)
+    const shape = (connection: DatabaseSync) => connection.prepare("SELECT type, name, tbl_name, sql FROM sqlite_master WHERE name NOT LIKE 'sqlite_%' ORDER BY type, name").all()
+    if (JSON.stringify(shape(db)) !== JSON.stringify(shape(reference))) throw workbenchError('schema_drift', 'fence schema drift', 'preserve the ledger')
+  } finally { reference.close() }
+  for (const [table, columns] of [['binding_fences', ['generation', 'retired_at', 'purged_at']], ['vacancy_high_water', ['generation']]] as const) {
+    for (const column of columns) if (db.prepare(`SELECT 1 FROM ${table} WHERE ${column} IS NOT NULL AND (typeof(${column}) != 'integer' OR ${column} < 0 OR ${column} > 9007199254740991) LIMIT 1`).get()) throw workbenchError('schema_drift', 'unsafe fence counter', 'never reset or round generations')
+  }
+  const integrity = db.prepare('PRAGMA integrity_check').all()
+  if (integrity.length !== 1 || integrity[0].integrity_check !== 'ok') throw workbenchError('integrity_failure', 'fence integrity check failed', 'preserve the ledger')
+}
+
 export function openFenceLedger(options: FenceLedgerOptions): FenceLedger {
   const clock = options.clock ?? (() => Date.now())
   const db = new DatabaseSync(options.path)
@@ -81,18 +98,7 @@ export function openFenceLedger(options: FenceLedgerOptions): FenceLedger {
     db.exec('PRAGMA foreign_keys = ON; PRAGMA busy_timeout = 1000; PRAGMA synchronous = FULL')
     if (db.prepare('PRAGMA journal_mode').get()?.journal_mode !== 'delete') throw workbenchError('schema_drift', 'fence ledger requires DELETE journal mode', 'preserve the ledger')
     if (options.create) { db.exec(FENCE_DDL); db.exec(`PRAGMA user_version = ${FENCE_LEDGER_SCHEMA_VERSION}`) }
-    if (db.prepare('PRAGMA user_version').get()?.user_version !== FENCE_LEDGER_SCHEMA_VERSION) throw workbenchError('unsupported_schema', 'unsupported fence ledger schema', 'use its original workbench version; never reconstruct lost revocations')
-    const reference = new DatabaseSync(':memory:')
-    try {
-      reference.exec(FENCE_DDL)
-      const shape = (connection: DatabaseSync) => connection.prepare("SELECT type, name, tbl_name, sql FROM sqlite_master WHERE name NOT LIKE 'sqlite_%' ORDER BY type, name").all()
-      if (JSON.stringify(shape(db)) !== JSON.stringify(shape(reference))) throw workbenchError('schema_drift', 'fence schema drift', 'preserve the ledger')
-    } finally { reference.close() }
-    for (const [table, columns] of [['binding_fences', ['generation', 'retired_at', 'purged_at']], ['vacancy_high_water', ['generation']]] as const) {
-      for (const column of columns) if (db.prepare(`SELECT 1 FROM ${table} WHERE ${column} IS NOT NULL AND (typeof(${column}) != 'integer' OR ${column} < 0 OR ${column} > 9007199254740991) LIMIT 1`).get()) throw workbenchError('schema_drift', 'unsafe fence counter', 'never reset or round generations')
-    }
-    const integrity = db.prepare('PRAGMA integrity_check').all()
-    if (integrity.length !== 1 || integrity[0].integrity_check !== 'ok') throw workbenchError('integrity_failure', 'fence integrity check failed', 'preserve the ledger')
+    assertFenceSchema(db)
   } catch (error) { db.close(); throw error }
   function transaction<T>(fn: () => T): T {
     db.exec('BEGIN IMMEDIATE')

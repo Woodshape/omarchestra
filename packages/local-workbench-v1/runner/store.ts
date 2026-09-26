@@ -19,7 +19,7 @@ import { canonicalJson, sha256 } from './canonical-hash.ts'
 import { pendingRow, validatePendingProposal, type PendingProposal } from './pending-proposal.ts'
 import { incarnationKey, validateIncarnation, type BindingIdentity, type PiIncarnation } from './binding-identity.ts'
 import { OWNED_FILE_MODE } from './paths.ts'
-import { REQUIRED_JOURNAL_MODE, REQUIRED_PRAGMAS, STORE_DDL, STORE_SCHEMA_VERSION, STORE_TABLES } from './schema.ts'
+import { REQUIRED_JOURNAL_MODE, REQUIRED_PRAGMAS, STORE_DDL, STORE_SCHEMA_VERSION, STORE_TABLES, STORE_V9_DDL, STORE_V9_TABLES } from './schema.ts'
 
 export const BINDING_STATES = [
   'proposed',
@@ -403,6 +403,7 @@ export interface WorkbenchStore {
   transitionAttempt(attemptId: string, from: AttemptState, to: AttemptState, updatedAt: number): boolean
   acquireWriter(record: { projectId: string; assignmentId: string | null; attemptId: string | null; epoch: number; updatedAt: number }): AssignmentWriterRecord
   releaseWriter(projectId: string, updatedAt: number): void
+  reconcileWriter(record: { projectId: string; assignmentId: string; attemptId: string; epoch: number; updatedAt: number }): void
   markWriterUncertain(projectId: string, updatedAt: number): boolean
   getWriter(projectId: string): AssignmentWriterRecord | null
   listWriters(): AssignmentWriterRecord[]
@@ -499,17 +500,28 @@ function readPragma(db: DatabaseSync, name: string): unknown {
 }
 
 export function assertSchemaShape(db: DatabaseSync, path: string): void {
+  assertStoreSchema(db, path, STORE_SCHEMA_VERSION)
+}
+
+/** Migration inspection only; startup still requires the current schema. */
+export function assertSchema9ForMigration(db: DatabaseSync, path: string): void {
+  assertStoreSchema(db, path, 9)
+}
+
+function assertStoreSchema(db: DatabaseSync, path: string, expectedVersion: 9 | 10): void {
+  const specs = expectedVersion === 9 ? STORE_V9_TABLES : STORE_TABLES
+  const ddl = expectedVersion === 9 ? STORE_V9_DDL : STORE_DDL
   const version = Number(readPragma(db, 'user_version'))
-  if (version !== STORE_SCHEMA_VERSION) {
+  if (version !== expectedVersion) {
     throw workbenchError(
       'unsupported_schema',
-      `store schema version ${version} is not supported (expected ${STORE_SCHEMA_VERSION})`,
+      `store schema version ${version} is not supported (expected ${expectedVersion})`,
       'open this root with the workbench version that created it; migration requires an exclusive owner and a verified backup',
     )
   }
   const tables = db.prepare("SELECT name FROM sqlite_master WHERE type = 'table' AND name NOT LIKE 'sqlite_%'").all() as Array<{ name: string }>
   const present = new Map(tables.map(entry => [entry.name, entry]))
-  for (const spec of STORE_TABLES) {
+  for (const spec of specs) {
     if (!present.has(spec.name)) {
       throw workbenchError('schema_drift', `store is missing table ${spec.name}`, 'restore the latest verified backup; do not add or drop tables by hand')
     }
@@ -520,7 +532,7 @@ export function assertSchemaShape(db: DatabaseSync, path: string): void {
       }
     }
   }
-  for (const spec of STORE_TABLES) present.delete(spec.name)
+  for (const spec of specs) present.delete(spec.name)
   if (present.size > 0) {
     const extra = [...present.keys()].join(', ')
     throw workbenchError('schema_drift', `store has unexpected tables: ${extra}`, 'restore the latest verified backup; unknown tables are never dropped automatically')
@@ -529,7 +541,7 @@ export function assertSchemaShape(db: DatabaseSync, path: string): void {
   // indexes and triggers. Matching column names alone accepts weakened tables.
   const reference = new DatabaseSync(':memory:')
   try {
-    reference.exec(STORE_DDL)
+    reference.exec(ddl)
     const shape = (connection: DatabaseSync) => connection.prepare(
       "SELECT type, name, tbl_name, sql FROM sqlite_master WHERE name NOT LIKE 'sqlite_%' ORDER BY type, name",
     ).all()
@@ -579,6 +591,24 @@ export function assertSchemaShape(db: DatabaseSync, path: string): void {
   if (db.prepare("SELECT 1 FROM role_memberships m JOIN binding_identities i USING (run_id) JOIN bindings b USING (run_id) WHERE m.goal_id != i.goal_id OR m.role IS NOT b.role OR b.state IN ('proposed', 'authorized', 'acknowledged') LIMIT 1").get()) {
     throw workbenchError('schema_drift', 'persisted Role membership association is invalid', 'a proposal never occupies a Goal Role')
   }
+  if (expectedVersion === 10) assertAssignmentRecords(db)
+  for (const table of specs) {
+    const columns = db.prepare(`PRAGMA table_info(${table.name})`).all() as Array<{ name: string; type: string }>
+    for (const column of columns.filter(c => c.type.toUpperCase() === 'INTEGER')) {
+      const invalid = db.prepare(`SELECT 1 FROM ${table.name} WHERE ${column.name} IS NOT NULL AND
+        (typeof(${column.name}) != 'integer' OR ${column.name} < 0 OR ${column.name} > 9007199254740991) LIMIT 1`).get()
+      if (invalid) throw workbenchError('schema_drift', `invalid integer ${table.name}.${column.name}`, 'preserve and inspect corrupt history; counters cannot be rounded or reset')
+    }
+  }
+  for (const key of ['runner_epoch', 'projection_revision', 'event_cursor']) {
+    const row = db.prepare('SELECT value FROM meta WHERE key = ?').get(key) as { value: string } | undefined
+    if (row && (!/^(0|[1-9][0-9]*)$/.test(row.value) || !Number.isSafeInteger(Number(row.value)))) {
+      throw workbenchError('schema_drift', `invalid persisted counter ${key}`, 'preserve the original counter; do not round or reset it')
+    }
+  }
+}
+
+function assertAssignmentRecords(db: DatabaseSync): void {
   for (const row of db.prepare('SELECT * FROM assignments').all()) {
     try { assignmentRow(row) } catch { throw workbenchError('schema_drift', 'persisted Assignment is invalid', 'preserve the store and inspect the exact Assignment record; never repair lifecycle state automatically') }
   }
@@ -606,20 +636,6 @@ export function assertSchemaShape(db: DatabaseSync, path: string): void {
   }
   for (const row of db.prepare('SELECT * FROM handoffs').all()) {
     try { handoffRow(row) } catch { throw workbenchError('schema_drift', 'persisted handoff is invalid', 'preserve the store and inspect the exact handoff record') }
-  }
-  for (const table of STORE_TABLES) {
-    const columns = db.prepare(`PRAGMA table_info(${table.name})`).all() as Array<{ name: string; type: string }>
-    for (const column of columns.filter(c => c.type.toUpperCase() === 'INTEGER')) {
-      const invalid = db.prepare(`SELECT 1 FROM ${table.name} WHERE ${column.name} IS NOT NULL AND
-        (typeof(${column.name}) != 'integer' OR ${column.name} < 0 OR ${column.name} > 9007199254740991) LIMIT 1`).get()
-      if (invalid) throw workbenchError('schema_drift', `invalid integer ${table.name}.${column.name}`, 'preserve and inspect corrupt history; counters cannot be rounded or reset')
-    }
-  }
-  for (const key of ['runner_epoch', 'projection_revision', 'event_cursor']) {
-    const row = db.prepare('SELECT value FROM meta WHERE key = ?').get(key) as { value: string } | undefined
-    if (row && (!/^(0|[1-9][0-9]*)$/.test(row.value) || !Number.isSafeInteger(Number(row.value)))) {
-      throw workbenchError('schema_drift', `invalid persisted counter ${key}`, 'preserve the original counter; do not round or reset it')
-    }
   }
 }
 
@@ -1030,6 +1046,13 @@ export function openWorkbenchStore(options: StoreOptions): WorkbenchStore {
       }
       return writerRow(db.prepare('SELECT * FROM assignment_writers WHERE project_id = ?').get(record.projectId) as Record<string, unknown>)
     },
+    reconcileWriter(record) {
+      if (![record.projectId, record.assignmentId, record.attemptId].every(isLifecycleId)
+          || !isSafeCount(record.epoch) || !isSafeCount(record.updatedAt)) lifecycleInvalid('invalid writer reconciliation')
+      const changed = db.prepare("UPDATE assignment_writers SET state = 'held', updated_at = ? WHERE project_id = ? AND assignment_id = ? AND attempt_id = ? AND epoch = ? AND state IN ('held', 'uncertain')")
+        .run(record.updatedAt, record.projectId, record.assignmentId, record.attemptId, record.epoch)
+      if (Number(changed.changes) !== 1) throw workbenchError('fence_conflict', 'writer changed during explicit reconciliation', 'retain uncertainty and review the exact writer')
+    },
     releaseWriter(projectId, updatedAt) {
       if (!isLifecycleId(projectId) || !isSafeCount(updatedAt)) lifecycleInvalid('writer release input is invalid')
       const existing = db.prepare('SELECT * FROM assignment_writers WHERE project_id = ?').get(projectId) as Record<string, unknown> | undefined
@@ -1256,7 +1279,7 @@ export function openWorkbenchStore(options: StoreOptions): WorkbenchStore {
         resolveCandidate('rejected')
         updateAttempt('validating', 'attention')
         updateAssignment('validating', 'attention')
-        if (input.outcome === 'unknown') settleWriter(true)
+        if (input.outcome === 'unknown' || reasonCode.startsWith('quiescence_')) settleWriter(true)
         return { accepted: false, reasonCode }
       }
       if (attempt.state !== 'validating' || assignment.state !== 'validating') return refuse('lifecycle_changed')

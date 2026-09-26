@@ -712,7 +712,8 @@ export function validateIntent(value: unknown): WorkbenchIntent {
     start_assignment: ['confirmationId', 'agentRunId', 'goalText', 'taskText', 'checkId', 'checkVersion', 'maxCorrections', 'elapsedMs'],
     configure_checks: ['projectId', 'checkId', 'checkVersion', 'name', 'summary', 'mode', 'commandSummary', 'definitionDraft'],
     take_control: ['agentRunId'], return_to_team: ['assignmentId'], accept: ['assignmentId'],
-    resume: ['assignmentId'], retry: ['assignmentId'], retire: ['agentRunId'], purge: ['agentRunId'],
+    resume: ['assignmentId', 'reconciliationNotes', 'acknowledgeRisk'], retry: ['assignmentId', 'reconciliationNotes', 'acknowledgeRisk'],
+    reconcile_writer: ['assignmentId', 'reconciliationNotes', 'acknowledgeRisk'], retire: ['agentRunId'], purge: ['agentRunId'],
     stop: ['assignmentId'], recover: [], present: [],
   }
   const allowed = payloadFields[String(obj.kind)]
@@ -732,7 +733,8 @@ export function validateIntent(value: unknown): WorkbenchIntent {
     else if (key === 'elapsedMs') { const elapsed = requireNonNegativeInt(item, `intent.payload.${key}`); if (elapsed < 1000 || elapsed > 3_600_000) throw new SchemaError('elapsed limit is outside C10 bounds') }
     else if (key === 'mode') requireEnum(item, CHECK_MODES, `intent.payload.${key}`)
     else if (key === 'taskText') requireTaskText(item, `intent.payload.${key}`)
-    else if (key === 'goalText') requireManagedText(item, `intent.payload.${key}`)
+    else if (key === 'goalText' || key === 'reconciliationNotes') requireManagedText(item, `intent.payload.${key}`)
+    else if (key === 'acknowledgeRisk') { if (item !== true) throw new SchemaError('explicit risk acknowledgement required') }
     else if (key === 'path') {
       if (typeof item !== 'string' || !item.startsWith('/') || item.split('/').includes('..')) throw new SchemaError('intent.payload.path must be an absolute path without parent segments')
       if (Buffer.byteLength(item) > 4096) throw new SchemaError('intent.payload.path exceeds the path byte bound')

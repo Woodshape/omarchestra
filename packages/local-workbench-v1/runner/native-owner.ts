@@ -112,10 +112,10 @@ export async function startNativeOwner(options: WorkbenchRunnerOptions & {
   try {
     bridge = await openOwnerPiBridge(runner, join(runner.roots.runtimeDir!, 'omarchestra-bridge.sock'), { now: options.monotonic })
     gateScratchRoot = ensureOwnedDirectory(join(runner.roots.runtimeDir!, 'gate-scratch'))
-    delivery = new AssignmentDeliveryCoordinator({ store: runner.store, registry: bridge.registry, clock: options.clock })
+    delivery = new AssignmentDeliveryCoordinator({ store: runner.store, registry: bridge.registry, clock: options.clock, monotonic: options.monotonic })
     const makeAuthority = (sessionId: string, pluginGeneration: number, framedAdoption?: FramedAdoptionManager) => new WorkbenchAuthority({
       runner, registry: bridge!.registry, ...(framedAdoption ? { framedAdoption } : {}),
-      sessionId, pluginGeneration, clock: options.clock, gateScratchRoot: gateScratchRoot!,
+      sessionId, pluginGeneration, clock: options.clock, monotonic: options.monotonic, gateScratchRoot: gateScratchRoot!,
       onAssignmentAdmitted: admission => {
         void delivery!.deliver(admission.attemptId).then(() => {
           if (host && authority?.sessionId === sessionId) tickPresentation(host)
@@ -202,7 +202,7 @@ export async function startNativeOwner(options: WorkbenchRunnerOptions & {
     const { dev, ino } = lstatSync(path)
     const schedule = options.schedule ?? ((tick, ms) => { const timer = setInterval(tick, ms); return () => clearInterval(timer) })
     cancelTimer = schedule(() => {
-      try { if (host) tickPresentation(host, { heartbeat: true }); else bridge?.registry.expire() }
+      try { authority?.sweepAssignmentLimits(); if (host) tickPresentation(host, { heartbeat: true }); else bridge?.registry.expire() }
       catch (error) {
         // An acknowledged open is not a durable presentation if the next
         // poll fails. Leave an actionable owner-side diagnostic instead of
@@ -216,7 +216,7 @@ export async function startNativeOwner(options: WorkbenchRunnerOptions & {
       runner, registry: bridge.registry, socketPath: path,
       currentAuthority: () => authority!,
       tick() {
-        try { if (host) tickPresentation(host, { heartbeat: true }) }
+        try { authority?.sweepAssignmentLimits(); if (host) tickPresentation(host, { heartbeat: true }) }
         catch { const failed = host; host = null; refreshUnavailable = false; try { failed?.stop() } catch { /* stale desktop cannot be cleared */ } }
       },
       async close() {

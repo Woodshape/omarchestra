@@ -472,6 +472,17 @@ local-workbench-v1-phase-3-intervention-check:
         NODE_BIN="$node_bin" \
         bash "$root/packages/local-workbench-v1/scripts/phase-3-intervention-gate.sh"
 
+# Offline explicit schema/receipt upgrade: disposable state and bounded crash
+# children only. No service start, installed resources, Pi or live migration.
+local-workbench-v1-store-upgrade-check:
+    #!/usr/bin/env bash
+    set -euo pipefail
+    root='{{justfile_directory()}}'
+    node_bin="$(command -v node || true)"
+    node_dir="$(dirname "${node_bin:-/usr/bin/node}")"
+    env -i PATH="$node_dir:/usr/bin:/bin" NODE_BIN="$node_bin" \
+        bash "$root/packages/local-workbench-v1/scripts/store-upgrade-gate.sh"
+
 # LOCAL WORKBENCH V1 — bounded AL-07 composed acceptance. This uses the real
 # QML/adapter and Runner/SQLite path, a framed fake Pi, and a disposable Git
 # Project with /usr/bin/true as its deterministic validator. It performs one

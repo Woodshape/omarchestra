@@ -76,7 +76,8 @@ function canPrepareStartReview(authority: WorkbenchAuthority, projectId: string 
   const store = authority.runner.store, registry = authority.registry
   if (!projectId || !goalId || !registry
       || authority.selectedProjectId !== projectId || authority.selectedGoalId !== goalId
-      || checks.length === 0 || !authority.projectContext(projectId).available) return false
+      || checks.length === 0 || !authority.projectContext(projectId).available
+      || !registry.assignmentLoopAvailable(runId)) return false
   const project = store.getProject(projectId), goal = store.getGoal(goalId)
   if (!project || !goal || goal.projectId !== projectId || goal.state !== 'active'
       || !authority.gateExecutionAvailableFor(project.canonicalPath)
@@ -145,7 +146,7 @@ function projectAssignment(authority: WorkbenchAuthority, assignment: Assignment
     state: assignment.state, attemptId: attempt?.attemptId ?? null, gateId: attempt?.gate.checkId ?? null,
     gateVersion: attempt?.gate.version ?? null, gateResult, candidateRef: candidate?.candidateId ?? null,
     correctionCount: Math.max(0, attempts.length - 1), correctionLimit: assignment.limits.maxCorrections,
-    diagnostics: result?.reasonCode ?? (delivery?.reasonCode ?? null),
+    diagnostics: authority.intervention?.latest(assignment.assignmentId)?.reason ?? result?.reasonCode ?? (delivery?.reasonCode ?? null),
     artifactRefs: candidate?.artifactRefs.map(ref => ref.path) ?? [],
   }
 }
@@ -359,6 +360,15 @@ export function buildSnapshot(options: ProjectionOptions): WorkbenchSnapshot {
       reasonCode: startReview === null ? 'start_review_unavailable' : null,
       reason: startReview === null ? START_UNAVAILABLE_REASON : null,
     },
+    // Assignment-owned Stop survives Run disconnection, retirement and purge.
+    // It revokes dispatch even when the Pi bridge or current Project is absent.
+    ...assignments.filter(assignment => assignment.projectId === selectedProjectId && assignment.goalId === selectedGoalId
+      && !['accepted', 'stopped', 'failed'].includes(assignment.state)).map(assignment => ({
+        kind: 'stop', target: assignment.assignmentId, label: 'Stop future dispatch', enabled: true, reasonCode: null,
+        reason: 'Revokes new dispatch. Pi and its tools may continue; files are retained and uncertain writers stay blocked.',
+      })),
+    ...assignments.filter(assignment => assignment.projectId === selectedProjectId && assignment.goalId === selectedGoalId)
+      .flatMap(assignment => authority.intervention?.actions(assignment.assignmentId) ?? []),
     ...(registrationDetail === null || !registrationDetail.supported
       ? []
       : [{
@@ -419,7 +429,7 @@ export function buildSnapshot(options: ProjectionOptions): WorkbenchSnapshot {
     const stop = store.getStop(assignment.assignmentId)
     if (stop) details.push({ kind: 'stop', stopId: stop.stopId, assignmentId: stop.assignmentId,
       dispatchRevoked: stop.dispatchRevoked, trigger: stop.trigger, cancellationStatus: stop.cancellationStatus })
-    const handoff = store.listHandoffs(assignment.assignmentId).at(-1)
+    const handoff = authority.intervention?.latest(assignment.assignmentId)?.handoff ?? store.listHandoffs(assignment.assignmentId).at(-1)
     if (handoff) details.push({ kind: 'handoff', handoffId: handoff.handoffId, assignmentId: handoff.assignmentId,
       attemptId: handoff.attemptId, agentRunId: handoff.agentRunId, controlEpoch: handoff.controlEpoch,
       claimedState: handoff.claimedState, outstandingEffects: handoff.outstandingEffects, summary: handoff.summary,

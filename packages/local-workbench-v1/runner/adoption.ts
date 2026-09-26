@@ -28,6 +28,7 @@ export interface AdoptionHost {
   readonly executionNodeId: string
   readonly sessionId: string
   revisionOf(): number
+  pauseRunAssignments?(runId: string): void
   clock(): number
   newId(prefix: string): string
   commit(kind: string, payload: Record<string, unknown>, mutate: () => void, afterCommit?: () => void): number
@@ -339,6 +340,7 @@ export class AdoptionManager {
           this.host.runner.store.setBindingControlEpoch(event.runId, binding.controlEpoch + 1, this.host.clock())
           this.host.runner.store.setBindingState(event.runId,
             binding.state === 'disconnected' || binding.state === 'manual_takeover_disconnected' ? 'manual_takeover_disconnected' : 'manual_takeover', this.host.clock())
+          this.host.pauseRunAssignments?.(event.runId)
         })
         this.pending.delete(event.runId)
         return
@@ -441,6 +443,7 @@ export class AdoptionManager {
       this.host.runner.store.setBindingControlEpoch(runId, binding.controlEpoch + 1, this.host.clock())
       this.host.runner.store.setBindingState(runId,
         binding.state === 'disconnected' || binding.state === 'manual_takeover_disconnected' ? 'manual_takeover_disconnected' : 'manual_takeover', this.host.clock())
+      this.host.pauseRunAssignments?.(runId)
     })
     this.pending.delete(runId)
     return this.requireBinding(runId)

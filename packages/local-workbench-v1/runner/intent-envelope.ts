@@ -152,6 +152,7 @@ const TARGET_PAYLOAD_FIELDS: Readonly<Record<string, string>> = {
   accept: 'assignmentId',
   resume: 'assignmentId',
   retry: 'assignmentId',
+  reconcile_writer: 'assignmentId',
   stop: 'assignmentId',
   take_control: 'agentRunId',
   retire: 'agentRunId',
@@ -161,7 +162,7 @@ const NULL_TARGET_KINDS = ['inspect_project', 'create_goal', 'create_check', 'na
 // Confirmation and recovery intents name the exact current record.
 const EXACT_TARGET_KINDS = [
   'present', 'recover', 'prepare_start_review', 'start_assignment',
-  'return_to_team', 'accept', 'resume', 'retry', 'stop',
+  'return_to_team', 'accept', 'resume', 'retry', 'reconcile_writer', 'stop',
 ]
 
 function validateTargetAssociation(intent: WorkbenchIntent): void {
