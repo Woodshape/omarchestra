@@ -13,7 +13,8 @@ import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs'
 import { execFileSync } from 'node:child_process'
 import { join } from 'node:path'
 import { tmpdir } from 'node:os'
-import { armAssignmentBudget } from '../runner/assignment-budget.ts'
+import { armAssignmentBudget, registerAssignmentGate } from '../runner/assignment-budget.ts'
+import { WORKBENCH_PROTOCOL } from '../console/schema.ts'
 import { openWorkbenchRunner, type WorkbenchRunner } from '../runner/runner.ts'
 import { WorkbenchAuthority, START_UNAVAILABLE_REASON } from '../runner/authority.ts'
 import { canonicalJson, sha256 } from '../runner/canonical-hash.ts'
@@ -413,6 +414,73 @@ test('restart reports an active Assignment whose uncertain writer blocks continu
   assert.deepEqual(reopened.recovery.reconciliationRequired, [ASSIGNMENT_ID])
   assert.equal(reopened.store.getWriter(s.projectId)!.state, 'uncertain')
   assert.equal(reopened.store.getAssignment(ASSIGNMENT_ID)!.state, 'running', 'recovery mutates no Assignment lifecycle')
+})
+
+function nativeStop(s: Fixture, intentId = 'native-stop') {
+  return { protocol: WORKBENCH_PROTOCOL, sessionId: s.authority.sessionId, pluginGeneration: s.authority.pluginGeneration,
+    runnerEpoch: s.runner.epoch, intentId, expectedRevision: s.authority.currentRevision,
+    kind: 'stop', target: ASSIGNMENT_ID, payload: { assignmentId: ASSIGNMENT_ID } }
+}
+
+test('native Stop receipt failure rolls back revocation and never aborts before commit', t => {
+  const s = setup(t)
+  s.seed('run-native-stop', { state: 'admitted' })
+  const intent = nativeStop(s)
+  const controller = new AbortController()
+  const unregister = registerAssignmentGate(s.runner.store, ASSIGNMENT_ID, controller)
+  t.after(unregister)
+  const putReceipt = s.runner.store.putIntentResult
+  s.runner.store.putIntentResult = () => { throw Error('receipt fault') }
+  assert.throws(() => s.authority.handlePresentationIntent(intent), /receipt fault/)
+  s.runner.store.putIntentResult = putReceipt
+  assert.equal(controller.signal.aborted, false)
+  assert.equal(s.runner.store.getStop(ASSIGNMENT_ID), null)
+  assert.equal(s.runner.store.getAssignment(ASSIGNMENT_ID)!.state, 'admitted')
+  assert.equal(s.runner.store.getAssignmentDelivery(ATTEMPT_ID)!.state, 'queued')
+  assert.equal(s.runner.store.getWriter(s.projectId)!.state, 'held')
+  assert.equal(s.authority.currentRevision, intent.expectedRevision)
+  assert.equal(s.runner.store.getIntentResult(intent.intentId), null)
+  let observedCommitted = false
+  controller.signal.addEventListener('abort', () => {
+    observedCommitted = s.runner.store.getIntentResult(intent.intentId)?.status === 'acknowledged'
+      && s.runner.store.getStop(ASSIGNMENT_ID)?.dispatchRevoked === true
+      && s.runner.store.getAssignmentDelivery(ATTEMPT_ID)?.state === 'not_sent'
+  })
+  assert.equal(s.authority.handlePresentationIntent(intent).status, 'acknowledged')
+  assert.equal(controller.signal.aborted, true)
+  assert.equal(observedCommitted, true, 'child cancellation observes the committed receipt and revocation')
+  assert.equal(s.runner.store.getWriter(s.projectId)!.state, 'none', 'a never-attempted delivery can release')
+})
+
+test('native Stop replays its receipt, rejects stale/retargeted input, and retains possible effects', t => {
+  const s = setup(t)
+  s.seed('run-native-replay')
+  const intent = nativeStop(s)
+  assert.equal(s.authority.handlePresentationIntent({ ...intent, target: 'wrong' }).reasonCode, 'invalid_envelope')
+  assert.equal(s.runner.store.getIntentResult(intent.intentId), null)
+  const outcome = s.authority.handlePresentationIntent(intent)
+  assert.equal(outcome.status, 'acknowledged')
+  const revision = s.authority.currentRevision, cursor = s.authority.currentCursor
+  assert.deepEqual(s.authority.handlePresentationIntent(intent), outcome)
+  assert.equal(s.authority.handlePresentationIntent({ ...intent, target: 'other', payload: { assignmentId: 'other' } }).reasonCode, 'intent_identity_conflict')
+  assert.equal(s.authority.handlePresentationIntent({ ...intent, intentId: 'stale-stop' }).status, 'stale')
+  assert.equal(s.authority.currentRevision, revision)
+  assert.equal(s.authority.currentCursor, cursor)
+  assert.equal(s.runner.store.listStops().length, 1)
+  assert.equal(s.runner.store.getWriter(s.projectId)!.state, 'uncertain')
+  assert.equal(s.runner.store.getStop(ASSIGNMENT_ID)!.cancellationStatus, 'not_requested')
+  assert.equal(s.runner.store.getBinding('run-native-replay')!.state, 'ready', 'Stop cannot terminate or take over Pi')
+  assert.equal(buildSnapshot({ authority: s.authority, adoption: s.authority.adoption, connection: 'connected' }).actions.some(action => action.kind === 'stop'), false)
+})
+
+test('native Stop remains available for a disconnected Pi', t => {
+  const s = setup(t)
+  s.seed('run-disconnected-stop')
+  s.runner.store.setBindingState('run-disconnected-stop', 'disconnected', s.now())
+  const snapshot = buildSnapshot({ authority: s.authority, adoption: s.authority.adoption, connection: 'connected' })
+  assert.equal(snapshot.actions.find(action => action.kind === 'stop' && action.target === ASSIGNMENT_ID)?.enabled, true)
+  assert.equal(s.authority.handlePresentationIntent(nativeStop(s)).status, 'acknowledged')
+  assert.equal(s.runner.store.getWriter(s.projectId)!.state, 'uncertain')
 })
 
 test('start_assignment stays disabled during every intervention path', t => {

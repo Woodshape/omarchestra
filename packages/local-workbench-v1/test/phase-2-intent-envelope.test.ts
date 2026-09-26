@@ -140,13 +140,13 @@ for (const [kind, field] of Object.entries({ select_project: 'projectId', select
   assert.equal(s.authority.handleIntent({ ...s.intent, kind, target: 'first', payload: { [field]: 'second' } }).reasonCode, 'invalid_envelope')
 })
 
-test('unavailable Assignment actions retain exact target associations without execution', t => {
+test('unavailable or missing Assignment targets reject without execution', t => {
   const s = fixture(t)
   for (const kind of ['return_to_team', 'accept', 'resume', 'retry', 'stop']) {
     const target = 'assignment'
     const result = s.authority.handleIntent({ ...s.intent, intentId: kind, kind, target, payload: { assignmentId: 'assignment' } })
     assert.equal(result.status, 'rejected')
-    assert.equal(result.reasonCode, 'handler_unavailable')
+    assert.equal(result.reasonCode, kind === 'stop' ? 'missing_resource' : 'handler_unavailable')
   }
   assert.equal(s.authority.handleIntent({ ...s.intent, intentId: 'mismatched-accept', kind: 'accept', target: 'run', payload: { assignmentId: 'assignment' } }).reasonCode, 'invalid_envelope')
   assert.equal(s.runner.store.getIntentResult('mismatched-accept'), null)

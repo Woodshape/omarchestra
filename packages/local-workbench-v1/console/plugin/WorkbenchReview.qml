@@ -62,10 +62,15 @@ Control {
      */
     function interventionActionsFor(card, assignment) {
         var kinds = ["take_control", "return_to_team", "accept", "resume", "retry", "stop"]
-        if (card === null || !Array.isArray(card.actions)) return []
-        return card.actions.filter(function (action) {
+        var cardActions = card !== null && Array.isArray(card.actions) ? card.actions : []
+        var globalActions = root.projection && Array.isArray(root.projection.actions) ? root.projection.actions : []
+        var stops = globalActions.filter(function (action) {
+            return action.kind === "stop" && action.target === assignment.assignmentId
+                && !cardActions.some(function (entry) { return entry.kind === "stop" && entry.target === action.target })
+        })
+        return cardActions.concat(stops).filter(function (action) {
             return kinds.indexOf(action.kind) !== -1
-                && (action.kind !== "accept" || action.target === assignment.assignmentId)
+                && (["accept", "stop"].indexOf(action.kind) === -1 || action.target === assignment.assignmentId)
         })
     }
 
@@ -302,7 +307,7 @@ Control {
                                 armedIntent: root.armedConfirmation
                                 highlighted: awaitingConfirmation
                                 text: confirmationText(modelData.label || modelData.kind)
-                                supportingText: available ? "" : (modelData.reason || "Unavailable")
+                                supportingText: modelData.reason || (available ? "" : "Unavailable")
                                 enabled: available
                                 focusPolicy: Qt.StrongFocus
                                 onClicked: root.intentRequested(requestIntent)

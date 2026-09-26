@@ -8,7 +8,8 @@
  */
 import test, { type TestContext } from 'node:test'
 import assert from 'node:assert/strict'
-import { chmodSync, mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs'
+import { chmodSync, mkdirSync, mkdtempSync, readdirSync, rmSync, writeFileSync } from 'node:fs'
+import { WORKBENCH_PROTOCOL } from '../console/schema.ts'
 import { execFileSync } from 'node:child_process'
 import { join } from 'node:path'
 import { tmpdir } from 'node:os'
@@ -423,6 +424,57 @@ test('elapsed budget during a gate durably stops and cooperatively cancels only 
   assert.equal(s.runner.store.getStop(ids.assignmentId)!.trigger, 'elapsed_limit')
   assert.equal(s.runner.store.getAssignment(ids.assignmentId)!.state, 'stopped')
   assert.equal(s.runner.store.getWriter(s.projectId)!.state, 'uncertain')
+})
+
+function operatorStop(authority: WorkbenchAuthority, assignmentId: string) {
+  return authority.handlePresentationIntent({ protocol: WORKBENCH_PROTOCOL, sessionId: authority.sessionId,
+    pluginGeneration: authority.pluginGeneration, runnerEpoch: authority.runner.epoch,
+    intentId: 'operator-stop', expectedRevision: authority.currentRevision,
+    kind: 'stop', target: assignmentId, payload: { assignmentId } })
+}
+
+test('native operator Stop cancels an actually running validator only after its receipt commits', async t => {
+  const s = setup(t)
+  s.writeChecker("require('node:fs').writeFileSync(process.env.HOME + '/started', 'yes'); setTimeout(() => process.exit(0), 5000)")
+  const ids = s.seed(s.storeCheck(), 'run-native-stop')
+  const running = s.authority.executeAssignmentGate(ids, { scratchRoot: s.scratchRoot, quiescence: confirmedQuiescence })
+  try {
+    const deadline = performance.now() + 3000
+    while (!readdirSync(s.scratchRoot, { recursive: true }).some(name => String(name).endsWith('/started'))) {
+      assert.ok(performance.now() < deadline, 'validator must actually start before Stop is tested')
+      await sleep(10)
+    }
+    const started = performance.now()
+    assert.equal(operatorStop(s.authority, ids.assignmentId).status, 'acknowledged')
+    assert.equal(s.runner.store.getIntentResult('operator-stop')?.status, 'acknowledged')
+    assert.equal(s.runner.store.getStop(ids.assignmentId)?.dispatchRevoked, true)
+    const outcome = await running
+    assert.ok(performance.now() - started < 4000, 'Stop must not wait for the five-second validator deadline')
+    assert.equal(outcome.accepted, false)
+    assert.equal(s.runner.store.getAssignment(ids.assignmentId)?.state, 'stopped')
+    assert.equal(s.runner.store.getWriter(s.projectId)?.state, 'uncertain')
+    assert.equal(s.runner.store.getStop(ids.assignmentId)?.cancellationStatus, 'not_requested', 'no Pi cancellation is claimed')
+  } finally {
+    // The executor and child both have five-second bounds. Await exact cleanup
+    // even when a marker/assertion fails; no orphaned asynchronous test work.
+    await running
+  }
+})
+
+test('a native Stop that wins the final acceptance boundary retains a nonaccepting pass', async t => {
+  const s = setup(t); s.writeChecker('process.exit(0)')
+  const ids = s.seed(s.storeCheck(), 'run-native-stop-race')
+  const authority = new WorkbenchAuthority({ runner: s.runner, sessionId: 'session', pluginGeneration: 1, clock: s.now,
+    onAssignmentGatePhase: phase => {
+      if (phase === 'before_acceptance') assert.equal(operatorStop(authority, ids.assignmentId).status, 'acknowledged')
+    } })
+  const outcome = await authority.executeAssignmentGate(ids, { scratchRoot: s.scratchRoot, quiescence: confirmedQuiescence })
+  assert.equal(outcome.outcome, 'pass')
+  assert.equal(outcome.accepted, false)
+  assert.equal(s.runner.store.getGateResult(ids.attemptId)?.state, 'nonaccepting')
+  assert.equal(s.runner.store.getAssignment(ids.assignmentId)?.state, 'stopped')
+  assert.equal(s.runner.store.getWriter(s.projectId)?.state, 'uncertain')
+  assert.equal(s.runner.store.getGoal(s.goalId)?.state, 'active')
 })
 
 test('the gate surface is direct-call only and Start stays disabled', async t => {

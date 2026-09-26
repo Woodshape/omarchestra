@@ -2,6 +2,9 @@
 # Bounded AL-06 intervention check: fake-only and disposable. A seeded
 # Assignment lifecycle exercises the explicit Stop, takeover, structured
 # handoff, bounded correction/resume reconciliation and restart-recovery paths.
+# Native operator Stop additionally proves the normal command/receipt transaction,
+# rollback-before-abort, exact replay and disconnected-Run availability. The
+# composed loop gate separately exercises actual QML Stop after retirement/purge.
 # Stop revokes future dispatch first and never claims Pi/tool termination;
 # takeover advances the control epoch and pauses automatic delivery; a
 # superseded epoch fences stale Candidate and pass results; correction stays

@@ -1022,7 +1022,7 @@ export class WorkbenchAuthority {
     }
     let committed = false
     try {
-      if (['inspect_project', 'confirm_register_project', 'select_project', 'select_goal', 'create_goal', 'create_check', 'configure_checks', 'request_adoption', 'authorize_adoption', 'take_control', 'navigate_page'].includes(intent.kind)) {
+      if (['inspect_project', 'confirm_register_project', 'select_project', 'select_goal', 'create_goal', 'create_check', 'configure_checks', 'request_adoption', 'authorize_adoption', 'take_control', 'stop', 'navigate_page'].includes(intent.kind)) {
         const context = { revision: this.revision, cursor: this.cursor, afterCommit: [] as Array<() => void> }
         const registrations = new Map(this.registrations)
         const previousProjectContexts = new Map(this.projectContexts)
@@ -1158,6 +1158,12 @@ export class WorkbenchAuthority {
       }
       case 'take_control': {
         this.adoption.takeControl(String(intent.payload.agentRunId))
+        return { status: 'acknowledged', reasonCode: null, reason: null, committedRevision: this.revision }
+      }
+      case 'stop': {
+        const assignment = this.runner.store.getAssignment(String(intent.payload.assignmentId))
+        if (!assignment) throw workbenchError('missing_resource', 'the exact Assignment does not exist', 'refresh the current Assignment before stopping')
+        this.stopAssignmentInternal(assignment, 'operator', null)
         return { status: 'acknowledged', reasonCode: null, reason: null, committedRevision: this.revision }
       }
       case 'recover':
@@ -1585,8 +1591,9 @@ export class WorkbenchAuthority {
   }
 
   // -------------------------------------------------------------------------
-  // AL-06 intervention. Explicit direct-call surfaces, never routed from
-  // `handleIntent`. Stop revokes future dispatch before any cancellation and
+  // AL-06 intervention. Native Stop uses the common command/receipt transaction;
+  // remaining reconciliation helpers are not yet native entry points.
+  // Stop revokes future dispatch before any cancellation and
   // retains the writer on unknown effects; takeover advances the control epoch
   // and pauses automatic delivery; reconciliation is explicit and bounded.
   // -------------------------------------------------------------------------
@@ -1883,8 +1890,7 @@ export class WorkbenchAuthority {
       if (effectsPossible) this.runner.store.markWriterUncertain(assignment.projectId, now)
       else this.runner.store.releaseWriter(assignment.projectId, now)
       box.writerState = this.runner.store.getWriter(assignment.projectId)?.state ?? 'none'
-    })
-    abortAssignmentGate(this.runner.store, assignment.assignmentId)
+    }, () => abortAssignmentGate(this.runner.store, assignment.assignmentId))
     return {
       status: 'stopped', stopId, assignmentId: assignment.assignmentId, dispatchRevoked: true,
       cancellationStatus: 'not_requested', writerState: box.writerState, replayed: false, committedRevision: this.revision,

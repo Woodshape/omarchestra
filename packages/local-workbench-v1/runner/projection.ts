@@ -360,6 +360,13 @@ export function buildSnapshot(options: ProjectionOptions): WorkbenchSnapshot {
       reasonCode: startReview === null ? 'start_review_unavailable' : null,
       reason: startReview === null ? START_UNAVAILABLE_REASON : null,
     },
+    // Assignment-owned Stop survives Run disconnection, retirement and purge.
+    // It revokes dispatch even when the Pi bridge or current Project is absent.
+    ...assignments.filter(assignment => assignment.projectId === selectedProjectId && assignment.goalId === selectedGoalId
+      && !['accepted', 'stopped', 'failed'].includes(assignment.state)).map(assignment => ({
+        kind: 'stop', target: assignment.assignmentId, label: 'Stop future dispatch', enabled: true, reasonCode: null,
+        reason: 'Revokes new dispatch. Pi and its tools may continue; files are retained and uncertain writers stay blocked.',
+      })),
     ...(registrationDetail === null || !registrationDetail.supported
       ? []
       : [{

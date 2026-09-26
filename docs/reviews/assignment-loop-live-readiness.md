@@ -16,6 +16,8 @@ No live receipt/database edits, service reset/start, installation, shell/Pi relo
 
 ## U1 — explicit offline schema upgrade (engineering checkpoint)
 
+Local commit: `84e1fb5`. Not applied to installed state.
+
 Entry: `manual/workbench-store-upgrade.ts`; implementation: `runner/store-migration.ts` under `packages/local-workbench-v1/`.
 
 - Only the exact schema-9 layout from `b84e02f` is eligible. Its frozen DDL is digest-pinned by a regression. Schema shape/constraints/triggers, integrity/foreign keys, stored domain records, Node identity, counters and the independent fence ledger are validated; no version-number-only promotion.
@@ -52,10 +54,26 @@ After the remaining intervention/release prerequisites pass:
 
 No step above has been performed against the installed root.
 
+## U2 — native operator Stop (engineering checkpoint)
+
+- `stop` now routes through the existing complete-envelope validation, current authority/revision checks, deduplication and command transaction. Stop lifecycle, queued-outbox revocation, writer state, event/revision and the operator receipt commit together.
+- Validator abort is an **after-commit** effect. Receipt failure rolls back every Stop mutation and cannot signal the child. Pi cancellation remains `not_requested`; no Pi signal, terminal action, tool-termination claim or file rollback.
+- The authoritative projection publishes Assignment-owned Stop independently of Run-card presence or bridge liveness. The real Work/Result QML renders that exact action with the existing second-press confirmation and an explicit blast-radius warning. Stop remains usable after Run retirement/purge; unknown prior effects still retain the writer.
+- The composed fake-Pi test now runs two production-entry paths: Candidate→Accept→gate and Candidate→disconnect→operator retirement/purge→QML Stop. Both reopen SQLite and verify durable outcomes; the Stop case has no Run card, invokes no gate, sends no second task and preserves uncertainty. The test waits for Qt layout before physical button hit-testing instead of clicking unpolished, overlapping delegates.
+- Added native-command regressions for receipt rollback/cancellation ordering, exact replay, changed/stale/incorrect targets, disconnected Pi, an actually running validator and Stop winning the final acceptance boundary. Existing direct-call tests remain, without treating them as return-to-team implementation.
+
+Validation on Node v26.8.1, disposable state/offscreen Qt only:
+
+- Intervention: **19/19 passed**.
+- Executor/gate acceptance: **39/39 passed**, including running-child Stop and final-acceptance race.
+- Composed QML/fake-Pi loop: **2/2 passed**, including Stop after real authority retirement/purge.
+- Full Phase 2 engineering gate: **PASS**, including **29 Qt cases**; historical TODO placeholders remain unexecuted.
+
+These are host engineering checkpoints, not independent review of the follow-up commits, live Pi testing or full D6 completion. No changes were installed and no live root was migrated.
+
 ## Remaining ordered checkpoints
 
-1. Native Stop through the actual confirmed QML→adapter→Owner command/receipt transaction, including receipt-failure rollback, no cancellation before commit, replay/staleness and gate/Stop races.
-2. Same-Pi return request and structured handoff, with explicit reconciliation and fresh control epoch; busy/unknown/late evidence must stay paused. Do not simply expose the direct-call helper as a complete workflow.
-3. Operator uncertain-writer reconciliation with recorded prior effects, explicit unmanaged-interference acknowledgement and current bounded quiescence evidence. Retired/purged or missing evidence must never become idle-derived clearance.
-4. Required live-load retirement/replacement/purge and diagnostics/privacy evidence; reviewed current release/setup plan; exact disposable task/check and visible Pi selection.
-5. Only then separately apply the reviewed live upgrade/activation steps and exercise the bounded task. No automatic merge or claim of full AL-08 completion.
+1. Same-Pi return request and structured handoff, with explicit reconciliation and fresh control epoch; busy/unknown/late evidence must stay paused. Do not simply expose the direct-call helper as a complete workflow.
+2. Operator uncertain-writer reconciliation with recorded prior effects, explicit unmanaged-interference acknowledgement and current bounded quiescence evidence. Retired/purged or missing evidence must never become idle-derived clearance.
+3. Remaining live-load replacement and diagnostics/privacy evidence; reviewed current release/setup plan; exact disposable task/check and visible Pi selection. U2's retirement/purge path proves only its stated window, not every D6 failure case.
+4. Only then separately apply the reviewed live upgrade/activation steps and exercise the bounded task. No automatic merge or claim of full AL-08 completion.
