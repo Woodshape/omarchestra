@@ -1,6 +1,7 @@
 /** Foreground native owner and separate one-shot presentation/status clients. */
 import { inspectProjectPath } from './git-context.ts'
 import { openWorkbenchRunner } from './runner.ts'
+import { describeBackupSupport } from './backup.ts'
 import { startNativeOwner, requestOwner } from './native-owner.ts'
 import { systemDesktopCommand, type DesktopCommandPort } from './desktop-command.ts'
 
@@ -55,7 +56,7 @@ export async function runEntry(argv: readonly string[], io: { write(line: string
     }
     if (parsed.command === 'backup') {
       const runner = openWorkbenchRunner({ roots: { stateDir: parsed.stateDir!, runtimeDir: parsed.runtimeDir! } })
-      try { io.write(JSON.stringify({ kind: 'backup', metadata: runner.backup(), support: { restoreSupported: false, migrationsSupported: false } })) }
+      try { io.write(JSON.stringify({ kind: 'backup', metadata: runner.backup(), support: describeBackupSupport() })) }
       finally { runner.close() }
       return 0
     }

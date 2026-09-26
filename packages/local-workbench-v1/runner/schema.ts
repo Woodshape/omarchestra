@@ -5,7 +5,7 @@
  * The declared shape is the contract the runner validates before accepting
  * management frames. Any missing table or unexpected table is drift that
  * blocks startup; the runner never repairs schema silently. Schema 9 stores are
- * refused, never silently migrated.
+ * refused by startup; the separate offline plan-bound upgrade is explicit.
  */
 
 export const STORE_SCHEMA_VERSION = 10
@@ -75,7 +75,10 @@ export const STORE_TABLES: TableSpec[] = [
   },
 ]
 
-export const STORE_DDL = `
+/** Frozen schema-9 prefix (b84e02f). Kept for explicit forward migration,
+ * never accepted by ordinary startup. */
+export const STORE_V9_TABLES = STORE_TABLES.slice(0, STORE_TABLES.findIndex(table => table.name === 'assignments'))
+export const STORE_V9_DDL = `
 CREATE TABLE IF NOT EXISTS meta (
   key TEXT PRIMARY KEY,
   value TEXT NOT NULL
@@ -211,6 +214,9 @@ CREATE TABLE IF NOT EXISTS intent_dedup (
   reason TEXT,
   detail TEXT
 );
+`
+
+export const ASSIGNMENT_SCHEMA_DDL = `
 CREATE TABLE IF NOT EXISTS assignments (
   assignment_id TEXT PRIMARY KEY,
   project_id TEXT NOT NULL REFERENCES projects(project_id),
@@ -334,6 +340,8 @@ CREATE TABLE IF NOT EXISTS handoffs (
 );
 CREATE INDEX IF NOT EXISTS handoffs_by_assignment ON handoffs (assignment_id);
 `
+
+export const STORE_DDL = STORE_V9_DDL + ASSIGNMENT_SCHEMA_DDL.trimStart()
 
 export const REQUIRED_PRAGMAS = {
   foreign_keys: 1,

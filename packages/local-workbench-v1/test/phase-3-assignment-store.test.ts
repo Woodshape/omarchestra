@@ -120,8 +120,8 @@ test('fresh store is schema 10 with an empty one-Assignment lifecycle substrate'
   assert.equal(f.store.activeAssignment(f.projectId), null)
   assert.equal(f.store.getWriter(f.projectId), null)
   assert.deepEqual(planMigration(10), { from: 10, to: 10, steps: [], requiredBackup: false })
-  assert.throws(() => planMigration(9), /no supported forward migration from schema 9 to 10/)
-  assert.equal(describeBackupSupport().migrationsSupported, false)
+  assert.deepEqual(planMigration(9), { from: 9, to: 10, steps: ['add_assignment_lifecycle'], requiredBackup: true })
+  assert.equal(describeBackupSupport().migrationsSupported, true)
 })
 
 test('schema 9 stores are refused without modifying their bytes', t => {

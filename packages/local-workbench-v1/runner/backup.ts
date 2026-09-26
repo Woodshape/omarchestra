@@ -6,8 +6,8 @@
  * taken only while this runner holds exclusive ownership, from an integrity-
  * clean store, into the owner-only backup directory, with a SHA-256 digest and
  * schema metadata. Two clean backups are retained; older ones this module
- * created are rotated. Migration is declared forward-only and becomes a real
- * step registry only when a future schema exists. Restore is not implemented,
+ * created are rotated. The explicit offline store-migration module supports
+ * only schema 9 -> 10; startup never migrates. Restore is not implemented,
  * so it fails closed with an explicit operator action instead of reporting a
  * success this phase cannot prove.
  */
@@ -15,7 +15,7 @@
 import { createHash } from 'node:crypto'
 import { chmodSync, lstatSync, readFileSync, writeFileSync } from 'node:fs'
 import { DatabaseSync } from 'node:sqlite'
-import { assertSchemaShape } from './store.ts'
+import { assertSchema9ForMigration, assertSchemaShape } from './store.ts'
 import { backupFile, readInventory, writeInventory, deleteRecordedBackup } from './backup-inventory.ts'
 import { join } from 'node:path'
 import { workbenchError } from './errors.ts'
@@ -46,11 +46,11 @@ export interface BackupSupport {
 export function describeBackupSupport(): BackupSupport {
   return {
     backupsSupported: true,
-    migrationsSupported: false,
+    migrationsSupported: true,
     restoreSupported: false,
     reasons: [
       'backups require exclusive ownership and an integrity-clean store',
-      'no forward schema step exists beyond version ' + STORE_SCHEMA_VERSION + ', so migration is a verified no-op',
+      'only explicit offline schema 9 -> 10 is supported, through the plan-bound store upgrade command; startup never migrates',
       'restore is unavailable in Phase 2: preserve the damaged database, then use an explicit operator recovery outside automation',
     ],
   }
@@ -174,11 +174,14 @@ export function verifyBackup(roots: WorkbenchRoots, databaseName: string): Backu
   if (hashFile(database) !== parsed.digest) {
     throw workbenchError('integrity_failure', `backup ${databaseName} does not match its recorded digest`, 'discard this copy and use the other retained backup; do not edit the file')
   }
-  if (parsed.schemaVersion !== STORE_SCHEMA_VERSION) {
+  if (parsed.schemaVersion !== STORE_SCHEMA_VERSION && parsed.schemaVersion !== 9) {
     throw workbenchError('unsupported_schema', `backup ${databaseName} has schema ${parsed.schemaVersion}`, 'use a backup created by this workbench version')
   }
   const copy = new DatabaseSync(database, { readOnly: true })
-  try { assertSchemaShape(copy, database) } finally { copy.close() }
+  try {
+    if (parsed.schemaVersion === 9) assertSchema9ForMigration(copy, database)
+    else assertSchemaShape(copy, database)
+  } finally { copy.close() }
   return parsed
 }
 
@@ -190,14 +193,15 @@ export interface MigrationPlan {
 }
 
 /**
- * Migration policy: only the current schema is a verified no-op. The
- * older development roots are unsupported; no automatic migration exists.
+ * Migration policy: current schema is a verified no-op; schema 9 has one
+ * explicit offline upgrade. Earlier development roots remain unsupported.
  * No downgrade and no automatic restore is ever planned.
  */
 export function planMigration(currentVersion: number): MigrationPlan {
   if (currentVersion === STORE_SCHEMA_VERSION) {
     return { from: currentVersion, to: STORE_SCHEMA_VERSION, steps: [], requiredBackup: false }
   }
+  if (currentVersion === 9) return { from: 9, to: 10, steps: ['add_assignment_lifecycle'], requiredBackup: true }
   throw workbenchError(
     'migration_unavailable',
     `no supported forward migration from schema ${currentVersion} to ${STORE_SCHEMA_VERSION}`,
@@ -211,9 +215,8 @@ export interface MigrationPreconditions {
 }
 
 /**
- * Assert the C3 preconditions for any future migration step: exclusive
- * ownership plus a verified retained backup. With no step to run this returns
- * the verified plan and never mutates the store.
+ * Describe C3 prerequisites only; this helper never migrates. Actual upgrade
+ * acquires the lifetime lock itself and verifies its own exact source backups.
  */
 export function assertMigrationPreconditions(roots: WorkbenchRoots, currentVersion: number, preconditions: MigrationPreconditions): MigrationPlan {
   const plan = planMigration(currentVersion)
@@ -224,7 +227,8 @@ export function assertMigrationPreconditions(roots: WorkbenchRoots, currentVersi
   if (preconditions.backupDatabase === null) {
     throw workbenchError('backup_precondition', 'migration requires a verified retained backup', 'create a backup while the runner owns the root, then retry the migration')
   }
-  verifyBackup(roots, preconditions.backupDatabase)
+  const backup = verifyBackup(roots, preconditions.backupDatabase)
+  if (backup.schemaVersion !== currentVersion) throw workbenchError('backup_precondition', 'backup schema does not match the migration source', 'retain a verified backup of the exact source schema')
   return plan
 }
 

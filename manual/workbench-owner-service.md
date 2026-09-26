@@ -2,6 +2,10 @@
 
 This is a **development-checkout** systemd user service, not another Pi process or a terminal emulator. The Omarchy Companion and Pi observer are installed separately. The owner keeps one verified Team Runner, observer bridge and owner-only socket alive independently of the workbench dock, Pi terminals and any interactive terminal. Its source is `manual/omarchestra-workbench-owner.service` and it requires this checkout and the installed `mise` Node `latest` link to remain available. No service is enabled by the disposable gate or by a bar click.
 
+## Current Assignment-loop upgrade boundary
+
+The Assignment runtime requires store schema 10. A schema-9 installed root must not be restarted as an upgrade attempt. The explicit offline `manual/workbench-store-upgrade.ts --plan|--apply` command now supports exact schema 9→10, after the separate legacy receipt migration has produced a verified v3 receipt. It requires explicit state/runtime/evidence paths and exact plan-digest authorization for apply. Preserve all existing history, fences and incomplete evidence; no empty replacement root, automatic restore or manual schema editing. See the [live-readiness checkpoint](../docs/reviews/assignment-loop-live-readiness.md) for gates and application order. The real root has **not** been migrated, and native intervention/live-dispatch prerequisites still block activation.
+
 ## Read-only preflight and exact live authorization
 
 1. The operator explicitly authorized enabling the service without starting it during setup, and requested on-demand starting through the bar button. Do **not** treat having clicked the bar, installed the plugin or typed `y` for its receipt as authorization to install any other background service.
