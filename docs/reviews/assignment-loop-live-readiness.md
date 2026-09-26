@@ -1,6 +1,6 @@
 # Assignment-loop live-readiness checkpoints
 
-Status: **IN PROGRESS; no live activation or task execution.** The operator reported review complete with no changes requested for PR #1, then authorized closing the upgrade/native-intervention prerequisites before live testing and before merging into `feature/local-workbench-v1` or `main`. That authorization does not waive the existing C2–C14/D6 safety contracts.
+Status: **IN PROGRESS; Companion and Owner activated; no live Assignment dispatch/task yet.** The operator reported review complete with no changes requested for PR #1, then authorized closing the upgrade/native-intervention prerequisites before live testing and before merging into `feature/local-workbench-v1` or `main`. That authorization does not waive the existing C2–C14/D6 safety contracts.
 
 ## Read-only live preflight
 
@@ -16,7 +16,7 @@ No live receipt/database edits, service reset/start, installation, shell/Pi relo
 
 ## U1 — explicit offline schema upgrade (engineering checkpoint)
 
-Local commit: `84e1fb5`. Not applied to installed state.
+Engineering commit: `84e1fb5`. Installed-state application is recorded separately in U4 below.
 
 Entry: `manual/workbench-store-upgrade.ts`; implementation: `runner/store-migration.ts` under `packages/local-workbench-v1/`.
 
@@ -52,7 +52,7 @@ After the remaining intervention/release prerequisites pass:
 3. Review that exact plan, then use `--apply` with the same paths and `--authorize <displayed digest>`. Changed facts require a new review, never an overridden digest.
 4. Verify old/new database and independent fence evidence before the separate release installation/Owner startup plan. Never substitute an empty state root to hide an upgrade failure.
 
-No step above has been performed against the installed root.
+At the U1 engineering checkpoint none of these steps had been performed against the installed root. U4 below records their later authorized application.
 
 ## U2 — native operator Stop (engineering checkpoint)
 
@@ -100,9 +100,34 @@ Disposable state, framed fake Pi and real offscreen Qt only:
 - Read-only Companion installer inspection succeeds for the exact installed **0.14.0→0.15.0** update, retaining the existing 19-asset ownership inventory. Historical `st_dev` differs after reboot while inodes match; the installer already treats historical device numbers as diagnostics and still guards fresh operation identities. No receipt repair is needed or performed.
 - The existing receipt migration and Companion setup commands require a real operator TTY. Do not synthesize a TTY/answer, bypass those guards, or replace installed assets manually. The explicit store upgrade remains separately plan-digest authorized after receipt migration.
 
+## U4 — installed receipt and store upgrade applied
+
+Source checkpoint: `1696a28`. The operator ran the real-TTY receipt migration and confirmed the printed v2 plan. Independent readback verified the v3 receipt hash `df9c4effef847ecf04baf8d6dfc0eac8ba701d5e60d96a3061c1d0b8077c0989` and the unchanged v2 backup hash `905600091b9483f8404c8fdfd2951f04d3726ffe3b81c1e7baa89bad2109fe33`.
+
+With the exact enabled Owner still failed (`MainPID=0`), the explicit store plan was inspected and applied using digest `4d3f6f50463af6ae495512d8055be1e00742e446511cb038895d5ef094acde6d`. Evidence is retained at `~/.local/state/omarchestra/manual-gates/assignment-store-upgrade-vW8pSw/`: `before.sqlite`, `after.sqlite`, `fences.sqlite`, `manifest.json`, `ownership.json`, `plan.json`, `result.json`, and the separate read-only `verification.json`.
+
+- Store advanced **9→10** in place; both schema markers read 10. Integrity and foreign-key checks pass.
+- Before hash: `23cf39936421cdbc1279096e9d1be4a3b4a54645e3007725e8bc06fb88b193a1`; after/live hash: `93248e3885389d7c0d51416769a8fcfc6cd9adb4efea55d5fa8fe92c502a0e4e`.
+- Independent fences remain byte-identical: `78dfb8f590bdf595ad13b40ea1d686adc3b12f2ae87d0ac8b53e47be817962d9`. The receipt is unchanged by the schema upgrade.
+- A separate read-only SQLite comparison verified **every legacy row and rowid**, excluding only schema-version/migration metadata. In particular: 2 Projects, 2 Goals, 5 bindings, 2 memberships, 3 uncertain-effect records, 52 events and 127 intent receipts were preserved. Runner epoch remains **16**; there are **zero Assignments**. Preserved uncertainty has not been reconciled or cleared.
+- Fresh read-only Companion update inspection passed for the owned 19-asset **0.14.0→0.15.0** release. The actual receipt-backed update and loaded-component verification are recorded below in U5.
+
+## U5 — receipt-backed Companion activation and exact Owner start
+
+The operator confirmed the displayed `0.15.0` install plan in a real terminal. The installer then returned `unsupported_compatibility`: it had committed the update and written `installation-result.json`, but its old in-memory shell panel still answered `0.14.0`. No blind installer retry occurred. We verified all 19 current receipt-owned inode/owner/mode/digest records and exact 0.15.0 source bytes, then ran the documented `omarchy restart shell` operation. This reloaded only the Omarchy shell; no Pi was stopped, reloaded or sent input.
+
+The newly loaded panel reports `0.15.0`, presentation `task-first-v2`, and all ten expected destinations. Its generation is newer than the install receipt's `installedAt`. Full verification is retained in the private install evidence directory's `post-install-verification.json` alongside the exact plan/result. The existing previous release `0.14.0` remains in the installer receipt.
+
+The user unit was verified enabled and byte-identical to `manual/omarchestra-workbench-owner.service`, then only `omarchestra-workbench-owner.service` was reset from `start-limit-hit` and started. It is active, with **zero restarts**, socket endpoints owned by its single process, and reports Runner epoch **17**. Read-only Runner status is `running`; the dock-open request succeeded. No other unit or Pi was restarted. The first immediate status query raced socket readiness and returned unavailable; retry after the ready event succeeded. Do not read the startup log's historical `executionUnavailable` Phase-3 wording as a live-dispatch test or acceptance result.
+
+No Assignment has been admitted or dispatched, no Candidate submitted, and no real gate run. Read-only store review found no configured acceptance checks on the two migrated Projects. Their prior bindings are disconnected/retired and **three uncertain-effect records remain preserved**. They are not eligible test targets and must not be cleared to obtain a pass. The currently visible Pi process is not in either disposable Project context.
+
+A new, mode-0700 disposable Git Project has been prepared under the private manual-gates state directory with one committed README marker and a clean baseline. `runner/main.ts inspect` reports it supported and execution-ready. The non-mutating test gate is planned as `/usr/bin/git diff --quiet HEAD`; it checks the tracked worktree only, while the Runner independently validates the full baseline (including untracked/ignored paths). Its exact SHA-256 is recorded in the local test preflight. The global Pi settings load the checked-out `~/.local/share/omarchestra/pi-observer.ts`, which imports the current extension source.
+
+**Operator-visible boundary:** no Pi was launched, no terminal input was injected, and no hidden worker created. To use the disposable path, the operator must launch one visible Pi there. Starting it from the normal Pi command loads the already configured current extension. A single first Adoption to that new disposable Project may be required; this is not a request to repeat the previous Adoption walkthrough or to alter any prior binding. Until the visible Pi is connected to that exact fresh Project and native capabilities are verified, no Start or dispatch is safe.
+
 ## Remaining activation steps (not new implementation scope)
 
-1. Execute the existing interactive receipt migration against the inspected roots; retain its backup. Do not start the Owner yet.
-2. Inspect/apply the explicit schema 9→10 upgrade with a fresh private evidence directory and the exact current plan digest; verify the preserved history/fence evidence.
-3. Complete the receipt-backed 0.15.0 Companion setup, shell reload and exact enabled Owner activation. Verify the loaded release/generation and surviving bindings; update only the separately selected test Pi's extension through an operator-owned path.
-4. Select the exact disposable Project/task/check and visible Pi; run the authorized live workflow. No repeated Adoption walkthrough, hidden Pi, terminal input injection or migration to an empty replacement root. No merge before live acceptance.
+1. **Done:** operator-confirmed receipt migration, backed-up exact-digest schema upgrade with preserved evidence, receipt-backed 0.15.0 Companion update, loaded-version proof, and start of the exact enabled Owner unit.
+2. Complete one bounded task in the prepared disposable Project using a single operator-visible Pi with the configured Companion observer. Confirm exact Project/cwd, connection/incarnation, and required native Candidate/quiescence/intervention capabilities. Configure the explicitly non-mutating gate; review the exact Start proposal before confirmation. No terminal-input injection, no hidden worker, and do not reuse or clear the legacy uncertain writers.
+3. Verify Candidate→gate→durable result and Stop/reconciliation behavior in the visible operator entry points; record genuine live outcomes and limitations. **No merge before live acceptance.**
