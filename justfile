@@ -386,3 +386,105 @@ local-workbench-v1-phase-3-admission-prereq-check:
         PATH="$node_dir:/usr/bin:/bin" \
         NODE_BIN="$node_bin" \
         bash "$root/packages/local-workbench-v1/scripts/phase-3-admission-prereq-gate.sh"
+
+# LOCAL WORKBENCH V1 — bounded AL-02 durable admission only. Fake bridge and
+# disposable store: one exact reviewed Start commits atomically, fault and
+# reopen never send or release uncertain authority, and start_assignment stays
+# rejected. Not delivery, dispatch or live acceptance.
+local-workbench-v1-phase-3-admission-check:
+    #!/usr/bin/env bash
+    set -euo pipefail
+    root='{{justfile_directory()}}'
+    node_bin="$(command -v node || true)"
+    node_dir="$(dirname "${node_bin:-/usr/bin/node}")"
+    env -i \
+        PATH="$node_dir:/usr/bin:/bin" \
+        NODE_BIN="$node_bin" \
+        bash "$root/packages/local-workbench-v1/scripts/phase-3-admission-gate.sh"
+
+# LOCAL WORKBENCH V1 — bounded AL-03 committed same-Pi delivery only. Fake bridge
+# and disposable store: one queued outbox row is delivered once on the exact
+# challenged committed connection, the extension deduplicates by stable delivery
+# identity, and lost ACK / accepted-then-throw / disconnect / duplicate /
+# conflicting / restart never queue, resend or release uncertain authority. Not
+# dispatch, gate execution or live acceptance; start_assignment stays rejected.
+local-workbench-v1-phase-3-delivery-check:
+    #!/usr/bin/env bash
+    set -euo pipefail
+    root='{{justfile_directory()}}'
+    node_bin="$(command -v node || true)"
+    node_dir="$(dirname "${node_bin:-/usr/bin/node}")"
+    env -i \
+        PATH="$node_dir:/usr/bin:/bin" \
+        NODE_BIN="$node_bin" \
+        bash "$root/packages/local-workbench-v1/scripts/phase-3-delivery-gate.sh"
+
+# LOCAL WORKBENCH V1 — bounded AL-04 Candidate association only. Fake bridge
+# and disposable store: one exact structured payload from the current committed
+# Run reaches the durable store through the dedicated submission port, exact
+# duplicates stay idempotent, changed/retired/epoch-drifted reuse is refused
+# before mutation, and artifact references are re-verified on disk. Not gate
+# execution or live acceptance; start_assignment stays rejected.
+local-workbench-v1-phase-3-candidate-check:
+    #!/usr/bin/env bash
+    set -euo pipefail
+    root='{{justfile_directory()}}'
+    node_bin="$(command -v node || true)"
+    node_dir="$(dirname "${node_bin:-/usr/bin/node}")"
+    env -i \
+        PATH="$node_dir:/usr/bin:/bin" \
+        NODE_BIN="$node_bin" \
+        bash "$root/packages/local-workbench-v1/scripts/phase-3-candidate-gate.sh"
+
+# LOCAL WORKBENCH V1 — bounded AL-05 frozen-gate acceptance only. Disposable
+# store and real disposable Git checkout: one frozen versioned check runs
+# through the bounded no-shell executor, the Candidate is double-scanned before
+# and after, and only a final revalidated pass completes the Goal in one
+# transaction. Non-pass/unknown/mutation/timeout/output-limit and
+# stop/epoch/takeover races stay nonaccepting and preserve uncertainty. Not
+# dispatch or live acceptance; start_assignment stays rejected.
+local-workbench-v1-phase-3-assignment-gate-check:
+    #!/usr/bin/env bash
+    set -euo pipefail
+    root='{{justfile_directory()}}'
+    node_bin="$(command -v node || true)"
+    node_dir="$(dirname "${node_bin:-/usr/bin/node}")"
+    env -i \
+        PATH="$node_dir:/usr/bin:/bin" \
+        NODE_BIN="$node_bin" \
+        bash "$root/packages/local-workbench-v1/scripts/phase-3-assignment-gate.sh"
+
+# LOCAL WORKBENCH V1 — bounded AL-06 intervention only. Disposable store and
+# real disposable Git checkout: a seeded Assignment lifecycle exercises the
+# explicit Stop (revoke dispatch first, never claim termination), source
+# takeover (advance control epoch, pause delivery, fence stale Candidate/pass),
+# exact structured handoff, bounded correction/resume reconciliation and
+# restart recovery that blocks continuation through an uncertain writer. No
+# live dispatch, install, or Project mutation; start_assignment stays rejected.
+local-workbench-v1-phase-3-intervention-check:
+    #!/usr/bin/env bash
+    set -euo pipefail
+    root='{{justfile_directory()}}'
+    node_bin="$(command -v node || true)"
+    node_dir="$(dirname "${node_bin:-/usr/bin/node}")"
+    env -i \
+        PATH="$node_dir:/usr/bin:/bin" \
+        NODE_BIN="$node_bin" \
+        bash "$root/packages/local-workbench-v1/scripts/phase-3-intervention-gate.sh"
+
+# LOCAL WORKBENCH V1 — bounded AL-07 composed acceptance. This uses the real
+# QML/adapter and Runner/SQLite path, a framed fake Pi, and a disposable Git
+# Project with /usr/bin/true as its deterministic validator. It performs one
+# expected fake send only. No live Pi, install, reload, restart, or push.
+local-workbench-v1-phase-3-assignment-loop-check:
+    #!/usr/bin/env bash
+    set -euo pipefail
+    root='{{justfile_directory()}}'
+    node_bin="$(command -v node || true)"
+    node_dir="$(dirname "${node_bin:-/usr/bin/node}")"
+    qt_runner="${QMLTEST_BIN:-/usr/lib/qt6/bin/qmltestrunner}"
+    env -i \
+        PATH="$node_dir:/usr/bin:/bin" \
+        NODE_BIN="$node_bin" \
+        QT_BIN="$qt_runner" \
+        bash "$root/packages/local-workbench-v1/scripts/phase-3-assignment-loop-composed-gate.sh"

@@ -32,6 +32,12 @@ const PHASE_2_GATE = join(PACKAGE_ROOT, 'scripts', 'phase-2-gate.sh')
 const ONLY_GIT_INSPECTOR = join(PACKAGE_ROOT, 'runner', 'git-context.ts')
 const FIXED_DESKTOP_PORT = join(PACKAGE_ROOT, 'runner', 'desktop-command.ts')
 const NAVIGATION_PORT = join(PACKAGE_ROOT, 'runner', 'local-pane-navigation.ts')
+// AL-05 gate executor: the one bounded, cooperative validator-child spawn
+// site. Its discipline is asserted in its own test below.
+const GATE_EXECUTOR = join(PACKAGE_ROOT, 'runner', 'gate-executor.ts')
+// AL-03 same-Pi committed delivery: the one Pi-facing adapter that may call the
+// public `pi.sendUserMessage` API. Its dedup/bounded discipline is asserted below.
+const PI_BRIDGE_EXTENSION = join(PACKAGE_ROOT, 'runner', 'pi-bridge-extension.ts')
 
 function source(path) {
   return readFileSync(path, 'utf8')
@@ -79,12 +85,23 @@ test('no other non-test module spawns processes or invokes external desktop/serv
     ['PTY', /\bpty\b|\bpseudo-terminal\b/i],
   ]
   for (const path of allFiles) {
-    if (path === ONLY_GIT_INSPECTOR || path === FIXED_DESKTOP_PORT || path === NAVIGATION_PORT) continue
+    if (path === ONLY_GIT_INSPECTOR || path === FIXED_DESKTOP_PORT || path === NAVIGATION_PORT
+      || path === GATE_EXECUTOR) continue
     const value = source(path)
     for (const [name, pattern] of liveTokens) {
       assert.doesNotMatch(value, pattern, `${name} token in ${path}`)
     }
   }
+})
+
+test('the gate executor spawns one absolute no-shell child under cooperative bounds only', () => {
+  const value = source(GATE_EXECUTOR)
+  assert.match(value, /shell: false, stdio: \['ignore', 'pipe', 'pipe'\]/)
+  assert.match(value, /LANG: 'C\.UTF-8', LC_ALL: 'C\.UTF-8'/)
+  assert.match(value, /timeoutMs must be within 100–300000 ms/)
+  assert.match(value, /child\.kill\('SIGTERM'\)/)
+  // No kill escalation and no ambient process or service invocation.
+  assert.doesNotMatch(value, /SIGKILL|shell: true|omarchy|hyprctl|systemctl|\bssh\b|boomux|sendUserMessage/)
 })
 
 test('the single Git inspector spawns only fixed git argv with no shell', () => {
@@ -182,8 +199,21 @@ test('durable SQLite usage is confined to the runner composition', () => {
 
 test('the package contains no gate execution or dispatch module', () => {
   for (const path of allFiles) {
+    if (path === PI_BRIDGE_EXTENSION) continue
     const value = source(path)
     assert.doesNotMatch(value, /validator\s*\.\s*spawn\b|gate\s*\.\s*exec\b|dispatchAssignment|sendUserMessage/, `dispatch token in ${path}`)
+  }
+})
+
+test('the one Pi adapter sends user messages only through the deduped committed-delivery path', () => {
+  const value = source(PI_BRIDGE_EXTENSION)
+  // Only the exact admitted frame reaches the public Pi API, and only once per
+  // stable delivery id. A duplicate/conflicting id never creates a second turn.
+  assert.match(value, /sendUserMessage\?\?=|\.sendUserMessage/)
+  assert.match(value, /assignmentReceipts/)
+  assert.match(value, /payload\\.protocol === 'omarchestra\\.assignment\/v1'|protocol === 'omarchestra\.assignment\/v1'/)
+  for (const pattern of [/dispatchAssignment/, /validator\s*\.\s*spawn\b/, /gate\s*\.\s*exec\b/, /spawn\(/]) {
+    assert.doesNotMatch(value, pattern, `dispatch token ${String(pattern)} in the Pi adapter`)
   }
 })
 

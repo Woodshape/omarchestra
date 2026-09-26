@@ -39,6 +39,7 @@ export const INTENT_KINDS = [
   'create_check',
   'request_adoption',
   'authorize_adoption',
+  'prepare_start_review',
   'start_assignment',
   'configure_checks',
   'take_control',
@@ -262,10 +263,7 @@ export class WorkbenchAdapter {
       if (this.pending.size >= MAX_PENDING_INTENTS) throw new Error(`pending intent queue is full (${MAX_PENDING_INTENTS})`)
     }
     const snapshot = handoff.snapshot
-    // Phase 2 enables authorize_adoption on the real path; the authoritative
-    // projection still gates it, so only an adoptable Proposal can be
-    // authorized. Work execution stays Phase 3.
-    if (kind === 'start_assignment') throw new Error('runtime action unavailable in Phase 2: Assignment delivery is Phase 3')
+    // Start uses the same projected-action gate as other runtime intents.
     if (!['select_project', 'select_goal'].includes(kind)) {
       const actions = [
         ...snapshot.actions,
@@ -305,6 +303,20 @@ export class WorkbenchAdapter {
     if (kind === 'confirm_register_project') {
       const registration = snapshot.details?.find(detail => detail.kind === 'registration' && (detail as { registrationId?: string }).registrationId === target)
       if (!registration || !(registration as { supported?: boolean }).supported) throw new Error('no supported inspection matches this confirmation')
+    }
+    if (kind === 'prepare_start_review') {
+      const selectedRun = snapshot.managedAgents.find(card => card.agentRunId === target && card.controlMode === 'managed' && card.connectionStatus === 'connected')
+      const check = snapshot.checks.find(item => item.checkId === validated.payload.checkId && item.version === validated.payload.checkVersion)
+      if (!selectedRun || !check || check.availability !== 'available' || snapshot.selectedProjectId === null || snapshot.selectedGoalId === null) throw new Error('Start review context is no longer current')
+    }
+    if (kind === 'start_assignment') {
+      const detail = snapshot.details?.find(item => item.kind === 'start' && (item as { confirmationId?: string }).confirmationId === validated.payload.confirmationId) as import('./detail-schema.ts').StartDetail | undefined
+      if (!detail || target !== detail.agentRunId || validated.payload.agentRunId !== detail.agentRunId
+          || validated.payload.goalText !== detail.goalText || validated.payload.taskText !== detail.taskText
+          || validated.payload.checkId !== detail.gate.gateId || validated.payload.checkVersion !== detail.gate.version
+          || validated.payload.maxCorrections !== detail.maxCorrections || validated.payload.elapsedMs !== detail.elapsedMs) {
+        throw new Error('Start confirmation does not match the current review')
+      }
     }
     assertEnvelopeBytes(JSON.stringify(validated), 'intent')
     this.pending.set(intentId, {

@@ -174,6 +174,7 @@ export interface AssignmentCard {
   goalId: string
   agentRunId: string
   goalText: string
+  taskText: string
   state: string
   attemptId: string | null
   gateId: string | null
@@ -324,6 +325,15 @@ function requireManagedText(value: unknown, where: string): string {
   return text
 }
 
+function requireTaskText(value: unknown, where: string): string {
+  const text = requireString(value, where)
+  if (!text.isWellFormed() || !text.trim() || Buffer.byteLength(text, 'utf8') > 8192
+      || /[\u0000-\u0008\u000b\u000c\u000e-\u001f\u007f]/.test(text)) {
+    throw new SchemaError(`${where} exceeds the bounded task-text policy`)
+  }
+  return text
+}
+
 function requireNonNegativeInt(value: unknown, where: string): number {
   if (typeof value !== 'number' || !Number.isSafeInteger(value) || value < 0) {
     throw new SchemaError(`${where} must be a nonnegative safe integer`)
@@ -387,7 +397,7 @@ function requireObject(value: unknown, where: string): Record<string, unknown> {
     managedAgents: 'agentRunId sessionCode terminalNavigation role piStatus controlMode connectionStatus assignment lastEvent predecessorAgentRunId actions',
     observedSessions: 'observedSessionId sessionCode terminalNavigation piStatus lifecycle availability activity health adoptionReasonCode adoptionReason choices',
     retiredRuns: 'agentRunId role piStatus retiredAt predecessorAgentRunId replacementAgentRunId canPurge purgeBlockedReason',
-    assignments: 'assignmentId projectId goalId agentRunId goalText state attemptId gateId gateVersion gateResult candidateRef correctionCount correctionLimit diagnostics artifactRefs',
+    assignments: 'assignmentId projectId goalId agentRunId goalText taskText state attemptId gateId gateVersion gateResult candidateRef correctionCount correctionLimit diagnostics artifactRefs',
     activity: 'eventId cursor kind reasonCode label createdAt',
     actions: 'kind target label enabled reasonCode reason',
     action: 'kind target label enabled reasonCode reason',
@@ -564,6 +574,7 @@ export function validateAssignmentCard(value: unknown, where = 'assignment'): As
     goalId: requireId(obj.goalId, `${where}.goalId`),
     agentRunId: requireId(obj.agentRunId, `${where}.agentRunId`),
     goalText: requireManagedText(obj.goalText, `${where}.goalText`),
+    taskText: requireTaskText(obj.taskText, `${where}.taskText`),
     state: requireDisplay(obj.state, `${where}.state`),
     attemptId: requireNullableId(obj.attemptId, `${where}.attemptId`),
     gateId: requireNullableId(obj.gateId, `${where}.gateId`),
@@ -697,7 +708,8 @@ export function validateIntent(value: unknown): WorkbenchIntent {
     create_check: ['projectId', 'name', 'summary', 'mode', 'commandSummary', 'definitionDraft'],
     request_adoption: ['choiceId'], authorize_adoption: ['proposalId'],
     navigate_page: ['collection', 'offset'],
-    start_assignment: ['goalText', 'checkId', 'checkVersion'],
+    prepare_start_review: ['checkId', 'checkVersion', 'taskText', 'maxCorrections', 'elapsedMs'],
+    start_assignment: ['confirmationId', 'agentRunId', 'goalText', 'taskText', 'checkId', 'checkVersion', 'maxCorrections', 'elapsedMs'],
     configure_checks: ['projectId', 'checkId', 'checkVersion', 'name', 'summary', 'mode', 'commandSummary', 'definitionDraft'],
     take_control: ['agentRunId'], return_to_team: ['assignmentId'], accept: ['assignmentId'],
     resume: ['assignmentId'], retry: ['assignmentId'], retire: ['agentRunId'], purge: ['agentRunId'],
@@ -716,7 +728,10 @@ export function validateIntent(value: unknown): WorkbenchIntent {
     else if (key === 'collection') requireEnum(item, PAGE_COLLECTIONS, 'intent.payload.collection')
     else if (key === 'offset') requireNonNegativeInt(item, 'intent.payload.offset')
     else if (key === 'checkVersion') { requireNonNegativeInt(item, `intent.payload.${key}`); if (item === 0) throw new SchemaError('check version must be positive') }
+    else if (key === 'maxCorrections') { if (requireNonNegativeInt(item, `intent.payload.${key}`) > 3) throw new SchemaError('correction limit exceeds 3') }
+    else if (key === 'elapsedMs') { const elapsed = requireNonNegativeInt(item, `intent.payload.${key}`); if (elapsed < 1000 || elapsed > 3_600_000) throw new SchemaError('elapsed limit is outside C10 bounds') }
     else if (key === 'mode') requireEnum(item, CHECK_MODES, `intent.payload.${key}`)
+    else if (key === 'taskText') requireTaskText(item, `intent.payload.${key}`)
     else if (key === 'goalText') requireManagedText(item, `intent.payload.${key}`)
     else if (key === 'path') {
       if (typeof item !== 'string' || !item.startsWith('/') || item.split('/').includes('..')) throw new SchemaError('intent.payload.path must be an absolute path without parent segments')

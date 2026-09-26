@@ -74,7 +74,7 @@ test('the work surface shows the committed outcome detail for its own Assignment
     ...journeyFixture,
     assignments: [{
       assignmentId: 'assignment-1', projectId: journeyFixture.selectedProjectId, goalId: journeyFixture.selectedGoalId,
-      agentRunId: JOURNEY_AGENT_RUN_ID, goalText: 'Ship the parser fix', state: 'attention', attemptId: 'attempt-1',
+      agentRunId: JOURNEY_AGENT_RUN_ID, goalText: 'Ship the parser fix', taskText: 'Implement the parser change and test it.', state: 'attention', attemptId: 'attempt-1',
       gateId: JOURNEY_CHECK_ID, gateVersion: 3, gateResult: 'timeout', candidateRef: 'candidate-1',
       correctionCount: 0, correctionLimit: 1, diagnostics: null, artifactRefs: [],
     }],
@@ -95,7 +95,7 @@ test('every committed Assignment gets its own bounded work row and its own detai
   const view = rootView()
   const base = {
     assignmentId: 'assignment-1', projectId: journeyFixture.selectedProjectId, goalId: journeyFixture.selectedGoalId,
-    agentRunId: JOURNEY_AGENT_RUN_ID, goalText: 'Ship the parser fix', state: 'attention', attemptId: 'attempt-1',
+    agentRunId: JOURNEY_AGENT_RUN_ID, goalText: 'Ship the parser fix', taskText: 'Implement the parser change and test it.', state: 'attention', attemptId: 'attempt-1',
     gateId: JOURNEY_CHECK_ID, gateVersion: 3, gateResult: 'timeout', candidateRef: 'candidate-1',
     correctionCount: 0, correctionLimit: 1, diagnostics: null, artifactRefs: [],
   }

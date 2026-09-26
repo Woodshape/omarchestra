@@ -1,6 +1,6 @@
 import { incarnationKey, type PiIncarnation } from './binding-identity.ts'
 import { projectExecutionContextDigest } from './canonical-hash.ts'
-import { bridgeId, encodeBridgeFrame, SESSION_CODE_CAPABILITY, PANE_NAVIGATION_CAPABILITY, PROJECT_CONTEXT_CAPABILITY, type BridgeFrame } from './bridge-protocol.ts'
+import { bridgeId, encodeBridgeFrame, SESSION_CODE_CAPABILITY, PANE_NAVIGATION_CAPABILITY, PROJECT_CONTEXT_CAPABILITY, ASSIGNMENT_DELIVERY_CAPABILITY, CANDIDATE_SUBMISSION_CAPABILITY, type BridgeFrame } from './bridge-protocol.ts'
 import { SessionCodes } from './session-code.ts'
 import type { WorkbenchStore } from './store.ts'
 import type { FenceLedger } from './fences.ts'
@@ -13,7 +13,13 @@ export interface ObservedPi { observedSessionId: string; sessionCode: string | n
 export interface BridgeSourceInput { incarnation: PiIncarnation; observedSessionId: string; connectionId: string; connectionChallenge: string; sourceSequence: number; eventId: string }
 /** Trusted S5 callback, called only on the exact current transport object. */
 export interface BridgeAdoptionAck { incarnation: PiIncarnation; observedSessionId: string; connectionId: string; connectionChallenge: string; peer: BridgePeer; frame: BridgeFrame }
-type Entry = { key: string; sessionCode: string | null; navigation: { ticket: string; sequence: number; requestId: string | null; deadline: number; state: NavigationState } | null; identity: PiIncarnation; peer: BridgePeer | null; connectionId: string; challenge: string; observedId: string; attempt: number; sequence: number; deadline: number; lifecycle: string; activity: string; health: string; mode: 'observed' | 'committed'; executionContextSupported: boolean; executionContextDigest: string | null; executionContextAt: number | null; dedup: Map<string, string> }
+/** One same-Pi assignment ACK or durable-receipt reply from the exact committed connection. */
+export interface BridgeAssignmentEvent { incarnation: PiIncarnation; observedSessionId: string; connectionId: string; connectionChallenge: string; peer: BridgePeer; frame: BridgeFrame }
+/** One bounded C6 Candidate submission from the exact committed connection. */
+export interface BridgeCandidateEvent { incarnation: PiIncarnation; observedSessionId: string; connectionId: string; connectionChallenge: string; peer: BridgePeer; frame: BridgeFrame }
+/** One-shot, currentness-checked send captured from a committed connection. */
+export type AssignmentSendResult = 'sent' | 'not_sent' | 'unknown'
+type Entry = { key: string; sessionCode: string | null; navigation: { ticket: string; sequence: number; requestId: string | null; deadline: number; state: NavigationState } | null; identity: PiIncarnation; peer: BridgePeer | null; connectionId: string; challenge: string; observedId: string; attempt: number; sequence: number; deadline: number; lifecycle: string; activity: string; health: string; mode: 'observed' | 'committed'; executionContextSupported: boolean; executionContextDigest: string | null; executionContextAt: number | null; assignmentDeliverySupported: boolean; candidateSubmissionSupported: boolean; dedup: Map<string, string> }
 function refuse(code: string): never { throw new Error(code) }
 /** One instance belongs to one runner owner, not to a presentation client. */
 export class BridgeRegistry {
@@ -22,12 +28,26 @@ export class BridgeRegistry {
   private readonly water = new Map<string, { attempt: number; sequence: number }>()
   private readonly peers = new Map<BridgePeer, Entry>()
   private management: { onAdoptionAck?: (event: BridgeAdoptionAck) => void; onBindingReceipt?: (event: BridgeAdoptionAck) => void; onRecoveryProof?: (event: BridgeAdoptionAck) => void; onRegistered?: (event: BridgeAdoptionAck) => void; onDisconnected?: (event: { incarnation: PiIncarnation; connectionId: string }) => void; onInput?: (event: BridgeSourceInput) => void } | null = null
+  /** AL-03 delivery is orthogonal to adoption; one handler pair is bound by its coordinator, not by setManagementHandlers. */
+  private assignment: { onAck?: (event: BridgeAssignmentEvent) => void; onReceipt?: (event: BridgeAssignmentEvent) => void } = {}
+  /** AL-04 Candidate association is orthogonal to delivery; one handler is bound by its coordinator. */
+  private candidate: { onSubmission?: (event: BridgeCandidateEvent) => void } = {}
   /** onInput must commit the takeover marker before returning; otherwise do not supply it. */
   private readonly options: { nodeId: string; store: WorkbenchStore; fences: FenceLedger; now?: () => number; issue?: (prefix: string) => string; onInput?: (event: BridgeSourceInput) => void; onAdoptionAck?: (event: BridgeAdoptionAck) => void }
   constructor(options: { nodeId: string; store: WorkbenchStore; fences: FenceLedger; now?: () => number; issue?: (prefix: string) => string; onInput?: (event: BridgeSourceInput) => void; onAdoptionAck?: (event: BridgeAdoptionAck) => void }) { this.options = options }
   setManagementHandlers(handlers: NonNullable<BridgeRegistry['management']>): void {
     if (this.management) refuse('management_already_bound')
     this.management = handlers
+  }
+  /** Exactly one AL-03 coordinator owns delivery callbacks for this registry. */
+  setAssignmentHandlers(handlers: { onAck?: (event: BridgeAssignmentEvent) => void; onReceipt?: (event: BridgeAssignmentEvent) => void }): void {
+    if (this.assignment.onAck || this.assignment.onReceipt) refuse('assignment_handlers_already_bound')
+    this.assignment = handlers
+  }
+  /** Exactly one AL-04 coordinator owns Candidate submission for this registry. */
+  setCandidateHandler(handlers: { onSubmission?: (event: BridgeCandidateEvent) => void }): void {
+    if (this.candidate.onSubmission) refuse('candidate_handlers_already_bound')
+    this.candidate = handlers
   }
   private now() { return (this.options.now ?? (() => performance.now()))() }
   private issue(prefix: string) { const value = (this.options.issue ?? bridgeId)(prefix); if (!/^[A-Za-z0-9_-]{32,128}$/.test(value)) refuse('invalid_identity'); return value }
@@ -100,6 +120,88 @@ export class BridgeRegistry {
       })) } catch { n.state = 'unknown' }
     }
   }
+  /** Prepare without sending. Caller persists `attempting` before invoking this
+   * one-shot effect. Returns `not_sent` when currentness changed, `unknown` when
+   * the local socket write itself failed, and never replays after a failure. */
+  prepareAssignmentDelivery(runId: string, delivery: { deliveryId: string; assignmentId: string; attemptId: string; payloadDigest: string; payloadJson: string; deadline: number }): (() => AssignmentSendResult) | null {
+    const binding = this.options.store.getBinding(runId), identity = this.options.store.getBindingIdentity(runId)
+    if (!binding || binding.state !== 'ready' || !identity) return null
+    const entry = this.records.get(identity.incarnationKey), now = this.now()
+    if (!entry?.peer || entry.mode !== 'committed' || !entry.assignmentDeliverySupported || now >= entry.deadline
+        || now >= delivery.deadline || this.options.fences.isIncarnationFenced(entry.key)
+        || this.options.fences.isFenced(runId)) return null
+    const peer = entry.peer, connection = entry.connectionId, challenge = entry.challenge
+    let used = false
+    return () => {
+      if (used) return 'not_sent'
+      used = true
+      const currentBinding = this.options.store.getBinding(runId), currentIdentity = this.options.store.getBindingIdentity(runId)
+      if (entry.peer !== peer || this.peers.get(peer) !== entry || entry.connectionId !== connection || entry.challenge !== challenge
+          || this.now() >= entry.deadline || this.now() >= delivery.deadline || this.options.fences.isIncarnationFenced(entry.key)
+          || this.options.fences.isFenced(runId) || currentBinding?.state !== 'ready'
+          || currentIdentity?.incarnationKey !== entry.key) return 'not_sent'
+      try {
+        peer.send(encodeBridgeFrame('assignment_delivery', bridgeId('assignment'), {
+          connectionId: connection, connectionChallenge: challenge,
+          deliveryId: delivery.deliveryId, assignmentId: delivery.assignmentId, attemptId: delivery.attemptId, runId,
+          payloadDigest: delivery.payloadDigest, payloadJson: delivery.payloadJson, deliveryDeadline: delivery.deadline,
+        }))
+        return 'sent'
+      } catch { return 'unknown' }
+    }
+  }
+  /** Prepare a durable-receipt query on the same exact current committed connection. */
+  prepareAssignmentReceiptRequest(runId: string, query: { requestId: string; deliveryId: string; assignmentId: string; attemptId: string; payloadDigest: string }): (() => AssignmentSendResult) | null {
+    const binding = this.options.store.getBinding(runId), identity = this.options.store.getBindingIdentity(runId)
+    if (!binding || !identity) return null
+    const entry = this.records.get(identity.incarnationKey), now = this.now()
+    if (!entry?.peer || entry.mode !== 'committed' || !entry.assignmentDeliverySupported || now >= entry.deadline
+        || this.options.fences.isIncarnationFenced(entry.key) || this.options.fences.isFenced(runId)) return null
+    const peer = entry.peer, connection = entry.connectionId, challenge = entry.challenge
+    let used = false
+    return () => {
+      if (used) return 'not_sent'
+      used = true
+      const currentIdentity = this.options.store.getBindingIdentity(runId)
+      if (entry.peer !== peer || this.peers.get(peer) !== entry || entry.connectionId !== connection || entry.challenge !== challenge
+          || this.now() >= entry.deadline || this.options.fences.isIncarnationFenced(entry.key)
+          || this.options.fences.isFenced(runId) || currentIdentity?.incarnationKey !== entry.key) return 'not_sent'
+      try {
+        peer.send(encodeBridgeFrame('assignment_receipt_request', bridgeId('assignment-receipt'), {
+          connectionId: connection, connectionChallenge: challenge,
+          requestId: query.requestId, deliveryId: query.deliveryId, assignmentId: query.assignmentId, attemptId: query.attemptId, runId,
+          payloadDigest: query.payloadDigest,
+        }))
+        return 'sent'
+      } catch { return 'unknown' }
+    }
+  }
+  /** Prepare one Candidate receipt on the same exact current committed connection. */
+  prepareCandidateReceipt(runId: string, receipt: { submissionId: string; payloadDigest: string; outcome: 'accepted' | 'duplicate' | 'invalid'; candidateId: string | null; digest: string | null; reason: string | null }): (() => AssignmentSendResult) | null {
+    const binding = this.options.store.getBinding(runId), identity = this.options.store.getBindingIdentity(runId)
+    if (!binding || binding.state === 'retired' || binding.state === 'purged' || !identity) return null
+    const entry = this.records.get(identity.incarnationKey), now = this.now()
+    if (!entry?.peer || entry.mode !== 'committed' || !entry.candidateSubmissionSupported || now >= entry.deadline
+        || this.options.fences.isIncarnationFenced(entry.key) || this.options.fences.isFenced(runId)) return null
+    const peer = entry.peer, connection = entry.connectionId, challenge = entry.challenge
+    let used = false
+    return () => {
+      if (used) return 'not_sent'
+      used = true
+      const currentIdentity = this.options.store.getBindingIdentity(runId)
+      if (entry.peer !== peer || this.peers.get(peer) !== entry || entry.connectionId !== connection || entry.challenge !== challenge
+          || this.now() >= entry.deadline || this.options.fences.isIncarnationFenced(entry.key)
+          || this.options.fences.isFenced(runId) || currentIdentity?.incarnationKey !== entry.key) return 'not_sent'
+      try {
+        peer.send(encodeBridgeFrame('candidate_receipt', bridgeId('candidate-receipt'), {
+          connectionId: connection, connectionChallenge: challenge, runId, submissionId: receipt.submissionId,
+          payloadDigest: receipt.payloadDigest, outcome: receipt.outcome, candidateId: receipt.candidateId,
+          digest: receipt.digest, reason: receipt.reason,
+        }))
+        return 'sent'
+      } catch { return 'unknown' }
+    }
+  }
   receive(peer: BridgePeer, frame: BridgeFrame): void {
     if (frame.type === 'register') { this.register(peer, frame); return }
     const entry = this.peers.get(peer)
@@ -108,7 +210,8 @@ export class BridgeRegistry {
     const body = frame.body
     if (frame.type === 'heartbeat' && Object.hasOwn(body, 'executionContextDigest') && !entry.executionContextSupported) refuse('invalid_bridge_envelope')
     if (frame.type === 'registered' || frame.type === 'rejected' || frame.type === 'input_received'
-        || frame.type === 'adoption_request' || frame.type === 'adoption_committed' || frame.type === 'recovery_request' || frame.type === 'focus_request') refuse('invalid_bridge_envelope')
+        || frame.type === 'adoption_request' || frame.type === 'adoption_committed' || frame.type === 'recovery_request' || frame.type === 'focus_request'
+        || frame.type === 'assignment_delivery' || frame.type === 'assignment_receipt_request' || frame.type === 'candidate_receipt') refuse('invalid_bridge_envelope')
     if (body.connectionId !== entry.connectionId || body.connectionChallenge !== entry.challenge) refuse('connection_not_current')
     const serialized = JSON.stringify(frame)
     const prior = entry.dedup.get(frame.messageId)
@@ -157,6 +260,28 @@ export class BridgeRegistry {
       if (entry.mode !== 'committed' || body.runId === undefined) refuse('invalid_identity')
       const handler = frame.type === 'binding_receipt' ? this.management?.onBindingReceipt : this.management?.onRecoveryProof
       if (!handler) refuse('invalid_identity')
+      handler({ incarnation: { ...entry.identity }, observedSessionId: entry.observedId,
+        connectionId: entry.connectionId, connectionChallenge: entry.challenge, peer, frame })
+    } else if (frame.type === 'assignment_ack' || frame.type === 'assignment_receipt') {
+      // Delivery callbacks are trusted only on a committed connection whose
+      // retained membership still matches the ACK's exact Run.
+      if (entry.mode !== 'committed') refuse('invalid_identity')
+      const handler = frame.type === 'assignment_ack' ? this.assignment.onAck : this.assignment.onReceipt
+      if (!handler) refuse('invalid_identity')
+      const runId = body.runId as string
+      const binding = this.options.store.getBinding(runId), identity = binding ? this.options.store.getBindingIdentity(runId) : null
+      if (!binding || binding.state === 'retired' || binding.state === 'purged' || !identity || identity.incarnationKey !== entry.key) refuse('invalid_identity')
+      handler({ incarnation: { ...entry.identity }, observedSessionId: entry.observedId,
+        connectionId: entry.connectionId, connectionChallenge: entry.challenge, peer, frame })
+    } else if (frame.type === 'candidate_submission') {
+      // Candidate association is trusted only on a committed connection whose
+      // retained membership still matches the submitted exact Run.
+      if (entry.mode !== 'committed' || !entry.candidateSubmissionSupported) refuse('invalid_identity')
+      const handler = this.candidate.onSubmission
+      if (!handler) refuse('invalid_identity')
+      const runId = body.runId as string
+      const binding = this.options.store.getBinding(runId), identity = binding ? this.options.store.getBindingIdentity(runId) : null
+      if (!binding || binding.state === 'retired' || binding.state === 'purged' || !identity || identity.incarnationKey !== entry.key) refuse('invalid_identity')
       handler({ incarnation: { ...entry.identity }, observedSessionId: entry.observedId,
         connectionId: entry.connectionId, connectionChallenge: entry.challenge, peer, frame })
     } else if (frame.type === 'input_observed') {
@@ -223,7 +348,7 @@ export class BridgeRegistry {
     const navigation: Entry['navigation'] = (body.capabilities as string[]).includes(PANE_NAVIGATION_CAPABILITY)
       ? { ticket: this.issue('navigate'), sequence: 0, requestId: null, deadline: 0, state: 'idle' } : null
     const entry: Entry = { key, sessionCode, navigation, identity, peer, connectionId: this.issue('connection'), challenge: this.issue('challenge'), observedId: existing?.observedId ?? this.issue('observed'), attempt, sequence, deadline: this.now() + BRIDGE_LEASE_MS, lifecycle: body.lifecycle as string, activity: body.activity as string, health: body.health as string, mode,
-      executionContextSupported: contextSupported, executionContextDigest: null, executionContextAt: null, dedup: new Map() }
+      executionContextSupported: contextSupported, executionContextDigest: null, executionContextAt: null, assignmentDeliverySupported: capabilities.includes(ASSIGNMENT_DELIVERY_CAPABILITY), candidateSubmissionSupported: capabilities.includes(CANDIDATE_SUBMISSION_CAPABILITY), dedup: new Map() }
     const response = encodeBridgeFrame('registered', frame.messageId, { observedSessionId: entry.observedId, executionNodeId: this.options.nodeId, connectionId: entry.connectionId, connectionChallenge: entry.challenge, acceptedRegistrationAttempt: attempt, acceptedSourceSequence: sequence, leaseDurationMs: BRIDGE_LEASE_MS, heartbeatIntervalMs: BRIDGE_HEARTBEAT_MS, mode, ...(codeSupported ? { sessionCode } : {}) })
     this.records.set(key, entry); this.peers.set(peer, entry)
     this.water.set(key, { attempt, sequence })

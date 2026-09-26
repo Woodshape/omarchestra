@@ -1,12 +1,14 @@
 /**
- * Local Workbench v1 Phase 2 — declared store schema (version 9; separate pending proposals).
+ * Local Workbench v1 Phase 2 — declared store schema (version 10; separate
+ * pending proposals plus the one-Assignment lifecycle substrate).
  *
  * The declared shape is the contract the runner validates before accepting
  * management frames. Any missing table or unexpected table is drift that
- * blocks startup; the runner never repairs schema silently.
+ * blocks startup; the runner never repairs schema silently. Schema 9 stores are
+ * refused, never silently migrated.
  */
 
-export const STORE_SCHEMA_VERSION = 9
+export const STORE_SCHEMA_VERSION = 10
 
 export interface TableSpec {
   name: string
@@ -38,6 +40,38 @@ export const STORE_TABLES: TableSpec[] = [
   {
     name: 'intent_dedup',
     columns: ['intent_id', 'session_id', 'payload_hash', 'status', 'reason_code', 'committed_revision', 'created_at', 'reason', 'detail'],
+  },
+  {
+    name: 'assignments',
+    columns: ['assignment_id', 'project_id', 'goal_id', 'agent_run_id', 'binding_digest', 'goal_text', 'task_text', 'write_authority', 'state', 'limits_json', 'attempt_count', 'revision', 'created_at', 'updated_at'],
+  },
+  {
+    name: 'attempts',
+    columns: ['attempt_id', 'assignment_id', 'ordinal', 'state', 'run_binding_json', 'run_binding_digest', 'gate_id', 'gate_version', 'gate_digest', 'gate_json', 'context_json', 'limits_json', 'writer_epoch', 'control_epoch', 'delivery_id', 'created_at', 'updated_at'],
+  },
+  {
+    name: 'assignment_writers',
+    columns: ['project_id', 'assignment_id', 'attempt_id', 'epoch', 'state', 'updated_at'],
+  },
+  {
+    name: 'assignment_outbox',
+    columns: ['delivery_id', 'assignment_id', 'attempt_id', 'run_id', 'frame_json', 'payload_digest', 'state', 'reason_code', 'deadline', 'created_at'],
+  },
+  {
+    name: 'candidates',
+    columns: ['candidate_id', 'assignment_id', 'attempt_id', 'agent_run_id', 'control_epoch', 'summary', 'artifact_refs_json', 'digest', 'pre_manifest_digest', 'state', 'created_at'],
+  },
+  {
+    name: 'gate_results',
+    columns: ['result_id', 'assignment_id', 'attempt_id', 'candidate_id', 'gate_digest', 'executable_digest', 'outcome', 'pre_manifest_digest', 'post_manifest_digest', 'exit_code', 'reason_code', 'evidence_json', 'state', 'revision', 'created_at'],
+  },
+  {
+    name: 'assignment_stops',
+    columns: ['stop_id', 'assignment_id', 'trigger', 'revision', 'dispatch_revoked', 'cancellation_status', 'reason_code', 'created_at', 'updated_at'],
+  },
+  {
+    name: 'handoffs',
+    columns: ['handoff_id', 'assignment_id', 'attempt_id', 'agent_run_id', 'control_epoch', 'claimed_state', 'summary', 'artifact_refs_json', 'outstanding_effects', 'digest', 'created_at'],
   },
 ]
 
@@ -177,6 +211,128 @@ CREATE TABLE IF NOT EXISTS intent_dedup (
   reason TEXT,
   detail TEXT
 );
+CREATE TABLE IF NOT EXISTS assignments (
+  assignment_id TEXT PRIMARY KEY,
+  project_id TEXT NOT NULL REFERENCES projects(project_id),
+  goal_id TEXT NOT NULL REFERENCES goals(goal_id),
+  agent_run_id TEXT NOT NULL,
+  binding_digest TEXT NOT NULL,
+  goal_text TEXT NOT NULL,
+  task_text TEXT NOT NULL,
+  write_authority INTEGER NOT NULL CHECK (write_authority IN (0, 1)),
+  state TEXT NOT NULL CHECK (state IN ('admitted', 'dispatching', 'running', 'candidate', 'validating', 'attention', 'reconciling', 'accepted', 'stopped', 'failed')),
+  limits_json TEXT NOT NULL,
+  attempt_count INTEGER NOT NULL DEFAULT 0,
+  revision INTEGER NOT NULL,
+  created_at INTEGER NOT NULL,
+  updated_at INTEGER NOT NULL
+);
+CREATE UNIQUE INDEX IF NOT EXISTS assignments_active_project
+  ON assignments (project_id) WHERE state NOT IN ('accepted', 'stopped', 'failed');
+CREATE TABLE IF NOT EXISTS attempts (
+  attempt_id TEXT PRIMARY KEY,
+  assignment_id TEXT NOT NULL REFERENCES assignments(assignment_id) ON DELETE CASCADE,
+  ordinal INTEGER NOT NULL CHECK (ordinal > 0),
+  state TEXT NOT NULL CHECK (state IN ('admitted', 'dispatching', 'running', 'candidate', 'validating', 'accepted', 'rejected', 'attention', 'stopped')),
+  run_binding_json TEXT NOT NULL,
+  run_binding_digest TEXT NOT NULL,
+  gate_id TEXT NOT NULL,
+  gate_version INTEGER NOT NULL CHECK (gate_version > 0),
+  gate_digest TEXT NOT NULL,
+  gate_json TEXT NOT NULL,
+  context_json TEXT NOT NULL,
+  limits_json TEXT NOT NULL,
+  writer_epoch INTEGER NOT NULL,
+  control_epoch INTEGER NOT NULL,
+  delivery_id TEXT,
+  created_at INTEGER NOT NULL,
+  updated_at INTEGER NOT NULL,
+  UNIQUE (assignment_id, ordinal)
+);
+CREATE INDEX IF NOT EXISTS attempts_by_assignment ON attempts (assignment_id);
+CREATE TABLE IF NOT EXISTS assignment_writers (
+  project_id TEXT PRIMARY KEY REFERENCES projects(project_id),
+  assignment_id TEXT REFERENCES assignments(assignment_id) ON DELETE SET NULL,
+  attempt_id TEXT REFERENCES attempts(attempt_id) ON DELETE SET NULL,
+  epoch INTEGER NOT NULL,
+  state TEXT NOT NULL CHECK (state IN ('none', 'held', 'uncertain')),
+  updated_at INTEGER NOT NULL
+);
+CREATE TABLE IF NOT EXISTS assignment_outbox (
+  delivery_id TEXT PRIMARY KEY,
+  assignment_id TEXT NOT NULL REFERENCES assignments(assignment_id) ON DELETE CASCADE,
+  attempt_id TEXT NOT NULL REFERENCES attempts(attempt_id) ON DELETE CASCADE,
+  run_id TEXT NOT NULL,
+  frame_json TEXT NOT NULL,
+  payload_digest TEXT NOT NULL,
+  state TEXT NOT NULL CHECK (state IN ('queued', 'attempting', 'written', 'not_sent', 'unknown')),
+  reason_code TEXT,
+  deadline INTEGER NOT NULL,
+  created_at INTEGER NOT NULL,
+  UNIQUE (attempt_id)
+);
+CREATE INDEX IF NOT EXISTS assignment_outbox_by_assignment ON assignment_outbox (assignment_id);
+CREATE TABLE IF NOT EXISTS candidates (
+  candidate_id TEXT PRIMARY KEY,
+  assignment_id TEXT NOT NULL REFERENCES assignments(assignment_id) ON DELETE CASCADE,
+  attempt_id TEXT NOT NULL REFERENCES attempts(attempt_id) ON DELETE CASCADE,
+  agent_run_id TEXT NOT NULL,
+  control_epoch INTEGER NOT NULL,
+  summary TEXT NOT NULL,
+  artifact_refs_json TEXT NOT NULL,
+  digest TEXT NOT NULL,
+  pre_manifest_digest TEXT NOT NULL,
+  state TEXT NOT NULL CHECK (state IN ('pending', 'validated', 'rejected')),
+  created_at INTEGER NOT NULL,
+  UNIQUE (attempt_id)
+);
+CREATE INDEX IF NOT EXISTS candidates_by_assignment ON candidates (assignment_id);
+CREATE TABLE IF NOT EXISTS gate_results (
+  result_id TEXT PRIMARY KEY,
+  assignment_id TEXT NOT NULL REFERENCES assignments(assignment_id) ON DELETE CASCADE,
+  attempt_id TEXT NOT NULL REFERENCES attempts(attempt_id) ON DELETE CASCADE,
+  candidate_id TEXT NOT NULL REFERENCES candidates(candidate_id) ON DELETE CASCADE,
+  gate_digest TEXT NOT NULL,
+  executable_digest TEXT NOT NULL,
+  outcome TEXT NOT NULL CHECK (outcome IN ('pass', 'nonzero', 'spawn_error', 'timeout', 'output_limit', 'candidate_changed', 'gate_changed', 'unknown')),
+  pre_manifest_digest TEXT NOT NULL,
+  post_manifest_digest TEXT,
+  exit_code INTEGER,
+  reason_code TEXT,
+  evidence_json TEXT NOT NULL,
+  state TEXT NOT NULL CHECK (state IN ('provisional', 'accepted', 'nonaccepting')),
+  revision INTEGER NOT NULL,
+  created_at INTEGER NOT NULL,
+  UNIQUE (attempt_id)
+);
+CREATE INDEX IF NOT EXISTS gate_results_by_assignment ON gate_results (assignment_id);
+CREATE TABLE IF NOT EXISTS assignment_stops (
+  stop_id TEXT PRIMARY KEY,
+  assignment_id TEXT NOT NULL REFERENCES assignments(assignment_id) ON DELETE CASCADE,
+  trigger TEXT NOT NULL CHECK (trigger IN ('operator', 'elapsed_limit', 'attempt_limit', 'protocol_uncertainty', 'gate_failure_attention')),
+  revision INTEGER NOT NULL,
+  dispatch_revoked INTEGER NOT NULL CHECK (dispatch_revoked IN (0, 1)),
+  cancellation_status TEXT NOT NULL CHECK (cancellation_status IN ('not_requested', 'requested', 'acknowledged', 'unsupported', 'timeout', 'unknown')),
+  reason_code TEXT,
+  created_at INTEGER NOT NULL,
+  updated_at INTEGER NOT NULL,
+  UNIQUE (assignment_id)
+);
+CREATE TABLE IF NOT EXISTS handoffs (
+  handoff_id TEXT PRIMARY KEY,
+  assignment_id TEXT NOT NULL REFERENCES assignments(assignment_id) ON DELETE CASCADE,
+  attempt_id TEXT NOT NULL REFERENCES attempts(attempt_id) ON DELETE CASCADE,
+  agent_run_id TEXT NOT NULL,
+  control_epoch INTEGER NOT NULL,
+  claimed_state TEXT NOT NULL CHECK (claimed_state IN ('candidate', 'partial', 'blocked')),
+  summary TEXT NOT NULL,
+  artifact_refs_json TEXT NOT NULL,
+  outstanding_effects TEXT NOT NULL CHECK (outstanding_effects IN ('none_reported', 'may_be_active', 'unknown')),
+  digest TEXT NOT NULL,
+  created_at INTEGER NOT NULL,
+  UNIQUE (attempt_id)
+);
+CREATE INDEX IF NOT EXISTS handoffs_by_assignment ON handoffs (assignment_id);
 `
 
 export const REQUIRED_PRAGMAS = {

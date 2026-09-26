@@ -377,6 +377,41 @@ Control {
             Text {
                 Layout.fillWidth: true
                 textFormat: Text.PlainText
+                text: "Maximum corrections"
+                color: root.textColor
+                font.family: Style.font.family
+                font.pixelSize: Style.font.title
+                font.bold: true
+            }
+            WorkbenchTextField {
+                objectName: "workbench-assignment-max-corrections"
+                Layout.fillWidth: true
+                placeholderText: "0–3"
+                inputMethodHints: Qt.ImhDigitsOnly
+                text: root.assignmentDraft.maxCorrections === undefined ? "1" : String(root.assignmentDraft.maxCorrections)
+                onTextEdited: root.writeDraft({ maxCorrections: text })
+            }
+            Text {
+                Layout.fillWidth: true
+                textFormat: Text.PlainText
+                text: "Elapsed limit (ms)"
+                color: root.textColor
+                font.family: Style.font.family
+                font.pixelSize: Style.font.title
+                font.bold: true
+            }
+            WorkbenchTextField {
+                objectName: "workbench-assignment-elapsed-ms"
+                Layout.fillWidth: true
+                placeholderText: "1000–3600000"
+                inputMethodHints: Qt.ImhDigitsOnly
+                text: root.assignmentDraft.elapsedMs === undefined ? "900000" : String(root.assignmentDraft.elapsedMs)
+                onTextEdited: root.writeDraft({ elapsedMs: text })
+            }
+
+            Text {
+                Layout.fillWidth: true
+                textFormat: Text.PlainText
                 text: "Target agent"
                 color: root.textColor
                 font.family: Style.font.family

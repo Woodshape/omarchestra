@@ -130,7 +130,10 @@ Item {
         projection ? projection.selectedProjectId : null,
         projection ? projection.selectedGoalId : null,
         selectedAgentRunId, selectedCheckId, selectedCheckVersion,
-        assignmentDraft().taskText || ""])
+        assignmentDraft().taskText || "", assignmentDraft().maxCorrections || "1", assignmentDraft().elapsedMs || "900000",
+        selectedProject ? selectedProject.contextMatch : false,
+        projection && projection.managedAgents ? projection.managedAgents.filter(function(card) { return card.agentRunId === selectedAgentRunId }) : [],
+        selectedCheck() ? selectedCheck().digest : null])
     onReviewAssociationChanged: {
         if (startReview !== null && startReview.association !== reviewAssociation) {
             startReview = null
@@ -211,13 +214,37 @@ Item {
             var entry = projection.details[i]
             if (entry.kind === "start" && entry.projectId === projection.selectedProjectId
                     && selectedCheck() && entry.gate.digest === selectedCheck().digest
-                    && entry.goalText === startReview.taskText
+                    && entry.taskText === startReview.taskText
                     && entry.goalId === projection.selectedGoalId
                     && entry.agentRunId === startReview.agentRunId
                     && entry.gate.gateId === startReview.checkId
-                    && entry.gate.version === startReview.checkVersion) return entry
+                    && entry.gate.version === startReview.checkVersion
+                    && entry.maxCorrections === startReview.maxCorrections
+                    && entry.elapsedMs === startReview.elapsedMs) return entry
         }
         return null
+    }
+
+    function projectedAction(kind, target) {
+        if (!projection) return null
+        var actions = [].concat(projection.actions || [])
+        var agents = projection.managedAgents || []
+        for (var i = 0; i < agents.length; i++) actions = actions.concat(agents[i].actions || [])
+        for (var j = 0; j < actions.length; j++) {
+            if (actions[j].kind === kind && actions[j].target === target) return actions[j]
+        }
+        return null
+    }
+
+    function startConfirmationIntent() {
+        var detail = startDetail()
+        var action = detail ? projectedAction("start_assignment", detail.agentRunId) : null
+        if (!detail || !action || !action.enabled) return null
+        return { kind: "start_assignment", target: detail.agentRunId, payload: {
+            confirmationId: detail.confirmationId, agentRunId: detail.agentRunId, goalText: detail.goalText,
+            taskText: detail.taskText, checkId: detail.gate.gateId, checkVersion: detail.gate.version,
+            maxCorrections: detail.maxCorrections, elapsedMs: detail.elapsedMs
+        } }
     }
 
     function adoptionDetail() {
@@ -392,6 +419,12 @@ Item {
             // Maintenance actions also bind the displayed committed detail and
             // targeted record. A same-revision replacement is not a heartbeat.
             facts.push(snapshot.details || [])
+            if (payload.kind === "start_assignment") {
+                var reviewed = root.startDetail()
+                var startAction = root.projectedAction("start_assignment", payload.target)
+                if (!reviewed || !startAction || !startAction.enabled || reviewed.agentRunId !== payload.target
+                        || JSON.stringify(payload) !== JSON.stringify(root.startConfirmationIntent())) return ""
+            }
             if (payload.kind === "authorize_adoption") {
                 var observed = snapshot.observedSessions || []
                 for (var o = 0; o < observed.length; o++) {
@@ -456,7 +489,8 @@ Item {
                 // Drop captured clicks/reviews on changed facts, not ordinary
                 // disclosure state. Never retain an obsolete execution review.
                 pendingIntents = pendingIntents.filter(function(request) { return request.kind === "hide_workbench" })
-                startReview = null
+                if (startReview !== null && startReview.association !== reviewAssociation) startReview = null
+                if (after.connection !== "connected") startReview = null
                 if (before.sessionId !== after.sessionId || before.pluginGeneration !== after.pluginGeneration
                         || before.runnerEpoch !== after.runnerEpoch || before.selectedProjectId !== after.selectedProjectId
                         || before.selectedGoalId !== after.selectedGoalId || after.connection !== "connected") {
@@ -673,21 +707,25 @@ Item {
 
     function captureStartReview() {
         if (!projection || projection.connection !== "connected" || !currentGoalContextMatches()) return false
-        if (!projection.managedAgents.some(function(card) { return card.agentRunId === root.selectedAgentRunId })) return false
         if (!selectedAgentRunId || !selectedCheckId) return false
+        var action = projectedAction("prepare_start_review", selectedAgentRunId)
         var check = checkById(selectedCheckId, selectedCheckVersion)
-        if (!check || check.availability !== "available") return false
-        var taskText = (assignmentDraft().taskText || "").trim()
-        if (taskText === "") return false
-        startReview = ({
-            checkId: check.checkId,
-            checkVersion: check.version,
-            agentRunId: selectedAgentRunId,
-            taskText: taskText,
-            association: reviewAssociation
-        })
+        var draft = assignmentDraft()
+        var taskText = (draft.taskText || "").trim()
+        var maxCorrectionsText = String(draft.maxCorrections === undefined ? "1" : draft.maxCorrections)
+        var elapsedText = String(draft.elapsedMs === undefined ? "900000" : draft.elapsedMs)
+        if (!action || !action.enabled || !check || check.availability !== "available" || taskText === "") return false
+        if (!/^(0|[1-3])$/.test(maxCorrectionsText) || !/^[0-9]+$/.test(elapsedText)) return false
+        var maxCorrections = Number(maxCorrectionsText), elapsedMs = Number(elapsedText)
+        if (!Number.isSafeInteger(elapsedMs) || elapsedMs < 1000 || elapsedMs > 3600000) return false
+        startReview = ({ checkId: check.checkId, checkVersion: check.version, agentRunId: selectedAgentRunId,
+            taskText: taskText, maxCorrections: maxCorrections, elapsedMs: elapsedMs, association: reviewAssociation })
         destination = "start_review"
         focusDestination()
+        emitIntent({ kind: "prepare_start_review", target: selectedAgentRunId, payload: {
+            checkId: check.checkId, checkVersion: check.version, taskText: taskText,
+            maxCorrections: maxCorrections, elapsedMs: elapsedMs
+        } })
         return true
     }
 
@@ -703,7 +741,13 @@ Item {
         if (!projection || projection.connection !== "connected") return "Waiting for an authoritative projection."
         if (!selectedAgentRunId || !projection.managedAgents.some(function(card) { return card.agentRunId === root.selectedAgentRunId })) return "Choose a current target agent."
         if (!currentGoalContextMatches()) return "Every current Run in this Goal must be ready and report this Project root on a fresh bridge. Omarchestra will not change Pi's working directory."
+        var startAction = projectedAction("prepare_start_review", selectedAgentRunId)
+        if (!startAction || !startAction.enabled) return startAction && startAction.reason ? startAction.reason : "Start review is unavailable for this Run."
         if ((assignmentDraft().taskText || "").trim() === "") return "Describe the task before reviewing start."
+        var draft = assignmentDraft()
+        var corrections = String(draft.maxCorrections === undefined ? "1" : draft.maxCorrections)
+        var elapsed = Number(draft.elapsedMs === undefined ? "900000" : draft.elapsedMs)
+        if (!/^(0|[1-3])$/.test(corrections) || !Number.isSafeInteger(elapsed) || elapsed < 1000 || elapsed > 3600000) return "Set corrections to 0–3 and elapsed time to 1000–3600000 ms."
         if (!selectedCheckId) return "Configure an acceptance check before starting."
         var check = checkById(selectedCheckId, selectedCheckVersion)
         if (check === null) return "The selected check version is no longer available. Configure checks."
@@ -730,7 +774,7 @@ Item {
             + "\n" + detail.reason + "\nExplicit consent permits a filtered excerpt only. Filtering cannot guarantee secret removal. No output is included in this projection."
         if (detail.kind === "start") return "Start confirmation " + detail.confirmationId
             + "\nProject / Goal / Run: " + detail.projectId + " / " + detail.goalId + " / " + detail.agentRunId
-            + "\nGoal: " + detail.goalText + "\nNode: " + detail.executionNodeId + "\nGit context: " + detail.gitCommonDir + " · HEAD " + detail.headOid
+            + "\nGoal: " + detail.goalText + "\nTask: " + detail.taskText + "\nNode: " + detail.executionNodeId + "\nGit context: " + detail.gitCommonDir + " · HEAD " + detail.headOid
             + "\nBaseline: " + detail.baselineDigest + "\nDirty baseline: " + (detail.dirty ? "explicit acknowledgement required; existing changes retained" : "clean at capture")
             + "\nGate: " + detail.gate.gateId + " v" + detail.gate.version + " · " + detail.gate.digest
             + "\nExecutable: " + detail.gate.executable + " · digest " + detail.gate.executableDigest
@@ -1028,6 +1072,7 @@ Item {
                         projection: root.projection
                         startReview: root.startReview
                         startDetail: root.startDetail()
+                        startIntent: root.startConfirmationIntent()
                         selectedCheck: root.selectedCheck()
                         rows: root.workRows()
                         agents: root.projection && Array.isArray(root.projection.managedAgents)

@@ -235,10 +235,11 @@ test('Phase 2 management journey: register, goals, checks, dedup, restart', () =
     assert.equal(stale.status, 'stale')
     assert.equal(stale.reasonCode, 'revision_changed')
 
-    // --- Phase 2 never starts work ----------------------------------------
-    const start = intent(authority, 'start_assignment', { goalText: 'do work', checkId, checkVersion: 2 }, { target: 'run' })
+    // Start still rejects without the transient Runner-reviewed proposal.
+    const start = intent(authority, 'start_assignment', { confirmationId: 'confirmation-none', agentRunId: 'run',
+      goalText: 'Goal text', taskText: 'do work', checkId, checkVersion: 2, maxCorrections: 1, elapsedMs: 60_000 }, { target: 'run' })
     assert.equal(start.status, 'rejected')
-    assert.equal(start.reasonCode, 'handler_unavailable')
+    assert.equal(start.reasonCode, 'presentation_route_required')
     snapshot = buildSnapshot({ authority, adoption: authority.adoption, connection: 'connected' })
     const startAction = snapshot.actions.find(action => action.kind === 'start_assignment')
     assert.equal(startAction?.enabled, false)

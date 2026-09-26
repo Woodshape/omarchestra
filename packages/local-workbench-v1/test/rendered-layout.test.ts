@@ -538,7 +538,7 @@ Item {
       consoleView.selectAgent("${JOURNEY_AGENT_RUN_ID}")
       consoleView.selectCheck("${JOURNEY_CHECK_ID}", 3)
       var task = findChild(consoleView, "workbench-assignment-task")
-      task.text = host.snapshot.details[1].goalText
+      task.text = host.snapshot.details[1].taskText
       wait(20)
       var status = findChild(surfaceRoot(), "workbench-assignment-context-status")
       verify(status !== null && status.visible)
@@ -598,7 +598,7 @@ Item {
       wait(20)
       var task = findChild(consoleView, "workbench-assignment-task")
       verify(task !== null)
-      task.text = host.snapshot.details[1].goalText
+      task.text = host.snapshot.details[1].taskText
       wait(20)
       var checkTexts = []; visibleTexts(surfaceRoot(), checkTexts)
       verify(checkTexts.indexOf("Unit tests · v3") >= 0)
@@ -619,10 +619,21 @@ Item {
       texts = []; visibleTexts(surfaceRoot(), texts)
       verify(texts.join("\\n").indexOf('Argv (JSON, not shell): ["--test"]') >= 0)
       verify(texts.join("\\n").indexOf("Confirmation: confirmation-journey-1") >= 0)
-      verify(joined.indexOf("runtime unavailable") >= 0)
       var confirmStart = findChild(consoleView, "workbench-confirm-start")
       verify(confirmStart !== null)
-      compare(confirmStart.enabled, false)
+      compare(confirmStart.enabled, true)
+      clickItem(confirmStart)
+      compare(consoleView.confirmation.kind, "start_assignment")
+      clickItem(confirmStart)
+      var prepareIntent = JSON.parse(consoleView.takeIntent(host.snapshot))
+      compare(prepareIntent.kind, "prepare_start_review")
+      var startIntent = JSON.parse(consoleView.takeIntent(host.snapshot))
+      compare(startIntent.kind, "start_assignment")
+      compare(startIntent.target, "${JOURNEY_AGENT_RUN_ID}")
+      compare(startIntent.payload.confirmationId, "confirmation-journey-1")
+      compare(startIntent.payload.taskText, host.snapshot.details[1].taskText)
+      compare(startIntent.payload.maxCorrections, 1)
+      compare(startIntent.payload.elapsedMs, 900000)
       compare(consoleView.pendingIntents.length, 0)
     }
 
@@ -793,7 +804,8 @@ Item {
       var joined = texts.join("\\n")
       verify(joined.indexOf("Assignment: assignment-1 · failed") >= 0)
       verify(joined.indexOf("Assignment: assignment-2 · running") >= 0)
-      verify(joined.indexOf("Task: Ship the second parser fix") >= 0)
+      verify(joined.indexOf("Goal: Ship the second parser fix") >= 0)
+      verify(joined.indexOf("Task: " + second.taskText) >= 0)
       verify(joined.indexOf("not tool/process termination") >= 0)
       var retries = buttonsWithText(surfaceRoot(), "Retry with a new attempt", [])
       compare(retries.length, 2)

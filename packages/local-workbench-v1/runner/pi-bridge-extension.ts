@@ -4,15 +4,21 @@ import { realpathSync, statSync } from 'node:fs'
 import { isAbsolute } from 'node:path'
 import { join } from 'node:path'
 import { attachBridgeStream } from './bridge-channel.ts'
-import { projectExecutionContextDigest } from './canonical-hash.ts'
-import { BRIDGE_CAPABILITIES, SESSION_CODE_CAPABILITY, PANE_NAVIGATION_CAPABILITY, PROJECT_CONTEXT_CAPABILITY, bridgeId, type BridgeFrame } from './bridge-protocol.ts'
+import { projectExecutionContextDigest, sha256, canonicalJson } from './canonical-hash.ts'
+import { BRIDGE_CAPABILITIES, SESSION_CODE_CAPABILITY, PANE_NAVIGATION_CAPABILITY, PROJECT_CONTEXT_CAPABILITY, ASSIGNMENT_DELIVERY_CAPABILITY, CANDIDATE_SUBMISSION_CAPABILITY, bridgeId, type BridgeFrame } from './bridge-protocol.ts'
+import { validateCandidateSubmission, type CandidateSubmission } from './candidate.ts'
 
 import { showLocalTerminalPane } from './local-pane-navigation.ts'
 import type { NavigationResult } from './pane-navigation.ts'
 
 type Context = { mode: string; cwd?: string; sessionManager: { getSessionId(): string | undefined }; isIdle(): boolean; hasPendingMessages?(): boolean; ui: { setStatus(key: string, text: string | undefined): void } }
-type PiAPI = { on(name: string, handler: (event: unknown, ctx: Context) => void): void }
-type Client = { sendFrame(type: 'register' | 'heartbeat' | 'input_observed' | 'close' | 'adoption_ack' | 'binding_receipt' | 'recovery_proof' | 'focus_result', id: string, body: Record<string, unknown>): void; close(): void }
+type PiAPI = { on(name: string, handler: (event: unknown, ctx: Context) => void): void; sendUserMessage?: (text: string) => unknown }
+type Client = { sendFrame(type: 'register' | 'heartbeat' | 'input_observed' | 'close' | 'adoption_ack' | 'binding_receipt' | 'recovery_proof' | 'focus_result' | 'assignment_ack' | 'assignment_receipt' | 'candidate_submission', id: string, body: Record<string, unknown>): void; close(): void }
+/** One bounded C6 Candidate submission outcome, settled by an exact receipt. */
+export interface CandidateSubmitOutcome { outcome: 'accepted' | 'duplicate' | 'invalid' | 'unknown'; candidateId: string | null; digest: string | null; reason: string | null }
+/** Install in Pi, but also expose the dedicated Candidate submission port. */
+export interface PiBridgeExtension { (pi: PiAPI): void; submitCandidate(payload: unknown): Promise<CandidateSubmitOutcome> }
+const CANDIDATE_RECEIPT_DEADLINE_MS = 5_000
 export function connectLocalPiBridge(path: string, onFrame: (frame: BridgeFrame) => void, onClose: () => void): Promise<Client> {
   return new Promise((resolve, reject) => {
     const socket: Socket = netConnect(path)
@@ -27,7 +33,7 @@ export function connectLocalPiBridge(path: string, onFrame: (frame: BridgeFrame)
   })
 }
 /** Injectable fake Pi host and paired-channel connector; no work in the factory. */
-export function createPiBridgeExtension(options: { socketPath?: string; connect?: (onFrame: (frame: BridgeFrame) => void, onClose: () => void) => Promise<Client>; schedule?: (callback: () => void, ms: number) => ReturnType<typeof setTimeout>; cancel?: (timer: ReturnType<typeof setTimeout>) => void; newId?: (prefix: string) => string; navigate?: ((isCurrent: () => boolean) => Promise<NavigationResult>) | null } = {}) {
+export function createPiBridgeExtension(options: { socketPath?: string; connect?: (onFrame: (frame: BridgeFrame) => void, onClose: () => void) => Promise<Client>; schedule?: (callback: () => void, ms: number) => ReturnType<typeof setTimeout>; cancel?: (timer: ReturnType<typeof setTimeout>) => void; newId?: (prefix: string) => string; navigate?: ((isCurrent: () => boolean) => Promise<NavigationResult>) | null } = {}): PiBridgeExtension {
   const issue = options.newId ?? bridgeId
   const navigate = options.navigate === undefined ? showLocalTerminalPane : options.navigate
   const processInstanceId = issue('process')
@@ -35,7 +41,7 @@ export function createPiBridgeExtension(options: { socketPath?: string; connect?
   const connect = options.connect ?? ((onFrame, onClose) => connectLocalPiBridge(options.socketPath ?? join(process.env.XDG_RUNTIME_DIR ?? '/nonexistent', 'omarchestra-bridge.sock'), onFrame, onClose))
   const schedule = options.schedule ?? ((callback, ms) => { const timer = setTimeout(callback, ms); timer.unref(); return timer })
   const cancel = options.cancel ?? clearTimeout
-  return (pi: PiAPI) => {
+  const install = ((pi: PiAPI) => {
     let ctx: Context | null = null, client: Client | null = null
     let sessionId: string | null = null, observedSessionId: string | null = null, connectionId: string | null = null, challenge: string | null = null
     let sessionCode: string | null = null
@@ -43,6 +49,12 @@ export function createPiBridgeExtension(options: { socketPath?: string; connect?
     let attempt = 0, sequence = 0, connecting = false, stopped = true, retryMs = 500, mode: 'observed' | 'committed' = 'observed'
     let acknowledged: string | null = null
     let committed: { runId: string; digest: string; goalId: string; role: string; state: 'connecting' | 'ready' | 'manual_takeover' } | null = null
+    // Extension-owned dedup evidence for one stable delivery identity. It lives
+    // only for this Pi session and never inherits across reload, restart or reboot.
+    let assignmentReceipts = new Map<string, { assignmentId: string; attemptId: string; runId: string; payloadDigest: string; outcome: 'accepted' }>()
+    // One in-flight C6 submission per stable submission id, settled only by the
+    // exact receipt from the owner on this connection. Never retained across stop.
+    let pendingSubmissions = new Map<string, (outcome: CandidateSubmitOutcome) => void>()
     let timer: ReturnType<typeof setTimeout> | null = null, generation = 0, pendingInput: string | null = null, handshakeTicks = 0
     const status = () => { try {
       const state = mode === 'observed' ? acknowledged ? 'Unassigned · adoption pending' : 'Unassigned · observed'
@@ -63,7 +75,7 @@ export function createPiBridgeExtension(options: { socketPath?: string; connect?
       } catch { return null }
     }
     const clearTimer = () => { if (timer) cancel(timer); timer = null }
-    const send = (type: 'heartbeat' | 'input_observed' | 'close' | 'adoption_ack' | 'binding_receipt' | 'recovery_proof' | 'focus_result', extra: Record<string, unknown> = {}) => {
+    const send = (type: 'heartbeat' | 'input_observed' | 'close' | 'adoption_ack' | 'binding_receipt' | 'recovery_proof' | 'focus_result' | 'assignment_ack' | 'assignment_receipt' | 'candidate_submission', extra: Record<string, unknown> = {}) => {
       if (!client || !connectionId || !challenge) return false
       sequence += 1
       try { client.sendFrame(type, issue('message'), { connectionId, connectionChallenge: challenge, sourceSequence: sequence, ...extra }); return true }
@@ -144,6 +156,60 @@ export function createPiBridgeExtension(options: { socketPath?: string; connect?
               && frame.body.runId === committed.runId && frame.body.bindingDigest === committed.digest) {
             committed.state = frame.body.state as 'ready' | 'manual_takeover'; status(); return
           }
+          if (frame.type === 'assignment_delivery' && connectionId && challenge) {
+            const b = frame.body
+            if (stopped || !ctx || ctx.mode !== 'tui' || ctx.sessionManager.getSessionId() !== sessionId
+                || mode !== 'committed' || !committed
+                || b.connectionId !== connectionId || b.connectionChallenge !== challenge || b.runId !== committed.runId) return
+            const ack = (outcome: 'accepted' | 'busy' | 'duplicate' | 'invalid', storedOutcome: 'accepted' | null, reason: string | null) =>
+              send('assignment_ack', { deliveryId: b.deliveryId, assignmentId: b.assignmentId, attemptId: b.attemptId,
+                runId: b.runId, payloadDigest: b.payloadDigest, outcome, storedOutcome, reason })
+            // The payload must be the exact admitted Assignment frame it claims.
+            let payload: Record<string, unknown> | null = null
+            try {
+              const parsed: unknown = JSON.parse(b.payloadJson as string)
+              if (parsed && typeof parsed === 'object' && !Array.isArray(parsed)) payload = parsed as Record<string, unknown>
+            } catch { payload = null }
+            const exact = payload !== null && payload.protocol === 'omarchestra.assignment/v1' && payload.kind === 'assignment_delivery'
+              && payload.deliveryId === b.deliveryId && payload.assignmentId === b.assignmentId
+              && payload.attemptId === b.attemptId && payload.runId === b.runId && sha256(b.payloadJson as string) === b.payloadDigest
+            if (!exact) { ack('invalid', null, 'payload_mismatch'); return }
+            const prior = assignmentReceipts.get(b.deliveryId as string)
+            if (prior) {
+              // A duplicate must prove the exact stored identity; a conflicting
+              // reuse of one delivery id never creates a second turn.
+              if (prior.assignmentId === b.assignmentId && prior.attemptId === b.attemptId && prior.runId === b.runId && prior.payloadDigest === b.payloadDigest) ack('duplicate', prior.outcome, null)
+              else ack('invalid', null, 'delivery_conflict')
+              return
+            }
+            if (activity() !== 'idle' || pendingInput) { ack('busy', null, 'not_idle'); return }
+            const taskText = typeof payload.taskText === 'string' ? payload.taskText : null
+            if (taskText === null || taskText.length === 0) { ack('invalid', null, 'payload_mismatch'); return }
+            if (typeof pi.sendUserMessage !== 'function') { ack('invalid', null, 'unsupported'); return }
+            try { pi.sendUserMessage(taskText) } catch { ack('invalid', null, 'send_failed'); return }
+            // Retain evidence before the ACK so a lost ACK stays reconcilable.
+            assignmentReceipts.set(b.deliveryId as string, { assignmentId: b.assignmentId as string, attemptId: b.attemptId as string, runId: b.runId as string, payloadDigest: b.payloadDigest as string, outcome: 'accepted' })
+            if (assignmentReceipts.size > 64) assignmentReceipts.delete(assignmentReceipts.keys().next().value!)
+            ack('accepted', null, null)
+            return
+          }
+          if (frame.type === 'assignment_receipt_request' && connectionId && challenge) {
+            const b = frame.body
+            if (b.connectionId !== connectionId || b.connectionChallenge !== challenge || mode !== 'committed') return
+            const prior = assignmentReceipts.get(b.deliveryId as string)
+            const matches = !!prior && prior.assignmentId === b.assignmentId && prior.attemptId === b.attemptId
+              && prior.runId === b.runId && prior.payloadDigest === b.payloadDigest
+            send('assignment_receipt', { requestId: b.requestId, deliveryId: b.deliveryId, assignmentId: b.assignmentId,
+              attemptId: b.attemptId, runId: b.runId, payloadDigest: b.payloadDigest, known: matches, outcome: matches ? prior!.outcome : null })
+            return
+          }
+          if (frame.type === 'candidate_receipt' && connectionId && challenge) {
+            const b = frame.body
+            if (b.connectionId !== connectionId || b.connectionChallenge !== challenge || b.runId !== committed?.runId) return
+            settleSubmission(b.submissionId as string, { outcome: b.outcome as CandidateSubmitOutcome['outcome'],
+              candidateId: (b.candidateId as string | null) ?? null, digest: (b.digest as string | null) ?? null, reason: (b.reason as string | null) ?? null })
+            return
+          }
           if (frame.type === 'adoption_committed' && connectionId && challenge) {
             const b = frame.body
             if (b.processInstanceId !== processInstanceId || b.piSessionId !== sessionId || b.extensionInstanceId !== extensionInstanceId
@@ -180,7 +246,7 @@ export function createPiBridgeExtension(options: { socketPath?: string; connect?
         })
         if (current !== generation || stopped) { channel.close(); return }
         client = channel; handshakeTicks = 0; attempt += 1; sequence += 1
-        channel.sendFrame('register', issue('message'), { processInstanceId, piSessionId: sessionId, extensionInstanceId, hostMode: 'tui', capabilities: [...BRIDGE_CAPABILITIES, SESSION_CODE_CAPABILITY, ...(navigate ? [PANE_NAVIGATION_CAPABILITY] : []), PROJECT_CONTEXT_CAPABILITY], registrationAttempt: attempt, sourceSequence: sequence, lifecycle: 'running', activity: activity(), health: 'healthy' })
+        channel.sendFrame('register', issue('message'), { processInstanceId, piSessionId: sessionId, extensionInstanceId, hostMode: 'tui', capabilities: [...BRIDGE_CAPABILITIES, SESSION_CODE_CAPABILITY, ...(navigate ? [PANE_NAVIGATION_CAPABILITY] : []), PROJECT_CONTEXT_CAPABILITY, ASSIGNMENT_DELIVERY_CAPABILITY, CANDIDATE_SUBMISSION_CAPABILITY], registrationAttempt: attempt, sourceSequence: sequence, lifecycle: 'running', activity: activity(), health: 'healthy' })
       } catch { retryMs = Math.min(5000, retryMs * 2) /* fail open; scheduled retry */ }
       finally { connecting = false }
     }
@@ -188,6 +254,39 @@ export function createPiBridgeExtension(options: { socketPath?: string; connect?
       generation += 1; stopped = true; activeFocus = null; clearTimer()
       if (client) { send('close', { reason }); client.close() }
       client = null; observedSessionId = null; sessionCode = null; connectionId = null; challenge = null; status(); ctx = null; sessionId = null
+      assignmentReceipts = new Map()
+      for (const settle of pendingSubmissions.values()) settle({ outcome: 'unknown', candidateId: null, digest: null, reason: 'session_stopped' })
+      pendingSubmissions = new Map()
+    }
+    const settleSubmission = (submissionId: string, outcome: CandidateSubmitOutcome) => {
+      const settle = pendingSubmissions.get(submissionId)
+      if (!settle) return
+      pendingSubmissions.delete(submissionId)
+      settle(outcome)
+    }
+    // Dedicated structured C6 submission port. It never inspects a chat turn:
+    // the exact bounded payload is framed, then settled only by the exact
+    // candidate_receipt (or a bounded unknown on timeout/stop).
+    const submitCandidate = async (payload: unknown): Promise<CandidateSubmitOutcome> => {
+      let submission: CandidateSubmission
+      try { submission = validateCandidateSubmission(payload) }
+      catch { return { outcome: 'invalid', candidateId: null, digest: null, reason: 'invalid_submission' } }
+      if (stopped || mode !== 'committed' || !committed || !client || !connectionId || !challenge) {
+        return { outcome: 'invalid', candidateId: null, digest: null, reason: 'not_committed' }
+      }
+      if (submission.agentRunId !== committed.runId) {
+        return { outcome: 'invalid', candidateId: null, digest: null, reason: 'run_mismatch' }
+      }
+      const payloadJson = canonicalJson(submission), payloadDigest = sha256(payloadJson)
+      const submissionId = issue('candidate')
+      const result = new Promise<CandidateSubmitOutcome>(resolve => {
+        const timer = schedule(() => settleSubmission(submissionId, { outcome: 'unknown', candidateId: null, digest: null, reason: 'receipt_timeout' }), CANDIDATE_RECEIPT_DEADLINE_MS)
+        pendingSubmissions.set(submissionId, outcome => { cancel(timer); resolve(outcome) })
+      })
+      if (!send('candidate_submission', { runId: committed.runId, submissionId, payloadDigest, payloadJson })) {
+        settleSubmission(submissionId, { outcome: 'unknown', candidateId: null, digest: null, reason: 'transport_unavailable' })
+      }
+      return result
     }
     pi.on('session_start', (_event, context) => {
       stop('new')
@@ -206,5 +305,7 @@ export function createPiBridgeExtension(options: { socketPath?: string; connect?
       }
     })
     pi.on('session_shutdown', () => stop('quit'))
-  }
+    install.submitCandidate = submitCandidate
+  }) as PiBridgeExtension
+  return install
 }

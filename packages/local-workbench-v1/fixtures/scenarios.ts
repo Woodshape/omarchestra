@@ -32,6 +32,7 @@ function assignment(gateResult: 'pass' | 'fail' | 'timeout', state: string, corr
     goalId: base.selectedGoalId!,
     agentRunId: base.managedAgents[0].agentRunId,
     goalText: 'Ship the parser fix',
+    taskText: 'Implement the parser change and test it.',
     state,
     attemptId: 'attempt-1',
     gateId: JOURNEY_CHECK_ID,

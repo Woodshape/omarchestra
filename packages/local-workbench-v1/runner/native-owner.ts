@@ -5,7 +5,10 @@ import { dirname, join } from 'node:path'
 import { randomUUID } from 'node:crypto'
 import { openWorkbenchRunner, type WorkbenchRunner, type WorkbenchRunnerOptions } from './runner.ts'
 import { openOwnerPiBridge } from './bridge-owner.ts'
+import { AssignmentDeliveryCoordinator } from './bridge-delivery.ts'
+import { CandidateSubmissionCoordinator } from './candidate-submission.ts'
 import { WorkbenchAuthority } from './authority.ts'
+import { ensureOwnedDirectory } from './paths.ts'
 import { FramedAdoptionManager } from './framed-adoption.ts'
 import { createWorkbenchHost, type WorkbenchHost } from './host.ts'
 import { createDesktopView, negotiateCompanion, type DesktopCommandPort } from './desktop-command.ts'
@@ -88,6 +91,9 @@ export async function startNativeOwner(options: WorkbenchRunnerOptions & {
   let cancelTimer: (() => void) | null = null
   let host: WorkbenchHost | null = null
   let authority: WorkbenchAuthority | null = null
+  let delivery: AssignmentDeliveryCoordinator | null = null
+  let candidateSubmission: CandidateSubmissionCoordinator | null = null
+  let gateScratchRoot: string | null = null
   let closed = false
   const clients = new Set<Socket>()
   const path = ownerSocket(runner.roots.runtimeDir!)
@@ -105,8 +111,21 @@ export async function startNativeOwner(options: WorkbenchRunnerOptions & {
   }
   try {
     bridge = await openOwnerPiBridge(runner, join(runner.roots.runtimeDir!, 'omarchestra-bridge.sock'), { now: options.monotonic })
-    authority = new WorkbenchAuthority({ runner, registry: bridge.registry, sessionId: `owner-${randomUUID()}`, pluginGeneration: 1, clock: options.clock })
+    gateScratchRoot = ensureOwnedDirectory(join(runner.roots.runtimeDir!, 'gate-scratch'))
+    delivery = new AssignmentDeliveryCoordinator({ store: runner.store, registry: bridge.registry, clock: options.clock })
+    const makeAuthority = (sessionId: string, pluginGeneration: number, framedAdoption?: FramedAdoptionManager) => new WorkbenchAuthority({
+      runner, registry: bridge!.registry, ...(framedAdoption ? { framedAdoption } : {}),
+      sessionId, pluginGeneration, clock: options.clock, gateScratchRoot: gateScratchRoot!,
+      onAssignmentAdmitted: admission => {
+        void delivery!.deliver(admission.attemptId).then(() => {
+          if (host && authority?.sessionId === sessionId) tickPresentation(host)
+        }).catch(error => console.error('workbench Assignment delivery unresolved:', error instanceof Error ? error.message : 'unknown error'))
+      },
+    })
+    authority = makeAuthority(`owner-${randomUUID()}`, 1)
     const manager = authority.adoption as FramedAdoptionManager
+    candidateSubmission = new CandidateSubmissionCoordinator({ store: runner.store, registry: bridge.registry,
+      clock: options.clock, associate: input => authority!.associateCandidate(input) })
     privateRoot(path)
     server = createServer(socket => {
       clients.add(socket); socket.once('close', () => clients.delete(socket))
@@ -132,8 +151,7 @@ export async function startNativeOwner(options: WorkbenchRunnerOptions & {
               refreshUnavailable = false
               // The bridge manager outlives views; hide/reopen changes neither
               // runner epoch nor membership, Pi connection nor owner lock.
-              authority = new WorkbenchAuthority({ runner, registry: bridge!.registry, framedAdoption: manager,
-                sessionId: `session-${randomUUID()}`, pluginGeneration: generation, clock: options.clock })
+              authority = makeAuthority(`session-${randomUUID()}`, generation, manager)
               const view = createDesktopView(desktop, generation, path)
               const next = createWorkbenchHost({ authority, view, clock: options.monotonic, onHide: () => {
                 if (host !== next) return // stale shell generation cannot hide its successor

@@ -147,15 +147,20 @@ const TARGET_PAYLOAD_FIELDS: Readonly<Record<string, string>> = {
   configure_checks: 'checkId',
   request_adoption: 'choiceId',
   authorize_adoption: 'proposalId',
+  start_assignment: 'agentRunId',
+  return_to_team: 'assignmentId',
+  accept: 'assignmentId',
+  resume: 'assignmentId',
+  retry: 'assignmentId',
+  stop: 'assignmentId',
   take_control: 'agentRunId',
   retire: 'agentRunId',
   purge: 'agentRunId',
 }
 const NULL_TARGET_KINDS = ['inspect_project', 'create_goal', 'create_check', 'navigate_page']
-// Assignment actions retain a Run target plus a separate Assignment reference.
-// Phase 2 has no Assignment resolver: all of these actions remain unavailable.
+// Confirmation and recovery intents name the exact current record.
 const EXACT_TARGET_KINDS = [
-  'present', 'recover', 'start_assignment',
+  'present', 'recover', 'prepare_start_review', 'start_assignment',
   'return_to_team', 'accept', 'resume', 'retry', 'stop',
 ]
 

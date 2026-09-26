@@ -3,16 +3,17 @@
  *
  * Every field here is runner-computed from durable state. The presentation
  * layer validates and renders this shape; it never derives labels, enabled
- * flags or reasons. Assignments stay empty and `start_assignment` stays
- * disabled with a committed reason because Phase 2 does not execute work.
+ * flags or reasons. A transient Start Review is included only in its Owner
+ * session; Assignment and Candidate facts always reopen from SQLite.
  */
 
 import { WORKBENCH_PROTOCOL, WORKBENCH_PAGE_SIZE, type PageCollection, type WorkbenchSnapshot } from '../console/schema.ts'
 import type { WorkbenchAuthority } from './authority.ts'
 import { incarnationKey } from './binding-identity.ts'
-import { EXECUTION_UNAVAILABLE_REASON, OFFERED_ROLES, START_UNAVAILABLE_REASON } from './authority.ts'
+import { projectExecutionContextDigest } from './canonical-hash.ts'
+import { OFFERED_ROLES, START_UNAVAILABLE_REASON } from './authority.ts'
 import type { AdoptionManager } from './adoption.ts'
-import type { CheckRecord, GoalRecord, ProjectRecord } from './store.ts'
+import type { AssignmentRecord, AttemptRecord, CheckRecord, GoalRecord, ProjectRecord } from './store.ts'
 
 export interface ProjectionOptions {
   authority: WorkbenchAuthority
@@ -65,10 +66,87 @@ function checkSummary(check: CheckRecord): WorkbenchSnapshot['checks'][number] {
     summary,
     mode: check.mode as WorkbenchSnapshot['checks'][number]['mode'],
     commandSummary,
-    // The definition is present and selectable; running it stays Phase 3, so
-    // every check carries the same committed execution reason.
+    // Exact resources are revalidated again at Start review and before execution.
     availability: 'available',
-    reason: EXECUTION_UNAVAILABLE_REASON,
+    reason: null,
+  }
+}
+
+function canPrepareStartReview(authority: WorkbenchAuthority, projectId: string | null, goalId: string | null, runId: string, checks: WorkbenchSnapshot['checks']): boolean {
+  const store = authority.runner.store, registry = authority.registry
+  if (!projectId || !goalId || !registry
+      || authority.selectedProjectId !== projectId || authority.selectedGoalId !== goalId
+      || checks.length === 0 || !authority.projectContext(projectId).available) return false
+  const project = store.getProject(projectId), goal = store.getGoal(goalId)
+  if (!project || !goal || goal.projectId !== projectId || goal.state !== 'active'
+      || !authority.gateExecutionAvailableFor(project.canonicalPath)
+      || store.listAssignments(projectId).some(assignment => assignment.goalId === goalId)
+      || store.activeAssignment(projectId) !== null || store.hasUncertainEffects(projectId)) return false
+  const writer = store.getWriter(projectId)
+  if (writer && writer.state !== 'none') return false
+  const members = store.listMemberships(goalId)
+  if (members.length === 0) return false
+  let targetReady = false
+  for (const member of members) {
+    const binding = store.getBinding(member.runId), identity = store.getBindingIdentity(member.runId)
+    if (!binding || !identity || binding.state !== 'ready' || binding.writerState !== 'none'
+        || authority.runner.fences.isFenced(member.runId) || authority.runner.fences.isIncarnationFenced(identity.incarnationKey)
+        || !registry.projectContextMatches(member.runId, project.canonicalPath)) return false
+    const matches = registry.listCurrent().filter(agent => incarnationKey(agent.incarnation) === identity.incarnationKey)
+    if (matches.length !== 1) return false
+    const observation = matches[0]!
+    const current = registry.currentBinding(observation.observedSessionId)
+    if (!observation.available || observation.mode !== 'committed' || !current
+        || incarnationKey(current.observation.incarnation) !== identity.incarnationKey
+        || current.connectionId.length === 0 || current.challenge.length === 0
+        || observation.executionContextDigest !== projectExecutionContextDigest(project.canonicalPath)) return false
+    if (member.runId === runId && observation.lifecycle === 'running'
+        && observation.activity === 'idle' && observation.health === 'healthy') targetReady = true
+  }
+  return targetReady
+}
+
+function canAcceptCandidate(authority: WorkbenchAuthority, assignment: AssignmentRecord | null, attempt: AttemptRecord | null): boolean {
+  if (!assignment || !attempt || !authority.registry || !authority.gateExecutionAvailable
+      || assignment.state !== 'candidate' || attempt.state !== 'candidate'
+      || authority.runner.store.getStop(assignment.assignmentId) !== null) return false
+  const candidate = authority.runner.store.getCandidateByAttempt(attempt.attemptId)
+  const delivery = authority.runner.store.getAssignmentDelivery(attempt.attemptId)
+  const writer = authority.runner.store.getWriter(assignment.projectId)
+  const binding = authority.runner.store.getBinding(assignment.agentRunId)
+  const identity = authority.runner.store.getBindingIdentity(assignment.agentRunId)
+  if (!candidate || candidate.state !== 'pending' || !delivery || delivery.state !== 'written'
+      || !writer || writer.state !== 'held' || writer.assignmentId !== assignment.assignmentId
+      || writer.attemptId !== attempt.attemptId || writer.epoch !== attempt.writerEpoch
+      || !binding || binding.state !== 'ready' || binding.controlEpoch !== attempt.controlEpoch || !identity
+      || identity.incarnationKey !== incarnationKey({ executionNodeId: attempt.runBinding.executionNodeId,
+        processInstanceId: attempt.runBinding.processInstanceId, piSessionId: attempt.runBinding.piSessionId,
+        extensionInstanceId: attempt.runBinding.extensionInstanceId }) || authority.runner.fences.isFenced(assignment.agentRunId)) return false
+  const matches = authority.registry.listCurrent().filter(agent => incarnationKey(agent.incarnation) === identity.incarnationKey)
+  if (matches.length !== 1) return false
+  const observation = matches[0]!, current = authority.registry.currentBinding(observation.observedSessionId)
+  return observation.available && observation.mode === 'committed' && observation.lifecycle === 'running'
+    && observation.activity === 'idle' && observation.health === 'healthy' && current !== null
+    && incarnationKey(current.observation.incarnation) === identity.incarnationKey
+    && authority.registry.projectContextMatches(assignment.agentRunId, authority.runner.store.getProject(assignment.projectId)?.canonicalPath ?? '')
+}
+
+function projectAssignment(authority: WorkbenchAuthority, assignment: AssignmentRecord): WorkbenchSnapshot['assignments'][number] {
+  const attempts = authority.runner.store.listAttempts(assignment.assignmentId).sort((a, b) => a.ordinal - b.ordinal)
+  const attempt = attempts.at(-1) ?? null
+  const candidate = attempt ? authority.runner.store.getCandidateByAttempt(attempt.attemptId) : null
+  const result = attempt ? authority.runner.store.getGateResult(attempt.attemptId) : null
+  const delivery = attempt ? authority.runner.store.getAssignmentDelivery(attempt.attemptId) : null
+  const gateResult = result === null ? (candidate ? 'pending' : null) : result.outcome === 'pass' ? 'pass'
+    : result.outcome === 'nonzero' ? 'fail' : result.outcome === 'timeout' ? 'timeout' : 'error'
+  return {
+    assignmentId: assignment.assignmentId, projectId: assignment.projectId, goalId: assignment.goalId,
+    agentRunId: assignment.agentRunId, goalText: assignment.goalText, taskText: assignment.taskText,
+    state: assignment.state, attemptId: attempt?.attemptId ?? null, gateId: attempt?.gate.checkId ?? null,
+    gateVersion: attempt?.gate.version ?? null, gateResult, candidateRef: candidate?.candidateId ?? null,
+    correctionCount: Math.max(0, attempts.length - 1), correctionLimit: assignment.limits.maxCorrections,
+    diagnostics: result?.reasonCode ?? (delivery?.reasonCode ?? null),
+    artifactRefs: candidate?.artifactRefs.map(ref => ref.path) ?? [],
   }
 }
 
@@ -117,6 +195,10 @@ export function buildSnapshot(options: ProjectionOptions): WorkbenchSnapshot {
   const context = selectedProjectId === null ? null : authority.projectContext(selectedProjectId)
   const contextReason = context?.available ? null : `Project context unavailable: ${context?.reason ?? 'no_project_selected'}.`
   const registryAgents = authority.registry?.list() ?? []
+  const checkSummaries = checks.map(check => context?.available ? checkSummary(check)
+    : { ...checkSummary(check), availability: 'unavailable' as const, reason: contextReason })
+  const assignments = store.listAssignments().map(assignment => projectAssignment(authority, assignment))
+  const startReview = authority.startReviewForProjection()
   const descriptors = {} as NonNullable<WorkbenchSnapshot['pages']>
   function page<T>(collection: PageCollection, records: T[]): T[] {
     const limit = WORKBENCH_PAGE_SIZE
@@ -141,6 +223,12 @@ export function buildSnapshot(options: ProjectionOptions): WorkbenchSnapshot {
       const takenOver = binding.state === 'manual_takeover' || binding.state === 'manual_takeover_disconnected'
       const canTakeControl = (binding.state === 'ready' || binding.state === 'committed') && connected
       const canRetire = !connected && (binding.state === 'disconnected' || binding.state === 'manual_takeover_disconnected')
+      const assigned = assignments.filter(assignment => assignment.agentRunId === binding.runId
+        && !['accepted', 'stopped', 'failed'].includes(assignment.state)).at(-1)
+      const assignedRecord = assigned ? store.getAssignment(assigned.assignmentId) : null
+      const assignedAttempt = assignedRecord ? store.listAttempts(assignedRecord.assignmentId).sort((a, b) => b.ordinal - a.ordinal)[0] ?? null : null
+      const canAcceptAssigned = canAcceptCandidate(authority, assignedRecord, assignedAttempt)
+      const canPrepareStart = canPrepareStartReview(authority, selectedProjectId, selectedGoalId, binding.runId, checkSummaries)
       return {
         agentRunId: binding.runId,
         sessionCode: currentAgent?.sessionCode ?? null,
@@ -150,7 +238,7 @@ export function buildSnapshot(options: ProjectionOptions): WorkbenchSnapshot {
         piStatus: takenOver ? 'manual_takeover' : binding.state,
         controlMode: takenOver ? 'manual_takeover' : connected ? 'managed' : 'reconciling',
         connectionStatus: connected ? 'connected' : 'disconnected',
-        assignment: null,
+        assignment: assigned?.assignmentId ?? null,
         lastEvent: null,
         predecessorAgentRunId: binding.predecessorRunId,
         actions: [
@@ -164,6 +252,13 @@ export function buildSnapshot(options: ProjectionOptions): WorkbenchSnapshot {
             reasonCode: canRetire ? null : 'run_active',
             reason: canRetire ? null : `Retire is unavailable while the Run is ${binding.state}. Take control and let it disconnect first.`,
           },
+          {
+            kind: 'prepare_start_review', target: binding.runId, label: 'Review Start', enabled: canPrepareStart,
+            reasonCode: canPrepareStart ? null : 'start_review_unavailable',
+            reason: canPrepareStart ? null : START_UNAVAILABLE_REASON,
+          },
+          ...(assigned && canAcceptAssigned ? [{ kind: 'accept', target: assigned.assignmentId,
+            label: 'Run acceptance check', enabled: true, reasonCode: null, reason: null }] : []),
         ],
       }
     })
@@ -260,8 +355,9 @@ export function buildSnapshot(options: ProjectionOptions): WorkbenchSnapshot {
       reason: selectedProjectId === null ? 'Register and select a Project before configuring checks.' : contextReason,
     },
     {
-      kind: 'start_assignment', target: null, label: 'Start Assignment', enabled: false,
-      reasonCode: 'phase_3_unavailable', reason: START_UNAVAILABLE_REASON,
+      kind: 'start_assignment', target: startReview?.assignment.agentRunId ?? null, label: 'Confirm Start', enabled: startReview !== null,
+      reasonCode: startReview === null ? 'start_review_unavailable' : null,
+      reason: startReview === null ? START_UNAVAILABLE_REASON : null,
     },
     ...(registrationDetail === null || !registrationDetail.supported
       ? []
@@ -292,7 +388,6 @@ export function buildSnapshot(options: ProjectionOptions): WorkbenchSnapshot {
       reason: contextReason,
     })),
   ]
-
   // View-page bookkeeping is not user activity. Excluding it also keeps
   // history offsets stable while the operator navigates its own pages.
   const activity: WorkbenchSnapshot['activity'] = store.listEvents().filter(event => event.kind !== 'page_selected').reverse().map(event => ({
@@ -303,9 +398,6 @@ export function buildSnapshot(options: ProjectionOptions): WorkbenchSnapshot {
     label: eventLabel(event.kind),
     createdAt: new Date(event.createdAt).toISOString(),
   }))
-
-  const checkSummaries = checks.map(check => context?.available ? checkSummary(check)
-    : { ...checkSummary(check), availability: 'unavailable' as const, reason: contextReason })
 
   const adoptionDetails: Detail[] = proposals
     .filter(proposal => (!authority.registry || proposal.goalId === selectedGoalId)
@@ -322,9 +414,37 @@ export function buildSnapshot(options: ProjectionOptions): WorkbenchSnapshot {
       vacancyGeneration: proposal.vacancyGeneration,
       stage: proposal.stage as 'proposed' | 'authorized' | 'awaiting_ack',
     }))
+  const assignmentDetails: Detail[] = store.listAssignments().flatMap(assignment => {
+    const details: Detail[] = []
+    const stop = store.getStop(assignment.assignmentId)
+    if (stop) details.push({ kind: 'stop', stopId: stop.stopId, assignmentId: stop.assignmentId,
+      dispatchRevoked: stop.dispatchRevoked, trigger: stop.trigger, cancellationStatus: stop.cancellationStatus })
+    const handoff = store.listHandoffs(assignment.assignmentId).at(-1)
+    if (handoff) details.push({ kind: 'handoff', handoffId: handoff.handoffId, assignmentId: handoff.assignmentId,
+      attemptId: handoff.attemptId, agentRunId: handoff.agentRunId, controlEpoch: handoff.controlEpoch,
+      claimedState: handoff.claimedState, outstandingEffects: handoff.outstandingEffects, summary: handoff.summary,
+      artifactRefs: handoff.artifactRefs.map(ref => ref.path) })
+    return details
+  })
+  const reviewDetail: Detail | null = startReview === null ? null : {
+    kind: 'start', confirmationId: startReview.confirmationId, projectId: startReview.project.projectId,
+    goalId: startReview.goal.goalId, agentRunId: startReview.assignment.agentRunId,
+    goalText: startReview.assignment.goalText, taskText: startReview.assignment.taskText,
+    executionNodeId: startReview.project.executionNodeId, gitCommonDir: startReview.context.gitCommonDir,
+    headOid: startReview.context.headOid, baselineDigest: startReview.context.baselineDigest,
+    dirty: startReview.context.dirty, maxCorrections: startReview.assignment.limits.maxCorrections,
+    elapsedMs: startReview.assignment.limits.elapsedMs,
+    gate: { gateId: startReview.resolvedGate.checkId, version: startReview.resolvedGate.version,
+      digest: startReview.attempt.gate.digest, executable: startReview.resolvedGate.executable,
+      executableDigest: startReview.resolvedGate.executableDigest, argv: startReview.resolvedGate.argv,
+      cwd: startReview.resolvedGate.cwd, environment: startReview.resolvedGate.environment,
+      resources: startReview.resolvedGate.resources.map(resource => ({ path: resource.path, digest: resource.digest })),
+      timeoutMs: startReview.resolvedGate.timeoutMs, outputBytes: startReview.resolvedGate.outputBytes,
+      semanticClaim: startReview.resolvedGate.semanticClaim },
+  }
   const details: Detail[] = [
-    ...(registrationDetail === null ? [] : [registrationDetail]),
-    ...adoptionDetails,
+    ...(registrationDetail === null ? [] : [registrationDetail]), ...adoptionDetails, ...assignmentDetails,
+    ...(reviewDetail === null ? [] : [reviewDetail]),
   ]
 
   return {
@@ -352,9 +472,9 @@ export function buildSnapshot(options: ProjectionOptions): WorkbenchSnapshot {
     managedAgents: page('managedAgents', managedAgents),
     observedSessions: page('observedSessions', observedSessions),
     retiredRuns: page('retiredRuns', retiredRuns),
-    assignments: [],
+    assignments,
     activity: page('activity', activity),
-    capabilities: ['inspect_project', 'confirm_register_project', 'create_goal', 'select_goal', 'select_project', 'create_check', 'configure_checks', 'request_adoption', 'authorize_adoption', 'retire', 'purge', 'navigate_page'],
+    capabilities: ['inspect_project', 'confirm_register_project', 'create_goal', 'select_goal', 'select_project', 'create_check', 'configure_checks', 'request_adoption', 'authorize_adoption', 'prepare_start_review', 'start_assignment', 'accept', 'retire', 'purge', 'navigate_page'],
     actions: [...actions, ...Object.entries(descriptors).flatMap(([collection, descriptor]) => [
       { kind: 'navigate_page', target: null, label: `Previous ${collection}`, enabled: descriptor.hasPrevious,
         reasonCode: descriptor.hasPrevious ? null : 'page_start', reason: descriptor.hasPrevious ? null : 'Already on the first page.' },

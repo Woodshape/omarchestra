@@ -264,7 +264,8 @@ test('the checks destination is the only authority surface for check definitions
 test('general assignment detail does not render unrestricted diagnostics', () => {
   const review = source('WorkbenchReview.qml')
   assert.doesNotMatch(review, /modelData\.diagnostics/)
-  assert.match(review, /runtime unavailable/)
+  assert.match(review, /commits the Assignment before one delivery attempt/)
+  assert.match(review, /A receipt is not proof of completion/)
 })
 
 test('the disabled Board reason is visible in the navigation surface', () => {

@@ -2,9 +2,8 @@
 //
 // The review renders the exact captured facts: Project, Goal, target agent,
 // Git context, baseline, frozen gate identity and the semantic claim the gate
-// does and does not make. Confirm start stays visibly disabled because runtime
-// execution is unavailable in this slice, and no click here can report a
-// committed start. Work/Result shows only committed assignment facts.
+// does and does not make. Confirm start is enabled only for the exact current
+// Runner review. Work/Result shows only committed assignment facts.
 import QtQuick
 import QtQuick.Layouts
 import qs.Commons
@@ -27,6 +26,7 @@ Control {
     property string mode: "start_review"
     property var startReview: null
     property var startDetail: null
+    property var startIntent: null
     property var selectedCheck: null
     property var armedConfirmation: null
     property bool technicalOpen: false
@@ -60,17 +60,19 @@ Control {
      * Assignment-scoped interventions for one committed card. The runner still
      * owns eligibility; this only selects the subset shown beside the result.
      */
-    function interventionActionsFor(card) {
+    function interventionActionsFor(card, assignment) {
         var kinds = ["take_control", "return_to_team", "accept", "resume", "retry", "stop"]
         if (card === null || !Array.isArray(card.actions)) return []
         return card.actions.filter(function (action) {
             return kinds.indexOf(action.kind) !== -1
+                && (action.kind !== "accept" || action.target === assignment.assignmentId)
         })
     }
 
     /** Null means this row cannot supply the identity its intent requires. */
-    function interventionPayload(assignment) {
+    function interventionPayload(assignment, kind) {
         if (assignment === null || assignment === undefined) return null
+        if (kind === "take_control") return { agentRunId: assignment.agentRunId }
         return { assignmentId: assignment.assignmentId }
     }
 
@@ -197,15 +199,19 @@ Control {
                 objectName: "workbench-confirm-start"
                 Layout.fillWidth: true
                 text: "Confirm start"
-                supportingText: "runtime unavailable"
-                enabled: false
+                supportingText: root.startIntent === null ? "The exact Start Review is unavailable or expired." : "Commits one Assignment and one held Project writer, then sends once to the exact ready Pi."
+                confirmationIntent: root.startIntent
+                armedIntent: root.armedConfirmation
+                highlighted: awaitingConfirmation
+                enabled: root.actionable && root.startIntent !== null
                 focusPolicy: Qt.StrongFocus
+                onClicked: root.intentRequested(root.startIntent)
             }
             Text {
                 Layout.fillWidth: true
                 textFormat: Text.PlainText
                 wrapMode: Text.Wrap
-                text: "Nothing is committed by this review. Starting work requires the runtime execution port."
+                text: "Nothing is committed until you confirm. The Runner commits the Assignment before one delivery attempt to the exact current Pi. A receipt is not proof of completion."
                 color: root.mutedColor
                 font.family: Style.font.family
                 font.pixelSize: Style.font.caption
@@ -266,7 +272,8 @@ Control {
                             wrapMode: Text.WrapAnywhere
                             text: "Assignment: " + workRow.rowAssignment.assignmentId + " · " + workRow.rowAssignment.state + "\n"
                                 + "Goal / Agent: " + workRow.rowAssignment.goalId + " / " + workRow.rowAssignment.agentRunId + "\n"
-                                + "Task: " + workRow.rowAssignment.goalText + "\n"
+                                + "Goal: " + workRow.rowAssignment.goalText + "\n"
+                                + "Task: " + workRow.rowAssignment.taskText + "\n"
                                 + "Check: " + workRow.rowAssignment.gateId + " v" + workRow.rowAssignment.gateVersion
                                     + " · result " + workRow.rowAssignment.gateResult + "\n"
                                 + "Attempt: " + workRow.rowAssignment.attemptId
@@ -280,16 +287,17 @@ Control {
                             font.pixelSize: Style.font.caption
                         }
                         Repeater {
-                            model: root.interventionActionsFor(workRow.rowCard)
+                            model: root.interventionActionsFor(workRow.rowCard, workRow.rowAssignment)
 
                             delegate: WorkbenchAction {
                                 required property var modelData
-                                readonly property var requestPayload: root.interventionPayload(workRow.rowAssignment)
+                                readonly property var requestPayload: root.interventionPayload(workRow.rowAssignment, modelData.kind)
                                 readonly property bool available: root.actionable && modelData.enabled
                                     && requestPayload !== null
                                 readonly property var requestIntent: ({ kind: modelData.kind,
                                     target: modelData.target, payload: requestPayload })
                                 Layout.fillWidth: true
+                                objectName: "workbench-intervention-" + modelData.kind + "-" + modelData.target
                                 confirmationIntent: requestIntent
                                 armedIntent: root.armedConfirmation
                                 highlighted: awaitingConfirmation

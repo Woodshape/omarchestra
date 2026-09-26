@@ -4,7 +4,7 @@ import { EventEmitter } from 'node:events'
 import { mkdtempSync, mkdirSync, rmSync, readFileSync, renameSync, writeFileSync, existsSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
-import { BridgeDecoder, BRIDGE_CAPABILITIES, encodeBridgeFrame } from '../runner/bridge-protocol.ts'
+import { BridgeDecoder, BRIDGE_CAPABILITIES, BRIDGE_FRAME_BYTES, encodeBridgeFrame } from '../runner/bridge-protocol.ts'
 import { attachBridgeStream } from '../runner/bridge-channel.ts'
 import { BridgeRegistry } from '../runner/bridge-registry.ts'
 import { openOwnerPiBridge } from '../runner/bridge-owner.ts'
@@ -49,7 +49,7 @@ test('bounded byte framing rejects malformed, oversized, invalid UTF-8, unknown 
   assert.equal(decoder.push(bytes.subarray(0, 9)).length, 0)
   assert.equal(decoder.push(bytes.subarray(9)).length, 1)
   assert.equal(decoder.push(Buffer.concat([bytes, bytes])).length, 2)
-  for (const chunk of [Buffer.from('{bad}\n'), Buffer.from([0xff, 10]), Buffer.from('x'.repeat(32769)), Buffer.from(JSON.stringify({ protocol: 'omarchestra.bridge/v1', type: 'heartbeat', messageId: 'm', body: { prompt: 'secret' } }) + '\n')]) {
+  for (const chunk of [Buffer.from('{bad}\n'), Buffer.from([0xff, 10]), Buffer.from('x'.repeat(BRIDGE_FRAME_BYTES + 1)), Buffer.from(JSON.stringify({ protocol: 'omarchestra.bridge/v1', type: 'heartbeat', messageId: 'm', body: { prompt: 'secret' } }) + '\n')]) {
     assert.throws(() => new BridgeDecoder().push(chunk))
   }
   assert.throws(() => encodeBridgeFrame('register', 'msg-1', { ...register(), prompt: 'sensitive' }))

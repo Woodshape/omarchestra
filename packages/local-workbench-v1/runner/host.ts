@@ -116,9 +116,20 @@ export interface WorkbenchHost {
 export function createWorkbenchHost(options: WorkbenchHostOptions): WorkbenchHost {
   const source = createRunnerSource(options.authority, options.connection ?? 'connected', { clock: options.clock })
   const intentSink: WorkbenchIntentSink = (intent: WorkbenchIntent) => {
-    const outcome = options.authority.handleIntent(intent)
-    source.publishOutcome({ intentId: intent.intentId, sessionId: intent.sessionId, target: intent.target,
-      originRevision: intent.expectedRevision, status: outcome.status, reasonCode: outcome.reasonCode, committedRevision: outcome.committedRevision })
+    const publish = (outcome: import('./authority.ts').IntentOutcome) => source.publishOutcome({
+      intentId: intent.intentId, sessionId: intent.sessionId, target: intent.target,
+      originRevision: intent.expectedRevision, status: outcome.status, reasonCode: outcome.reasonCode,
+      committedRevision: outcome.committedRevision,
+    })
+    try {
+      const outcome = options.authority.handlePresentationIntent(intent)
+      if (outcome && typeof (outcome as Promise<unknown>).then === 'function') {
+        void Promise.resolve(outcome).then(publish).catch(() => source.publishOutcome({
+          intentId: intent.intentId, sessionId: intent.sessionId, target: intent.target,
+          originRevision: intent.expectedRevision, status: 'unknown', reasonCode: 'outcome_unavailable', committedRevision: null,
+        }))
+      } else publish(outcome as import('./authority.ts').IntentOutcome)
+    } catch (error) { throw error }
   }
   const shell = createPresentationShell({ source: source.source, intentSink, view: options.view,
     clock: options.clock, beforeIntent: () => source.publish(), onHide: options.onHide })

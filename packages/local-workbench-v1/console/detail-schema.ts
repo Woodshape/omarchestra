@@ -12,7 +12,7 @@ export interface GateDefinitionView {
 }
 export interface StartDetail {
   kind: 'start'; confirmationId: string; projectId: string; goalId: string; agentRunId: string;
-  goalText: string; executionNodeId: string; gitCommonDir: string; headOid: string;
+  goalText: string; taskText: string; executionNodeId: string; gitCommonDir: string; headOid: string;
   baselineDigest: string; dirty: boolean; maxCorrections: number; elapsedMs: number;
   gate: GateDefinitionView;
 }
@@ -52,6 +52,11 @@ const id = (v: unknown): string => {
 }
 const text = (v: unknown, max = 8192): string => {
   if (typeof v !== 'string' || Buffer.byteLength(v) > max || /[\u0000-\u0008\u000b-\u001f\u007f]/.test(v)) throw new Error('invalid detail text')
+  return v
+}
+const taskText = (v: unknown): string => {
+  if (typeof v !== 'string' || !v.isWellFormed() || !v.trim() || Buffer.byteLength(v) > 8192
+      || /[\u0000-\u0008\u000b\u000c\u000e-\u001f\u007f]/.test(v)) throw new Error('invalid task detail text')
   return v
 }
 const number = (v: unknown, min = 0, max = Number.MAX_SAFE_INTEGER): number => {
@@ -153,8 +158,8 @@ export function validateDetail(v: unknown): WorkbenchDetail {
     return { kind, proposalId: id(o.proposalId), observedSessionId: id(o.observedSessionId), projectId: id(o.projectId), goalId: o.goalId === null ? null : id(o.goalId), executionNodeId: id(o.executionNodeId), role: text(o.role, 512), predecessorAgentRunId: o.predecessorAgentRunId === null ? null : id(o.predecessorAgentRunId), vacancyGeneration: number(o.vacancyGeneration), stage: choice(o.stage, ['proposed', 'authorized', 'awaiting_ack', 'committed', 'ready', 'failed', 'expired']) }
   }
   if (kind === 'start') {
-    const o = object(v, 'kind confirmationId projectId goalId agentRunId goalText executionNodeId gitCommonDir headOid baselineDigest dirty maxCorrections elapsedMs gate')
-    return { kind, confirmationId: id(o.confirmationId), projectId: id(o.projectId), goalId: id(o.goalId), agentRunId: id(o.agentRunId), goalText: text(o.goalText), executionNodeId: id(o.executionNodeId), gitCommonDir: absolute(o.gitCommonDir), headOid: id(o.headOid), baselineDigest: digest(o.baselineDigest), dirty: bool(o.dirty), maxCorrections: number(o.maxCorrections, 0, 3), elapsedMs: number(o.elapsedMs, 1000, 3600000), gate: gate(o.gate) }
+    const o = object(v, 'kind confirmationId projectId goalId agentRunId goalText taskText executionNodeId gitCommonDir headOid baselineDigest dirty maxCorrections elapsedMs gate')
+    return { kind, confirmationId: id(o.confirmationId), projectId: id(o.projectId), goalId: id(o.goalId), agentRunId: id(o.agentRunId), goalText: text(o.goalText), taskText: taskText(o.taskText), executionNodeId: id(o.executionNodeId), gitCommonDir: absolute(o.gitCommonDir), headOid: id(o.headOid), baselineDigest: digest(o.baselineDigest), dirty: bool(o.dirty), maxCorrections: number(o.maxCorrections, 0, 3), elapsedMs: number(o.elapsedMs, 1000, 3600000), gate: gate(o.gate) }
   }
   if (kind === 'handoff') {
     const o = object(v, 'kind handoffId assignmentId attemptId agentRunId controlEpoch claimedState outstandingEffects summary artifactRefs')

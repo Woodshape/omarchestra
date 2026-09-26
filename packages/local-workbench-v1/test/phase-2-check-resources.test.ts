@@ -118,7 +118,7 @@ test('intent rejection is durable, does not change check version and cannot be r
 test('schema 7 retained roots are refused instead of silently treating old drafts as resolved checks', t => {
   const f = fixture(t)
   const storePath = f.runner.store.path, stateDir = f.runner.roots.stateDir
-  assert.equal(STORE_SCHEMA_VERSION, 9)
+  assert.equal(STORE_SCHEMA_VERSION, 10)
   f.runner.close()
   const db = new DatabaseSync(storePath)
   db.exec('PRAGMA user_version = 7')

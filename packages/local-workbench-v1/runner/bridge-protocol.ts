@@ -2,15 +2,25 @@
 import { randomBytes } from 'node:crypto'
 import { isSessionCode } from './session-code.ts'
 export const BRIDGE_PROTOCOL = 'omarchestra.bridge/v1'
-export const BRIDGE_FRAME_BYTES = 16_384
-export const BRIDGE_BUFFER_BYTES = 32_768
+// One admitted Assignment frame is bounded at 64 KiB (store MAX_FRAME_BYTES); the
+// transport envelope must carry it without re-framing user content.
+export const BRIDGE_FRAME_BYTES = 524_288
+export const BRIDGE_BUFFER_BYTES = 1_048_576
+/** The exact bytes of one admitted Assignment delivery frame. */
+export const MAX_ASSIGNMENT_FRAME_BYTES = 65_536
 export const BRIDGE_CAPABILITIES = ['observe.lifecycle', 'adoption.acknowledge', 'managed.activate'] as const
 /** Optional presentation feature. Legacy peers receive the unchanged registered body. */
 export const SESSION_CODE_CAPABILITY = 'presentation.session-code'
 export const PANE_NAVIGATION_CAPABILITY = 'presentation.checked-pane'
 /** Reports only a domain-separated digest of canonical ExtensionContext.cwd; never the path itself. */
 export const PROJECT_CONTEXT_CAPABILITY = 'management.project-context'
-const OPTIONAL_BRIDGE_CAPABILITIES = [SESSION_CODE_CAPABILITY, PANE_NAVIGATION_CAPABILITY, PROJECT_CONTEXT_CAPABILITY] as const
+/** Optional AL-03 same-Pi committed delivery; legacy peers never receive a delivery frame. */
+export const ASSIGNMENT_DELIVERY_CAPABILITY = 'management.assignment-delivery'
+/** Optional AL-04 same-Pi Candidate submission; legacy peers never receive a candidate frame. */
+export const CANDIDATE_SUBMISSION_CAPABILITY = 'management.candidate-submission'
+/** The exact bytes of one bounded C6 Candidate submission frame. */
+export const MAX_CANDIDATE_FRAME_BYTES = 65_536
+const OPTIONAL_BRIDGE_CAPABILITIES = [SESSION_CODE_CAPABILITY, PANE_NAVIGATION_CAPABILITY, PROJECT_CONTEXT_CAPABILITY, ASSIGNMENT_DELIVERY_CAPABILITY, CANDIDATE_SUBMISSION_CAPABILITY] as const
 const validCapabilities = (v: unknown) => Array.isArray(v) && v.length >= BRIDGE_CAPABILITIES.length
   && v.length <= BRIDGE_CAPABILITIES.length + OPTIONAL_BRIDGE_CAPABILITIES.length
   && BRIDGE_CAPABILITIES.every((c, i) => v[i] === c)
@@ -22,6 +32,9 @@ const id = (v: unknown): v is string => typeof v === 'string' && /^[A-Za-z0-9_-]
 const capability = (v: unknown): v is string => id(v) && v.length >= 32
 const counter = (v: unknown): v is number => Number.isSafeInteger(v) && (v as number) >= 0
 const digest = (v: unknown): v is string => typeof v === 'string' && /^[a-f0-9]{64}$/.test(v)
+const boundedString = (max: number) => (v: unknown): v is string => typeof v === 'string' && v.length > 0 && v.isWellFormed() && Buffer.byteLength(v) <= max
+const deliveryOutcome = (v: unknown): v is string => v === 'accepted' || v === 'busy' || v === 'duplicate' || v === 'invalid'
+const reasonToken = (v: unknown): v is string => typeof v === 'string' && /^[a-z][a-z0-9_]{0,63}$/.test(v)
 const enums = {
   hostMode: ['tui'], lifecycle: ['running', 'exited'], activity: ['idle', 'busy', 'unknown', 'waiting_for_user'], health: ['healthy', 'degraded'],
   reason: ['quit', 'reload', 'new', 'resume', 'fork'], mode: ['observed', 'committed'],
@@ -49,6 +62,27 @@ const bodies = {
     remainingMs: (v: unknown) => counter(v) && v > 0 && v <= 5000 },
   focus_result: { connectionId: capability, connectionChallenge: capability, sourceSequence: counter,
     requestId: id, status: (v: unknown) => typeof v === 'string' && ['shown', 'unavailable', 'unknown'].includes(v) },
+  assignment_delivery: { connectionId: capability, connectionChallenge: capability,
+    deliveryId: id, assignmentId: id, attemptId: id, runId: id, payloadDigest: digest,
+    payloadJson: boundedString(MAX_ASSIGNMENT_FRAME_BYTES), deliveryDeadline: counter },
+  assignment_ack: { connectionId: capability, connectionChallenge: capability, sourceSequence: counter,
+    deliveryId: id, assignmentId: id, attemptId: id, runId: id, payloadDigest: digest,
+    outcome: deliveryOutcome, storedOutcome: (v: unknown) => v === null || v === 'accepted' || v === 'duplicate',
+    reason: (v: unknown) => v === null || reasonToken(v) },
+  assignment_receipt_request: { connectionId: capability, connectionChallenge: capability,
+    requestId: id, deliveryId: id, assignmentId: id, attemptId: id, runId: id, payloadDigest: digest },
+  assignment_receipt: { connectionId: capability, connectionChallenge: capability, sourceSequence: counter,
+    requestId: id, deliveryId: id, assignmentId: id, attemptId: id, runId: id, payloadDigest: digest,
+    known: (v: unknown) => typeof v === 'boolean',
+    outcome: (v: unknown) => v === null || v === 'accepted' || v === 'busy' || v === 'invalid' },
+  candidate_submission: { connectionId: capability, connectionChallenge: capability, sourceSequence: counter,
+    runId: id, submissionId: id, payloadDigest: digest, payloadJson: boundedString(MAX_CANDIDATE_FRAME_BYTES) },
+  candidate_receipt: { connectionId: capability, connectionChallenge: capability,
+    runId: id, submissionId: id, payloadDigest: digest,
+    outcome: (v: unknown) => v === 'accepted' || v === 'duplicate' || v === 'invalid',
+    candidateId: (v: unknown) => v === null || id(v),
+    digest: (v: unknown) => v === null || digest(v),
+    reason: (v: unknown) => v === null || reasonToken(v) },
   rejected: { requestMessageId: id, code: (v: unknown) => enums.code.includes(v as never) },
 } as const
 export type BridgeType = keyof typeof bodies

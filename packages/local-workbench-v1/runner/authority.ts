@@ -13,9 +13,9 @@
  * differs from a previously recorded intent with the same id is rejected
  * instead of being reapplied.
  *
- * Phase 2 never executes work: no Assignment is delivered and no acceptance
- * check is run. `start_assignment` is rejected here, at the runner boundary,
- * and the projection advertises it disabled with a committed reason.
+ * The presentation route composes reviewed Start, same-Pi delivery, structured
+ * Candidate association and bounded acceptance. Each stage remains fenced by
+ * durable authority and the exact current challenged connection.
  */
 
 import { canonicalJson, sha256 } from './canonical-hash.ts'
@@ -26,9 +26,19 @@ import { workbenchError } from './errors.ts'
 import type { GitRunner, GitInspection } from './git-context.ts'
 import { contextDigestOf, inspectProjectPath } from './git-context.ts'
 import { pathsOverlap } from './project-identity.ts'
-import { resolveCheckDefinition } from './check-definition.ts'
+import { ensureOwnedDirectory } from './paths.ts'
+import { readResolvedCheck, resolveCheckDefinition, type ResolvedCheckDefinition } from './check-definition.ts'
+import { captureStableProjectBaseline } from './content-manifest.ts'
+import { executeGate, type GateExecution } from './gate-executor.ts'
+import { verifyCandidateArtifacts } from './candidate-submission.ts'
 import type { WorkbenchRunner } from './runner.ts'
-import type { CheckRecord, EventRecord, GoalRecord, ProjectRecord } from './store.ts'
+import { handoffDigest, STOP_TRIGGERS } from './store.ts'
+import type {
+  ArtifactRef, AssignmentDelivery, AssignmentRecord, AssignmentState, AssignmentStopRecord, AttemptRecord,
+  CancellationStatus, CandidateRecord, CheckRecord, EventRecord, GateAcceptance, GateOutcome, GateResultRecord,
+  GoalRecord, HandoffClaimedState, HandoffRecord, OutstandingEffects, ProjectRecord, StopTrigger, WriterState,
+} from './store.ts'
+import { prepareStartProposal, revalidateStartProposal, type StartProposal, type StartProposalAuthority, type StartProposalOptions, type StartProposalRequest } from './start-proposal.ts'
 import { AdoptionManager } from './adoption.ts'
 import { FramedAdoptionManager } from './framed-adoption.ts'
 import { buildSnapshot } from './projection.ts'
@@ -41,8 +51,33 @@ import type { ObserverPort, TransportEvent } from './transport.ts'
 export const OFFERED_ROLES = ['implementer', 'reviewer'] as const
 export const DEFAULT_REGISTRATION_TTL_MS = 5 * 60 * 1000
 /** Phase 2 refuses work execution; the reason is committed, not local to QML. */
-export const EXECUTION_UNAVAILABLE_REASON = 'Assignment delivery and acceptance-check execution are Phase 3; Phase 2 manages Projects, Goals, checks and Adoption only.'
-export const START_UNAVAILABLE_REASON = 'Starting an Assignment is Phase 3. This workbench admits, adopts and retires agents only.'
+export const EXECUTION_UNAVAILABLE_REASON = 'Check resources are revalidated during Start review and immediately before Candidate validation.'
+export const START_UNAVAILABLE_REASON = 'A current Runner-validated Start Review is required before Assignment admission.'
+/** One queued outbox item must be sendable on one current challenged bridge. */
+export const ASSIGNMENT_DELIVERY_TTL_MS = 30_000
+/** A transient review must be confirmed promptly against its exact captured revision. */
+export const START_REVIEW_TTL_MS = 30_000
+
+/** Test-only crash boundaries inside the disposable admission transaction. */
+export type AdmissionPhase = 'assignment_written' | 'attempt_written' | 'writer_held' | 'delivery_queued' | 'receipt_recorded'
+
+export interface StartAdmissionInput {
+  /** Complete bounded `start_assignment` envelope that names this exact review. */
+  intent: unknown
+  proposal: StartProposal
+  options?: StartProposalOptions
+}
+
+export interface StartAdmission {
+  status: 'acknowledged'
+  assignmentId: string
+  attemptId: string
+  deliveryId: string
+  writerEpoch: number
+  committedRevision: number
+  /** True when an exact envelope replay read the retained receipt. */
+  replayed: boolean
+}
 
 export type IntentStatus = 'acknowledged' | 'rejected' | 'stale'
 
@@ -83,6 +118,198 @@ function copyRegistration(record: RegistrationRecord): RegistrationRecord {
   return { ...record, reasons: [...record.reasons], readinessReasons: [...record.readinessReasons] }
 }
 
+interface AdmissionReference { assignmentId: string; attemptId: string; deliveryId: string; writerEpoch: number }
+
+/** The receipt detail retains the exact identities a replay must report. */
+function encodeAdmissionDetail(reference: AdmissionReference): string {
+  return canonicalJson(reference)
+}
+
+function decodeAdmissionDetail(detail: string | null): AdmissionReference | null {
+  if (detail === null || detail.length === 0) return null
+  try {
+    const parsed = JSON.parse(detail) as Record<string, unknown>
+    if (typeof parsed !== 'object' || parsed === null || Array.isArray(parsed)
+        || typeof parsed.assignmentId !== 'string' || typeof parsed.attemptId !== 'string'
+        || typeof parsed.deliveryId !== 'string' || !Number.isSafeInteger(parsed.writerEpoch)) return null
+    return { assignmentId: parsed.assignmentId, attemptId: parsed.attemptId, deliveryId: parsed.deliveryId, writerEpoch: parsed.writerEpoch as number }
+  } catch { return null }
+}
+
+function staleStart(message: string): never {
+  throw workbenchError('identity_drift', `Start confirmation is stale: ${message}`,
+    'discard this review and prepare a fresh Start Review from the current authoritative snapshot')
+}
+
+/** Bounded, deterministic frame for one committed Attempt delivery. */
+function attemptFrame(assignment: AssignmentRecord, attempt: AttemptRecord, deadline: number): Record<string, unknown> {
+  return {
+    protocol: 'omarchestra.assignment/v1',
+    kind: 'assignment_delivery',
+    deliveryId: attempt.deliveryId,
+    assignmentId: assignment.assignmentId,
+    attemptId: attempt.attemptId,
+    runId: attempt.runBinding.runId,
+    projectId: assignment.projectId,
+    goalId: assignment.goalId,
+    goalText: assignment.goalText,
+    taskText: assignment.taskText,
+    writeAuthority: assignment.writeAuthority,
+    limits: { ...assignment.limits },
+    gate: {
+      checkId: attempt.gate.checkId,
+      version: attempt.gate.version,
+      digest: attempt.gate.digest,
+      canonicalJson: attempt.gate.canonicalJson,
+    },
+    runBinding: { ...attempt.runBinding },
+    context: { ...attempt.context },
+    deadline,
+  }
+}
+
+/** Bounded, deterministic frame an AL-03 delivery sends once for this delivery id. */
+function admissionFrame(proposal: StartProposal, deadline: number): Record<string, unknown> {
+  return attemptFrame(proposal.assignment, proposal.attempt, deadline)
+}
+
+/** Test-only observation points around the AL-05 gate acceptance. */
+export type AssignmentGatePhase = 'validating_committed' | 'gate_returned' | 'result_recorded' | 'before_acceptance' | 'resolved'
+
+export interface AssignmentGateInput {
+  assignmentId: string
+  attemptId: string
+  candidateId: string
+}
+
+/**
+ * Evidence that the one challenged Pi for this Run reported no known model or
+ * tool work after the validator child exited. `validator_exit` proves only that
+ * the child exited, never that Pi tools stopped; only `confirmed` accepts.
+ */
+export interface GateQuiescence {
+  runId: string
+  attemptId: string
+  controlEpoch: number
+  source: 'validator_exit'
+  status: 'confirmed' | 'active' | 'unknown'
+  sequence: number
+  runnerReceivedAt: number
+}
+
+export interface AssignmentGateResult {
+  accepted: boolean
+  outcome: GateOutcome
+  reasonCode: string | null
+  resultId: string
+  committedRevision: number
+}
+
+export interface AssignmentGateOptions {
+  /**
+   * Existing Runner-owned scratch root the bounded executor creates exactly one
+   * session directory inside. It must never be the owned state directory.
+   */
+  scratchRoot: string
+  /** Cooperative-termination grace forwarded to the bounded executor. */
+  graceMs?: number
+  /** Explicit quiescence evidence; defaults to the live challenged bridge. */
+  quiescence?: (context: { assignment: AssignmentRecord; attempt: AttemptRecord; candidate: CandidateRecord; outcome: GateOutcome; clean: boolean }) => GateQuiescence
+}
+
+/** AL-06 explicit reconciliation decision. Never routed from `handleIntent`. */
+export type ReconciliationDecision = 'accept' | 'resume' | 'retry'
+
+export interface AssignmentStopInput {
+  assignmentId: string
+  trigger?: StopTrigger
+  reasonCode?: string | null
+}
+
+export interface AssignmentStopOutcome {
+  status: 'stopped'
+  stopId: string
+  assignmentId: string
+  dispatchRevoked: true
+  cancellationStatus: CancellationStatus
+  writerState: WriterState
+  /** True when an exact committed stop already existed and was returned. */
+  replayed: boolean
+  committedRevision: number
+}
+
+export interface AssignmentTakeoverInput {
+  assignmentId: string
+  reasonCode?: string | null
+}
+
+export interface AssignmentTakeoverOutcome {
+  assignmentId: string
+  controlEpoch: number
+  state: AssignmentState
+  writerState: WriterState
+  committedRevision: number
+}
+
+export interface AssignmentHandoffInput {
+  attemptId: string
+  claimedState: HandoffClaimedState
+  summary: string
+  artifactRefs: ArtifactRef[]
+  outstandingEffects: OutstandingEffects
+}
+
+export interface AssignmentHandoffOutcome {
+  handoffId: string
+  digest: string
+  state: AssignmentState
+  committedRevision: number
+}
+
+export interface AssignmentReconciliationInput {
+  assignmentId: string
+  decision: ReconciliationDecision
+  /** Must equal the current projection revision; reconciliation is never implicit. */
+  expectedRevision: number
+  /** Exact retained handoff identity for `accept`/`resume`. */
+  handoffId?: string
+}
+
+export interface AssignmentReconciliationOutcome {
+  status: 'admitted' | 'rejected' | 'stopped'
+  reasonCode: string | null
+  attemptId: string | null
+  deliveryId: string | null
+  writerEpoch: number | null
+  stopId: string | null
+  committedRevision: number
+}
+
+const MAX_GATE_EVIDENCE_BYTES = 8192
+
+/** C13: bounded, owner-only diagnostics; no raw child stdout/stderr and no full paths. */
+function gateEvidence(outcome: GateOutcome, reasonCode: string | null, execution: GateExecution | null, preManifestDigest: string | null, postManifestDigest: string | null): string {
+  const resourceDrift = execution === null ? [] : execution.resourceChecks
+    .filter(check => check.pre !== 'verified' || check.post !== 'verified')
+    .map(check => ({ kind: check.kind, pre: check.pre, post: check.post }))
+  const json = canonicalJson({
+    outcome,
+    reasonCode,
+    exitCode: execution?.exitCode ?? null,
+    signal: execution?.signal ?? null,
+    timedOut: execution?.timedOut ?? false,
+    stdoutBytes: execution?.stdoutBytes ?? 0,
+    stderrBytes: execution?.stderrBytes ?? 0,
+    scratchCleaned: execution?.scratchCleaned ?? false,
+    resourceCount: execution?.resourceChecks.length ?? 0,
+    resourceDrift,
+    preManifestDigest,
+    postManifestDigest,
+  })
+  if (Buffer.byteLength(json) <= MAX_GATE_EVIDENCE_BYTES) return json
+  return canonicalJson({ outcome, reasonCode, truncated: true })
+}
+
 export interface AuthorityOptions {
   runner: WorkbenchRunner
   sessionId: string
@@ -99,6 +326,14 @@ export interface AuthorityOptions {
   /** Owner-only S4 registry; legacy injected object port is tests-only. */
   registry?: BridgeRegistry
   framedAdoption?: FramedAdoptionManager
+  /** Test-only crash boundary observer for disposable admission transactions. */
+  onAdmissionPhase?: (phase: AdmissionPhase) => void
+  /** Test-only observation point around the AL-05 gate acceptance transaction. */
+  onAssignmentGatePhase?: (phase: AssignmentGatePhase) => void
+  /** Existing Runner-owned directory reserved for one bounded gate child. */
+  gateScratchRoot?: string
+  /** Starts the one outbox attempt after the durable admission transaction commits. */
+  onAssignmentAdmitted?: (admission: StartAdmission) => void
 }
 
 export interface Observation {
@@ -126,6 +361,12 @@ export class WorkbenchAuthority {
   pageOffset(collection: PageCollection): number | null { return this.pages.get(collection) ?? null }
   private registrations = new Map<string, RegistrationRecord>()
   private projectContexts = new Map<string, ProjectContextStatus>()
+  private readonly admissionPhase: ((phase: AdmissionPhase) => void) | undefined
+  private readonly assignmentGatePhase: ((phase: AssignmentGatePhase) => void) | undefined
+  private readonly gateScratchRoot: string | undefined
+  private readonly onAssignmentAdmitted: ((admission: StartAdmission) => void) | undefined
+  private pendingStartProposal: StartProposal | null = null
+  private presentationStartIntentId: string | null = null
   private revision: number
   private cursor: number
   private commandContext: { revision: number; cursor: number; afterCommit: Array<() => void> } | null = null
@@ -142,6 +383,10 @@ export class WorkbenchAuthority {
     this.offeredRoles = options.offeredRoles ?? OFFERED_ROLES
     this.transport = options.transport ?? (() => null)
     this.registry = options.registry ?? null
+    this.admissionPhase = options.onAdmissionPhase
+    this.assignmentGatePhase = options.onAssignmentGatePhase
+    this.gateScratchRoot = options.gateScratchRoot
+    this.onAssignmentAdmitted = options.onAssignmentAdmitted
     this.revision = Number(options.runner.store.getMeta('projection_revision') ?? '0')
     this.cursor = Math.max(0, options.runner.store.maxCursor())
     // Startup revalidation changes availability, never the saved repository binding.
@@ -158,6 +403,61 @@ export class WorkbenchAuthority {
 
   revisionOf(): number {
     return this.revision
+  }
+
+  get gateExecutionAvailable(): boolean { return this.gateScratchRoot !== undefined }
+  gateExecutionAvailableFor(projectPath: string): boolean { return this.gateScratchRoot !== undefined && !pathsOverlap(projectPath, this.gateScratchRoot) }
+
+  /** Current transient review for display only; expiry or any revision change hides it. */
+  startReviewForProjection(): StartProposal | null {
+    const proposal = this.pendingStartProposal
+    const now = this.clock()
+    if (proposal === null || proposal.revision !== this.revision || now < proposal.createdAt || now - proposal.createdAt >= START_REVIEW_TTL_MS) return null
+    return proposal
+  }
+
+  /** Persist a framed Candidate and its projection event in the same SQLite transaction. */
+  associateCandidate(input: { submission: import('./store.ts').CandidateSubmissionFacts; candidateId: string; createdAt: number }): import('./store.ts').CandidateAssociation {
+    if (this.commandContext !== null) throw workbenchError('invalid_input', 'Candidate arrived during an authority transaction', 'retry only through the exact current extension receipt')
+    const existing = this.runner.store.getCandidateByAttempt(input.submission.attemptId)
+    if (existing !== null) return this.runner.store.submitCandidate(input)
+    const box: { association: import('./store.ts').CandidateAssociation | null } = { association: null }
+    this.commit('candidate_submitted', {
+      assignmentId: input.submission.assignmentId, attemptId: input.submission.attemptId,
+      runId: input.submission.agentRunId, candidateId: input.candidateId,
+    }, () => {
+      const assignment = this.runner.store.getAssignment(input.submission.assignmentId)
+      const attempt = this.runner.store.getAttempt(input.submission.attemptId)
+      const delivery = this.runner.store.getAssignmentDelivery(input.submission.attemptId)
+      const writer = assignment ? this.runner.store.getWriter(assignment.projectId) : null
+      if (!assignment || !attempt || !delivery || delivery.state !== 'written' || !writer || writer.state !== 'held'
+          || writer.assignmentId !== assignment.assignmentId || writer.attemptId !== attempt.attemptId || writer.epoch !== attempt.writerEpoch) {
+        throw workbenchError('fence_conflict', 'the exact delivered Attempt and held Project writer are required for Candidate association', 'submit only for the current acknowledged Attempt')
+      }
+      let assignmentState = assignment.state
+      let attemptState = attempt.state
+      const transitions = [
+        ['admitted', 'dispatching'], ['dispatching', 'running'], ['running', 'candidate'],
+      ] as const
+      for (const [from, to] of transitions) {
+        if (assignmentState !== from) continue
+        if (assignmentState === from) {
+          if (attemptState !== from
+              || !this.runner.store.transitionAssignment(assignment.assignmentId, from, to, this.revision + 1, input.createdAt)
+              || !this.runner.store.transitionAttempt(attempt.attemptId, from, to, input.createdAt)) {
+            throw workbenchError('fence_conflict', 'Assignment lifecycle changed before Candidate association', 're-read the exact current Attempt')
+          }
+          assignmentState = to
+          attemptState = to
+        }
+      }
+      if (assignmentState !== 'candidate' || attemptState !== 'candidate') {
+        throw workbenchError('fence_conflict', 'Assignment or Attempt is not awaiting this Candidate', 'submit only for the current delivered Attempt')
+      }
+      box.association = this.runner.store.submitCandidate(input)
+    })
+    if (box.association === null) throw workbenchError('integrity_failure', 'Candidate association produced no durable result', 're-read the exact Attempt and extension receipt')
+    return box.association
   }
 
   /** Observer-reported Pi sessions become adoptable choices. */
@@ -533,6 +833,68 @@ export class WorkbenchAuthority {
   // Intent routing and durable deduplication
   // -------------------------------------------------------------------------
 
+  /** Presentation route for the one bounded asynchronous acceptance action. */
+  handlePresentationIntent(input: unknown): IntentOutcome | Promise<IntentOutcome> {
+    let intent: WorkbenchIntent
+    try { intent = validateAuthorityIntent(input) } catch { return this.handleIntent(input) }
+    if (intent.kind === 'start_assignment') {
+      this.presentationStartIntentId = intent.intentId
+      try { return this.handleIntent(intent) }
+      finally { this.presentationStartIntentId = null }
+    }
+    if (intent.kind !== 'accept') return this.handleIntent(intent)
+    return this.handleAssignmentAccept(intent)
+  }
+
+  private async handleAssignmentAccept(intent: WorkbenchIntent): Promise<IntentOutcome> {
+    if (this.commandContext !== null) throw workbenchError('invalid_input', 'reentrant command during authority transaction', 'wait for the current command outcome')
+    const payloadHash = sha256(intent)
+    const recorded = this.runner.store.getIntentResult(intent.intentId)
+    if (recorded !== null) {
+      if (recorded.sessionId !== intent.sessionId || recorded.payloadHash !== payloadHash) {
+        return { status: 'rejected', reasonCode: 'intent_identity_conflict', reason: 'This intent id was already recorded with a different envelope.', committedRevision: null }
+      }
+      return { status: recorded.status as IntentStatus, reasonCode: recorded.reasonCode, reason: recorded.reason ?? null,
+        committedRevision: recorded.committedRevision, ...(recorded.detail == null ? {} : { detail: recorded.detail }) }
+    }
+    if (intent.pluginGeneration !== this.pluginGeneration || intent.sessionId !== this.sessionId || intent.runnerEpoch !== this.runner.epoch) {
+      return this.record(intent, payloadHash, { status: 'stale', reasonCode: 'authority_identity_changed',
+        reason: 'The Owner, presentation session or Runner changed; refresh the current projection before accepting.', committedRevision: null })
+    }
+    if (this.registry) { this.registry.list(); this.adoption.retainedProposals() }
+    if (intent.expectedRevision !== this.revision) {
+      return this.record(intent, payloadHash, { status: 'stale', reasonCode: 'revision_changed',
+        reason: 'The Assignment changed; refresh the current projection before accepting.', committedRevision: null })
+    }
+    const assignmentId = String(intent.payload.assignmentId)
+    const assignment = this.runner.store.getAssignment(assignmentId)
+    const attempt = assignment ? this.runner.store.listAttempts(assignmentId).sort((a, b) => b.ordinal - a.ordinal)[0] : null
+    const candidate = attempt ? this.runner.store.getCandidateByAttempt(attempt.attemptId) : null
+    const delivery = attempt ? this.runner.store.getAssignmentDelivery(attempt.attemptId) : null
+    if (!assignment || !attempt || !candidate || !delivery || delivery.state !== 'written') {
+      return this.record(intent, payloadHash, { status: 'rejected', reasonCode: 'candidate_unavailable',
+        reason: 'The exact delivered Attempt has no current structured Candidate.', committedRevision: null })
+    }
+    if (!this.gateScratchRoot) {
+      return this.record(intent, payloadHash, { status: 'rejected', reasonCode: 'gate_unavailable',
+        reason: 'The Runner-owned bounded acceptance-check scratch directory is unavailable.', committedRevision: null })
+    }
+    try {
+      const result = await this.executeAssignmentGate({ assignmentId, attemptId: attempt.attemptId, candidateId: candidate.candidateId }, { scratchRoot: this.gateScratchRoot })
+      const outcome: IntentOutcome = result.accepted
+        ? { status: 'acknowledged', reasonCode: null, reason: null, committedRevision: result.committedRevision, detail: result.resultId }
+        : { status: 'rejected', reasonCode: result.reasonCode ?? result.outcome, reason: `Acceptance check did not accept the Candidate (${result.reasonCode ?? result.outcome}).`, committedRevision: result.committedRevision, detail: result.resultId }
+      return this.record(intent, payloadHash, outcome)
+    } catch (error) {
+      if (error instanceof Error && error.name === 'WorkbenchError') {
+        const code = (error as { code?: string }).code ?? 'invalid_input'
+        return this.record(intent, payloadHash, { status: code === 'identity_drift' || code === 'fence_conflict' ? 'stale' : 'rejected',
+          reasonCode: code, reason: error.message, committedRevision: null })
+      }
+      throw error
+    }
+  }
+
   handleIntent(input: unknown): IntentOutcome {
     if (this.commandContext !== null) throw workbenchError('invalid_input', 'reentrant command during authority transaction', 'wait for the current command outcome')
     let intent: WorkbenchIntent
@@ -566,6 +928,57 @@ export class WorkbenchAuthority {
     if (this.registry) { this.registry.list(); this.adoption.retainedProposals() }
     if (intent.expectedRevision !== this.revision) {
       return this.record(intent, payloadHash, { status: 'stale', reasonCode: 'revision_changed', reason: 'The projection changed; re-read the current state before acting.', committedRevision: null })
+    }
+    if (intent.kind === 'prepare_start_review') {
+      try {
+        const projectId = this.selectedProjectId
+        const goalId = this.selectedGoalId
+        if (!projectId || !goalId || !intent.target) throw workbenchError('invalid_input', 'no selected Project, Goal or exact Run', 'select the Project and Goal and choose a ready Builder Run')
+        const project = this.runner.store.getProject(projectId)
+        if (!project || !this.gateExecutionAvailableFor(project.canonicalPath)) throw workbenchError('invalid_input', 'Runner-owned gate scratch is unavailable or overlaps the selected Project', 'choose a separate private gate scratch directory')
+        const proposal = this.prepareStartAssignment({
+          projectId, goalId, agentRunId: intent.target,
+          checkId: String(intent.payload.checkId), checkVersion: Number(intent.payload.checkVersion),
+          taskText: String(intent.payload.taskText),
+          limits: { maxCorrections: Number(intent.payload.maxCorrections), elapsedMs: Number(intent.payload.elapsedMs) },
+          expectedRevision: intent.expectedRevision,
+        })
+        const outcome = this.record(intent, payloadHash, { status: 'acknowledged', reasonCode: null, reason: null,
+          committedRevision: null, detail: proposal.confirmationId })
+        this.pendingStartProposal = proposal
+        return outcome
+      } catch (error) {
+        if (error instanceof Error && error.name === 'WorkbenchError') {
+          const code = (error as { code?: string }).code ?? 'invalid_input'
+          return this.record(intent, payloadHash, { status: 'rejected', reasonCode: code, reason: error.message, committedRevision: null })
+        }
+        throw error
+      }
+    }
+    if (intent.kind === 'start_assignment') {
+      if (this.presentationStartIntentId !== intent.intentId) {
+        return this.record(intent, payloadHash, { status: 'rejected', reasonCode: 'presentation_route_required',
+          reason: 'Start confirmation is accepted only through the current presentation route.', committedRevision: null })
+      }
+      if (this.pendingStartProposal === null) {
+        return this.record(intent, payloadHash, { status: 'rejected', reasonCode: 'handler_unavailable', reason: START_UNAVAILABLE_REASON, committedRevision: null })
+      }
+      const proposal = this.startReviewForProjection()
+      if (!proposal || proposal.confirmationId !== intent.payload.confirmationId) {
+        return this.record(intent, payloadHash, { status: 'stale', reasonCode: 'start_review_unavailable', reason: START_UNAVAILABLE_REASON, committedRevision: null })
+      }
+      try {
+        const admission = this.confirmStartAssignment({ intent, proposal })
+        try { this.onAssignmentAdmitted?.(admission) } catch { /* The durable queued outbox remains unsent and recoverable. */ }
+        return { status: 'acknowledged', reasonCode: null, reason: null, committedRevision: admission.committedRevision, detail: admission.assignmentId }
+      } catch (error) {
+        if (error instanceof Error && error.name === 'WorkbenchError') {
+          const code = (error as { code?: string }).code ?? 'invalid_input'
+          return this.record(intent, payloadHash, { status: code === 'identity_drift' || code === 'fence_conflict' ? 'stale' : 'rejected',
+            reasonCode: code, reason: error.message, committedRevision: null })
+        }
+        throw error
+      }
     }
     if (intent.kind === 'present') {
       const effect = this.registry?.prepareNavigation(intent.target!, intent.intentId)
@@ -798,6 +1211,7 @@ export class WorkbenchAuthority {
       this.runner.store.appendEvent(event)
       this.runner.store.setMeta('projection_revision', String(committedRevision))
     })
+    this.pendingStartProposal = null
     if (context) {
       context.revision = committedRevision
       context.cursor = cursor
@@ -808,6 +1222,638 @@ export class WorkbenchAuthority {
       afterCommit?.()
     }
     return committedRevision
+  }
+
+  // -------------------------------------------------------------------------
+  // AL-02 admission (explicit; never routed from a live intent)
+  // -------------------------------------------------------------------------
+
+  /** Resolve and freeze an exact transient Start Review. Performs no write or send. */
+  prepareStartAssignment(request: StartProposalRequest, options: StartProposalOptions = {}): StartProposal {
+    const project = this.runner.store.getProject(request.projectId)
+    if (this.gateScratchRoot && project && pathsOverlap(project.canonicalPath, this.gateScratchRoot)) {
+      throw workbenchError('invalid_input', 'Runner-owned gate scratch overlaps the selected Project', 'choose a separate private gate scratch directory')
+    }
+    return prepareStartProposal(this.startProposalPort(), request, this.startProposalOptions(options))
+  }
+
+  /**
+   * Revalidate the exact review against current authority, then commit the
+   * Assignment, Attempt, held writer epoch, event, complete receipt and queued
+   * delivery in one transaction. Failure leaves no writer and no sendable item.
+   */
+  confirmStartAssignment(input: StartAdmissionInput): StartAdmission {
+    if (this.commandContext !== null) throw workbenchError('invalid_input', 'reentrant command during authority transaction', 'wait for the current command outcome')
+    let intent: WorkbenchIntent
+    try { intent = validateAuthorityIntent(input.intent) }
+    catch {
+      throw workbenchError('invalid_input', 'invalid Start intent envelope',
+        'reload the projection and confirm a fresh Start Review with an exact start_assignment envelope')
+    }
+    if (intent.kind !== 'start_assignment') {
+      throw workbenchError('invalid_input', `intent ${intent.kind} does not admit an Assignment`, 'admit only an exact start_assignment envelope')
+    }
+    const payloadHash = sha256(intent)
+    const recorded = this.runner.store.getIntentResult(intent.intentId)
+    if (recorded !== null) {
+      if (recorded.sessionId !== intent.sessionId || recorded.payloadHash !== payloadHash) {
+        throw workbenchError('identity_drift', 'this intent id was already recorded with a different envelope',
+          'discard this review and prepare a fresh Start Review; never reuse an intent id')
+      }
+      const replay = decodeAdmissionDetail(recorded.detail)
+      if (recorded.status !== 'acknowledged' || replay === null) {
+        throw workbenchError('invalid_input', 'this intent has no acknowledged admission to replay',
+          'prepare a fresh Start Review and confirm it once')
+      }
+      return { status: 'acknowledged', ...replay, committedRevision: recorded.committedRevision ?? 0, replayed: true }
+    }
+    if (intent.pluginGeneration !== this.pluginGeneration) staleStart('the Companion generation changed')
+    if (intent.sessionId !== this.sessionId) staleStart('the presentation session changed')
+    if (intent.runnerEpoch !== this.runner.epoch) staleStart('the workbench runner restarted')
+    if (intent.expectedRevision !== this.revision) staleStart('the projection revision changed')
+    const proposal = input.proposal
+    if (intent.expectedRevision !== proposal.revision) staleStart('the review was prepared for a different revision')
+    if (intent.target !== proposal.attempt.runBinding.runId || intent.payload.agentRunId !== proposal.attempt.runBinding.runId) staleStart('the intent target is not the reviewed Run')
+    if (intent.payload.confirmationId !== proposal.confirmationId) staleStart('the intent names a different Start Review')
+    if (intent.payload.checkId !== proposal.attempt.gate.checkId || Number(intent.payload.checkVersion) !== proposal.attempt.gate.version) {
+      staleStart('the intent names a different check')
+    }
+    if (intent.payload.goalText !== proposal.assignment.goalText || intent.payload.taskText !== proposal.assignment.taskText
+        || Number(intent.payload.maxCorrections) !== proposal.assignment.limits.maxCorrections
+        || Number(intent.payload.elapsedMs) !== proposal.assignment.limits.elapsedMs) staleStart('the intent changed reviewed Goal, task or Assignment limits')
+    revalidateStartProposal(this.startProposalPort(), proposal, this.startProposalOptions(input.options ?? {}))
+    const now = this.clock()
+    const deadline = now + ASSIGNMENT_DELIVERY_TTL_MS
+    if (!Number.isSafeInteger(deadline) || deadline < now) {
+      throw workbenchError('invalid_input', 'delivery deadline overflow', 'never round admission timestamps')
+    }
+    const frameJson = canonicalJson(admissionFrame(proposal, deadline))
+    const delivery: AssignmentDelivery = {
+      deliveryId: proposal.attempt.deliveryId!,
+      assignmentId: proposal.assignment.assignmentId,
+      attemptId: proposal.attempt.attemptId,
+      runId: proposal.attempt.runBinding.runId,
+      frameJson,
+      payloadDigest: sha256(frameJson),
+      state: 'queued',
+      reasonCode: null,
+      deadline,
+      createdAt: now,
+    }
+    const reference: AdmissionReference = {
+      assignmentId: proposal.assignment.assignmentId,
+      attemptId: proposal.attempt.attemptId,
+      deliveryId: delivery.deliveryId,
+      writerEpoch: proposal.attempt.writerEpoch,
+    }
+    const context = { revision: this.revision, cursor: this.cursor, afterCommit: [] as Array<() => void> }
+    this.commandContext = context
+    try {
+      this.runner.store.transaction(() => {
+        this.commit('assignment_admitted', {
+          projectId: proposal.assignment.projectId,
+          goalId: proposal.assignment.goalId,
+          runId: proposal.attempt.runBinding.runId,
+          assignmentId: proposal.assignment.assignmentId,
+          attemptId: proposal.attempt.attemptId,
+        }, () => {
+          this.runner.store.putAssignment(proposal.assignment)
+          this.admissionPhase?.('assignment_written')
+          this.runner.store.putAttempt(proposal.attempt)
+          this.admissionPhase?.('attempt_written')
+          this.runner.store.acquireWriter({
+            projectId: proposal.assignment.projectId,
+            assignmentId: proposal.assignment.assignmentId,
+            attemptId: proposal.attempt.attemptId,
+            epoch: proposal.attempt.writerEpoch,
+            updatedAt: now,
+          })
+          this.admissionPhase?.('writer_held')
+          this.runner.store.putAssignmentDelivery(delivery)
+          this.admissionPhase?.('delivery_queued')
+        })
+        this.record(intent, payloadHash, {
+          status: 'acknowledged',
+          reasonCode: null,
+          reason: null,
+          committedRevision: context.revision,
+          detail: encodeAdmissionDetail(reference),
+        })
+        this.admissionPhase?.('receipt_recorded')
+      })
+      const committedRevision = context.revision
+      this.revision = committedRevision
+      this.cursor = context.cursor
+      for (const effect of context.afterCommit) effect()
+      return { status: 'acknowledged', ...reference, committedRevision, replayed: false }
+    } finally {
+      this.commandContext = null
+    }
+  }
+
+  // -------------------------------------------------------------------------
+  // AL-05 gate orchestration. This is an explicit direct-call surface, never
+  // routed from a live intent, and it executes at most one frozen gate per
+  // Attempt. Bounded executor work happens outside any store transaction.
+  // -------------------------------------------------------------------------
+
+  async executeAssignmentGate(input: AssignmentGateInput, options: AssignmentGateOptions): Promise<AssignmentGateResult> {
+    if (this.commandContext !== null) {
+      throw workbenchError('invalid_input', 'reentrant command during authority transaction', 'wait for the current command outcome before running a gate')
+    }
+    if (typeof options?.scratchRoot !== 'string' || options.scratchRoot.length === 0) {
+      throw workbenchError('invalid_input', 'a Runner-owned gate scratch root is required', 'configure the bounded gate scratch root before accepting a Candidate')
+    }
+    if (this.gateScratchRoot !== undefined && options.scratchRoot === this.gateScratchRoot) {
+      ensureOwnedDirectory(this.gateScratchRoot)
+    }
+    const assignment = this.runner.store.getAssignment(input.assignmentId)
+    const attempt = this.runner.store.getAttempt(input.attemptId)
+    const candidate = this.runner.store.getCandidateByAttempt(input.attemptId)
+    const project = assignment === null ? null : this.runner.store.getProject(assignment.projectId)
+    if (assignment === null || attempt === null || candidate === null || project === null || candidate.candidateId !== input.candidateId) {
+      throw workbenchError('missing_resource', 'the exact Assignment, Attempt, Candidate and Project are required to run a gate', 'associate the Candidate through the dedicated submission port before executing its gate')
+    }
+    if (assignment.state !== 'candidate' || attempt.state !== 'candidate' || candidate.state !== 'pending') {
+      throw workbenchError('fence_conflict', `Assignment ${assignment.assignmentId} is ${assignment.state} with a ${candidate.state} Candidate`, 'execute the gate exactly once for the current pending Candidate and Attempt')
+    }
+    const writer = this.runner.store.getWriter(assignment.projectId)
+    if (writer === null || writer.state !== 'held' || writer.assignmentId !== assignment.assignmentId
+      || writer.attemptId !== attempt.attemptId || writer.epoch !== attempt.writerEpoch) {
+      throw workbenchError('fence_conflict', 'the exact held writer lease is required to execute a gate', 'reconcile the Project writer before accepting the Candidate')
+    }
+    const binding = this.runner.store.getBinding(assignment.agentRunId)
+    if (binding === null || binding.controlEpoch !== attempt.controlEpoch) {
+      throw workbenchError('fence_conflict', 'the Run control epoch changed; this gate is stale', 'return control to team and reconcile before validating again')
+    }
+    if (this.runner.store.getStop(assignment.assignmentId) !== null) {
+      throw workbenchError('fence_conflict', 'a durable stop is recorded for this Assignment', 'never execute a gate after stop intent is durably revoked')
+    }
+    const check = this.runner.store.getCheck(project.projectId, attempt.gate.checkId, attempt.gate.version)
+    if (check === null || check.digest !== attempt.gate.digest) {
+      throw workbenchError('identity_drift', 'the frozen gate definition is missing or changed', 're-confirm the check and admit a new Attempt; never rerun a relabelled gate')
+    }
+    let definition: ResolvedCheckDefinition
+    try {
+      definition = readResolvedCheck(check)
+    } catch {
+      throw workbenchError('identity_drift', 'the frozen gate definition cannot be read back', 're-confirm the check and admit a new Attempt; never rerun a relabelled gate')
+    }
+
+    const now = this.clock()
+    this.commit('assignment_validating', {
+      projectId: assignment.projectId, goalId: assignment.goalId, runId: assignment.agentRunId,
+      assignmentId: assignment.assignmentId, attemptId: attempt.attemptId,
+    }, () => {
+      if (!this.runner.store.transitionAssignment(assignment.assignmentId, 'candidate', 'validating', this.revision + 1, now)
+        || !this.runner.store.transitionAttempt(attempt.attemptId, 'candidate', 'validating', now)) {
+        throw workbenchError('fence_conflict', 'the Assignment or Attempt moved before the gate could start', 're-read the Assignment and start a fresh attempt')
+      }
+    })
+    this.assignmentGatePhase?.('validating_committed')
+
+    const captureOptions = this.git === undefined ? {} : { git: this.git }
+    const capture = (): string | null => {
+      try { return captureStableProjectBaseline(project, captureOptions).manifestDigest } catch { return null }
+    }
+    const preManifestDigest = capture()
+    let outcome: GateOutcome
+    let reasonCode: string | null
+    let execution: GateExecution | null = null
+    let postManifestDigest: string | null = null
+    if (preManifestDigest === null) {
+      outcome = 'unknown'
+      reasonCode = 'baseline_unavailable'
+    } else {
+      const beforeProblem = verifyCandidateArtifacts(project.canonicalPath, candidate.artifactRefs)
+      if (beforeProblem !== null) {
+        outcome = 'candidate_changed'
+        reasonCode = beforeProblem
+      } else {
+        execution = await executeGate(definition, options.graceMs === undefined ? { scratchRoot: options.scratchRoot } : { scratchRoot: options.scratchRoot, graceMs: options.graceMs })
+        outcome = execution.outcome
+        reasonCode = execution.reasonCode
+        postManifestDigest = capture()
+        if (outcome === 'pass') {
+          const afterProblem = verifyCandidateArtifacts(project.canonicalPath, candidate.artifactRefs)
+          if (afterProblem !== null) { outcome = 'candidate_changed'; reasonCode = afterProblem }
+          else if (postManifestDigest === null) { outcome = 'unknown'; reasonCode = 'post_baseline_unavailable' }
+          else if (postManifestDigest !== preManifestDigest) { outcome = 'candidate_changed'; reasonCode = 'checkout_changed_post' }
+        }
+      }
+    }
+    this.assignmentGatePhase?.('gate_returned')
+
+    const evidenceJson = gateEvidence(outcome, reasonCode, execution, preManifestDigest, postManifestDigest)
+    const resultId = this.newId('gate-result-')
+    const record: GateResultRecord = {
+      resultId,
+      assignmentId: assignment.assignmentId,
+      attemptId: attempt.attemptId,
+      candidateId: candidate.candidateId,
+      gateDigest: attempt.gate.digest,
+      executableDigest: definition.executableDigest,
+      outcome,
+      preManifestDigest: preManifestDigest ?? attempt.context.manifestDigest,
+      postManifestDigest,
+      exitCode: execution?.exitCode ?? null,
+      reasonCode,
+      evidenceJson,
+      state: 'provisional',
+      revision: this.revision + 1,
+      createdAt: this.clock(),
+    }
+    this.commit('gate_result_recorded', {
+      projectId: assignment.projectId, goalId: assignment.goalId, runId: assignment.agentRunId,
+      assignmentId: assignment.assignmentId, attemptId: attempt.attemptId, resultId, outcome,
+    }, () => {
+      this.runner.store.putGateResult(record)
+    })
+    this.assignmentGatePhase?.('result_recorded')
+
+    const clean = outcome === 'pass' && execution !== null && execution.scratchCleaned
+    const quiescence = options.quiescence === undefined
+      ? this.defaultGateQuiescence(assignment, attempt, outcome, clean)
+      : options.quiescence({ assignment, attempt, candidate, outcome, clean })
+    this.assignmentGatePhase?.('before_acceptance')
+    const acceptanceManifestDigest = capture()
+
+    const box: { resolution: GateAcceptance | null } = { resolution: null }
+    this.commit('assignment_gate_resolved', {
+      projectId: assignment.projectId, goalId: assignment.goalId, runId: assignment.agentRunId,
+      assignmentId: assignment.assignmentId, attemptId: attempt.attemptId, resultId, outcome,
+    }, () => {
+      box.resolution = this.runner.store.resolveGateAcceptance({
+        resultId,
+        assignmentId: assignment.assignmentId,
+        attemptId: attempt.attemptId,
+        candidateId: candidate.candidateId,
+        candidateDigest: candidate.digest,
+        gateDigest: attempt.gate.digest,
+        executableDigest: definition.executableDigest,
+        outcome,
+        postManifestDigest,
+        acceptanceManifestDigest,
+        acceptanceScanError: acceptanceManifestDigest === null ? 'acceptance_scan_unavailable' : null,
+        quiescenceConfirmed: quiescence.status === 'confirmed',
+        quiescenceReason: quiescence.status === 'confirmed' ? null : `quiescence_${quiescence.status}`,
+        revision: this.revision + 1,
+        updatedAt: this.clock(),
+      })
+    })
+    this.assignmentGatePhase?.('resolved')
+    const resolution = box.resolution
+    if (resolution === null) {
+      throw workbenchError('integrity_failure', 'the gate acceptance transaction produced no resolution', 're-read the Assignment and reconcile the provisional gate result')
+    }
+    return { accepted: resolution.accepted, outcome, reasonCode: resolution.reasonCode, resultId, committedRevision: this.revision }
+  }
+
+  /**
+   * Bounded quiescence for the one challenged Pi of this Run. A validator exit
+   * is never sufficient; a `confirmed` status needs the exact committed, idle,
+   * healthy bridge for this incarnation reporting no known work.
+   */
+  private defaultGateQuiescence(assignment: AssignmentRecord, attempt: AttemptRecord, outcome: GateOutcome, clean: boolean): GateQuiescence {
+    let status: GateQuiescence['status'] = 'unknown'
+    if (clean && outcome === 'pass') {
+      const identity = this.runner.store.getBindingIdentity(assignment.agentRunId)
+      const observed = identity !== null && this.registry !== null
+        ? this.registry.list().filter(agent => agent.available && incarnationKey(agent.incarnation) === identity.incarnationKey)
+        : []
+      if (observed.length === 1 && observed[0]!.mode === 'committed' && observed[0]!.lifecycle === 'running'
+        && observed[0]!.activity === 'idle' && observed[0]!.health === 'healthy') {
+        status = 'confirmed'
+      } else if (observed.some(agent => agent.activity === 'busy' || agent.activity === 'waiting_for_user')) {
+        status = 'active'
+      }
+    }
+    return {
+      runId: assignment.agentRunId,
+      attemptId: attempt.attemptId,
+      controlEpoch: attempt.controlEpoch,
+      source: 'validator_exit',
+      status,
+      sequence: this.revision,
+      runnerReceivedAt: this.clock(),
+    }
+  }
+
+  // -------------------------------------------------------------------------
+  // AL-06 intervention. Explicit direct-call surfaces, never routed from
+  // `handleIntent`. Stop revokes future dispatch before any cancellation and
+  // retains the writer on unknown effects; takeover advances the control epoch
+  // and pauses automatic delivery; reconciliation is explicit and bounded.
+  // -------------------------------------------------------------------------
+
+  /** Durably revoke new dispatch for one Assignment; never claims Pi/tool termination. */
+  stopAssignment(input: AssignmentStopInput): AssignmentStopOutcome {
+    if (this.commandContext !== null) {
+      throw workbenchError('invalid_input', 'reentrant command during authority transaction', 'wait for the current command outcome before stopping')
+    }
+    const assignment = this.runner.store.getAssignment(input.assignmentId)
+    if (assignment === null) {
+      throw workbenchError('missing_resource', `no Assignment ${String(input.assignmentId)}`, 'read the current projection before stopping an Assignment')
+    }
+    const trigger = input.trigger ?? 'operator'
+    if (!STOP_TRIGGERS.includes(trigger)) {
+      throw workbenchError('invalid_input', `unknown stop trigger ${String(trigger)}`, 'use a declared stop trigger')
+    }
+    return this.stopAssignmentInternal(assignment, trigger, input.reasonCode ?? null)
+  }
+
+  /**
+   * Source-only takeover: advance the Run control epoch, record manual_takeover
+   * and pause automatic delivery. Already running tools are never killed and
+   * the writer lease is retained.
+   */
+  takeAssignmentControl(input: AssignmentTakeoverInput): AssignmentTakeoverOutcome {
+    if (this.commandContext !== null) {
+      throw workbenchError('invalid_input', 'reentrant command during authority transaction', 'wait for the current command outcome before taking control')
+    }
+    const assignment = this.runner.store.getAssignment(input.assignmentId)
+    if (assignment === null) {
+      throw workbenchError('missing_resource', `no Assignment ${String(input.assignmentId)}`, 'read the current projection before taking control')
+    }
+    if (this.assignmentTerminal(assignment.state)) {
+      throw workbenchError('fence_conflict', `Assignment ${assignment.assignmentId} is already ${assignment.state}`, 'a terminal Assignment cannot be taken over')
+    }
+    const binding = this.runner.store.getBinding(assignment.agentRunId)
+    if (binding === null) {
+      throw workbenchError('missing_resource', `no Run binding ${assignment.agentRunId}`, 'the Assignment Run must still exist')
+    }
+    const now = this.clock()
+    const controlEpoch = binding.controlEpoch + 1
+    this.commit('assignment_takeover', {
+      projectId: assignment.projectId, goalId: assignment.goalId, runId: assignment.agentRunId,
+      assignmentId: assignment.assignmentId, controlEpoch,
+    }, () => {
+      // Pause automatic delivery before any new authority is accepted.
+      for (const delivery of this.runner.store.listAssignmentDeliveries(assignment.assignmentId)) {
+        if (delivery.state === 'queued') this.runner.store.transitionAssignmentDelivery(delivery.attemptId, 'queued', 'not_sent', 'revoked')
+      }
+      this.runner.store.setBindingControlEpoch(assignment.agentRunId, controlEpoch, now)
+      this.runner.store.setBindingState(assignment.agentRunId, 'manual_takeover', now)
+      const attempts = this.runner.store.listAttempts(assignment.assignmentId)
+      const current = attempts.length === 0 ? null : attempts[attempts.length - 1]!
+      if (current !== null && ['admitted', 'dispatching', 'running', 'candidate', 'validating'].includes(current.state)) {
+        this.runner.store.transitionAttempt(current.attemptId, current.state, 'attention', now)
+      }
+      if (assignment.state !== 'attention') {
+        if (!this.runner.store.transitionAssignment(assignment.assignmentId, assignment.state, 'attention', this.revision + 1, now)) {
+          throw workbenchError('fence_conflict', 'the Assignment moved before takeover could be recorded', 're-read the Assignment and reconcile the winner')
+        }
+      }
+    })
+    return {
+      assignmentId: assignment.assignmentId,
+      controlEpoch,
+      state: this.runner.store.getAssignment(assignment.assignmentId)!.state,
+      writerState: this.runner.store.getWriter(assignment.projectId)?.state ?? 'none',
+      committedRevision: this.revision,
+    }
+  }
+
+  /** Persist one exact structured handoff and enter reconciliation. */
+  recordAssignmentHandoff(input: AssignmentHandoffInput): AssignmentHandoffOutcome {
+    if (this.commandContext !== null) {
+      throw workbenchError('invalid_input', 'reentrant command during authority transaction', 'wait for the current command outcome before recording a handoff')
+    }
+    const attempt = this.runner.store.getAttempt(input.attemptId)
+    if (attempt === null) {
+      throw workbenchError('missing_resource', `no Attempt ${String(input.attemptId)}`, 'record a handoff only for the exact current Attempt')
+    }
+    const assignment = this.runner.store.getAssignment(attempt.assignmentId)!
+    if (assignment.state !== 'attention' && assignment.state !== 'reconciling') {
+      throw workbenchError('fence_conflict', `Assignment ${assignment.assignmentId} is ${assignment.state}, not needs-reconciliation`, 'return to team only after an explicit takeover or attention state')
+    }
+    const binding = this.runner.store.getBinding(assignment.agentRunId)
+    if (binding === null) {
+      throw workbenchError('missing_resource', `no Run binding ${assignment.agentRunId}`, 'the Assignment Run must still exist')
+    }
+    if (binding.state !== 'manual_takeover' && binding.state !== 'manual_takeover_disconnected') {
+      throw workbenchError('fence_conflict', 'return-to-team requires an explicit source takeover first', 'take control, then record one structured handoff')
+    }
+    const artifactRefs = input.artifactRefs.map(ref => ({ path: ref.path, digest: ref.digest, length: ref.length }))
+    const handoffId = this.newId('handoff-')
+    const digest = handoffDigest({
+      assignmentId: assignment.assignmentId, attemptId: attempt.attemptId, agentRunId: assignment.agentRunId,
+      controlEpoch: binding.controlEpoch, claimedState: input.claimedState, summary: input.summary,
+      artifactRefs, outstandingEffects: input.outstandingEffects,
+    })
+    const record: HandoffRecord = {
+      handoffId, assignmentId: assignment.assignmentId, attemptId: attempt.attemptId, agentRunId: assignment.agentRunId,
+      controlEpoch: binding.controlEpoch, claimedState: input.claimedState, summary: input.summary,
+      artifactRefs, outstandingEffects: input.outstandingEffects, digest, createdAt: this.clock(),
+    }
+    this.commit('assignment_handoff', {
+      projectId: assignment.projectId, goalId: assignment.goalId, runId: assignment.agentRunId,
+      assignmentId: assignment.assignmentId, attemptId: attempt.attemptId, handoffId,
+    }, () => {
+      this.runner.store.putHandoff(record)
+      if (assignment.state === 'attention') {
+        if (!this.runner.store.transitionAssignment(assignment.assignmentId, 'attention', 'reconciling', this.revision + 1, this.clock())) {
+          throw workbenchError('fence_conflict', 'the Assignment moved before the handoff could be recorded', 're-read the Assignment and reconcile the winner')
+        }
+      }
+    })
+    return {
+      handoffId, digest,
+      state: this.runner.store.getAssignment(assignment.assignmentId)!.state,
+      committedRevision: this.revision,
+    }
+  }
+
+  /**
+   * Explicit current-revision reconciliation. `retry` corrects an ordinary gate
+   * failure; `accept`/`resume` require the exact retained handoff. Every path
+   * revalidates the held writer, readiness, absence of stop and remaining
+   * limits; an exhausted budget stops dispatch instead of granting a fresh one.
+   */
+  reconcileAssignment(input: AssignmentReconciliationInput): AssignmentReconciliationOutcome {
+    if (this.commandContext !== null) {
+      throw workbenchError('invalid_input', 'reentrant command during authority transaction', 'wait for the current command outcome before reconciling')
+    }
+    const assignment = this.runner.store.getAssignment(input.assignmentId)
+    if (assignment === null) {
+      throw workbenchError('missing_resource', `no Assignment ${String(input.assignmentId)}`, 'read the current projection before reconciling')
+    }
+    if (this.assignmentTerminal(assignment.state)) {
+      throw workbenchError('fence_conflict', `Assignment ${assignment.assignmentId} is already ${assignment.state}`, 'a terminal Assignment cannot be reconciled')
+    }
+    if (input.expectedRevision !== this.revision) {
+      throw workbenchError('fence_conflict', 'the projection changed; this reconciliation intent is stale', 're-read the current projection and reconcile again')
+    }
+    if (assignment.state !== 'attention' && assignment.state !== 'reconciling') {
+      throw workbenchError('fence_conflict', `Assignment ${assignment.assignmentId} is ${assignment.state}, not reconcilable`, 'correction is bounded to attention/reconciling Assignments')
+    }
+    const attempts = this.runner.store.listAttempts(assignment.assignmentId)
+    const prior = attempts.length === 0 ? null : attempts[attempts.length - 1]!
+    if (prior === null) {
+      throw workbenchError('missing_resource', `Assignment ${assignment.assignmentId} has no Attempt to correct`, 'admit an Attempt before reconciling')
+    }
+    if (prior.state !== 'attention') {
+      throw workbenchError('fence_conflict', `the latest Attempt is ${prior.state}, not attention`, 'only a settled attention Attempt can seed the next bounded Attempt')
+    }
+    if (this.runner.store.getStop(assignment.assignmentId) !== null) {
+      throw workbenchError('fence_conflict', 'a durable stop is recorded for this Assignment', 'a stopped Assignment is never redispatched')
+    }
+    if (input.decision === 'accept' || input.decision === 'resume') {
+      const handoff = this.runner.store.getHandoff(prior.attemptId)
+      if (handoff === null || (input.handoffId !== undefined && handoff.handoffId !== input.handoffId)) {
+        throw workbenchError('fence_conflict', 'return-to-team requires its exact retained handoff', 'record the structured handoff on this Attempt before reconciling')
+      }
+    }
+    const writer = this.runner.store.getWriter(assignment.projectId)
+    if (writer === null || writer.state !== 'held' || writer.assignmentId !== assignment.assignmentId
+      || writer.attemptId !== prior.attemptId || writer.epoch !== prior.writerEpoch) {
+      throw workbenchError('fence_conflict', 'the exact held writer lease is required to reconcile', 'unknown effects retain the writer until explicit supported reconciliation')
+    }
+    const binding = this.runner.store.getBinding(assignment.agentRunId)
+    if (binding === null) {
+      throw workbenchError('missing_resource', `no Run binding ${assignment.agentRunId}`, 'the Assignment Run must still exist')
+    }
+    if (binding.state !== 'ready') {
+      throw workbenchError('fence_conflict', `the Run binding is ${binding.state}; automatic continuation is paused`, 'return control to team and confirm readiness before another Attempt')
+    }
+    if (binding.controlEpoch < prior.controlEpoch) {
+      throw workbenchError('fence_conflict', 'the Run control epoch is older than the Attempt', 'reconcile only under the current control epoch')
+    }
+    const now = this.clock()
+    if (assignment.attemptCount > assignment.limits.maxCorrections) {
+      const stopped = this.stopAssignmentInternal(assignment, 'attempt_limit', 'attempt_limit_exhausted')
+      return { status: 'stopped', reasonCode: 'attempt_limit_exhausted', attemptId: null, deliveryId: null, writerEpoch: null, stopId: stopped.stopId, committedRevision: stopped.committedRevision }
+    }
+    if (now - assignment.createdAt >= assignment.limits.elapsedMs) {
+      const stopped = this.stopAssignmentInternal(assignment, 'elapsed_limit', 'elapsed_limit_exhausted')
+      return { status: 'stopped', reasonCode: 'elapsed_limit_exhausted', attemptId: null, deliveryId: null, writerEpoch: null, stopId: stopped.stopId, committedRevision: stopped.committedRevision }
+    }
+    const attemptId = this.newId('attempt-')
+    const deliveryId = this.newId('delivery-')
+    const writerEpoch = prior.writerEpoch + 1
+    const nextAttempt: AttemptRecord = {
+      attemptId,
+      assignmentId: assignment.assignmentId,
+      ordinal: prior.ordinal + 1,
+      state: 'admitted',
+      runBinding: { ...prior.runBinding },
+      gate: { ...prior.gate },
+      context: { ...prior.context },
+      limits: { ...assignment.limits },
+      writerEpoch,
+      controlEpoch: binding.controlEpoch,
+      deliveryId,
+      createdAt: now,
+      updatedAt: now,
+    }
+    const deadline = now + ASSIGNMENT_DELIVERY_TTL_MS
+    const frameJson = canonicalJson(attemptFrame(assignment, nextAttempt, deadline))
+    const delivery: AssignmentDelivery = {
+      deliveryId, assignmentId: assignment.assignmentId, attemptId, runId: nextAttempt.runBinding.runId,
+      frameJson, payloadDigest: sha256(frameJson), state: 'queued', reasonCode: null, deadline, createdAt: now,
+    }
+    const from = assignment.state
+    this.commit('assignment_reconciled', {
+      projectId: assignment.projectId, goalId: assignment.goalId, runId: assignment.agentRunId,
+      assignmentId: assignment.assignmentId, attemptId, decision: input.decision,
+    }, () => {
+      for (const existing of this.runner.store.listAssignmentDeliveries(assignment.assignmentId)) {
+        if (existing.state === 'queued') this.runner.store.transitionAssignmentDelivery(existing.attemptId, 'queued', 'not_sent', 'revoked')
+      }
+      this.runner.store.releaseWriter(assignment.projectId, now)
+      this.runner.store.putAttempt(nextAttempt)
+      this.runner.store.acquireWriter({ projectId: assignment.projectId, assignmentId: assignment.assignmentId, attemptId, epoch: writerEpoch, updatedAt: now })
+      this.runner.store.putAssignmentDelivery(delivery)
+      if (!this.runner.store.transitionAttempt(prior.attemptId, 'attention', 'rejected', now)) {
+        throw workbenchError('fence_conflict', 'the prior Attempt moved before correction', 're-read the Assignment and reconcile the winner')
+      }
+      if (!this.runner.store.transitionAttempt(attemptId, 'admitted', 'dispatching', now)) {
+        throw workbenchError('fence_conflict', 'the corrected Attempt could not be dispatched', 're-read the Assignment and reconcile the winner')
+      }
+      if (!this.runner.store.transitionAssignment(assignment.assignmentId, from, 'dispatching', this.revision + 1, now)) {
+        throw workbenchError('fence_conflict', 'the Assignment moved before correction', 're-read the Assignment and reconcile the winner')
+      }
+    })
+    return { status: 'admitted', reasonCode: null, attemptId, deliveryId, writerEpoch, stopId: null, committedRevision: this.revision }
+  }
+
+  private assignmentTerminal(state: AssignmentState): boolean {
+    return state === 'accepted' || state === 'stopped' || state === 'failed'
+  }
+
+  private assignmentEffectsPossible(assignment: AssignmentRecord, deliveries: AssignmentDelivery[]): boolean {
+    if (['dispatching', 'running', 'candidate', 'validating', 'attention', 'reconciling'].includes(assignment.state)) return true
+    return deliveries.some(delivery => delivery.state === 'attempting' || delivery.state === 'unknown' || delivery.state === 'written')
+  }
+
+  /**
+   * Revoke new dispatch atomically first, record the durable stop, close the
+   * current lifecycle, and either retain the writer on unknown effects or
+   * release it when nothing could have been sent. Cancellation stays separate.
+   */
+  private stopAssignmentInternal(assignment: AssignmentRecord, trigger: StopTrigger, reasonCode: string | null): AssignmentStopOutcome {
+    const existing = this.runner.store.getStop(assignment.assignmentId)
+    if (existing !== null) {
+      const project = this.runner.store.getAssignment(existing.assignmentId)?.projectId ?? ''
+      return {
+        status: 'stopped', stopId: existing.stopId, assignmentId: existing.assignmentId, dispatchRevoked: true,
+        cancellationStatus: existing.cancellationStatus, writerState: this.runner.store.getWriter(project)?.state ?? 'none',
+        replayed: true, committedRevision: this.revision,
+      }
+    }
+    const now = this.clock()
+    const stopId = this.newId('stop-')
+    const effectsPossible = this.assignmentEffectsPossible(assignment, this.runner.store.listAssignmentDeliveries(assignment.assignmentId))
+    const box: { writerState: WriterState } = { writerState: 'none' }
+    this.commit('assignment_stopped', {
+      projectId: assignment.projectId, goalId: assignment.goalId, runId: assignment.agentRunId,
+      assignmentId: assignment.assignmentId, stopId, trigger,
+    }, () => {
+      for (const delivery of this.runner.store.listAssignmentDeliveries(assignment.assignmentId)) {
+        if (delivery.state === 'queued') this.runner.store.transitionAssignmentDelivery(delivery.attemptId, 'queued', 'not_sent', 'revoked')
+      }
+      this.runner.store.putStop({
+        stopId, assignmentId: assignment.assignmentId, trigger, revision: this.revision + 1,
+        dispatchRevoked: true, cancellationStatus: 'not_requested', reasonCode, createdAt: now, updatedAt: now,
+      })
+      if (!this.assignmentTerminal(assignment.state)) {
+        if (!this.runner.store.transitionAssignment(assignment.assignmentId, assignment.state, 'stopped', this.revision + 1, now)) {
+          throw workbenchError('fence_conflict', 'the Assignment moved before stop could be recorded', 're-read the Assignment; a winner already advanced it')
+        }
+      } else if (assignment.state !== 'stopped') {
+        throw workbenchError('fence_conflict', `Assignment ${assignment.assignmentId} is already ${assignment.state}`, 'a terminal accepted/failed Assignment cannot be stopped')
+      }
+      const attempts = this.runner.store.listAttempts(assignment.assignmentId)
+      const current = attempts.length === 0 ? null : attempts[attempts.length - 1]!
+      if (current !== null && ['admitted', 'dispatching', 'running', 'candidate', 'validating', 'attention'].includes(current.state)) {
+        this.runner.store.transitionAttempt(current.attemptId, current.state, 'stopped', now)
+      }
+      if (effectsPossible) this.runner.store.markWriterUncertain(assignment.projectId, now)
+      else this.runner.store.releaseWriter(assignment.projectId, now)
+      box.writerState = this.runner.store.getWriter(assignment.projectId)?.state ?? 'none'
+    })
+    return {
+      status: 'stopped', stopId, assignmentId: assignment.assignmentId, dispatchRevoked: true,
+      cancellationStatus: 'not_requested', writerState: box.writerState, replayed: false, committedRevision: this.revision,
+    }
+  }
+
+  private startProposalPort(): StartProposalAuthority {
+    return {
+      store: this.runner.store,
+      fences: this.runner.fences,
+      registry: this.registry,
+      currentRevision: () => this.revision,
+    }
+  }
+  private startProposalOptions(options: StartProposalOptions): StartProposalOptions {
+    const git = options.git ?? this.git
+    return {
+      ...options,
+      clock: options.clock ?? this.clock,
+      newId: options.newId ?? this.newId,
+      ...(git === undefined ? {} : { git }),
+    }
   }
 
   // -------------------------------------------------------------------------

@@ -11,6 +11,16 @@ export interface RecoveryReport {
   purgedFromFence: string[]
   disconnectedOnRestart: string[]
   uncertainBindings: string[]
+  /** Assignment deliveries moved off a pre-restart unresolved state; never sent. */
+  assignmentDeliveriesRecovered: string[]
+  /** Project ids whose held Assignment writer became uncertain on restart. */
+  uncertainWriters: string[]
+  /**
+   * Active Assignments whose Project writer is now uncertain. A new owner has
+   * no proof of the previous live interval, so automatic continuation is
+   * blocked and an explicit reconciliation is required before any next Attempt.
+   */
+  reconciliationRequired: string[]
 }
 export interface RecoverRunnerStateOptions { store: WorkbenchStore; fences: FenceLedger; clock?: () => number }
 const CONNECTION_STATES: BindingState[] = ['acknowledged', 'committed', 'ready']
@@ -67,5 +77,34 @@ export function recoverRunnerState(options: RecoverRunnerStateOptions): Recovery
     }
   })
   const uncertainBindings = store.markUncertainInFlight(now)
-  return { epoch: store.epoch, retiredFromFence, purgedFromFence, disconnectedOnRestart, uncertainBindings }
+  // A new owner has no proof of any prior Assignment send. Move unresolved
+  // outbox items to a terminal non-send state and never release authority.
+  const assignmentDeliveriesRecovered: string[] = []
+  store.transaction(() => {
+    for (const delivery of store.listAssignmentDeliveries()) {
+      if (delivery.state === 'queued' && store.transitionAssignmentDelivery(delivery.attemptId, 'queued', 'not_sent', 'owner_restarted')) {
+        assignmentDeliveriesRecovered.push(delivery.deliveryId)
+      } else if (delivery.state === 'attempting' && store.transitionAssignmentDelivery(delivery.attemptId, 'attempting', 'unknown', 'owner_restarted')) {
+        assignmentDeliveriesRecovered.push(delivery.deliveryId)
+      }
+    }
+  })
+  const uncertainWriters: string[] = []
+  store.transaction(() => {
+    for (const writer of store.listWriters()) {
+      if (writer.state === 'held' && store.markWriterUncertain(writer.projectId, now)) uncertainWriters.push(writer.projectId)
+    }
+  })
+  // An unprovable elapsed interval never grants a fresh budget. A restart
+  // retains the writer as uncertain, so the bounded correction/resume path
+  // stays blocked until an explicit reconciliation clears it.
+  const reconciliationRequired: string[] = []
+  for (const assignment of store.listAssignments()) {
+    if (assignment.state === 'accepted' || assignment.state === 'stopped' || assignment.state === 'failed') continue
+    const writer = store.getWriter(assignment.projectId)
+    if (writer !== null && writer.state === 'uncertain' && writer.assignmentId === assignment.assignmentId) {
+      reconciliationRequired.push(assignment.assignmentId)
+    }
+  }
+  return { epoch: store.epoch, retiredFromFence, purgedFromFence, disconnectedOnRestart, uncertainBindings, assignmentDeliveriesRecovered, uncertainWriters, reconciliationRequired }
 }

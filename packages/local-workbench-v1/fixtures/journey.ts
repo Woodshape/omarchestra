@@ -75,6 +75,7 @@ export const journeyDetails: WorkbenchDetail[] = [
     goalId: JOURNEY_GOAL_ID,
     agentRunId: JOURNEY_AGENT_RUN_ID,
     goalText: 'Ship the parser fix',
+    taskText: 'Implement the parser change and add a focused test.',
     executionNodeId: 'node-workbench-1',
     gitCommonDir: '/home/user/work/omarchestra/.git',
     headOid: 'abcdef0',
@@ -146,6 +147,7 @@ export const journeyFixture: WorkbenchSnapshot = {
       reasonCode: 'no_active_assignment', reason: 'No assignment is running for this agent.',
     },
       { kind: 'retire', target: JOURNEY_AGENT_RUN_ID, label: 'Retire agent', enabled: false, reasonCode: 'active_goal', reason: 'Finish or reassign the active Goal before retiring this agent.' },
+      { kind: 'prepare_start_review', target: JOURNEY_AGENT_RUN_ID, label: 'Review Start', enabled: true, reasonCode: null, reason: null },
     ],
   }],
   observedSessions: [{
@@ -173,7 +175,7 @@ export const journeyFixture: WorkbenchSnapshot = {
   actions: [
     { kind: 'create_goal', target: null, label: 'Create', enabled: true, reasonCode: null, reason: null },
     { kind: 'configure_checks', target: JOURNEY_CHECK_ID, label: 'Save check', enabled: true, reasonCode: null, reason: null },
-    { kind: 'start_assignment', target: JOURNEY_AGENT_RUN_ID, label: 'Confirm start', enabled: false, reasonCode: 'runtime_unavailable', reason: 'Starting work is unavailable in this presentation slice.' },
+    { kind: 'start_assignment', target: JOURNEY_AGENT_RUN_ID, label: 'Confirm Start', enabled: true, reasonCode: null, reason: null },
   ],
   roles: ['Builder', 'Reviewer'],
   checks: journeyChecks,
