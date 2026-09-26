@@ -19,7 +19,8 @@ function harness(options: { offline?: boolean; socket?: boolean; unitState?: str
     async action(type) { actions.push(type); return { status: type === 'open' ? 'opened' : 'hidden' } },
     systemctl(args) {
       calls.push(args.join(' '))
-      if (args[0] === 'start') { started = true; return '' }
+      if (args[0] === 'reset-failed' && args[1] === unit) return ''
+      if (args[0] === 'start' && args[1] === unit) { started = true; return '' }
       if (args.includes('--property=UnitFileState')) return options.unitState ?? 'enabled'
       if (args.includes('--property=FragmentPath')) return options.fragment ?? '/owned/service'
       if (args.includes('--property=NeedDaemonReload')) return options.reload ?? 'no'
@@ -59,13 +60,20 @@ test('already running owner toggles without contacting systemd and Close leaves 
 test('no bar click starts a foreign, disabled, stale or already-active owner service', async () => {
   for (const options of [
     { socket: true }, { unitState: 'disabled' }, { fragment: '/foreign/service' },
-    { reload: 'yes' }, { active: 'active' }, { active: 'failed' },
+    { reload: 'yes' }, { active: 'active' }, { active: 'activating' },
   ]) {
     const { ports, calls, actions } = harness({ offline: true, ...options })
     await assert.rejects(toggleWorkbench(ports))
     assert.equal(calls.some(call => call.startsWith('start ')), false)
     assert.deepEqual(actions, [])
   }
+})
+
+test('a failed exact service clears only its failed counter before one supervised start', async () => {
+  const { ports, calls, actions } = harness({ offline: true, active: 'failed' })
+  assert.equal(await toggleWorkbench(ports), 'opened')
+  assert.deepEqual(calls.slice(-2), [`reset-failed ${unit}`, `start ${unit}`])
+  assert.deepEqual(actions, ['open'])
 })
 
 test('service that does not become ready never fabricates an open dock', async () => {

@@ -1,33 +1,45 @@
-/** Explicit v1 → v2 ownership receipt migration for a reboot-recreated /run.
- * This is never called by owner startup or a bar click. It preserves the exact
- * legacy bytes outside the state root before an atomic forward-only replace.
+/** Explicit v1/v2 -> v3 ownership receipt migration.
+ * Never called by owner startup or a bar click. It verifies the exact prior
+ * receipt, preserves its bytes outside the state root, and writes a new stable
+ * filesystem-identity receipt only after an exact operator plan is authorized.
  */
 import { constants, closeSync, existsSync, fsyncSync, lstatSync, openSync, readFileSync, readdirSync, realpathSync, renameSync, writeFileSync } from 'node:fs'
 import { createHash } from 'node:crypto'
 import { dirname, isAbsolute, join, resolve, sep } from 'node:path'
 import { acquireOwnerLock } from './owner-lock.ts'
-import { captureOwnedPaths, durableOwnedPaths, ownedIdentity, refuseOwnedIdentity, runtimeOwnedPaths, verifyOwnedReceipt, type OwnedIdentity } from './owned-resources.ts'
+import { captureDurableOwnedPaths, captureOwnedPaths, durableOwnedPaths, ownedPathIdentity, refuseOwnedIdentity, runtimeOwnedPaths, verifyOwnedReceipt, type DurableOwnedIdentity, type OwnedIdentity } from './owned-resources.ts'
 import { readManifest } from './manifest.ts'
 import { resolveRoots, ensureOwnedFileTarget, type WorkbenchRoots, type WorkbenchRootsInput } from './paths.ts'
 
 const hash = (bytes: string) => createHash('sha256').update(bytes).digest('hex')
 const same = (left: unknown, right: unknown) => JSON.stringify(left) === JSON.stringify(right)
-const tmpName = 'ownership.json.v2-new'
+const tmpName = 'ownership.json.v3-new'
+type LegacyReceipt = { version: 1 | 2; resources: Record<string, OwnedIdentity>; runtimePath?: string }
 export interface RuntimeMigrationPlan {
-  schemaVersion: 1
+  schemaVersion: 3
+  receiptVersion: 1 | 2
   stateDir: string
   runtimeDir: string
   receiptHash: string
   nextHash: string
   driftedEphemeralPaths: string[]
+  /** Legacy dev fields that differ; informational only and omitted from v3. */
+  legacyDeviceDriftPaths: string[]
+  nextResources: Record<string, DurableOwnedIdentity>
   digest: string
 }
 
 function rootsForMigration(input: WorkbenchRootsInput): WorkbenchRoots {
   if (!input.runtimeDir || !isAbsolute(input.runtimeDir)) refuseOwnedIdentity('migration requires the explicit existing runtime root')
-  // inspect is read-only: resolveRoots would create a missing runtime directory.
-  try { if (!lstatSync(input.runtimeDir).isDirectory()) refuseOwnedIdentity('runtime root is not a directory') }
+  // Inspection is read-only: resolveRoots would create missing roots.
+  let state
+  try { state = lstatSync(input.stateDir) }
+  catch { refuseOwnedIdentity('state root is missing; migration never creates or adopts it') }
+  if (state.isSymbolicLink() || !state.isDirectory()) refuseOwnedIdentity('state root is not a real directory')
+  let runtime
+  try { runtime = lstatSync(input.runtimeDir) }
   catch { refuseOwnedIdentity('runtime root is missing; migration never creates or adopts it') }
+  if (runtime.isSymbolicLink() || !runtime.isDirectory()) refuseOwnedIdentity('runtime root is not a real directory')
   const roots = resolveRoots(input)
   if (!roots.runtimeDir) refuseOwnedIdentity('migration requires a runtime root')
   const parent = lstatSync(dirname(roots.runtimeDir))
@@ -38,7 +50,7 @@ function rootsForMigration(input: WorkbenchRootsInput): WorkbenchRoots {
   readManifest(roots)
   return roots
 }
-function legacyBytes(roots: WorkbenchRoots): { bytes: string; receipt: { version: 1; resources: Record<string, OwnedIdentity> } } {
+function legacyBytes(roots: WorkbenchRoots): { bytes: string; receipt: LegacyReceipt } {
   const path = join(roots.stateDir, 'ownership.json')
   ensureOwnedFileTarget(path)
   const s = lstatSync(path)
@@ -46,33 +58,53 @@ function legacyBytes(roots: WorkbenchRoots): { bytes: string; receipt: { version
   const bytes = readFileSync(path, 'utf8')
   let parsed: any
   try { parsed = JSON.parse(bytes) } catch { refuseOwnedIdentity('legacy receipt is not valid JSON') }
-  if (!parsed || Object.keys(parsed).sort().join(',') !== 'resources,version' || parsed.version !== 1 || !parsed.resources || typeof parsed.resources !== 'object' || Array.isArray(parsed.resources)) refuseOwnedIdentity('not an exact v1 ownership receipt')
-  const keys = [...new Set([...durableOwnedPaths(roots), ...runtimeOwnedPaths(roots)])].sort()
+  const v1 = parsed && parsed.version === 1 && Object.keys(parsed).sort().join(',') === 'resources,version'
+  const v2 = parsed && parsed.version === 2 && Object.keys(parsed).sort().join(',') === 'resources,runtimePath,version'
+  if ((!v1 && !v2) || !parsed.resources || typeof parsed.resources !== 'object' || Array.isArray(parsed.resources)) {
+    refuseOwnedIdentity('not an exact v1 or v2 ownership receipt')
+  }
+  if (v2 && parsed.runtimePath !== roots.runtimeDir) refuseOwnedIdentity('v2 receipt runtime path differs from the explicit root')
+  const keys = (parsed.version === 1
+    ? [...new Set([...durableOwnedPaths(roots), ...runtimeOwnedPaths(roots)])]
+    : durableOwnedPaths(roots)).sort()
   if (!same(Object.keys(parsed.resources).sort(), keys)) refuseOwnedIdentity('legacy receipt resource names do not match these explicit roots')
   for (const key of keys) {
     const value = parsed.resources[key]
     if (!value || Object.keys(value).sort().join(',') !== 'dev,ino,kind,uid'
         || !['file', 'directory'].includes(value.kind)
-        || ![value.dev, value.ino, value.uid].every(x => typeof x === 'string' && /^\d+$/.test(x))) refuseOwnedIdentity('legacy receipt contains malformed identity')
+        || ![value.dev, value.ino, value.uid].every((x: unknown) => typeof x === 'string' && /^\d+$/.test(x))) {
+      refuseOwnedIdentity('legacy receipt contains malformed identity')
+    }
   }
   return { bytes, receipt: parsed }
 }
 function captureValidated(roots: WorkbenchRoots) {
   const { bytes, receipt } = legacyBytes(roots)
-  const durable = captureOwnedPaths(durableOwnedPaths(roots))
-  for (const [path, actual] of Object.entries(durable)) {
-    if (!same(receipt.resources[path], actual)) refuseOwnedIdentity(`durable owned resource changed: ${path}`)
+  const durablePaths = durableOwnedPaths(roots)
+  const durableNow = captureOwnedPaths(durablePaths)
+  const legacyDeviceDriftPaths: string[] = []
+  for (const path of durablePaths) {
+    const prior = receipt.resources[path], actual = durableNow[path]
+    if (!prior || actual.ino !== prior.ino || actual.uid !== prior.uid || actual.kind !== prior.kind) {
+      refuseOwnedIdentity(`durable owned resource changed: ${path}`)
+    }
+    if (prior.dev !== actual.dev) legacyDeviceDriftPaths.push(path)
   }
-  const currentRuntime = captureOwnedPaths(runtimeOwnedPaths(roots))
-  const drifted: string[] = []
-  for (const [path, actual] of Object.entries(currentRuntime)) {
-    const prior = receipt.resources[path]
-    if (actual.kind !== 'directory' || prior.kind !== 'directory' || actual.uid !== prior.uid) refuseOwnedIdentity(`runtime parent kind or owner changed: ${path}`)
-    if (!same(prior, actual)) drifted.push(path)
+  const driftedEphemeralPaths: string[] = []
+  if (receipt.version === 1) {
+    const runtimeNow = captureOwnedPaths(runtimeOwnedPaths(roots))
+    for (const [path, actual] of Object.entries(runtimeNow)) {
+      const prior = receipt.resources[path]
+      if (actual.kind !== 'directory' || prior.kind !== 'directory' || actual.uid !== prior.uid) {
+        refuseOwnedIdentity(`runtime parent kind or owner changed: ${path}`)
+      }
+      if (!same(prior, actual)) driftedEphemeralPaths.push(path)
+    }
   }
-  const next = JSON.stringify({ version: 2, resources: durable, runtimePath: roots.runtimeDir }) + '\n'
-  const base = { schemaVersion: 1 as const, stateDir: roots.stateDir, runtimeDir: roots.runtimeDir!,
-    receiptHash: hash(bytes), nextHash: hash(next), driftedEphemeralPaths: drifted }
+  const nextResources = captureDurableOwnedPaths(durablePaths)
+  const next = JSON.stringify({ version: 3, resources: nextResources, runtimePath: roots.runtimeDir }) + '\n'
+  const base = { schemaVersion: 3 as const, receiptVersion: receipt.version, stateDir: roots.stateDir, runtimeDir: roots.runtimeDir!,
+    receiptHash: hash(bytes), nextHash: hash(next), driftedEphemeralPaths, legacyDeviceDriftPaths, nextResources }
   return { bytes, next, plan: { ...base, digest: hash(JSON.stringify(base)) } }
 }
 export function inspectRuntimeMigration(input: WorkbenchRootsInput): RuntimeMigrationPlan {
@@ -103,16 +135,16 @@ export function applyRuntimeMigration(input: WorkbenchRootsInput, expected: Runt
   try {
     const current = captureValidated(roots)
     if (!same(current.plan, expected)) refuseOwnedIdentity('stale migration plan; inspect again before authorizing')
-    const backup = join(evidenceDir, `workbench-ownership-v1-${expected.receiptHash}.json`)
+    const backup = join(evidenceDir, `workbench-ownership-v${expected.receiptVersion}-${expected.receiptHash}.json`)
     const staged = join(roots.stateDir, tmpName)
     if (existsSync(backup) || existsSync(staged)) refuseOwnedIdentity('migration evidence or staged file already exists; preserve it for manual review')
-    const original = ownedIdentity(join(roots.stateDir, 'ownership.json'))
+    const original = ownedPathIdentity(join(roots.stateDir, 'ownership.json'))
     writeExclusive(backup, current.bytes)
     options.afterBackup?.()
-    if (!same(ownedIdentity(join(roots.stateDir, 'ownership.json')), original) || !same(captureValidated(roots).plan, expected)) refuseOwnedIdentity('ownership changed after evidence backup')
+    if (!same(ownedPathIdentity(join(roots.stateDir, 'ownership.json')), original) || !same(captureValidated(roots).plan, expected)) refuseOwnedIdentity('ownership changed after evidence backup')
     writeExclusive(staged, current.next)
     options.afterStage?.()
-    if (!same(ownedIdentity(join(roots.stateDir, 'ownership.json')), original) || !same(captureValidated(roots).plan, expected)) refuseOwnedIdentity('ownership changed before migration commit')
+    if (!same(ownedPathIdentity(join(roots.stateDir, 'ownership.json')), original) || !same(captureValidated(roots).plan, expected)) refuseOwnedIdentity('ownership changed before migration commit')
     renameSync(staged, join(roots.stateDir, 'ownership.json'))
     flushParent(roots.stateDir)
     verifyOwnedReceipt(roots)()

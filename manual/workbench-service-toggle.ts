@@ -36,8 +36,12 @@ export async function toggleWorkbench(ports: TogglePorts): Promise<'opened' | 'h
     const fragment = ports.systemctl(['show', UNIT, '--property=FragmentPath', '--value'])
     if (!fragment || ports.realpath(fragment) !== ports.realpath(ports.unitSource)) throw new Error('owner_service_not_owned')
     if (ports.systemctl(['show', UNIT, '--property=NeedDaemonReload', '--value']) !== 'no') throw new Error('owner_service_reload_required')
-    if (ports.systemctl(['show', UNIT, '--property=ActiveState', '--value']) !== 'inactive') throw new Error('active_or_failed_owner_unreachable')
-    // systemd, not the bar widget or launcher, acquires the one-owner lock.
+    const active = ports.systemctl(['show', UNIT, '--property=ActiveState', '--value'])
+    if (active !== 'inactive' && active !== 'failed') throw new Error('active_or_failed_owner_unreachable')
+    // A bounded startup failure can leave systemd at start-limit-hit. Clear
+    // only this exact verified unit's failed counter, then let systemd acquire
+    // the single-owner lock. Never reset a live/unreachable owner.
+    if (active === 'failed') ports.systemctl(['reset-failed', UNIT])
     ports.systemctl(['start', UNIT])
     for (let attempt = 0; attempt < 16; attempt++) {
       try { status = await ports.status() } catch { /* process starting */ }

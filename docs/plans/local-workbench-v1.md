@@ -1,6 +1,6 @@
 # Local Workbench v1 implementation plan
 
-Status: **Phase 0 contracts and Phase 1 task-first presentation delivered. Following the corrected all-pages preview, the operator reported “ok working now” and explicitly authorized proceeding to functional integration. Phase 2 is partially implemented but its full gate is BLOCKED; use the [verified sequential completion plan](local-workbench-v1-phase-2-completion.md), not another broad all-Phase-2 delegation. This entry decision is not a formal exhaustive layout-checklist PASS or live execution evidence.**
+Status: **Phase 0 contracts and Phase 1 task-first presentation delivered. Phase 2 S1–S6 engineering gates pass, but the full live management/Adoption walkthrough remains incomplete. The first Phase 3 Project-context gate passes; `start_assignment` remains disabled and rejected. Track the current one-Assignment implementation and open topics in the [Assignment-loop tracker](local-workbench-v1-assignment-loop.md).**
 
 Canonical collaboration result: [delivery and provenance](../design/local-workbench-v1-result.md). Latest [Phase 1 engineering closeout](../design/local-workbench-v1-phase-1-closeout.md) records the completed follow-up and evidence limits.
 
@@ -242,6 +242,8 @@ before Assignment start. Demonstrate two sequential Goals without reinstalling
 or rebuilding the Companion.
 
 ## Phase 3 — one real gated Assignment loop
+
+Current progress, ordered implementation slices, open technical topics, and executable/live gates are tracked in the [first useful Assignment-loop tracker](local-workbench-v1-assignment-loop.md). This high-level roadmap does not authorize live dispatch.
 
 - Implement Assignment, attempt and gate-result transitions from Phase 0.
 - Wire the same-Pi delivery port; retain stable IDs and current readiness checks.

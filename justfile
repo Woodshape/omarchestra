@@ -373,3 +373,16 @@ local-workbench-v1-phase-3-context-check:
         PATH="$node_dir:/usr/bin:/bin" \
         NODE_BIN="$node_bin" \
         bash "$root/packages/local-workbench-v1/scripts/phase-3-context-gate.sh"
+
+# LOCAL WORKBENCH V1 — bounded AL-02 prerequisite only. This fingerprints
+# disposable checkouts under C9; it is not durable admission or live acceptance.
+local-workbench-v1-phase-3-admission-prereq-check:
+    #!/usr/bin/env bash
+    set -euo pipefail
+    root='{{justfile_directory()}}'
+    node_bin="$(command -v node || true)"
+    node_dir="$(dirname "${node_bin:-/usr/bin/node}")"
+    env -i \
+        PATH="$node_dir:/usr/bin:/bin" \
+        NODE_BIN="$node_bin" \
+        bash "$root/packages/local-workbench-v1/scripts/phase-3-admission-prereq-gate.sh"

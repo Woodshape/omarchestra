@@ -1,5 +1,7 @@
 # Local Workbench v1 — bounded Phase 3 handoff
 
+> **Historical implementation snapshot.** The Phase 2 verdict and implementation inventory below predate later S1–S6 engineering completion and must not be used as current status. Use the [canonical Phase 2 integration result](../design/local-workbench-v1-phase-2-integration-result.md) for current evidence and the [Assignment-loop tracker](local-workbench-v1-assignment-loop.md) for current Phase 3 progress/open topics. The D6 intervention prerequisites remain the live-dispatch safety gate.
+
 Phase 2 delivered a runnable durable management path and connected the actual presentation path, and it stops before any work is dispatched. The independent final authority verdict on Phase 2 is **FAIL**, and its unresolved findings are Phase 2 requirements returned to Phase 2, not Phase 3 obligations. This handoff therefore states: what Phase 3 receives, what is still open in Phase 2, the bounded Phase 3 scope for one gated Assignment, and the Phase 4 intervention prerequisites before live dispatch. It is written from the state of the code after Phase 2, not from the original plan.
 
 Canonical Phase 2 record: [the final integration result](../design/local-workbench-v1-phase-2-integration-result.md). Phase 2 acceptance exits 1 (BLOCKED). The inherited task-level inventory below is qualified by that newer record.
