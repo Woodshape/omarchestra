@@ -215,7 +215,15 @@ export class FramedAdoptionManager extends AdoptionManager {
     const alreadyProvedSuccessor = successorConnection && successorConnection !== event.connectionId && this.proofs.has(successorConnection)
     if (binding && !alreadyProvedSuccessor && ['ready', 'committed', 'manual_takeover'].includes(binding.state)) {
       const state = binding.state === 'manual_takeover' ? 'manual_takeover_disconnected' : 'disconnected'
-      this.owner.commit('adoption_disconnected', { runId: binding.runId }, () => this.store.setBindingState(binding.runId, state, this.now()))
+      this.owner.commit('adoption_disconnected', { runId: binding.runId }, () => {
+        this.store.setBindingState(binding.runId, state, this.now())
+        // Lost activity coverage cannot be cleared by an idle reconnect.
+        for (const assignment of this.store.listAssignments()) {
+          if (assignment.agentRunId !== binding.runId || ['accepted', 'stopped', 'failed'].includes(assignment.state)) continue
+          const writer = this.store.getWriter(assignment.projectId)
+          if (writer?.state === 'held') this.store.markWriterUncertain(assignment.projectId, this.now())
+        }
+      })
     }
     const abandoned = this.store.listProposals().filter(p => p.connectionId === event.connectionId && incarnationKey(p.incarnation) === key)
     if (abandoned.length) this.owner.commit('adoption_abandoned', { proposalIds: abandoned.map(p => p.proposalId) },
@@ -261,6 +269,7 @@ export class FramedAdoptionManager extends AdoptionManager {
     this.owner.commit('control_taken', { runId }, () => {
       this.store.setBindingControlEpoch(runId, binding.controlEpoch + 1, this.now())
       this.store.setBindingState(runId, binding.state === 'disconnected' ? 'manual_takeover_disconnected' : 'manual_takeover', this.now())
+      this.owner.pauseRunAssignments(runId)
     }, () => this.sendStatus(runId))
     return this.store.getBinding(runId)!
   }

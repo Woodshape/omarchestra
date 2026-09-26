@@ -116,6 +116,7 @@ function fixture(t: test.TestContext, admissionFault?: (phase: AdmissionPhase) =
       if (observedSessionId !== observation.observedSessionId) return null
       return { observation, connectionId: CONNECTION, challenge: CHALLENGE, peer: { send(): void {}, close(): void {} } }
     },
+    assignmentLoopAvailable() { return true },
     projectContextMatches(runId: string, canonicalPath: string) {
       return runId === 'run-1' && canonicalPath === project.canonicalPath
     },

@@ -2,7 +2,7 @@
   "name": "omarchestra-local-workbench-v1",
   "private": true,
   "type": "module",
-  "description": "Local Workbench v1: durable local runner, presentation shell and opt-in content-free Pi bridge. No Assignment delivery or acceptance-check execution.",
+  "description": "Local Workbench v1: durable local runner, presentation shell, privacy-bounded Pi bridge and gated Assignment loop. Live deployment and execution require separate authorization.",
   "engines": {
     "node": ">=22.6.0"
   },

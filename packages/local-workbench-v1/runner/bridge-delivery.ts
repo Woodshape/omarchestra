@@ -2,6 +2,7 @@
 import type { WorkbenchFrame } from './transport.ts'
 import { decodeBridgeFrame, type BridgeFrame } from './bridge-protocol.ts'
 import { workbenchError } from './errors.ts'
+import { assignmentRemainingMs } from './assignment-budget.ts'
 import type { AssignmentOutboxState, WorkbenchStore } from './store.ts'
 import type { BridgeAssignmentEvent, BridgeRegistry, AssignmentSendResult } from './bridge-registry.ts'
 export type DeliveryState = 'queued' | 'attempting' | 'written' | 'not_sent' | 'unknown'
@@ -71,15 +72,15 @@ export interface AssignmentDeliveryResult {
   deliveryId: string
   state: AssignmentOutboxState
   outcome: AssignmentDeliveryOutcome
-  storedOutcome: 'accepted' | null
+  storedOutcome: 'accepted' | 'unknown' | null
   reasonCode: string | null
   replayed: boolean
 }
 /** One lost ACK is proved uncertain after this bounded window; reconciliation is explicit. */
 export const ASSIGNMENT_ACK_DEADLINE_MS = 5_000
 interface DeliveryIdentity { deliveryId: string; assignmentId: string; attemptId: string; runId: string; payloadDigest: string }
-type AckWait = { kind: 'ack'; outcome: 'accepted' | 'busy' | 'duplicate' | 'invalid'; storedOutcome: 'accepted' | null; reason: string | null } | { kind: 'timeout' }
-type ReceiptWait = { kind: 'receipt'; known: boolean; outcome: 'accepted' | 'busy' | 'invalid' | null } | { kind: 'timeout' }
+type AckWait = { kind: 'ack'; outcome: 'accepted' | 'busy' | 'duplicate' | 'invalid' | 'unknown'; storedOutcome: 'accepted' | 'unknown' | null; reason: string | null } | { kind: 'timeout' }
+type ReceiptWait = { kind: 'receipt'; known: boolean; outcome: 'accepted' | 'busy' | 'invalid' | 'unknown' | null } | { kind: 'timeout' }
 
 /**
  * AL-03 committed same-Pi delivery. It consumes the one queued outbox row an
@@ -93,6 +94,7 @@ export class AssignmentDeliveryCoordinator {
   private readonly store: WorkbenchStore
   private readonly registry: BridgeRegistry
   private readonly clock: () => number
+  private readonly monotonic: () => number
   private readonly newId: (prefix: string) => string
   private readonly ackDeadlineMs: number
   private readonly schedule: (callback: () => void, ms: number) => ReturnType<typeof setTimeout>
@@ -100,10 +102,11 @@ export class AssignmentDeliveryCoordinator {
   private readonly pendingAcks = new Map<string, DeliveryIdentity & { resolve: (waited: AckWait) => void; timer: ReturnType<typeof setTimeout> }>()
   private readonly pendingReceipts = new Map<string, DeliveryIdentity & { resolve: (waited: ReceiptWait) => void; timer: ReturnType<typeof setTimeout> }>()
 
-  constructor(options: { store: WorkbenchStore; registry: BridgeRegistry; clock?: () => number; newId?: (prefix: string) => string; ackDeadlineMs?: number; schedule?: (callback: () => void, ms: number) => ReturnType<typeof setTimeout>; cancel?: (timer: ReturnType<typeof setTimeout>) => void }) {
+  constructor(options: { store: WorkbenchStore; registry: BridgeRegistry; clock?: () => number; monotonic?: () => number; newId?: (prefix: string) => string; ackDeadlineMs?: number; schedule?: (callback: () => void, ms: number) => ReturnType<typeof setTimeout>; cancel?: (timer: ReturnType<typeof setTimeout>) => void }) {
     this.store = options.store
     this.registry = options.registry
     this.clock = options.clock ?? (() => Date.now())
+    this.monotonic = options.monotonic ?? options.clock ?? (() => performance.now())
     this.newId = options.newId ?? (prefix => `${prefix}-${this.clock().toString(16)}`)
     this.ackDeadlineMs = options.ackDeadlineMs ?? ASSIGNMENT_ACK_DEADLINE_MS
     this.schedule = options.schedule ?? ((callback, ms) => { const timer = setTimeout(callback, ms); timer.unref(); return timer })
@@ -121,12 +124,17 @@ export class AssignmentDeliveryCoordinator {
     if (now >= delivery.deadline) { this.store.transitionAssignmentDelivery(attemptId, 'queued', 'not_sent', 'expired'); return this.result(delivery, 'not_sent', 'not_sent', null, 'expired') }
     const assignment = this.store.getAssignment(delivery.assignmentId)
     const writer = assignment ? this.store.getWriter(assignment.projectId) : null
+    const remaining = assignment ? assignmentRemainingMs(this.store, assignment, this.monotonic()) : null
+    if (remaining === null || remaining <= 0) {
+      this.store.transitionAssignmentDelivery(attemptId, 'queued', 'not_sent', 'expired')
+      return this.result(delivery, 'not_sent', 'not_sent', null, 'expired')
+    }
     if (!assignment || assignment.state === 'stopped' || assignment.state === 'failed' || this.store.getStop(delivery.assignmentId)
         || !writer || writer.state !== 'held' || writer.attemptId !== attemptId || writer.epoch !== attempt.writerEpoch) {
       this.store.transitionAssignmentDelivery(attemptId, 'queued', 'not_sent', 'revoked')
       return this.result(delivery, 'not_sent', 'not_sent', null, 'revoked')
     }
-    const effect = this.registry.prepareAssignmentDelivery(delivery.runId, { deliveryId: delivery.deliveryId, assignmentId: delivery.assignmentId, attemptId, payloadDigest: delivery.payloadDigest, payloadJson: delivery.frameJson, deadline: delivery.deadline })
+    const effect = this.registry.prepareAssignmentDelivery(delivery.runId, { deliveryId: delivery.deliveryId, assignmentId: delivery.assignmentId, attemptId, payloadDigest: delivery.payloadDigest, payloadJson: delivery.frameJson, deadline: delivery.deadline, remainingMs: Math.min(remaining, delivery.deadline - now) })
     if (!effect) { this.store.transitionAssignmentDelivery(attemptId, 'queued', 'not_sent', 'connection_lost'); return this.result(delivery, 'not_sent', 'not_sent', null, 'connection_lost') }
     const waited = this.awaitAck({ deliveryId: delivery.deliveryId, assignmentId: delivery.assignmentId, attemptId, runId: delivery.runId, payloadDigest: delivery.payloadDigest })
     this.store.transitionAssignmentDelivery(attemptId, 'queued', 'attempting', null)
@@ -139,7 +147,7 @@ export class AssignmentDeliveryCoordinator {
       return this.result(delivery, 'unknown', 'unknown', null, 'transport_error')
     }
     const settled: AckWait = await waited
-    if (settled.kind === 'timeout') {
+    if (settled.kind === 'timeout' || settled.outcome === 'unknown' || (settled.outcome === 'invalid' && settled.reason === 'send_failed') || (settled.outcome === 'duplicate' && settled.storedOutcome !== 'accepted')) {
       this.store.transitionAssignmentDelivery(attemptId, 'attempting', 'unknown', 'transport_error')
       this.markWriterUncertain(assignment.projectId)
       return this.result(delivery, 'unknown', 'unknown', null, 'transport_error')
@@ -164,7 +172,7 @@ export class AssignmentDeliveryCoordinator {
     const waited = this.awaitReceipt(requestId, { deliveryId: delivery.deliveryId, assignmentId: delivery.assignmentId, attemptId, runId: delivery.runId, payloadDigest: delivery.payloadDigest })
     if (effect() !== 'sent') { this.clearReceipt(requestId); return this.result(delivery, 'unknown', 'unknown', null, delivery.reasonCode) }
     const settled: ReceiptWait = await waited
-    if (settled.kind === 'timeout' || !settled.known || settled.outcome === null || settled.outcome === 'busy' || settled.outcome === 'invalid') {
+    if (settled.kind === 'timeout' || !settled.known || settled.outcome === null || settled.outcome === 'unknown' || settled.outcome === 'busy' || settled.outcome === 'invalid') {
       if (settled.kind === 'receipt' && settled.known && (settled.outcome === 'busy' || settled.outcome === 'invalid')) {
         this.store.transitionAssignmentDelivery(attemptId, 'unknown', 'not_sent', 'revoked')
         return this.result(delivery, 'not_sent', settled.outcome, null, 'revoked')
@@ -204,14 +212,14 @@ export class AssignmentDeliveryCoordinator {
     const entry = this.pendingAcks.get(frame.body.deliveryId as string)
     if (!entry) return
     if (frame.body.assignmentId !== entry.assignmentId || frame.body.attemptId !== entry.attemptId || frame.body.runId !== entry.runId || frame.body.payloadDigest !== entry.payloadDigest) return
-    this.settleAck(entry.deliveryId, { kind: 'ack', outcome: frame.body.outcome as 'accepted' | 'busy' | 'duplicate' | 'invalid', storedOutcome: (frame.body.storedOutcome ?? null) as 'accepted' | null, reason: (frame.body.reason ?? null) as string | null })
+    this.settleAck(entry.deliveryId, { kind: 'ack', outcome: frame.body.outcome as 'accepted' | 'busy' | 'duplicate' | 'invalid' | 'unknown', storedOutcome: (frame.body.storedOutcome ?? null) as 'accepted' | 'unknown' | null, reason: (frame.body.reason ?? null) as string | null })
   }
   private onReceipt(event: BridgeAssignmentEvent): void {
     const frame = event.frame
     const entry = this.pendingReceipts.get(frame.body.requestId as string)
     if (!entry) return
     if (frame.body.deliveryId !== entry.deliveryId || frame.body.assignmentId !== entry.assignmentId || frame.body.attemptId !== entry.attemptId || frame.body.runId !== entry.runId || frame.body.payloadDigest !== entry.payloadDigest) return
-    this.settleReceipt(frame.body.requestId as string, { kind: 'receipt', known: frame.body.known as boolean, outcome: (frame.body.outcome ?? null) as 'accepted' | 'busy' | 'invalid' | null })
+    this.settleReceipt(frame.body.requestId as string, { kind: 'receipt', known: frame.body.known as boolean, outcome: (frame.body.outcome ?? null) as 'accepted' | 'busy' | 'invalid' | 'unknown' | null })
   }
   private markWriterUncertain(projectId: string): void {
     const writer = this.store.getWriter(projectId)
@@ -221,7 +229,7 @@ export class AssignmentDeliveryCoordinator {
     const outcome: AssignmentDeliveryOutcome = delivery.state === 'written' ? 'accepted' : delivery.state === 'not_sent' ? 'not_sent' : 'unknown'
     return this.result(delivery, delivery.state, outcome, null, delivery.reasonCode, true)
   }
-  private result(delivery: { deliveryId: string; state: AssignmentOutboxState; reasonCode: string | null }, state: AssignmentOutboxState, outcome: AssignmentDeliveryOutcome, storedOutcome: 'accepted' | null, reasonCode: string | null, replayed = false): AssignmentDeliveryResult {
+  private result(delivery: { deliveryId: string; state: AssignmentOutboxState; reasonCode: string | null }, state: AssignmentOutboxState, outcome: AssignmentDeliveryOutcome, storedOutcome: 'accepted' | 'unknown' | null, reasonCode: string | null, replayed = false): AssignmentDeliveryResult {
     return { deliveryId: delivery.deliveryId, state, outcome, storedOutcome, reasonCode, replayed }
   }
 }

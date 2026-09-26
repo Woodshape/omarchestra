@@ -9,7 +9,7 @@ import { BridgeRegistry } from '../runner/bridge-registry.ts'
 import { attachBridgeStream } from '../runner/bridge-channel.ts'
 import { AssignmentDeliveryCoordinator } from '../runner/bridge-delivery.ts'
 import { CandidateSubmissionCoordinator } from '../runner/candidate-submission.ts'
-import { createPiBridgeExtension, type PiBridgeExtension } from '../runner/pi-bridge-extension.ts'
+import { createPiBridgeExtension, type PiBridgeExtension, type CandidateTool } from '../runner/pi-bridge-extension.ts'
 import { WorkbenchAuthority, type AdmissionPhase } from '../runner/authority.ts'
 import { openWorkbenchRunner, type WorkbenchRunner } from '../runner/runner.ts'
 import { createWorkbenchHost, type WorkbenchHost } from '../runner/host.ts'
@@ -228,7 +228,9 @@ test('AL-07 composes real QML, adapter, Runner, SQLite, framed fake-Pi delivery,
     attachBridgeStream(pair.owner, { onFrame: (peer, frame) => registry.receive(peer, frame), onClose: peer => registry.disconnect(peer) })
     return attachBridgeStream(pair.pi, { onFrame: (_peer, frame) => onFrame(frame), onClose })
   }
+  const tools = new Map<string, CandidateTool>()
   const pi: Record<string, unknown> = {
+    registerTool(tool: CandidateTool) { tools.set(tool.name, tool) },
     on(name: string, handler: (event: unknown, context: any) => void) { hooks.set(name, handler) },
     sendUserMessage(text: string) { sentTasks.push(text) },
   }
@@ -368,12 +370,12 @@ test('AL-07 composes real QML, adapter, Runner, SQLite, framed fake-Pi delivery,
       agentRunId: proposal.runId, controlEpoch: attempt.controlEpoch + 1, summary: 'old epoch', artifactRefs: [] })
     assert.equal(oldEpoch.outcome, 'invalid')
     assert.equal(runner.store.getCandidateByAttempt(attempt.attemptId), null)
-    const candidatePayload = { assignmentId: admitted.assignmentId, attemptId: attempt.attemptId,
-      agentRunId: proposal.runId, controlEpoch: attempt.controlEpoch,
-      summary: 'Candidate submitted through the dedicated structured port.', artifactRefs: [] }
-    const submitted = await extension.submitCandidate(candidatePayload)
+    const candidatePayload = { summary: 'Candidate submitted through the registered Pi tool.', artifactRefs: [] }
+    const tool = tools.get('omarchestra_submit_candidate')!
+    assert.ok(tool, 'the installed extension factory must register the native Pi tool')
+    const submitted = (await tool.execute('tool-1', candidatePayload)).details
     assert.equal(submitted.outcome, 'accepted')
-    const duplicate = await extension.submitCandidate(candidatePayload)
+    const duplicate = (await tool.execute('tool-2', candidatePayload)).details
     assert.equal(duplicate.outcome, 'duplicate')
     assert.equal(runner.store.getAssignment(admitted.assignmentId)?.state, 'candidate')
     assert.equal(runner.store.listCandidates(admitted.assignmentId).length, 1)

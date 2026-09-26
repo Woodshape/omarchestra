@@ -13,6 +13,7 @@ import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs'
 import { execFileSync } from 'node:child_process'
 import { join } from 'node:path'
 import { tmpdir } from 'node:os'
+import { armAssignmentBudget } from '../runner/assignment-budget.ts'
 import { openWorkbenchRunner, type WorkbenchRunner } from '../runner/runner.ts'
 import { WorkbenchAuthority, START_UNAVAILABLE_REASON } from '../runner/authority.ts'
 import { canonicalJson, sha256 } from '../runner/canonical-hash.ts'
@@ -147,6 +148,7 @@ function setup(t: TestContext): Fixture {
         taskText: 'Implement the bounded assignment loop.', writeAuthority: false, state: 'admitted',
         limits, attemptCount: 0, revision: 1, createdAt: now, updatedAt: now,
       })
+      armAssignmentBudget(runner.store, runner.store.getAssignment(ASSIGNMENT_ID)!, now)
       runner.store.putAttempt({
         attemptId: ATTEMPT_ID, assignmentId: ASSIGNMENT_ID, ordinal: 1, state: 'admitted',
         runBinding: {

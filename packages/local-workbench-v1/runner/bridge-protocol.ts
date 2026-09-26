@@ -18,9 +18,10 @@ export const PROJECT_CONTEXT_CAPABILITY = 'management.project-context'
 export const ASSIGNMENT_DELIVERY_CAPABILITY = 'management.assignment-delivery'
 /** Optional AL-04 same-Pi Candidate submission; legacy peers never receive a candidate frame. */
 export const CANDIDATE_SUBMISSION_CAPABILITY = 'management.candidate-submission'
+export const QUIESCENCE_CAPABILITY = 'management.quiescence'
 /** The exact bytes of one bounded C6 Candidate submission frame. */
 export const MAX_CANDIDATE_FRAME_BYTES = 65_536
-const OPTIONAL_BRIDGE_CAPABILITIES = [SESSION_CODE_CAPABILITY, PANE_NAVIGATION_CAPABILITY, PROJECT_CONTEXT_CAPABILITY, ASSIGNMENT_DELIVERY_CAPABILITY, CANDIDATE_SUBMISSION_CAPABILITY] as const
+const OPTIONAL_BRIDGE_CAPABILITIES = [SESSION_CODE_CAPABILITY, PANE_NAVIGATION_CAPABILITY, PROJECT_CONTEXT_CAPABILITY, ASSIGNMENT_DELIVERY_CAPABILITY, CANDIDATE_SUBMISSION_CAPABILITY, QUIESCENCE_CAPABILITY] as const
 const validCapabilities = (v: unknown) => Array.isArray(v) && v.length >= BRIDGE_CAPABILITIES.length
   && v.length <= BRIDGE_CAPABILITIES.length + OPTIONAL_BRIDGE_CAPABILITIES.length
   && BRIDGE_CAPABILITIES.every((c, i) => v[i] === c)
@@ -33,7 +34,7 @@ const capability = (v: unknown): v is string => id(v) && v.length >= 32
 const counter = (v: unknown): v is number => Number.isSafeInteger(v) && (v as number) >= 0
 const digest = (v: unknown): v is string => typeof v === 'string' && /^[a-f0-9]{64}$/.test(v)
 const boundedString = (max: number) => (v: unknown): v is string => typeof v === 'string' && v.length > 0 && v.isWellFormed() && Buffer.byteLength(v) <= max
-const deliveryOutcome = (v: unknown): v is string => v === 'accepted' || v === 'busy' || v === 'duplicate' || v === 'invalid'
+const deliveryOutcome = (v: unknown): v is string => v === 'accepted' || v === 'busy' || v === 'duplicate' || v === 'invalid' || v === 'unknown'
 const reasonToken = (v: unknown): v is string => typeof v === 'string' && /^[a-z][a-z0-9_]{0,63}$/.test(v)
 const enums = {
   hostMode: ['tui'], lifecycle: ['running', 'exited'], activity: ['idle', 'busy', 'unknown', 'waiting_for_user'], health: ['healthy', 'degraded'],
@@ -67,14 +68,20 @@ const bodies = {
     payloadJson: boundedString(MAX_ASSIGNMENT_FRAME_BYTES), deliveryDeadline: counter },
   assignment_ack: { connectionId: capability, connectionChallenge: capability, sourceSequence: counter,
     deliveryId: id, assignmentId: id, attemptId: id, runId: id, payloadDigest: digest,
-    outcome: deliveryOutcome, storedOutcome: (v: unknown) => v === null || v === 'accepted' || v === 'duplicate',
+    outcome: deliveryOutcome, storedOutcome: (v: unknown) => v === null || v === 'accepted' || v === 'unknown',
     reason: (v: unknown) => v === null || reasonToken(v) },
   assignment_receipt_request: { connectionId: capability, connectionChallenge: capability,
     requestId: id, deliveryId: id, assignmentId: id, attemptId: id, runId: id, payloadDigest: digest },
   assignment_receipt: { connectionId: capability, connectionChallenge: capability, sourceSequence: counter,
     requestId: id, deliveryId: id, assignmentId: id, attemptId: id, runId: id, payloadDigest: digest,
     known: (v: unknown) => typeof v === 'boolean',
-    outcome: (v: unknown) => v === null || v === 'accepted' || v === 'busy' || v === 'invalid' },
+    outcome: (v: unknown) => v === null || v === 'accepted' || v === 'busy' || v === 'invalid' || v === 'unknown' },
+  quiescence_request: { connectionId: capability, connectionChallenge: capability,
+    requestId: id, runId: id, attemptId: id, controlEpoch: counter },
+  quiescence_report: { connectionId: capability, connectionChallenge: capability, sourceSequence: counter,
+    requestId: id, runId: id, attemptId: id, controlEpoch: counter,
+    activity: (v: unknown) => enums.activity.includes(v as never), pendingInput: (v: unknown) => typeof v === 'boolean',
+    executionContextDigest: (v: unknown) => v === null || digest(v) },
   candidate_submission: { connectionId: capability, connectionChallenge: capability, sourceSequence: counter,
     runId: id, submissionId: id, payloadDigest: digest, payloadJson: boundedString(MAX_CANDIDATE_FRAME_BYTES) },
   candidate_receipt: { connectionId: capability, connectionChallenge: capability,

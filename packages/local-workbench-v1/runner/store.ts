@@ -1256,7 +1256,7 @@ export function openWorkbenchStore(options: StoreOptions): WorkbenchStore {
         resolveCandidate('rejected')
         updateAttempt('validating', 'attention')
         updateAssignment('validating', 'attention')
-        if (input.outcome === 'unknown') settleWriter(true)
+        if (input.outcome === 'unknown' || reasonCode.startsWith('quiescence_')) settleWriter(true)
         return { accepted: false, reasonCode }
       }
       if (attempt.state !== 'validating' || assignment.state !== 'validating') return refuse('lifecycle_changed')

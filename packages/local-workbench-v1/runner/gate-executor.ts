@@ -59,6 +59,10 @@ export interface GateExecutorOptions {
   scratchRoot: string
   /** Cooperative-termination grace after timeout/output cap; bounded 50–30000 ms. */
   graceMs?: number
+  /** Durable stop/Assignment deadline; cooperative validator-child signal only. */
+  signal?: AbortSignal
+  /** Last Runner-owned fence check after synchronous resource hashing. */
+  beforeSpawn?: () => boolean
   /** C9 scratch bounds; exceeding either quarantines the scratch as `unknown`. */
   scratchEntryBound?: number
   scratchByteBound?: number
@@ -221,10 +225,11 @@ export async function executeGate(definition: ResolvedCheckDefinition, options: 
 
   // Declared-resource closure: verify content immediately before spawn (C8).
   const checks = collectPreChecks(definition)
-  if (driftReason(checks, 'pre') !== null) {
+  const revoked = options.signal?.aborted || options.beforeSpawn?.() === false
+  if (driftReason(checks, 'pre') !== null || revoked) {
     return {
-      outcome: 'gate_changed', exitCode: null, signal: null, timedOut: false,
-      reasonCode: driftReason(checks, 'pre'), stdout: '', stderr: '', stdoutBytes: 0, stderrBytes: 0,
+      outcome: revoked ? 'unknown' : 'gate_changed', exitCode: null, signal: null, timedOut: false,
+      reasonCode: revoked ? 'spawn_authority_revoked' : driftReason(checks, 'pre'), stdout: '', stderr: '', stdoutBytes: 0, stderrBytes: 0,
       resourceChecks: checks, scratchPath: null, scratchCleaned: false, scratchEntries: 0, scratchBytes: 0,
       startedAt, endedAt: endedAt(),
     }
@@ -253,6 +258,7 @@ export async function executeGate(definition: ResolvedCheckDefinition, options: 
   let stderrBytes = 0
   let limited = false
   let timedOut = false
+  let stopped = false
   let requested = false
   let settled = false
   let closeCode: number | null = null
@@ -263,6 +269,9 @@ export async function executeGate(definition: ResolvedCheckDefinition, options: 
 
   const timeout = setTimeout(() => { timedOut = true; requestCooperativeTermination() }, definition.timeoutMs)
   let grace: NodeJS.Timeout | null = null
+  const onStop = () => { stopped = true; requestCooperativeTermination() }
+  options.signal?.addEventListener('abort', onStop, { once: true })
+  if (options.signal?.aborted) onStop()
 
   function requestCooperativeTermination(): void {
     if (requested) return
@@ -283,18 +292,19 @@ export async function executeGate(definition: ResolvedCheckDefinition, options: 
 
   function absorb(stream: 'stdout' | 'stderr', chunk: Buffer): void {
     const previous = stream === 'stdout' ? stdoutBytes : stderrBytes
-    const room = definition.outputBytes - previous
+    const room = Math.min(32768 - previous, definition.outputBytes - stdoutBytes - stderrBytes)
     if (room <= 0) { markLimited(); return }
     const taken = chunk.subarray(0, room)
     if (stream === 'stdout') { stdoutChunks.push(taken); stdoutBytes = previous + taken.length }
     else { stderrChunks.push(taken); stderrBytes = previous + taken.length }
-    if (previous + chunk.length > definition.outputBytes) markLimited()
+    if (chunk.length > room) markLimited()
   }
   child.stdout?.on('data', (chunk: Buffer) => absorb('stdout', chunk))
   child.stderr?.on('data', (chunk: Buffer) => absorb('stderr', chunk))
   child.on('error', (error: NodeJS.ErrnoException) => {
     if (settled) return
     settled = true
+    options.signal?.removeEventListener('abort', onStop)
     clearTimeout(timeout)
     if (grace !== null) clearTimeout(grace)
     let scratchCleaned = true
@@ -318,6 +328,7 @@ export async function executeGate(definition: ResolvedCheckDefinition, options: 
   function settleUnknown(reasonCode: string): void {
     if (settled) return
     settled = true
+    options.signal?.removeEventListener('abort', onStop)
     clearTimeout(timeout)
     if (grace !== null) clearTimeout(grace)
     resolveExecution({
@@ -332,6 +343,7 @@ export async function executeGate(definition: ResolvedCheckDefinition, options: 
   function finalizeAfterClose(): void {
     if (settled) return
     settled = true
+    options.signal?.removeEventListener('abort', onStop)
     clearTimeout(timeout)
     if (grace !== null) clearTimeout(grace)
     // Declared-resource stability after exit (C8): drift is nonaccepting even on exit 0.
@@ -339,7 +351,8 @@ export async function executeGate(definition: ResolvedCheckDefinition, options: 
     let outcome: GateOutcome
     let reasonCode: string | null = null
     const drift = driftReason(checks, 'post')
-    if (drift !== null) { outcome = 'gate_changed'; reasonCode = drift }
+    if (stopped) { outcome = 'unknown'; reasonCode = 'stop_recorded' }
+    else if (drift !== null) { outcome = 'gate_changed'; reasonCode = drift }
     else if (limited) outcome = 'output_limit'
     else if (timedOut) outcome = 'timeout'
     else if (closeCode === 0 && closeSignal === null) outcome = 'pass'

@@ -12,6 +12,7 @@ import { chmodSync, mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'node:f
 import { execFileSync } from 'node:child_process'
 import { join } from 'node:path'
 import { tmpdir } from 'node:os'
+import { armAssignmentBudget } from '../runner/assignment-budget.ts'
 import { openWorkbenchRunner } from '../runner/runner.ts'
 import { BridgeRegistry } from '../runner/bridge-registry.ts'
 import { WorkbenchAuthority, START_UNAVAILABLE_REASON, type GateQuiescence } from '../runner/authority.ts'
@@ -42,8 +43,9 @@ interface Fixture {
   projectId: string
   goalId: string
   now: () => number
+  setNow: (value: number) => void
   writeChecker: (body: string) => void
-  storeCheck: (overrides?: { timeoutMs?: number; outputBytes?: number }) => string
+  storeCheck: (overrides?: { timeoutMs?: number; outputBytes?: number; executable?: string }) => string
   writeArtifact: (name: string, content: string) => ArtifactRef
   seed: (checkJson: string, runId: string, artifactRefs?: ArtifactRef[]) => Seed
 }
@@ -80,13 +82,13 @@ function setup(t: TestContext): Fixture {
     chmodSync(checkerPath, 0o755)
   }
 
-  const storeCheck = (overrides: { timeoutMs?: number; outputBytes?: number } = {}): string => {
+  const storeCheck = (overrides: { timeoutMs?: number; outputBytes?: number; executable?: string } = {}): string => {
     const project = runner.store.getProject(projectId)!
     const definition = resolveCheckDefinition(project, { checkId: 'check-1', version: 1 }, {
       name: 'Gate check', summary: 'Bounded deterministic validator', mode: 'validator',
       commandSummary: 'Run the frozen deterministic checker',
       definitionDraft: {
-        executable: checkerPath, argv: [], cwd: project.canonicalPath, environment: [],
+        executable: overrides.executable ?? checkerPath, argv: [], cwd: project.canonicalPath, environment: [],
         resourcePaths: [join(project.canonicalPath, 'policy.txt')],
         timeoutMs: overrides.timeoutMs ?? 5000, outputBytes: overrides.outputBytes ?? 4096,
         maxCorrections: 2, elapsedMs: 60_000,
@@ -127,6 +129,7 @@ function setup(t: TestContext): Fixture {
         taskText: 'Implement the bounded assignment loop.', writeAuthority: false, state: 'admitted',
         limits: { maxCorrections: 2, elapsedMs: 60_000 }, attemptCount: 0, revision: 1, createdAt: now, updatedAt: now,
       })
+      armAssignmentBudget(runner.store, runner.store.getAssignment(ASSIGNMENT_ID)!, now)
       runner.store.putAttempt({
         attemptId: ATTEMPT_ID, assignmentId: ASSIGNMENT_ID, ordinal: 1, state: 'admitted',
         runBinding: {
@@ -149,11 +152,13 @@ function setup(t: TestContext): Fixture {
     return { assignmentId: ASSIGNMENT_ID, attemptId: ATTEMPT_ID, candidateId: CANDIDATE_ID }
   }
 
-  return { root, projectPath, scratchRoot, checkerPath, policyPath, runner, authority, projectId, goalId, now: () => now, writeChecker, storeCheck, writeArtifact, seed }
+  return { root, projectPath, scratchRoot, checkerPath, policyPath, runner, authority, projectId, goalId, now: () => now, setNow: value => { now = value }, writeChecker, storeCheck, writeArtifact, seed }
 }
 
-const confirmedQuiescence = (): GateQuiescence => ({
-  runId: 'run', attemptId: ATTEMPT_ID, controlEpoch: CONTROL_EPOCH, source: 'validator_exit', status: 'confirmed', sequence: 1, runnerReceivedAt: 1,
+const confirmedQuiescence = ({ attempt }: { attempt: import('../runner/store.ts').AttemptRecord }): GateQuiescence => ({
+  runId: attempt.runBinding.runId, attemptId: attempt.attemptId, controlEpoch: attempt.controlEpoch,
+  connectionId: attempt.runBinding.connectionId, connectionChallenge: attempt.runBinding.connectionChallenge,
+  source: 'surviving_bridge_and_operator_reconciliation', status: 'confirmed', sequence: 1, runnerReceivedAt: 1000,
 })
 
 test('a clean passing gate is accepted and completes the Goal in one final transaction', async t => {
@@ -188,11 +193,11 @@ test('the default quiescence fails closed when no challenged bridge proves idle'
     { scratchRoot: s.scratchRoot },
   )
   assert.equal(outcome.accepted, false, 'a validator exit alone never proves quiescence')
-  assert.equal(outcome.outcome, 'pass', 'the validator genuinely exited zero')
+  assert.equal(outcome.outcome, 'unknown', 'without fresh Pi quiescence even validator launch is unavailable')
   assert.equal(outcome.reasonCode, 'quiescence_unknown')
   assert.equal(s.runner.store.getGateResult(seeded.attemptId)!.state, 'nonaccepting')
   assert.equal(s.runner.store.getAssignment(seeded.assignmentId)!.state, 'attention')
-  assert.equal(s.runner.store.getWriter(s.projectId)!.state, 'held', 'a passing-but-nonaccepting result leaves the writer held')
+  assert.equal(s.runner.store.getWriter(s.projectId)!.state, 'uncertain', 'missing quiescence keeps effects uncertain')
 })
 
 test('a nonzero exit is recorded nonaccepting and keeps the writer held', async t => {
@@ -343,6 +348,81 @@ test('a control-epoch change before acceptance refuses the pass', async t => {
   assert.equal(outcome.accepted, false)
   assert.equal(outcome.reasonCode, 'control_epoch_changed')
   assert.equal(s.runner.store.getCandidateByAttempt(seeded.attemptId)!.state, 'rejected')
+})
+
+test('Git index, HEAD and configuration mutations are nonaccepting on exit zero', async t => {
+  for (const operation of [['add', 'checker.cjs'], ['commit', '--allow-empty', '-q', '-m', 'changed'], ['config', 'alias.review', 'status']]) {
+    await t.test(operation[0], async t => {
+      const s = setup(t)
+      s.writeChecker(`require('node:child_process').execFileSync('/usr/bin/git', ${JSON.stringify(operation)})`)
+      const ids = s.seed(s.storeCheck(), 'run-git-drift')
+      const outcome = await s.authority.executeAssignmentGate(ids, { scratchRoot: s.scratchRoot, quiescence: confirmedQuiescence })
+      assert.equal(outcome.accepted, false)
+      assert.equal(outcome.outcome, 'candidate_changed')
+      assert.equal(s.runner.store.getWriter(s.projectId)!.state, 'held')
+      const evidence = JSON.parse(s.runner.store.getGateResult(ids.attemptId)!.evidenceJson)
+      assert.notEqual(evidence.preBaselineDigest, evidence.postBaselineDigest)
+    })
+  }
+})
+
+test('final acceptance rechecks external executable and Git context', async t => {
+  for (const drift of ['executable', 'context']) {
+    await t.test(drift, async t => {
+      const s = setup(t), executable = join(s.root, 'external-checker.cjs')
+      writeFileSync(executable, `#!${process.execPath}\nprocess.exit(0)\n`); chmodSync(executable, 0o755)
+      const ids = s.seed(s.storeCheck({ executable }), 'run-final-drift')
+      const authority = new WorkbenchAuthority({ runner: s.runner, sessionId: 'session', pluginGeneration: 1, clock: s.now,
+        onAssignmentGatePhase: phase => {
+          if (phase !== 'before_acceptance') return
+          if (drift === 'executable') writeFileSync(executable, `#!${process.execPath}\nprocess.exit(1)\n`)
+          else execFileSync('/usr/bin/git', ['-C', s.projectPath, 'config', 'alias.changed', 'status'], { timeout: 5000 })
+        } })
+      const outcome = await authority.executeAssignmentGate(ids, { scratchRoot: s.scratchRoot, quiescence: confirmedQuiescence })
+      assert.equal(outcome.accepted, false)
+      assert.equal(outcome.reasonCode, drift === 'executable' ? 'gate_changed' : 'context_changed_at_acceptance')
+    })
+  }
+})
+
+test('stale quiescence at the final transaction retains an uncertain writer', async t => {
+  const s = setup(t); s.writeChecker('process.exit(0)')
+  const ids = s.seed(s.storeCheck(), 'run-stale-idle')
+  const authority = new WorkbenchAuthority({ runner: s.runner, sessionId: 'session', pluginGeneration: 1, clock: s.now,
+    onAssignmentGatePhase: phase => { if (phase === 'before_acceptance') s.setNow(3001) } })
+  const outcome = await authority.executeAssignmentGate(ids, { scratchRoot: s.scratchRoot, quiescence: confirmedQuiescence })
+  assert.equal(outcome.accepted, false)
+  assert.equal(outcome.reasonCode, 'quiescence_unknown')
+  assert.equal(s.runner.store.getWriter(s.projectId)!.state, 'uncertain')
+})
+
+test('expired elapsed budget stops before launch rather than accepting late work', async t => {
+  const s = setup(t); s.writeChecker('process.exit(0)')
+  const ids = s.seed(s.storeCheck(), 'run-expired'); s.setNow(62000)
+  await assert.rejects(s.authority.executeAssignmentGate(ids, { scratchRoot: s.scratchRoot, quiescence: confirmedQuiescence }), /elapsed limit/)
+  assert.equal(s.runner.store.getStop(ids.assignmentId)!.trigger, 'elapsed_limit')
+  assert.equal(s.runner.store.getGateResult(ids.attemptId), null)
+})
+
+test('wall-clock jumps do not alter the owner-epoch monotonic budget', async t => {
+  const s = setup(t); s.writeChecker('process.exit(0)')
+  const ids = s.seed(s.storeCheck(), 'run-monotonic')
+  const authority = new WorkbenchAuthority({ runner: s.runner, sessionId: 'session', pluginGeneration: 1, clock: () => 999999, monotonic: () => 1000 })
+  const outcome = await authority.executeAssignmentGate(ids, { scratchRoot: s.scratchRoot, quiescence: confirmedQuiescence })
+  assert.equal(outcome.accepted, true)
+})
+
+test('elapsed budget during a gate durably stops and cooperatively cancels only its child', async t => {
+  const s = setup(t); s.writeChecker('setTimeout(() => process.exit(0), 2000)')
+  const ids = s.seed(s.storeCheck(), 'run-budget-in-flight')
+  const started = performance.now(), monotonic = () => 60000 + performance.now() - started
+  const authority = new WorkbenchAuthority({ runner: s.runner, sessionId: 'session', pluginGeneration: 1, clock: s.now, monotonic })
+  const outcome = await authority.executeAssignmentGate(ids, { scratchRoot: s.scratchRoot,
+    quiescence: context => ({ ...confirmedQuiescence(context), runnerReceivedAt: monotonic() }) })
+  assert.equal(outcome.accepted, false)
+  assert.equal(s.runner.store.getStop(ids.assignmentId)!.trigger, 'elapsed_limit')
+  assert.equal(s.runner.store.getAssignment(ids.assignmentId)!.state, 'stopped')
+  assert.equal(s.runner.store.getWriter(s.projectId)!.state, 'uncertain')
 })
 
 test('the gate surface is direct-call only and Start stays disabled', async t => {

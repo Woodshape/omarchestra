@@ -49,7 +49,7 @@ type StartProposalStore = Pick<WorkbenchStore,
   | 'listMemberships' | 'getCheck' | 'getWriter' | 'activeAssignment' | 'listAssignments'
   | 'hasUncertainEffects'
 >
-type StartProposalRegistry = Pick<BridgeRegistry, 'listCurrent' | 'currentBinding' | 'projectContextMatches'>
+type StartProposalRegistry = Pick<BridgeRegistry, 'listCurrent' | 'currentBinding' | 'projectContextMatches' | 'assignmentLoopAvailable'>
 type StartProposalFences = Pick<FenceLedger, 'isFenced' | 'isIncarnationFenced'>
 
 /** Read-only ports owned by the current Runner/Owner composition. */
@@ -269,6 +269,7 @@ function readCoreFacts(
     if (member.runId === request.agentRunId) target = facts
   }
   if (!target) return unavailable('the exact target Run is no longer a current Goal member')
+  if (!registry.assignmentLoopAvailable(request.agentRunId)) return unavailable('the Pi extension lacks native Candidate submission or fresh quiescence support')
   if (target.binding.state !== 'ready' || target.binding.writerState !== 'none'
       || target.observation.lifecycle !== 'running' || target.observation.activity !== 'idle'
       || target.observation.health !== 'healthy') {

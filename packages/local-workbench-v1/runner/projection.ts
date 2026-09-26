@@ -76,7 +76,8 @@ function canPrepareStartReview(authority: WorkbenchAuthority, projectId: string 
   const store = authority.runner.store, registry = authority.registry
   if (!projectId || !goalId || !registry
       || authority.selectedProjectId !== projectId || authority.selectedGoalId !== goalId
-      || checks.length === 0 || !authority.projectContext(projectId).available) return false
+      || checks.length === 0 || !authority.projectContext(projectId).available
+      || !registry.assignmentLoopAvailable(runId)) return false
   const project = store.getProject(projectId), goal = store.getGoal(goalId)
   if (!project || !goal || goal.projectId !== projectId || goal.state !== 'active'
       || !authority.gateExecutionAvailableFor(project.canonicalPath)

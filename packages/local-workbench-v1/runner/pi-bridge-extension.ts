@@ -5,15 +5,19 @@ import { isAbsolute } from 'node:path'
 import { join } from 'node:path'
 import { attachBridgeStream } from './bridge-channel.ts'
 import { projectExecutionContextDigest, sha256, canonicalJson } from './canonical-hash.ts'
-import { BRIDGE_CAPABILITIES, SESSION_CODE_CAPABILITY, PANE_NAVIGATION_CAPABILITY, PROJECT_CONTEXT_CAPABILITY, ASSIGNMENT_DELIVERY_CAPABILITY, CANDIDATE_SUBMISSION_CAPABILITY, bridgeId, type BridgeFrame } from './bridge-protocol.ts'
+import { BRIDGE_CAPABILITIES, SESSION_CODE_CAPABILITY, PANE_NAVIGATION_CAPABILITY, PROJECT_CONTEXT_CAPABILITY, ASSIGNMENT_DELIVERY_CAPABILITY, CANDIDATE_SUBMISSION_CAPABILITY, QUIESCENCE_CAPABILITY, bridgeId, type BridgeFrame } from './bridge-protocol.ts'
 import { validateCandidateSubmission, type CandidateSubmission } from './candidate.ts'
 
 import { showLocalTerminalPane } from './local-pane-navigation.ts'
 import type { NavigationResult } from './pane-navigation.ts'
 
 type Context = { mode: string; cwd?: string; sessionManager: { getSessionId(): string | undefined }; isIdle(): boolean; hasPendingMessages?(): boolean; ui: { setStatus(key: string, text: string | undefined): void } }
-type PiAPI = { on(name: string, handler: (event: unknown, ctx: Context) => void): void; sendUserMessage?: (text: string) => unknown }
-type Client = { sendFrame(type: 'register' | 'heartbeat' | 'input_observed' | 'close' | 'adoption_ack' | 'binding_receipt' | 'recovery_proof' | 'focus_result' | 'assignment_ack' | 'assignment_receipt' | 'candidate_submission', id: string, body: Record<string, unknown>): void; close(): void }
+export interface CandidateTool {
+  name: string; label: string; description: string; parameters: Record<string, unknown>
+  execute(toolCallId: string, parameters: unknown): Promise<{ content: Array<{ type: 'text'; text: string }>; details: CandidateSubmitOutcome }>
+}
+type PiAPI = { on(name: string, handler: (event: unknown, ctx: Context) => void): void; sendUserMessage?: (text: string) => unknown; registerTool?: (tool: CandidateTool) => void }
+type Client = { sendFrame(type: 'register' | 'heartbeat' | 'input_observed' | 'close' | 'adoption_ack' | 'binding_receipt' | 'recovery_proof' | 'focus_result' | 'assignment_ack' | 'assignment_receipt' | 'candidate_submission' | 'quiescence_report', id: string, body: Record<string, unknown>): void; close(): void }
 /** One bounded C6 Candidate submission outcome, settled by an exact receipt. */
 export interface CandidateSubmitOutcome { outcome: 'accepted' | 'duplicate' | 'invalid' | 'unknown'; candidateId: string | null; digest: string | null; reason: string | null }
 /** Install in Pi, but also expose the dedicated Candidate submission port. */
@@ -51,10 +55,11 @@ export function createPiBridgeExtension(options: { socketPath?: string; connect?
     let committed: { runId: string; digest: string; goalId: string; role: string; state: 'connecting' | 'ready' | 'manual_takeover' } | null = null
     // Extension-owned dedup evidence for one stable delivery identity. It lives
     // only for this Pi session and never inherits across reload, restart or reboot.
-    let assignmentReceipts = new Map<string, { assignmentId: string; attemptId: string; runId: string; payloadDigest: string; outcome: 'accepted' }>()
+    let assignmentReceipts = new Map<string, { assignmentId: string; attemptId: string; runId: string; payloadDigest: string; outcome: 'accepted' | 'unknown' }>()
     // One in-flight C6 submission per stable submission id, settled only by the
     // exact receipt from the owner on this connection. Never retained across stop.
     let pendingSubmissions = new Map<string, (outcome: CandidateSubmitOutcome) => void>()
+    let currentAssignment: { assignmentId: string; attemptId: string; agentRunId: string; controlEpoch: number; deliveryId: string } | null = null
     let timer: ReturnType<typeof setTimeout> | null = null, generation = 0, pendingInput: string | null = null, handshakeTicks = 0
     const status = () => { try {
       const state = mode === 'observed' ? acknowledged ? 'Unassigned · adoption pending' : 'Unassigned · observed'
@@ -75,7 +80,7 @@ export function createPiBridgeExtension(options: { socketPath?: string; connect?
       } catch { return null }
     }
     const clearTimer = () => { if (timer) cancel(timer); timer = null }
-    const send = (type: 'heartbeat' | 'input_observed' | 'close' | 'adoption_ack' | 'binding_receipt' | 'recovery_proof' | 'focus_result' | 'assignment_ack' | 'assignment_receipt' | 'candidate_submission', extra: Record<string, unknown> = {}) => {
+    const send = (type: 'heartbeat' | 'input_observed' | 'close' | 'adoption_ack' | 'binding_receipt' | 'recovery_proof' | 'focus_result' | 'assignment_ack' | 'assignment_receipt' | 'candidate_submission' | 'quiescence_report', extra: Record<string, unknown> = {}) => {
       if (!client || !connectionId || !challenge) return false
       sequence += 1
       try { client.sendFrame(type, issue('message'), { connectionId, connectionChallenge: challenge, sourceSequence: sequence, ...extra }); return true }
@@ -156,12 +161,22 @@ export function createPiBridgeExtension(options: { socketPath?: string; connect?
               && frame.body.runId === committed.runId && frame.body.bindingDigest === committed.digest) {
             committed.state = frame.body.state as 'ready' | 'manual_takeover'; status(); return
           }
+          if (frame.type === 'quiescence_request' && connectionId && challenge) {
+            const b = frame.body
+            if (b.connectionId !== connectionId || b.connectionChallenge !== challenge || mode !== 'committed'
+                || b.runId !== committed?.runId || b.attemptId !== currentAssignment?.attemptId
+                || b.controlEpoch !== currentAssignment?.controlEpoch) return
+            send('quiescence_report', { requestId: b.requestId, runId: b.runId, attemptId: b.attemptId, controlEpoch: b.controlEpoch,
+              activity: committed.state === 'ready' ? activity() : 'unknown', pendingInput: pendingInput !== null,
+              executionContextDigest: executionContextDigest() })
+            return
+          }
           if (frame.type === 'assignment_delivery' && connectionId && challenge) {
             const b = frame.body
             if (stopped || !ctx || ctx.mode !== 'tui' || ctx.sessionManager.getSessionId() !== sessionId
                 || mode !== 'committed' || !committed
                 || b.connectionId !== connectionId || b.connectionChallenge !== challenge || b.runId !== committed.runId) return
-            const ack = (outcome: 'accepted' | 'busy' | 'duplicate' | 'invalid', storedOutcome: 'accepted' | null, reason: string | null) =>
+            const ack = (outcome: 'accepted' | 'busy' | 'duplicate' | 'invalid' | 'unknown', storedOutcome: 'accepted' | 'unknown' | null, reason: string | null) =>
               send('assignment_ack', { deliveryId: b.deliveryId, assignmentId: b.assignmentId, attemptId: b.attemptId,
                 runId: b.runId, payloadDigest: b.payloadDigest, outcome, storedOutcome, reason })
             // The payload must be the exact admitted Assignment frame it claims.
@@ -182,14 +197,34 @@ export function createPiBridgeExtension(options: { socketPath?: string; connect?
               else ack('invalid', null, 'delivery_conflict')
               return
             }
-            if (activity() !== 'idle' || pendingInput) { ack('busy', null, 'not_idle'); return }
+            if (committed.state !== 'ready' || activity() !== 'idle' || pendingInput) { ack('busy', null, 'not_idle'); return }
+            const binding = payload.runBinding as Record<string, unknown> | undefined
+            const context = payload.context as Record<string, unknown> | undefined
+            if (!binding || binding.connectionId !== connectionId || binding.connectionChallenge !== challenge
+                || binding.processInstanceId !== processInstanceId || binding.piSessionId !== sessionId
+                || binding.extensionInstanceId !== extensionInstanceId || binding.bindingDigest !== committed.digest
+                || !Number.isSafeInteger(payload.controlEpoch) || Number(payload.controlEpoch) < 0
+                || typeof context?.canonicalPath !== 'string'
+                || executionContextDigest() !== projectExecutionContextDigest(context.canonicalPath)) { ack('invalid', null, 'context_changed'); return }
             const taskText = typeof payload.taskText === 'string' ? payload.taskText : null
             if (taskText === null || taskText.length === 0) { ack('invalid', null, 'payload_mismatch'); return }
             if (typeof pi.sendUserMessage !== 'function') { ack('invalid', null, 'unsupported'); return }
-            try { pi.sendUserMessage(taskText) } catch { ack('invalid', null, 'send_failed'); return }
+            if (assignmentReceipts.size >= 64) { ack('invalid', null, 'receipt_capacity'); return }
+            // Write-ahead receipt: a throwing/async API may already have accepted
+            // input. Never classify that interval as not-sent or invoke it again.
+            const receipt = { assignmentId: b.assignmentId as string, attemptId: b.attemptId as string, runId: b.runId as string, payloadDigest: b.payloadDigest as string, outcome: 'unknown' as 'accepted' | 'unknown' }
+            assignmentReceipts.set(b.deliveryId as string, receipt)
+            try {
+              const returned = pi.sendUserMessage(taskText)
+              if (returned && typeof (returned as Promise<unknown>).then === 'function') {
+                void Promise.resolve(returned).catch(() => {})
+                ack('unknown', null, 'send_unproven'); return
+              }
+            } catch { ack('unknown', null, 'send_unproven'); return }
             // Retain evidence before the ACK so a lost ACK stays reconcilable.
-            assignmentReceipts.set(b.deliveryId as string, { assignmentId: b.assignmentId as string, attemptId: b.attemptId as string, runId: b.runId as string, payloadDigest: b.payloadDigest as string, outcome: 'accepted' })
-            if (assignmentReceipts.size > 64) assignmentReceipts.delete(assignmentReceipts.keys().next().value!)
+            receipt.outcome = 'accepted'
+            currentAssignment = { assignmentId: b.assignmentId as string, attemptId: b.attemptId as string,
+              agentRunId: b.runId as string, controlEpoch: payload.controlEpoch as number, deliveryId: b.deliveryId as string }
             ack('accepted', null, null)
             return
           }
@@ -246,7 +281,7 @@ export function createPiBridgeExtension(options: { socketPath?: string; connect?
         })
         if (current !== generation || stopped) { channel.close(); return }
         client = channel; handshakeTicks = 0; attempt += 1; sequence += 1
-        channel.sendFrame('register', issue('message'), { processInstanceId, piSessionId: sessionId, extensionInstanceId, hostMode: 'tui', capabilities: [...BRIDGE_CAPABILITIES, SESSION_CODE_CAPABILITY, ...(navigate ? [PANE_NAVIGATION_CAPABILITY] : []), PROJECT_CONTEXT_CAPABILITY, ASSIGNMENT_DELIVERY_CAPABILITY, CANDIDATE_SUBMISSION_CAPABILITY], registrationAttempt: attempt, sourceSequence: sequence, lifecycle: 'running', activity: activity(), health: 'healthy' })
+        channel.sendFrame('register', issue('message'), { processInstanceId, piSessionId: sessionId, extensionInstanceId, hostMode: 'tui', capabilities: [...BRIDGE_CAPABILITIES, SESSION_CODE_CAPABILITY, ...(navigate ? [PANE_NAVIGATION_CAPABILITY] : []), PROJECT_CONTEXT_CAPABILITY, ASSIGNMENT_DELIVERY_CAPABILITY, CANDIDATE_SUBMISSION_CAPABILITY, ...(pi.registerTool && pi.sendUserMessage ? [QUIESCENCE_CAPABILITY] : [])], registrationAttempt: attempt, sourceSequence: sequence, lifecycle: 'running', activity: activity(), health: 'healthy' })
       } catch { retryMs = Math.min(5000, retryMs * 2) /* fail open; scheduled retry */ }
       finally { connecting = false }
     }
@@ -255,6 +290,7 @@ export function createPiBridgeExtension(options: { socketPath?: string; connect?
       if (client) { send('close', { reason }); client.close() }
       client = null; observedSessionId = null; sessionCode = null; connectionId = null; challenge = null; status(); ctx = null; sessionId = null
       assignmentReceipts = new Map()
+      currentAssignment = null
       for (const settle of pendingSubmissions.values()) settle({ outcome: 'unknown', candidateId: null, digest: null, reason: 'session_stopped' })
       pendingSubmissions = new Map()
     }
@@ -288,6 +324,34 @@ export function createPiBridgeExtension(options: { socketPath?: string; connect?
       }
       return result
     }
+    // Pi's model-callable tool is the production entry. JSON Schema is the
+    // serializable TypeBox schema format; core validation additionally enforces
+    // byte bounds and the closed payload. Never accept caller-authored identity.
+    pi.registerTool?.({
+      name: 'omarchestra_submit_candidate', label: 'Submit Assignment Candidate',
+      description: 'Submit the current Omarchestra Assignment result for its configured acceptance check. Supply an explicit summary and relative artifact references (SHA-256 hex and byte length). This does not accept the work or grant write authority. Available only after this Pi received an Assignment.',
+      parameters: { type: 'object', additionalProperties: false, required: ['summary', 'artifactRefs'], properties: {
+        summary: { type: 'string', minLength: 1, maxLength: 8192 },
+        artifactRefs: { type: 'array', maxItems: 16, items: { type: 'object', additionalProperties: false, required: ['path', 'digest', 'length'], properties: {
+          path: { type: 'string', minLength: 1, maxLength: 4096 }, digest: { type: 'string', pattern: '^[a-f0-9]{64}$' },
+          length: { type: 'integer', minimum: 0, maximum: 16777216 },
+        } } },
+      } },
+      async execute(_toolCallId, parameters) {
+        let result: CandidateSubmitOutcome = { outcome: 'invalid', candidateId: null, digest: null, reason: 'no_current_assignment' }
+        if (currentAssignment && committed?.state === 'ready' && !pendingInput
+            && assignmentReceipts.get(currentAssignment.deliveryId)?.outcome === 'accepted') {
+          if (!parameters || typeof parameters !== 'object' || Array.isArray(parameters)
+              || Object.keys(parameters).sort().join(',') !== 'artifactRefs,summary') {
+            result = { ...result, reason: 'invalid_submission' }
+          } else {
+            const { deliveryId: _deliveryId, ...identity } = currentAssignment
+            result = await submitCandidate({ ...parameters, ...identity })
+          }
+        }
+        return { content: [{ type: 'text', text: JSON.stringify(result) }], details: result }
+      },
+    })
     pi.on('session_start', (_event, context) => {
       stop('new')
       if (context.mode !== 'tui') return

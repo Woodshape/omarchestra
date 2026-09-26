@@ -27,7 +27,8 @@ import type { GitRunner, GitInspection } from './git-context.ts'
 import { contextDigestOf, inspectProjectPath } from './git-context.ts'
 import { pathsOverlap } from './project-identity.ts'
 import { ensureOwnedDirectory } from './paths.ts'
-import { readResolvedCheck, resolveCheckDefinition, type ResolvedCheckDefinition } from './check-definition.ts'
+import { armAssignmentBudget, assignmentRemainingMs, registerAssignmentGate, abortAssignmentGate } from './assignment-budget.ts'
+import { readResolvedCheck, resolveCheckDefinition, verifyCheckResources, type ResolvedCheckDefinition } from './check-definition.ts'
 import { captureStableProjectBaseline } from './content-manifest.ts'
 import { executeGate, type GateExecution } from './gate-executor.ts'
 import { verifyCandidateArtifacts } from './candidate-submission.ts'
@@ -43,7 +44,7 @@ import { AdoptionManager } from './adoption.ts'
 import { FramedAdoptionManager } from './framed-adoption.ts'
 import { buildSnapshot } from './projection.ts'
 import { PAGE_COLLECTIONS, WORKBENCH_PAGE_SIZE, type PageCollection } from '../console/schema.ts'
-import type { BridgeRegistry, ObservedPi } from './bridge-registry.ts'
+import type { BridgeRegistry, ObservedPi, AttemptQuiescence } from './bridge-registry.ts'
 import { validateAuthorityIntent } from './intent-envelope.ts'
 import type { WorkbenchIntent } from '../console/schema.ts'
 import type { ObserverPort, TransportEvent } from './transport.ts'
@@ -147,6 +148,7 @@ function attemptFrame(assignment: AssignmentRecord, attempt: AttemptRecord, dead
     protocol: 'omarchestra.assignment/v1',
     kind: 'assignment_delivery',
     deliveryId: attempt.deliveryId,
+    controlEpoch: attempt.controlEpoch,
     assignmentId: assignment.assignmentId,
     attemptId: attempt.attemptId,
     runId: attempt.runBinding.runId,
@@ -187,15 +189,7 @@ export interface AssignmentGateInput {
  * tool work after the validator child exited. `validator_exit` proves only that
  * the child exited, never that Pi tools stopped; only `confirmed` accepts.
  */
-export interface GateQuiescence {
-  runId: string
-  attemptId: string
-  controlEpoch: number
-  source: 'validator_exit'
-  status: 'confirmed' | 'active' | 'unknown'
-  sequence: number
-  runnerReceivedAt: number
-}
+export type GateQuiescence = AttemptQuiescence
 
 export interface AssignmentGateResult {
   accepted: boolean
@@ -213,7 +207,7 @@ export interface AssignmentGateOptions {
   scratchRoot: string
   /** Cooperative-termination grace forwarded to the bounded executor. */
   graceMs?: number
-  /** Explicit quiescence evidence; defaults to the live challenged bridge. */
+  /** Disposable-test evidence seam; production always queries the challenged bridge. */
   quiescence?: (context: { assignment: AssignmentRecord; attempt: AttemptRecord; candidate: CandidateRecord; outcome: GateOutcome; clean: boolean }) => GateQuiescence
 }
 
@@ -315,6 +309,8 @@ export interface AuthorityOptions {
   sessionId: string
   pluginGeneration: number
   clock?: () => number
+  /** Owner-lifetime elapsed/freshness clock, not persisted wall time. */
+  monotonic?: () => number
   newId?: (prefix: string) => string
   git?: GitRunner
   registrationTtlMs?: number
@@ -348,6 +344,7 @@ export class WorkbenchAuthority {
   readonly pluginGeneration: number
   readonly executionNodeId: string
   readonly clock: () => number
+  readonly monotonic: () => number
   readonly newId: (prefix: string) => string
   readonly adoption: AdoptionManager
 
@@ -377,6 +374,7 @@ export class WorkbenchAuthority {
     this.pluginGeneration = options.pluginGeneration
     this.executionNodeId = options.runner.nodeId
     this.clock = options.clock ?? (() => Date.now())
+    this.monotonic = options.monotonic ?? options.clock ?? (() => performance.now())
     this.newId = options.newId ?? defaultNewId
     this.git = options.git
     this.registrationTtlMs = options.registrationTtlMs ?? DEFAULT_REGISTRATION_TTL_MS
@@ -1318,6 +1316,7 @@ export class WorkbenchAuthority {
           attemptId: proposal.attempt.attemptId,
         }, () => {
           this.runner.store.putAssignment(proposal.assignment)
+          armAssignmentBudget(this.runner.store, proposal.assignment, this.monotonic())
           this.admissionPhase?.('assignment_written')
           this.runner.store.putAttempt(proposal.attempt)
           this.admissionPhase?.('attempt_written')
@@ -1400,6 +1399,11 @@ export class WorkbenchAuthority {
       throw workbenchError('identity_drift', 'the frozen gate definition cannot be read back', 're-confirm the check and admit a new Attempt; never rerun a relabelled gate')
     }
 
+    this.sweepAssignmentLimits()
+    const remaining = assignmentRemainingMs(this.runner.store, assignment, this.monotonic())
+    if (remaining === null || remaining <= 0 || this.runner.store.getStop(assignment.assignmentId)) {
+      throw workbenchError('fence_conflict', 'Assignment elapsed limit reached or interval unprovable', 'reconcile stopped work; never reset its elapsed budget')
+    }
     const now = this.clock()
     this.commit('assignment_validating', {
       projectId: assignment.projectId, goalId: assignment.goalId, runId: assignment.agentRunId,
@@ -1413,15 +1417,22 @@ export class WorkbenchAuthority {
     this.assignmentGatePhase?.('validating_committed')
 
     const captureOptions = this.git === undefined ? {} : { git: this.git }
-    const capture = (): string | null => {
-      try { return captureStableProjectBaseline(project, captureOptions).manifestDigest } catch { return null }
+    const capture = () => {
+      try { return captureStableProjectBaseline(project, captureOptions) } catch { return null }
     }
-    const preManifestDigest = capture()
+    const preBaseline = capture()
+    const preManifestDigest = preBaseline?.manifestDigest ?? null
+    const beforeQuiescence = await this.queryGateQuiescence(assignment, attempt, candidate, options, 'pass', true)
+    this.sweepAssignmentLimits()
     let outcome: GateOutcome
     let reasonCode: string | null
     let execution: GateExecution | null = null
     let postManifestDigest: string | null = null
-    if (preManifestDigest === null) {
+    let postBaselineDigest: string | null = null
+    if (!this.gateQuiescenceCurrent(beforeQuiescence, attempt, options) || this.runner.store.getStop(assignment.assignmentId)) {
+      outcome = 'unknown'
+      reasonCode = this.runner.store.getStop(assignment.assignmentId) ? 'stop_recorded' : `quiescence_${beforeQuiescence?.status ?? 'unknown'}`
+    } else if (preManifestDigest === null) {
       outcome = 'unknown'
       reasonCode = 'baseline_unavailable'
     } else {
@@ -1430,21 +1441,37 @@ export class WorkbenchAuthority {
         outcome = 'candidate_changed'
         reasonCode = beforeProblem
       } else {
-        execution = await executeGate(definition, options.graceMs === undefined ? { scratchRoot: options.scratchRoot } : { scratchRoot: options.scratchRoot, graceMs: options.graceMs })
+        const controller = new AbortController()
+        const unregister = registerAssignmentGate(this.runner.store, assignment.assignmentId, controller)
+        const budget = assignmentRemainingMs(this.runner.store, assignment, this.monotonic())
+        const timeout = setTimeout(() => {
+          this.stopAssignment({ assignmentId: assignment.assignmentId, trigger: 'elapsed_limit', reasonCode: 'elapsed_limit_exhausted' })
+        }, Math.max(0, budget ?? 0))
+        try {
+          if (budget === null || budget <= 0) controller.abort()
+          execution = await executeGate(definition, { scratchRoot: options.scratchRoot, graceMs: options.graceMs, signal: controller.signal,
+            beforeSpawn: () => {
+              this.sweepAssignmentLimits()
+              return !this.runner.store.getStop(assignment.assignmentId) && this.gateQuiescenceCurrent(beforeQuiescence, attempt, options)
+            } })
+        } finally { clearTimeout(timeout); unregister() }
         outcome = execution.outcome
         reasonCode = execution.reasonCode
-        postManifestDigest = capture()
+        const postBaseline = capture()
+        postManifestDigest = postBaseline?.manifestDigest ?? null
+        postBaselineDigest = postBaseline?.baselineDigest ?? null
         if (outcome === 'pass') {
           const afterProblem = verifyCandidateArtifacts(project.canonicalPath, candidate.artifactRefs)
           if (afterProblem !== null) { outcome = 'candidate_changed'; reasonCode = afterProblem }
           else if (postManifestDigest === null) { outcome = 'unknown'; reasonCode = 'post_baseline_unavailable' }
-          else if (postManifestDigest !== preManifestDigest) { outcome = 'candidate_changed'; reasonCode = 'checkout_changed_post' }
+          else if (postManifestDigest !== preManifestDigest || postBaselineDigest !== preBaseline!.baselineDigest) { outcome = 'candidate_changed'; reasonCode = 'checkout_changed_post' }
         }
       }
     }
     this.assignmentGatePhase?.('gate_returned')
 
-    const evidenceJson = gateEvidence(outcome, reasonCode, execution, preManifestDigest, postManifestDigest)
+    const evidenceJson = canonicalJson({ ...JSON.parse(gateEvidence(outcome, reasonCode, execution, preManifestDigest, postManifestDigest)),
+      preBaselineDigest: preBaseline?.baselineDigest ?? null, postBaselineDigest })
     const resultId = this.newId('gate-result-')
     const record: GateResultRecord = {
       resultId,
@@ -1472,17 +1499,32 @@ export class WorkbenchAuthority {
     this.assignmentGatePhase?.('result_recorded')
 
     const clean = outcome === 'pass' && execution !== null && execution.scratchCleaned
-    const quiescence = options.quiescence === undefined
-      ? this.defaultGateQuiescence(assignment, attempt, outcome, clean)
-      : options.quiescence({ assignment, attempt, candidate, outcome, clean })
+    const quiescence = clean ? await this.queryGateQuiescence(assignment, attempt, candidate, options, outcome, clean) : null
     this.assignmentGatePhase?.('before_acceptance')
-    const acceptanceManifestDigest = capture()
+    const acceptanceBaseline = capture()
+    const acceptanceManifestDigest = acceptanceBaseline?.manifestDigest ?? null
+    let acceptanceProblem: string | null = acceptanceBaseline === null ? 'acceptance_scan_unavailable'
+      : acceptanceBaseline.baselineDigest !== postBaselineDigest ? 'context_changed_at_acceptance' : null
+    try {
+      const currentProject = this.runner.store.getProject(project.projectId)
+      if (!currentProject || currentProject.revision !== project.revision || currentProject.contextDigest !== project.contextDigest) {
+        acceptanceProblem = 'context_changed_at_acceptance'
+      } else {
+        const latest = this.runner.store.latestCheck(project.projectId, attempt.gate.checkId)
+        if (!latest || latest.version !== attempt.gate.version || latest.digest !== attempt.gate.digest) acceptanceProblem = 'gate_changed'
+        verifyCheckResources(check, currentProject)
+      }
+    } catch { acceptanceProblem = 'gate_changed' }
+    this.sweepAssignmentLimits()
 
     const box: { resolution: GateAcceptance | null } = { resolution: null }
     this.commit('assignment_gate_resolved', {
       projectId: assignment.projectId, goalId: assignment.goalId, runId: assignment.agentRunId,
       assignmentId: assignment.assignmentId, attemptId: attempt.attemptId, resultId, outcome,
     }, () => {
+      const quiescenceConfirmed = this.gateQuiescenceCurrent(quiescence, attempt, options)
+      const remaining = assignmentRemainingMs(this.runner.store, assignment, this.monotonic())
+      if (remaining === null || remaining <= 0) acceptanceProblem = 'elapsed_limit_exhausted'
       box.resolution = this.runner.store.resolveGateAcceptance({
         resultId,
         assignmentId: assignment.assignmentId,
@@ -1494,14 +1536,15 @@ export class WorkbenchAuthority {
         outcome,
         postManifestDigest,
         acceptanceManifestDigest,
-        acceptanceScanError: acceptanceManifestDigest === null ? 'acceptance_scan_unavailable' : null,
-        quiescenceConfirmed: quiescence.status === 'confirmed',
-        quiescenceReason: quiescence.status === 'confirmed' ? null : `quiescence_${quiescence.status}`,
+        acceptanceScanError: outcome === 'pass' ? acceptanceProblem : null,
+        quiescenceConfirmed,
+        quiescenceReason: quiescenceConfirmed ? null : `quiescence_${quiescence?.status === 'active' ? 'active' : 'unknown'}`,
         revision: this.revision + 1,
         updatedAt: this.clock(),
       })
     })
     this.assignmentGatePhase?.('resolved')
+    this.sweepAssignmentLimits()
     const resolution = box.resolution
     if (resolution === null) {
       throw workbenchError('integrity_failure', 'the gate acceptance transaction produced no resolution', 're-read the Assignment and reconcile the provisional gate result')
@@ -1514,28 +1557,30 @@ export class WorkbenchAuthority {
    * is never sufficient; a `confirmed` status needs the exact committed, idle,
    * healthy bridge for this incarnation reporting no known work.
    */
-  private defaultGateQuiescence(assignment: AssignmentRecord, attempt: AttemptRecord, outcome: GateOutcome, clean: boolean): GateQuiescence {
-    let status: GateQuiescence['status'] = 'unknown'
-    if (clean && outcome === 'pass') {
-      const identity = this.runner.store.getBindingIdentity(assignment.agentRunId)
-      const observed = identity !== null && this.registry !== null
-        ? this.registry.list().filter(agent => agent.available && incarnationKey(agent.incarnation) === identity.incarnationKey)
-        : []
-      if (observed.length === 1 && observed[0]!.mode === 'committed' && observed[0]!.lifecycle === 'running'
-        && observed[0]!.activity === 'idle' && observed[0]!.health === 'healthy') {
-        status = 'confirmed'
-      } else if (observed.some(agent => agent.activity === 'busy' || agent.activity === 'waiting_for_user')) {
-        status = 'active'
-      }
-    }
-    return {
-      runId: assignment.agentRunId,
-      attemptId: attempt.attemptId,
-      controlEpoch: attempt.controlEpoch,
-      source: 'validator_exit',
-      status,
-      sequence: this.revision,
-      runnerReceivedAt: this.clock(),
+  private async queryGateQuiescence(assignment: AssignmentRecord, attempt: AttemptRecord, candidate: CandidateRecord, options: AssignmentGateOptions, outcome: GateOutcome, clean: boolean): Promise<GateQuiescence | null> {
+    return options.quiescence ? options.quiescence({ assignment, attempt, candidate, outcome, clean })
+      : this.registry?.queryAttemptQuiescence(attempt.attemptId) ?? null
+  }
+
+  private gateQuiescenceCurrent(proof: GateQuiescence | null, attempt: AttemptRecord, options: AssignmentGateOptions): boolean {
+    if (!proof || proof.source !== 'surviving_bridge_and_operator_reconciliation' || proof.status !== 'confirmed'
+        || proof.runId !== attempt.runBinding.runId || proof.attemptId !== attempt.attemptId || proof.controlEpoch !== attempt.controlEpoch
+        || proof.connectionId !== attempt.runBinding.connectionId || proof.connectionChallenge !== attempt.runBinding.connectionChallenge) return false
+    if (!options.quiescence) return this.registry?.quiescenceCurrent(proof) ?? false
+    // Explicit disposable-test evidence still has to match and remain fresh.
+    const now = this.monotonic()
+    return now >= proof.runnerReceivedAt && now - proof.runnerReceivedAt <= 2000
+  }
+
+  /** Runs even while the dock is hidden. Expiry revokes dispatch, not Pi tools. */
+  sweepAssignmentLimits(): void {
+    for (const assignment of this.runner.store.listAssignments()) {
+      if (this.assignmentTerminal(assignment.state)) continue
+      const remaining = assignmentRemainingMs(this.runner.store, assignment, this.monotonic())
+      if (remaining !== null && remaining > 0) continue
+      this.stopAssignment({ assignmentId: assignment.assignmentId,
+        trigger: remaining === null ? 'protocol_uncertainty' : 'elapsed_limit',
+        reasonCode: remaining === null ? 'elapsed_interval_unknown' : 'elapsed_limit_exhausted' })
     }
   }
 
@@ -1588,22 +1633,9 @@ export class WorkbenchAuthority {
       projectId: assignment.projectId, goalId: assignment.goalId, runId: assignment.agentRunId,
       assignmentId: assignment.assignmentId, controlEpoch,
     }, () => {
-      // Pause automatic delivery before any new authority is accepted.
-      for (const delivery of this.runner.store.listAssignmentDeliveries(assignment.assignmentId)) {
-        if (delivery.state === 'queued') this.runner.store.transitionAssignmentDelivery(delivery.attemptId, 'queued', 'not_sent', 'revoked')
-      }
       this.runner.store.setBindingControlEpoch(assignment.agentRunId, controlEpoch, now)
       this.runner.store.setBindingState(assignment.agentRunId, 'manual_takeover', now)
-      const attempts = this.runner.store.listAttempts(assignment.assignmentId)
-      const current = attempts.length === 0 ? null : attempts[attempts.length - 1]!
-      if (current !== null && ['admitted', 'dispatching', 'running', 'candidate', 'validating'].includes(current.state)) {
-        this.runner.store.transitionAttempt(current.attemptId, current.state, 'attention', now)
-      }
-      if (assignment.state !== 'attention') {
-        if (!this.runner.store.transitionAssignment(assignment.assignmentId, assignment.state, 'attention', this.revision + 1, now)) {
-          throw workbenchError('fence_conflict', 'the Assignment moved before takeover could be recorded', 're-read the Assignment and reconcile the winner')
-        }
-      }
+      this.pauseRunAssignments(assignment.agentRunId)
     })
     return {
       assignmentId: assignment.assignmentId,
@@ -1611,6 +1643,24 @@ export class WorkbenchAuthority {
       state: this.runner.store.getAssignment(assignment.assignmentId)!.state,
       writerState: this.runner.store.getWriter(assignment.projectId)?.state ?? 'none',
       committedRevision: this.revision,
+    }
+  }
+
+  /** Called INSIDE the binding takeover transaction by both native input and
+   * dock Take control. Epoch, lifecycle and queued revocation commit together. */
+  pauseRunAssignments(runId: string): void {
+    const store = this.runner.store, now = this.clock()
+    for (const assignment of store.listAssignments()) {
+      if (assignment.agentRunId !== runId || this.assignmentTerminal(assignment.state)) continue
+      for (const delivery of store.listAssignmentDeliveries(assignment.assignmentId)) {
+        if (delivery.state === 'queued') store.transitionAssignmentDelivery(delivery.attemptId, 'queued', 'not_sent', 'revoked')
+      }
+      for (const attempt of store.listAttempts(assignment.assignmentId)) {
+        if (['admitted', 'dispatching', 'running', 'candidate', 'validating'].includes(attempt.state)) {
+          store.transitionAttempt(attempt.attemptId, attempt.state, 'attention', now)
+        }
+      }
+      if (assignment.state !== 'attention') store.transitionAssignment(assignment.assignmentId, assignment.state, 'attention', this.revision + 1, now)
     }
   }
 
@@ -1724,7 +1774,8 @@ export class WorkbenchAuthority {
       const stopped = this.stopAssignmentInternal(assignment, 'attempt_limit', 'attempt_limit_exhausted')
       return { status: 'stopped', reasonCode: 'attempt_limit_exhausted', attemptId: null, deliveryId: null, writerEpoch: null, stopId: stopped.stopId, committedRevision: stopped.committedRevision }
     }
-    if (now - assignment.createdAt >= assignment.limits.elapsedMs) {
+    const remaining = assignmentRemainingMs(this.runner.store, assignment, this.monotonic())
+    if (remaining === null || remaining <= 0) {
       const stopped = this.stopAssignmentInternal(assignment, 'elapsed_limit', 'elapsed_limit_exhausted')
       return { status: 'stopped', reasonCode: 'elapsed_limit_exhausted', attemptId: null, deliveryId: null, writerEpoch: null, stopId: stopped.stopId, committedRevision: stopped.committedRevision }
     }
@@ -1803,7 +1854,8 @@ export class WorkbenchAuthority {
     }
     const now = this.clock()
     const stopId = this.newId('stop-')
-    const effectsPossible = this.assignmentEffectsPossible(assignment, this.runner.store.listAssignmentDeliveries(assignment.assignmentId))
+    const effectsPossible = this.runner.store.getWriter(assignment.projectId)?.state === 'uncertain'
+      || this.assignmentEffectsPossible(assignment, this.runner.store.listAssignmentDeliveries(assignment.assignmentId))
     const box: { writerState: WriterState } = { writerState: 'none' }
     this.commit('assignment_stopped', {
       projectId: assignment.projectId, goalId: assignment.goalId, runId: assignment.agentRunId,
@@ -1832,6 +1884,7 @@ export class WorkbenchAuthority {
       else this.runner.store.releaseWriter(assignment.projectId, now)
       box.writerState = this.runner.store.getWriter(assignment.projectId)?.state ?? 'none'
     })
+    abortAssignmentGate(this.runner.store, assignment.assignmentId)
     return {
       status: 'stopped', stopId, assignmentId: assignment.assignmentId, dispatchRevoked: true,
       cancellationStatus: 'not_requested', writerState: box.writerState, replayed: false, committedRevision: this.revision,
