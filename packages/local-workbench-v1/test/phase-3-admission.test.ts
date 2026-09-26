@@ -110,6 +110,8 @@ function fixture(t: test.TestContext, admissionFault?: (phase: AdmissionPhase) =
   }
   const registry = {
     setManagementHandlers(): void {},
+    setHandoffHandler(): void {},
+    controlTarget() { return null },
     list() { return [observation] },
     listCurrent() { return [observation] },
     currentBinding(observedSessionId: string) {

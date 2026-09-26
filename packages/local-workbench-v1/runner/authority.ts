@@ -42,6 +42,7 @@ import type {
 import { prepareStartProposal, revalidateStartProposal, type StartProposal, type StartProposalAuthority, type StartProposalOptions, type StartProposalRequest } from './start-proposal.ts'
 import { AdoptionManager } from './adoption.ts'
 import { FramedAdoptionManager } from './framed-adoption.ts'
+import { bindAssignmentIntervention, type AssignmentIntervention } from './assignment-intervention.ts'
 import { buildSnapshot } from './projection.ts'
 import { PAGE_COLLECTIONS, WORKBENCH_PAGE_SIZE, type PageCollection } from '../console/schema.ts'
 import type { BridgeRegistry, ObservedPi, AttemptQuiescence } from './bridge-registry.ts'
@@ -347,6 +348,7 @@ export class WorkbenchAuthority {
   readonly monotonic: () => number
   readonly newId: (prefix: string) => string
   readonly adoption: AdoptionManager
+  readonly intervention: AssignmentIntervention | null
 
   private readonly git: GitRunner | undefined
   private readonly registrationTtlMs: number
@@ -392,6 +394,7 @@ export class WorkbenchAuthority {
     if (options.framedAdoption && !this.registry) throw new Error('framed_manager_requires_registry')
     this.adoption = options.framedAdoption ?? (this.registry ? new FramedAdoptionManager(this, this.registry) : new AdoptionManager(this, () => this.transport(), options.ackDeadlineMs))
     options.framedAdoption?.rebind(this)
+    this.intervention = bindAssignmentIntervention(this, { git: this.git, frame: attemptFrame, admitted: this.onAssignmentAdmitted })
     const port = this.transport()
     if (port !== null) {
       port.subscribe(event => this.onTransportEvent(event))
@@ -1022,7 +1025,7 @@ export class WorkbenchAuthority {
     }
     let committed = false
     try {
-      if (['inspect_project', 'confirm_register_project', 'select_project', 'select_goal', 'create_goal', 'create_check', 'configure_checks', 'request_adoption', 'authorize_adoption', 'take_control', 'stop', 'navigate_page'].includes(intent.kind)) {
+      if (['inspect_project', 'confirm_register_project', 'select_project', 'select_goal', 'create_goal', 'create_check', 'configure_checks', 'request_adoption', 'authorize_adoption', 'take_control', 'stop', 'return_to_team', 'resume', 'retry', 'reconcile_writer', 'navigate_page'].includes(intent.kind)) {
         const context = { revision: this.revision, cursor: this.cursor, afterCommit: [] as Array<() => void> }
         const registrations = new Map(this.registrations)
         const previousProjectContexts = new Map(this.projectContexts)
@@ -1069,7 +1072,7 @@ export class WorkbenchAuthority {
     }
   }
 
-  private route(intent: { kind: string; target: string | null; payload: Record<string, unknown> }): IntentOutcome {
+  private route(intent: WorkbenchIntent): IntentOutcome {
     switch (intent.kind) {
       case 'inspect_project': {
         const record = this.inspect(intent.payload.path)
@@ -1165,6 +1168,16 @@ export class WorkbenchAuthority {
         if (!assignment) throw workbenchError('missing_resource', 'the exact Assignment does not exist', 'refresh the current Assignment before stopping')
         this.stopAssignmentInternal(assignment, 'operator', null)
         return { status: 'acknowledged', reasonCode: null, reason: null, committedRevision: this.revision }
+      }
+      case 'return_to_team':
+      case 'resume':
+      case 'retry':
+      case 'reconcile_writer': {
+        if (!this.intervention) throw workbenchError('invalid_input', 'Same-Pi intervention is unavailable.', 'connect the current managed bridge')
+        this.intervention.request(intent.kind, String(intent.payload.assignmentId), intent.intentId,
+          intent.payload.reconciliationNotes, intent.payload.acknowledgeRisk)
+        return { status: 'acknowledged', reasonCode: 'intervention_requested',
+          reason: 'Request committed. Read the Assignment for the downstream outcome; no automatic retry.', committedRevision: this.revision }
       }
       case 'recover':
         return { status: 'rejected', reasonCode: 'handler_unavailable',
@@ -1415,6 +1428,7 @@ export class WorkbenchAuthority {
       projectId: assignment.projectId, goalId: assignment.goalId, runId: assignment.agentRunId,
       assignmentId: assignment.assignmentId, attemptId: attempt.attemptId,
     }, () => {
+      this.runner.store.setMeta(`gate_lifetime_${attempt.attemptId}`, 'started')
       if (!this.runner.store.transitionAssignment(assignment.assignmentId, 'candidate', 'validating', this.revision + 1, now)
         || !this.runner.store.transitionAttempt(attempt.attemptId, 'candidate', 'validating', now)) {
         throw workbenchError('fence_conflict', 'the Assignment or Attempt moved before the gate could start', 're-read the Assignment and start a fresh attempt')
@@ -1501,6 +1515,7 @@ export class WorkbenchAuthority {
       assignmentId: assignment.assignmentId, attemptId: attempt.attemptId, resultId, outcome,
     }, () => {
       this.runner.store.putGateResult(record)
+      this.runner.store.setMeta(`gate_lifetime_${attempt.attemptId}`, execution === null ? 'not_spawned' : execution.scratchCleaned ? 'finished' : 'unknown')
     })
     this.assignmentGatePhase?.('result_recorded')
 
@@ -1580,6 +1595,7 @@ export class WorkbenchAuthority {
 
   /** Runs even while the dock is hidden. Expiry revokes dispatch, not Pi tools. */
   sweepAssignmentLimits(): void {
+    this.intervention?.sweep()
     for (const assignment of this.runner.store.listAssignments()) {
       if (this.assignmentTerminal(assignment.state)) continue
       const remaining = assignmentRemainingMs(this.runner.store, assignment, this.monotonic())
@@ -1591,8 +1607,9 @@ export class WorkbenchAuthority {
   }
 
   // -------------------------------------------------------------------------
-  // AL-06 intervention. Native Stop uses the common command/receipt transaction;
-  // remaining reconciliation helpers are not yet native entry points.
+  // Native Stop uses the common command/receipt transaction. Return/resume and
+  // writer clearance use AssignmentIntervention with challenged same-Pi proof.
+  // The older direct helpers below are not the production reconciliation route.
   // Stop revokes future dispatch before any cancellation and
   // retains the writer on unknown effects; takeover advances the control epoch
   // and pauses automatic delivery; reconciliation is explicit and bounded.

@@ -1,7 +1,7 @@
 /**
  * Local Workbench v1 — additive Companion release.
  *
- * This package contains only its own active release (0.14.0). It does not copy
+ * This package contains only its own active release (0.15.0). It does not copy
  * the historical prototype catalog (0.2.0/0.3.0/0.4.0) and does not alter
  * prototype release bytes or defaults. The active release assets are read from
  * the plugin directory so the packaged bytes are identical to the current

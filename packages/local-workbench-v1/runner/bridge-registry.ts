@@ -2,6 +2,7 @@ import { incarnationKey, type PiIncarnation } from './binding-identity.ts'
 import { projectExecutionContextDigest } from './canonical-hash.ts'
 import { bridgeId, encodeBridgeFrame, SESSION_CODE_CAPABILITY, PANE_NAVIGATION_CAPABILITY, PROJECT_CONTEXT_CAPABILITY, ASSIGNMENT_DELIVERY_CAPABILITY, CANDIDATE_SUBMISSION_CAPABILITY, QUIESCENCE_CAPABILITY, type BridgeFrame } from './bridge-protocol.ts'
 import { SessionCodes } from './session-code.ts'
+import { INTERVENTION_CAPABILITY, type ControlTarget, type ControlOperation, type ControlProof } from './intervention-protocol.ts'
 import type { WorkbenchStore } from './store.ts'
 import type { FenceLedger } from './fences.ts'
 
@@ -19,7 +20,7 @@ export interface BridgeAssignmentEvent { incarnation: PiIncarnation; observedSes
 export interface BridgeCandidateEvent { incarnation: PiIncarnation; observedSessionId: string; connectionId: string; connectionChallenge: string; peer: BridgePeer; frame: BridgeFrame }
 /** One-shot, currentness-checked send captured from a committed connection. */
 export type AssignmentSendResult = 'sent' | 'not_sent' | 'unknown'
-type Entry = { key: string; sessionCode: string | null; navigation: { ticket: string; sequence: number; requestId: string | null; deadline: number; state: NavigationState } | null; identity: PiIncarnation; peer: BridgePeer | null; connectionId: string; challenge: string; observedId: string; attempt: number; sequence: number; deadline: number; lifecycle: string; activity: string; health: string; mode: 'observed' | 'committed'; executionContextSupported: boolean; executionContextDigest: string | null; executionContextAt: number | null; assignmentDeliverySupported: boolean; candidateSubmissionSupported: boolean; quiescenceSupported: boolean; dedup: Map<string, string> }
+type Entry = { key: string; sessionCode: string | null; navigation: { ticket: string; sequence: number; requestId: string | null; deadline: number; state: NavigationState } | null; identity: PiIncarnation; peer: BridgePeer | null; connectionId: string; challenge: string; observedId: string; attempt: number; sequence: number; deadline: number; lifecycle: string; activity: string; health: string; mode: 'observed' | 'committed'; executionContextSupported: boolean; executionContextDigest: string | null; executionContextAt: number | null; assignmentDeliverySupported: boolean; candidateSubmissionSupported: boolean; quiescenceSupported: boolean; interventionSupported: boolean; dedup: Map<string, string> }
 export interface AttemptQuiescence {
   runId: string; attemptId: string; controlEpoch: number; connectionId: string; connectionChallenge: string
   source: 'surviving_bridge_and_operator_reconciliation' | 'validator_exit'
@@ -31,6 +32,9 @@ export class BridgeRegistry {
   private readonly records = new Map<string, Entry>()
   private readonly codes = new SessionCodes()
   private readonly quiescence = new Map<string, { entry: Entry; attemptId: string; controlEpoch: number; settle: (proof: AttemptQuiescence | null) => void }>()
+  private readonly controls = new Map<string, { entry: Entry; target: ControlTarget; operation: ControlOperation; expires: number; settle: (proof: ControlProof | null) => void }>()
+  private onHandoff: ((event: BridgeCandidateEvent) => void) | null = null
+  setHandoffHandler(handler: (event: BridgeCandidateEvent) => void): void { this.onHandoff = handler }
   private readonly water = new Map<string, { attempt: number; sequence: number }>()
   private readonly peers = new Map<BridgePeer, Entry>()
   private management: { onAdoptionAck?: (event: BridgeAdoptionAck) => void; onBindingReceipt?: (event: BridgeAdoptionAck) => void; onRecoveryProof?: (event: BridgeAdoptionAck) => void; onRegistered?: (event: BridgeAdoptionAck) => void; onDisconnected?: (event: { incarnation: PiIncarnation; connectionId: string }) => void; onInput?: (event: BridgeSourceInput) => void } | null = null
@@ -110,8 +114,47 @@ export class BridgeRegistry {
     const identity = this.options.store.getBindingIdentity(runId)
     const entry = identity && this.records.get(identity.incarnationKey)
     return !!entry?.peer && entry.mode === 'committed' && this.now() < entry.deadline
-      && entry.assignmentDeliverySupported && entry.candidateSubmissionSupported && entry.quiescenceSupported
+      && entry.assignmentDeliverySupported && entry.candidateSubmissionSupported && entry.quiescenceSupported && entry.interventionSupported
   }
+  /** Run-level evidence is distinct from Attempt quiescence: it can inspect a
+   * surviving manual Pi, but cannot itself clear a writer or grant dispatch. */
+  controlTarget(runId: string): ControlTarget | null {
+    const store = this.options.store, binding = store.getBinding(runId), identity = store.getBindingIdentity(runId)
+    const project = binding?.projectId ? store.getProject(binding.projectId) : null
+    if (!binding?.bindingDigest || !identity || !project || !['ready', 'manual_takeover', 'committed'].includes(binding.state)
+        || this.options.fences.isFenced(runId) || this.options.fences.isIncarnationFenced(identity.incarnationKey)
+        || identity.incarnation.executionNodeId !== this.options.nodeId || project.executionNodeId !== this.options.nodeId
+        || store.getGoal(identity.goalId)?.projectId !== project.projectId
+        || !store.listMemberships(identity.goalId).some(member => member.runId === runId)) return null
+    const entry = this.records.get(identity.incarnationKey)
+    if (!entry?.peer || !entry.interventionSupported || entry.mode !== 'committed' || this.now() >= entry.deadline
+        || entry.lifecycle !== 'running' || entry.health !== 'healthy') return null
+    return { runId, bindingDigest: binding.bindingDigest, controlEpoch: binding.controlEpoch,
+      connectionId: entry.connectionId, connectionChallenge: entry.challenge,
+      executionContextDigest: projectExecutionContextDigest(project.canonicalPath) }
+  }
+  controlTargetCurrent(target: ControlTarget): boolean {
+    const current = this.controlTarget(target.runId)
+    return current !== null && Object.keys(current).every(key => current[key as keyof ControlTarget] === target[key as keyof ControlTarget])
+  }
+  queryControl(target: ControlTarget, operation: ControlOperation, requestId: string): Promise<ControlProof | null> {
+    if (!this.controlTargetCurrent(target) || this.controls.has(requestId)) return Promise.resolve(null)
+    const identity = this.options.store.getBindingIdentity(target.runId)!
+    const entry = this.records.get(identity.incarnationKey)!
+    return new Promise(resolve => {
+      const timer = setTimeout(() => settle(null), 2000)
+      const settle = (proof: ControlProof | null) => { clearTimeout(timer); this.controls.delete(requestId); resolve(proof) }
+      this.controls.set(requestId, { entry, target, operation, expires: this.now() + 2000, settle })
+      try { entry.peer!.send(encodeBridgeFrame('control_request', bridgeId('control'), { ...target, requestId, operation })) }
+      catch { settle(null) }
+    })
+  }
+  controlProofCurrent(proof: ControlProof): boolean {
+    const identity = this.options.store.getBindingIdentity(proof.runId), entry = identity && this.records.get(identity.incarnationKey)
+    return this.controlTargetCurrent(proof) && proof.outcome === 'accepted' && proof.activity === 'idle' && !proof.pendingInput
+      && entry?.sequence === proof.sequence && this.now() >= proof.receivedAt && this.now() - proof.receivedAt <= 2000
+  }
+
   /** Prepare without sending. Caller persists the intent receipt before invoking
    * this one-shot effect. No automatic replay after failure or owner restart. */
   prepareNavigation(ticket: string, requestId: string): (() => void) | null {
@@ -275,7 +318,8 @@ export class BridgeRegistry {
     if (frame.type === 'heartbeat' && Object.hasOwn(body, 'executionContextDigest') && !entry.executionContextSupported) refuse('invalid_bridge_envelope')
     if (frame.type === 'registered' || frame.type === 'rejected' || frame.type === 'input_received'
         || frame.type === 'adoption_request' || frame.type === 'adoption_committed' || frame.type === 'recovery_request' || frame.type === 'focus_request'
-        || frame.type === 'assignment_delivery' || frame.type === 'assignment_receipt_request' || frame.type === 'candidate_receipt' || frame.type === 'quiescence_request') refuse('invalid_bridge_envelope')
+        || frame.type === 'assignment_delivery' || frame.type === 'assignment_receipt_request' || frame.type === 'candidate_receipt' || frame.type === 'quiescence_request'
+        || frame.type === 'control_request' || frame.type === 'handoff_receipt') refuse('invalid_bridge_envelope')
     if (body.connectionId !== entry.connectionId || body.connectionChallenge !== entry.challenge) refuse('connection_not_current')
     const serialized = JSON.stringify(frame)
     const prior = entry.dedup.get(frame.messageId)
@@ -307,6 +351,25 @@ export class BridgeRegistry {
     entry.dedup.set(frame.messageId, serialized)
     if (entry.dedup.size > 256) entry.dedup.delete(entry.dedup.keys().next().value!)
     entry.deadline = this.now() + BRIDGE_LEASE_MS
+    if (frame.type === 'control_response') {
+      const pending = this.controls.get(String(body.requestId))
+      if (pending && this.now() >= pending.expires) { pending.settle(null); return }
+      if (!entry.interventionSupported || !pending || pending.entry !== entry || !this.controlTargetCurrent(pending.target)
+          || body.runId !== pending.target.runId || body.bindingDigest !== pending.target.bindingDigest
+          || body.controlEpoch !== pending.target.controlEpoch || body.operation !== pending.operation) return
+      pending.settle({ ...pending.target, requestId: String(body.requestId), operation: pending.operation,
+        outcome: body.executionContextDigest === pending.target.executionContextDigest ? String(body.outcome) : 'invalid',
+        activity: String(body.activity), pendingInput: Boolean(body.pendingInput), sequence: seq, receivedAt: this.now() })
+      return
+    }
+    if (frame.type === 'handoff_submission') {
+      const target = this.controlTarget(String(body.runId))
+      if (!target || !this.onHandoff || target.connectionId !== entry.connectionId || target.connectionChallenge !== entry.challenge
+          || target.bindingDigest !== body.bindingDigest || target.controlEpoch !== body.controlEpoch) return
+      this.onHandoff({ incarnation: { ...entry.identity }, observedSessionId: entry.observedId,
+        connectionId: entry.connectionId, connectionChallenge: entry.challenge, peer, frame })
+      return
+    }
     if (frame.type === 'quiescence_report') {
       const pending = this.quiescence.get(body.requestId as string)
       const attempt = pending && this.options.store.getAttempt(pending.attemptId)
@@ -425,7 +488,7 @@ export class BridgeRegistry {
     const navigation: Entry['navigation'] = (body.capabilities as string[]).includes(PANE_NAVIGATION_CAPABILITY)
       ? { ticket: this.issue('navigate'), sequence: 0, requestId: null, deadline: 0, state: 'idle' } : null
     const entry: Entry = { key, sessionCode, navigation, identity, peer, connectionId: this.issue('connection'), challenge: this.issue('challenge'), observedId: existing?.observedId ?? this.issue('observed'), attempt, sequence, deadline: this.now() + BRIDGE_LEASE_MS, lifecycle: body.lifecycle as string, activity: body.activity as string, health: body.health as string, mode,
-      executionContextSupported: contextSupported, executionContextDigest: null, executionContextAt: null, assignmentDeliverySupported: capabilities.includes(ASSIGNMENT_DELIVERY_CAPABILITY), candidateSubmissionSupported: capabilities.includes(CANDIDATE_SUBMISSION_CAPABILITY), quiescenceSupported: capabilities.includes(QUIESCENCE_CAPABILITY), dedup: new Map() }
+      executionContextSupported: contextSupported, executionContextDigest: null, executionContextAt: null, assignmentDeliverySupported: capabilities.includes(ASSIGNMENT_DELIVERY_CAPABILITY), candidateSubmissionSupported: capabilities.includes(CANDIDATE_SUBMISSION_CAPABILITY), quiescenceSupported: capabilities.includes(QUIESCENCE_CAPABILITY), interventionSupported: capabilities.includes(INTERVENTION_CAPABILITY), dedup: new Map() }
     const response = encodeBridgeFrame('registered', frame.messageId, { observedSessionId: entry.observedId, executionNodeId: this.options.nodeId, connectionId: entry.connectionId, connectionChallenge: entry.challenge, acceptedRegistrationAttempt: attempt, acceptedSourceSequence: sequence, leaseDurationMs: BRIDGE_LEASE_MS, heartbeatIntervalMs: BRIDGE_HEARTBEAT_MS, mode, ...(codeSupported ? { sessionCode } : {}) })
     this.records.set(key, entry); this.peers.set(peer, entry)
     this.water.set(key, { attempt, sequence })
@@ -451,6 +514,7 @@ export class BridgeRegistry {
     if (entry?.peer === peer) {
       entry.peer = null
       for (const query of [...this.quiescence.values()]) if (query.entry === entry) query.settle(null)
+      for (const query of [...this.controls.values()]) if (query.entry === entry) query.settle(null)
       this.management?.onDisconnected?.({ incarnation: { ...entry.identity }, connectionId: entry.connectionId })
     }
   }

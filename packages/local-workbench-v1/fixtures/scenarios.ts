@@ -71,7 +71,8 @@ function withAssignment(options: {
       controlMode: options.controlMode ?? card.controlMode,
       piStatus: options.piStatus ?? card.piStatus,
       assignment: row.assignmentId,
-      actions: options.actions.map(action => ({ ...action, target: action.target ?? row.agentRunId })),
+      actions: options.actions.map(action => ({ ...action, target: action.target
+        ?? (['take_control', 'retire', 'purge'].includes(action.kind) ? row.agentRunId : row.assignmentId) })),
     })),
     details: options.details ?? base.details,
     fixture: { active: true, label: options.label },
@@ -127,20 +128,13 @@ export const gatePassScenario: WorkbenchSnapshot = withAssignment({
 
 export const gateFailScenario: WorkbenchSnapshot = withAssignment({
   gateResult: 'fail',
-  state: 'failed',
-  correctionCount: 1,
+  state: 'attention',
+  correctionCount: 0,
   actions: [
     { kind: 'retry', target: null, label: 'Retry with a new attempt', enabled: true, reasonCode: null, reason: null },
-    { kind: 'stop', target: null, label: 'Stop assignment', enabled: true, reasonCode: null, reason: null },
+    { kind: 'stop', target: null, label: 'Stop assignment', enabled: true, reasonCode: null,
+      reason: 'Revokes future dispatch, not tool/process termination. Files are retained.' },
   ],
-  details: [...clone().details, {
-    kind: 'stop',
-    stopId: 'stop-1',
-    assignmentId: 'assignment-1',
-    dispatchRevoked: true,
-    trigger: 'operator',
-    cancellationStatus: 'acknowledged',
-  }],
   label: 'scenario gate fail — no real work',
 })
 

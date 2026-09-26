@@ -44,6 +44,7 @@ export const INTENT_KINDS = [
   'configure_checks',
   'take_control',
   'return_to_team',
+  'reconcile_writer',
   'accept',
   'resume',
   'retry',

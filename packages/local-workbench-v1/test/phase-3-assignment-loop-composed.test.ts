@@ -9,7 +9,7 @@ import { BridgeRegistry } from '../runner/bridge-registry.ts'
 import { attachBridgeStream } from '../runner/bridge-channel.ts'
 import { AssignmentDeliveryCoordinator } from '../runner/bridge-delivery.ts'
 import { CandidateSubmissionCoordinator } from '../runner/candidate-submission.ts'
-import { createPiBridgeExtension, type PiBridgeExtension, type CandidateTool } from '../runner/pi-bridge-extension.ts'
+import { assignmentMessage, createPiBridgeExtension, type PiBridgeExtension, type CandidateTool } from '../runner/pi-bridge-extension.ts'
 import { WorkbenchAuthority, type AdmissionPhase } from '../runner/authority.ts'
 import { openWorkbenchRunner, type WorkbenchRunner } from '../runner/runner.ts'
 import { createWorkbenchHost, type WorkbenchHost } from '../runner/host.ts'
@@ -77,7 +77,7 @@ async function waitFor(predicate: () => boolean, timeoutMs = 3000): Promise<void
   }
 }
 
-async function runQmlIntent(scratch: string, snapshot: WorkbenchSnapshot, mode: 'prepare' | 'confirm' | 'accept' | 'stop', values: {
+async function runQmlIntent(scratch: string, snapshot: WorkbenchSnapshot, mode: 'prepare' | 'confirm' | 'accept' | 'stop' | 'take_control' | 'return_to_team' | 'resume' | 'reconcile_writer', values: {
   runId: string; checkId: string; checkVersion: number; taskText: string; assignmentId?: string
 }): Promise<{ kind: string; target: string | null; payload: Record<string, unknown> }> {
   const qt = `import QtQuick
@@ -112,7 +112,7 @@ Item {
   WorkbenchReview {
     id: acceptPage
     x: 500; width: 420; height: 1100
-    visible: host.testMode === "accept" || host.testMode === "stop" || host.testMode === "confirm"
+    visible: host.testMode !== "prepare"
     projection: host.snapshot
     mode: host.testMode === "confirm" ? "start_review" : "work"
     startReview: consoleView.startReview
@@ -133,8 +133,16 @@ Item {
         pluginGeneration: host.snapshot.pluginGeneration }, projection: host.snapshot }))
     }
     function test_emit() {
-      if (${JSON.stringify(mode)} === "accept" || ${JSON.stringify(mode)} === "stop") {
-        var action = findChild(host, ${JSON.stringify(`workbench-intervention-${mode}-${values.assignmentId}`)})
+      if (["prepare", "confirm"].indexOf(${JSON.stringify(mode)}) === -1) {
+        if (["resume", "reconcile_writer"].indexOf(${JSON.stringify(mode)}) !== -1) {
+          var notes = findChild(acceptPage, ${JSON.stringify(`workbench-reconciliation-notes-${values.assignmentId}`)})
+          var risk = findChild(acceptPage, ${JSON.stringify(`workbench-reconciliation-risk-${values.assignmentId}`)})
+          verify(notes !== null && risk !== null)
+          notes.text = "Inspected the fixture Pi and retained checkout: no tools or writes remain active."
+          waitForRendering(risk); wait(0); mouseClick(risk, Qt.LeftButton)
+          compare(risk.checked, true)
+        }
+        var action = findChild(host, ${JSON.stringify(`workbench-intervention-${mode}-${mode === 'take_control' ? values.runId : values.assignmentId}`)})
         verify(action !== null, "projected intervention control must be rendered")
         verify(action.enabled, action.supportingText)
         // Projection arrives in initTestCase; let Qt polish the repeated rows
@@ -189,11 +197,12 @@ Item {
   child.stdout.setEncoding('utf8').on('data', chunk => { stdout += chunk })
   child.stderr.setEncoding('utf8').on('data', chunk => { stderr += chunk })
   const timer = setTimeout(() => child.kill('SIGTERM'), 12_000)
+  const hardTimer = setTimeout(() => child.kill('SIGKILL'), 13_000)
   const exit = await new Promise<{ code: number | null; signal: NodeJS.Signals | null; error?: Error }>(resolve => {
     child.once('error', error => resolve({ code: null, signal: null, error }))
     child.once('close', (code, signal) => resolve({ code, signal }))
   })
-  clearTimeout(timer)
+  clearTimeout(timer); clearTimeout(hardTimer)
   const log = `${stdout}\n${stderr}`
   assert.equal(exit.error, undefined, log)
   assert.equal(exit.code, 0, log)
@@ -203,7 +212,8 @@ Item {
   return JSON.parse(matches.at(-1)![1]!) as { kind: string; target: string | null; payload: Record<string, unknown> }
 }
 
-for (const decision of ['accept', 'stop'] as const) test(`AL-07 real QML, adapter, Runner, SQLite, fake Pi, Candidate, ${decision} and reopen`, { timeout: 50_000 }, async () => {
+for (const decision of ['accept', 'stop', 'resume', 'release'] as const) test(`AL-07 real QML, adapter, Runner, SQLite, fake Pi, Candidate, ${decision} and reopen`, { timeout: 75_000 }, async () => {
+  const finish = decision === 'resume' ? 'accept' : decision === 'release' ? 'stop' : decision
   const root = mkdtempSync(join(tmpdir(), 'wb-assignment-loop-composed-'))
   const projectPath = join(root, 'project'), stateDir = join(root, 'state'), runtimeDir = join(root, 'runtime')
   const qmlScratch = join(root, 'qml'), gateScratchRoot = ensureOwnedDirectory(join(root, 'gate'))
@@ -359,7 +369,7 @@ for (const decision of ['accept', 'stop'] as const) test(`AL-07 real QML, adapte
     const replay = authority.handlePresentationIntent(startIntent)
     assert.equal(replay.status, 'acknowledged')
     assert.equal(deliveryPromises.length, 1)
-    assert.deepEqual(sentTasks, [context.taskText])
+    assert.deepEqual(sentTasks, [assignmentMessage(context.taskText)])
     const admitted = runner.store.listAssignments()[0]!
     const attempt = runner.store.listAttempts(admitted.assignmentId)[0]!
     assert.equal(runner.store.getAssignmentDelivery(attempt.attemptId)?.state, 'written')
@@ -401,24 +411,63 @@ for (const decision of ['accept', 'stop'] as const) test(`AL-07 real QML, adapte
       assert.equal(runner.store.getWriter(project.projectId)?.state, 'uncertain')
     }
     host.tick({ heartbeat: true })
-    const candidateProjection = view.projection!
+    let candidateProjection = view.projection!
     const candidateCard = candidateProjection.assignments.find(item => item.assignmentId === admitted.assignmentId)!
     assert.equal(candidateCard.taskText, context.taskText)
     assert.equal(candidateCard.candidateRef, submitted.candidateId)
     assert.equal(candidateCard.gateResult, 'pending')
-    if (decision === 'accept') assert.equal(candidateProjection.managedAgents.find(card => card.agentRunId === proposal.runId)?.actions
+    if (finish === 'accept') assert.equal(candidateProjection.managedAgents.find(card => card.agentRunId === proposal.runId)?.actions
       .find(action => action.kind === 'accept')?.enabled, true)
     else {
-      assert.equal(candidateProjection.managedAgents.length, 0)
+      if (decision === 'stop') assert.equal(candidateProjection.managedAgents.length, 0)
       assert.equal(candidateProjection.actions.find(action => action.kind === 'stop' && action.target === admitted.assignmentId)?.enabled, true)
     }
-    const actionIntent = await runQmlIntent(qmlScratch, candidateProjection, decision, { ...context, assignmentId: admitted.assignmentId })
-    assert.equal(actionIntent.kind, decision)
+    const intervene = async (kind: 'take_control' | 'return_to_team' | 'resume' | 'reconcile_writer') => {
+      host!.tick({ heartbeat: true })
+      const intent = await runQmlIntent(qmlScratch, view.projection!, kind, { ...context, assignmentId: admitted.assignmentId })
+      view.enqueue(intent); host!.tick({ heartbeat: true })
+      const saved = host!.shell.adapter.pendingIntents.filter(entry => entry.intent.kind === kind).at(-1)!.intent
+      assert.equal(runner.store.getIntentResult(saved.intentId)?.status, 'acknowledged', JSON.stringify(runner.store.getIntentResult(saved.intentId)))
+      const before = sentTasks.length
+      assert.equal(authority.handlePresentationIntent(saved).status, 'acknowledged')
+      assert.equal(sentTasks.length, before, 'exact receipt replay cannot send again')
+    }
+    const handoff = async () => {
+      await intervene('return_to_team')
+      await waitFor(() => sentTasks.length === 2)
+      assert.match(sentTasks[1]!, /operator requested Return to team/)
+      const result = await tools.get('omarchestra_submit_handoff')!.execute('handoff-tool', {
+        summary: 'Reviewed the unchanged checkout. No tool work remains.', artifactRefs: [], claimedState: 'candidate', outstandingEffects: 'none_reported',
+      })
+      assert.equal(result.details.outcome, 'accepted', JSON.stringify(result))
+      assert.ok(authority.intervention!.latest(admitted.assignmentId)?.handoff)
+    }
+    let finalAttempt = attempt
+    let expectedCandidateId = submitted.candidateId
+    if (decision === 'resume') {
+      await intervene('take_control')
+      assert.equal(runner.store.getAssignment(admitted.assignmentId)?.state, 'attention')
+      await handoff()
+      await intervene('resume')
+      await waitFor(() => deliveryPromises.length === 2)
+      await deliveryPromises[1]
+      assert.equal(authority.intervention!.latest(admitted.assignmentId)?.phase, 'completed')
+      finalAttempt = runner.store.listAttempts(admitted.assignmentId).at(-1)!
+      assert.equal(finalAttempt.ordinal, 2)
+      assert.ok(finalAttempt.controlEpoch > attempt.controlEpoch)
+      assert.equal(runner.store.getAssignmentDelivery(finalAttempt.attemptId)?.state, 'written')
+      const next = await tool.execute('candidate-after-reconciliation', candidatePayload)
+      assert.equal(next.details.outcome, 'accepted', JSON.stringify(next))
+      expectedCandidateId = next.details.candidateId
+      host.tick({ heartbeat: true }); candidateProjection = view.projection!
+    }
+    const actionIntent = await runQmlIntent(qmlScratch, candidateProjection, finish, { ...context, assignmentId: admitted.assignmentId })
+    assert.equal(actionIntent.kind, finish)
     view.enqueue(actionIntent)
     host.tick({ heartbeat: true })
-    await waitFor(() => runner.store.getAssignment(admitted.assignmentId)?.state === (decision === 'accept' ? 'accepted' : 'stopped'))
-    const result = runner.store.getGateResult(attempt.attemptId)
-    if (decision === 'accept') {
+    await waitFor(() => runner.store.getAssignment(admitted.assignmentId)?.state === (finish === 'accept' ? 'accepted' : 'stopped'))
+    const result = runner.store.getGateResult(finalAttempt.attemptId)
+    if (finish === 'accept') {
       assert.equal(result?.outcome, 'pass')
       assert.equal(result?.state, 'accepted')
     } else {
@@ -430,9 +479,17 @@ for (const decision of ['accept', 'stop'] as const) test(`AL-07 real QML, adapte
       assert.equal(authority.handlePresentationIntent(captured).status, 'acknowledged')
       assert.equal(runner.store.listStops().length, 1)
       assert.equal(deliveryPromises.length, 1)
-      assert.deepEqual(sentTasks, [context.taskText])
+      assert.deepEqual(sentTasks, [assignmentMessage(context.taskText)])
     }
-    assert.equal(runner.store.getWriter(project.projectId)?.state, decision === 'accept' ? 'none' : 'uncertain')
+    if (decision === 'release') {
+      await handoff()
+      await intervene('reconcile_writer')
+      await waitFor(() => authority.intervention!.latest(admitted.assignmentId)?.phase === 'completed')
+      assert.equal(runner.store.listAttempts(admitted.assignmentId).length, 1)
+      assert.equal(deliveryPromises.length, 1)
+      assert.equal(runner.store.getAssignment(admitted.assignmentId)?.state, 'stopped')
+    }
+    assert.equal(runner.store.getWriter(project.projectId)?.state, decision === 'stop' ? 'uncertain' : 'none')
     assert.equal(execFileSync('/usr/bin/git', ['status', '--porcelain'], { cwd: projectPath, encoding: 'utf8', timeout: 5000 }), '')
 
     // Reopen the real SQLite store and build a fresh authoritative projection.
@@ -448,13 +505,13 @@ for (const decision of ['accept', 'stop'] as const) test(`AL-07 real QML, adapte
     const reopened = buildSnapshot({ authority: reopenedAuthority, adoption: reopenedAuthority.adoption, connection: 'disconnected' })
     const reopenedCard = reopened.assignments.find(item => item.assignmentId === admitted.assignmentId)
     assert.ok(reopenedCard)
-    assert.equal(reopenedCard.state, decision === 'accept' ? 'accepted' : 'stopped')
+    assert.equal(reopenedCard.state, finish === 'accept' ? 'accepted' : 'stopped')
     assert.equal(reopenedCard.taskText, context.taskText)
-    assert.equal(reopenedCard.candidateRef, submitted.candidateId)
-    assert.equal(reopenedCard.gateResult, decision === 'accept' ? 'pass' : 'pending')
+    assert.equal(reopenedCard.candidateRef, expectedCandidateId)
+    assert.equal(reopenedCard.gateResult, finish === 'accept' ? 'pass' : 'pending')
     assert.equal(reopened.details?.some(detail => detail.kind === 'start') ?? false, false)
-    assert.equal(runner.store.getWriter(project.projectId)?.state, decision === 'accept' ? 'none' : 'uncertain')
-    if (decision === 'stop') assert.ok(reopened.details?.some(detail => detail.kind === 'stop' && detail.assignmentId === admitted.assignmentId))
+    assert.equal(runner.store.getWriter(project.projectId)?.state, decision === 'stop' ? 'uncertain' : 'none')
+    if (finish === 'stop') assert.ok(reopened.details?.some(detail => detail.kind === 'stop' && detail.assignmentId === admitted.assignmentId))
     reopenedAuthority.runner.close()
   } finally {
     if (host) { try { host.stop() } catch {} }

@@ -188,7 +188,7 @@ export class FramedAdoptionManager extends AdoptionManager {
     if (!current || current.observation.mode !== 'committed') return
     try { current.peer.send(encodeBridgeFrame('managed_status', bridgeId('frame'), {
       runId, bindingDigest: binding.bindingDigest, connectionId: current.connectionId, connectionChallenge: current.challenge,
-      state: binding.state })) } catch { /* visual status never grants authority; receipt remains durable */ }
+      state: binding.state, ...(this.registry.controlTarget(runId) ? { controlEpoch: binding.controlEpoch } : {}) })) } catch { /* visual status never grants authority; receipt remains durable */ }
   }
   private onReceipt(event: BridgeAdoptionAck): void {
     const { binding } = this.member(event)
@@ -258,7 +258,13 @@ export class FramedAdoptionManager extends AdoptionManager {
     const key = incarnationKey(event.incarnation)
     const binding = this.store.listBindings().find(b => this.store.getBindingIdentity(b.runId)?.incarnationKey === key)
     if (!binding || !this.store.getBindingIdentity(binding.runId) || this.owner.runner.fences.isIncarnationFenced(key)) reject('input is not from an unfenced member')
-    if (binding.state === 'manual_takeover' || binding.state === 'manual_takeover_disconnected') return
+    if (binding.state === 'manual_takeover' || binding.state === 'manual_takeover_disconnected') {
+      this.owner.commit('manual_input_observed', { runId: binding.runId }, () => {
+        this.store.setBindingControlEpoch(binding.runId, binding.controlEpoch + 1, this.now())
+        this.owner.pauseRunAssignments(binding.runId)
+      }, () => this.sendStatus(binding.runId))
+      return
+    }
     this.takeControl(binding.runId)
   }
   override takeControl(runId: string): BindingRecord {

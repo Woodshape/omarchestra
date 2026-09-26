@@ -1,6 +1,7 @@
-/** Content-free Pi observer protocol. All payloads are closed, bounded and versioned. */
+/** Lifecycle-only observation plus explicit managed submissions. All payloads are closed, bounded and versioned. */
 import { randomBytes } from 'node:crypto'
 import { isSessionCode } from './session-code.ts'
+import { INTERVENTION_CAPABILITY } from './intervention-protocol.ts'
 export const BRIDGE_PROTOCOL = 'omarchestra.bridge/v1'
 // One admitted Assignment frame is bounded at 64 KiB (store MAX_FRAME_BYTES); the
 // transport envelope must carry it without re-framing user content.
@@ -21,7 +22,7 @@ export const CANDIDATE_SUBMISSION_CAPABILITY = 'management.candidate-submission'
 export const QUIESCENCE_CAPABILITY = 'management.quiescence'
 /** The exact bytes of one bounded C6 Candidate submission frame. */
 export const MAX_CANDIDATE_FRAME_BYTES = 65_536
-const OPTIONAL_BRIDGE_CAPABILITIES = [SESSION_CODE_CAPABILITY, PANE_NAVIGATION_CAPABILITY, PROJECT_CONTEXT_CAPABILITY, ASSIGNMENT_DELIVERY_CAPABILITY, CANDIDATE_SUBMISSION_CAPABILITY, QUIESCENCE_CAPABILITY] as const
+const OPTIONAL_BRIDGE_CAPABILITIES = [SESSION_CODE_CAPABILITY, PANE_NAVIGATION_CAPABILITY, PROJECT_CONTEXT_CAPABILITY, ASSIGNMENT_DELIVERY_CAPABILITY, CANDIDATE_SUBMISSION_CAPABILITY, QUIESCENCE_CAPABILITY, INTERVENTION_CAPABILITY] as const
 const validCapabilities = (v: unknown) => Array.isArray(v) && v.length >= BRIDGE_CAPABILITIES.length
   && v.length <= BRIDGE_CAPABILITIES.length + OPTIONAL_BRIDGE_CAPABILITIES.length
   && BRIDGE_CAPABILITIES.every((c, i) => v[i] === c)
@@ -76,6 +77,21 @@ const bodies = {
     requestId: id, deliveryId: id, assignmentId: id, attemptId: id, runId: id, payloadDigest: digest,
     known: (v: unknown) => typeof v === 'boolean',
     outcome: (v: unknown) => v === null || v === 'accepted' || v === 'busy' || v === 'invalid' || v === 'unknown' },
+  control_request: { connectionId: capability, connectionChallenge: capability,
+    requestId: id, runId: id, bindingDigest: digest, controlEpoch: counter, executionContextDigest: digest,
+    operation: (v: unknown) => v === 'handoff' || v === 'probe' || v === 'resume' },
+  control_response: { connectionId: capability, connectionChallenge: capability, sourceSequence: counter,
+    requestId: id, runId: id, bindingDigest: digest, controlEpoch: counter,
+    operation: (v: unknown) => v === 'handoff' || v === 'probe' || v === 'resume',
+    outcome: (v: unknown) => typeof v === 'string' && ['accepted', 'busy', 'unknown', 'invalid'].includes(v),
+    activity: (v: unknown) => enums.activity.includes(v as never), pendingInput: (v: unknown) => typeof v === 'boolean',
+    executionContextDigest: (v: unknown) => v === null || digest(v) },
+  handoff_submission: { connectionId: capability, connectionChallenge: capability, sourceSequence: counter,
+    requestId: id, runId: id, bindingDigest: digest, controlEpoch: counter,
+    payloadDigest: digest, payloadJson: boundedString(MAX_CANDIDATE_FRAME_BYTES) },
+  handoff_receipt: { connectionId: capability, connectionChallenge: capability,
+    requestId: id, runId: id, payloadDigest: digest,
+    outcome: (v: unknown) => v === 'accepted' || v === 'duplicate' || v === 'invalid' },
   quiescence_request: { connectionId: capability, connectionChallenge: capability,
     requestId: id, runId: id, attemptId: id, controlEpoch: counter },
   quiescence_report: { connectionId: capability, connectionChallenge: capability, sourceSequence: counter,
@@ -105,10 +121,12 @@ export function validateBridgeFrame(value: unknown): BridgeFrame {
   const body = record.body as Record<string, unknown>
   const optionalCode = record.type === 'registered' && Object.hasOwn(body, 'sessionCode')
   const optionalContext = record.type === 'heartbeat' && Object.hasOwn(body, 'executionContextDigest')
+  const optionalEpoch = record.type === 'managed_status' && Object.hasOwn(body, 'controlEpoch')
+  if (optionalEpoch && !counter(body.controlEpoch)) invalid()
   if (optionalCode && body.sessionCode !== null && !isSessionCode(body.sessionCode)) invalid()
   if (optionalContext && body.executionContextDigest !== null && !digest(body.executionContextDigest)) invalid()
-  if (Object.keys(body).length !== Object.keys(shape).length + (optionalCode ? 1 : 0) + (optionalContext ? 1 : 0)
-      || Object.keys(body).some(key => !((optionalCode && key === 'sessionCode') || (optionalContext && key === 'executionContextDigest'))
+  if (Object.keys(body).length !== Object.keys(shape).length + (optionalCode ? 1 : 0) + (optionalContext ? 1 : 0) + (optionalEpoch ? 1 : 0)
+      || Object.keys(body).some(key => !((optionalCode && key === 'sessionCode') || (optionalContext && key === 'executionContextDigest') || (optionalEpoch && key === 'controlEpoch'))
         && (!Object.hasOwn(shape, key) || !shape[key](body[key])))) invalid()
   return { protocol: BRIDGE_PROTOCOL, type: record.type as BridgeType, messageId: record.messageId as string, body }
 }

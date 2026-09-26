@@ -37,7 +37,7 @@ Item {
     readonly property int panelHeight: Style.space(560)
     property var shell: null
     property var manifest: null
-    readonly property string loadedVersion: "0.14.0"
+    readonly property string loadedVersion: "0.15.0"
     property bool opened: false
     property var projection: null
     property var activeSession: null
@@ -277,10 +277,14 @@ Item {
         if (!projection || !Array.isArray(projection.assignments)) return []
         var rows = []
         for (var i = 0; i < projection.assignments.length; i++) {
-            var detail = workDetail(projection.assignments[i])
+            var assignment = projection.assignments[i]
+            var details = (projection.details || []).filter(function(entry) {
+                return entry.assignmentId === assignment.assignmentId
+                    && ["stop", "handoff", "diagnostics"].indexOf(entry.kind) >= 0
+            })
             rows.push({
-                assignment: projection.assignments[i],
-                resultText: detail === null ? "" : detailText(detail)
+                assignment: assignment,
+                resultText: details.map(function(entry) { return detailText(entry) }).join("\n\n")
             })
         }
         return rows

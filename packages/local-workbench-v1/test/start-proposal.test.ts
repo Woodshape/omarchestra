@@ -129,7 +129,7 @@ function assertCode(code: string, fn: () => unknown) {
 test('legacy observer/Adoption support cannot authorize an incomplete Assignment loop', t => {
   const f = fixture(t)
   f.authority.registry!.assignmentLoopAvailable = () => false
-  assert.throws(() => prepareStartProposal(f.authority, f.request, f.options), /native Candidate submission or fresh quiescence/)
+  assert.throws(() => prepareStartProposal(f.authority, f.request, f.options), /native Candidate, fresh quiescence or operator intervention/)
   assert.equal(f.sends(), 0)
 })
 

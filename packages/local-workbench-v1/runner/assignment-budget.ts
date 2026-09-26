@@ -29,6 +29,9 @@ export function registerAssignmentGate(store: WorkbenchStore, assignmentId: stri
   active.set(assignmentId, controller)
   return () => { if (active!.get(assignmentId) === controller) active!.delete(assignmentId) }
 }
+export function assignmentGateRunning(store: WorkbenchStore, assignmentId: string): boolean {
+  return gates.get(store)?.has(assignmentId) ?? false
+}
 export function abortAssignmentGate(store: WorkbenchStore, assignmentId: string): void {
   gates.get(store)?.get(assignmentId)?.abort()
 }

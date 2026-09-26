@@ -403,6 +403,7 @@ export interface WorkbenchStore {
   transitionAttempt(attemptId: string, from: AttemptState, to: AttemptState, updatedAt: number): boolean
   acquireWriter(record: { projectId: string; assignmentId: string | null; attemptId: string | null; epoch: number; updatedAt: number }): AssignmentWriterRecord
   releaseWriter(projectId: string, updatedAt: number): void
+  reconcileWriter(record: { projectId: string; assignmentId: string; attemptId: string; epoch: number; updatedAt: number }): void
   markWriterUncertain(projectId: string, updatedAt: number): boolean
   getWriter(projectId: string): AssignmentWriterRecord | null
   listWriters(): AssignmentWriterRecord[]
@@ -1044,6 +1045,13 @@ export function openWorkbenchStore(options: StoreOptions): WorkbenchStore {
           .run(record.projectId, record.assignmentId, record.attemptId, record.epoch, record.updatedAt)
       }
       return writerRow(db.prepare('SELECT * FROM assignment_writers WHERE project_id = ?').get(record.projectId) as Record<string, unknown>)
+    },
+    reconcileWriter(record) {
+      if (![record.projectId, record.assignmentId, record.attemptId].every(isLifecycleId)
+          || !isSafeCount(record.epoch) || !isSafeCount(record.updatedAt)) lifecycleInvalid('invalid writer reconciliation')
+      const changed = db.prepare("UPDATE assignment_writers SET state = 'held', updated_at = ? WHERE project_id = ? AND assignment_id = ? AND attempt_id = ? AND epoch = ? AND state IN ('held', 'uncertain')")
+        .run(record.updatedAt, record.projectId, record.assignmentId, record.attemptId, record.epoch)
+      if (Number(changed.changes) !== 1) throw workbenchError('fence_conflict', 'writer changed during explicit reconciliation', 'retain uncertainty and review the exact writer')
     },
     releaseWriter(projectId, updatedAt) {
       if (!isLifecycleId(projectId) || !isSafeCount(updatedAt)) lifecycleInvalid('writer release input is invalid')

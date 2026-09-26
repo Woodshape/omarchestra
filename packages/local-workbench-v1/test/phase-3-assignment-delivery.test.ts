@@ -18,7 +18,7 @@ import { BridgeRegistry } from '../runner/bridge-registry.ts'
 import { attachBridgeStream } from '../runner/bridge-channel.ts'
 import { decodeBridgeFrame, encodeBridgeFrame, type BridgeFrame } from '../runner/bridge-protocol.ts'
 import { armAssignmentBudget } from '../runner/assignment-budget.ts'
-import { createPiBridgeExtension, type CandidateTool } from '../runner/pi-bridge-extension.ts'
+import { assignmentMessage, createPiBridgeExtension, type CandidateTool } from '../runner/pi-bridge-extension.ts'
 import { WorkbenchAuthority } from '../runner/authority.ts'
 import { canonicalJson, sha256 } from '../runner/canonical-hash.ts'
 import { resolveCheckDefinition } from '../runner/check-definition.ts'
@@ -198,7 +198,7 @@ test('one committed delivery sends exactly one bounded same-Pi turn and settles 
   const { attemptId, deliveryId } = s.seed(runId)
   const result = await s.coordinator.deliver(attemptId)
   assert.deepEqual(result, { deliveryId, state: 'written', outcome: 'accepted', storedOutcome: null, reasonCode: null, replayed: false })
-  assert.deepEqual(s.calls, [TASK_TEXT], 'exactly the admitted task text reaches the Pi API once')
+  assert.deepEqual(s.calls, [assignmentMessage(TASK_TEXT)], 'the admitted task plus explicit Candidate instructions reaches the Pi API once')
   assert.equal(s.runner.store.getAssignmentDelivery(attemptId)?.state, 'written')
   assert.equal(s.runner.store.getWriter(s.projectId)?.state, 'held', 'a proven delivery keeps the writer held')
   const ack = s.streams[0].b.frames.filter(frame => frame.type === 'assignment_ack')
@@ -215,7 +215,7 @@ test('duplicate and conflicting frames never create a second turn and preserve t
   const replay = await s.coordinator.deliver(attemptId)
   assert.equal(replay.replayed, true)
   assert.equal(replay.outcome, 'accepted')
-  assert.deepEqual(s.calls, [TASK_TEXT])
+  assert.deepEqual(s.calls, [assignmentMessage(TASK_TEXT)])
   const original = s.streams[0].a.frames.find(frame => frame.type === 'assignment_delivery')!
   // Exact wire duplicate: the extension returns the stored outcome.
   s.streams[0].a.write(encodeBridgeFrame('assignment_delivery', 'duplicate-frame', { ...original.body }))
@@ -226,7 +226,7 @@ test('duplicate and conflicting frames never create a second turn and preserve t
   const conflicting = { ...original.body, payloadJson: canonicalJson({ protocol: 'omarchestra.assignment/v1', kind: 'assignment_delivery', deliveryId: 'delivery-1', assignmentId: 'assignment-1', attemptId: 'attempt-1', runId, taskText: 'other' }) }
   s.streams[0].a.write(encodeBridgeFrame('assignment_delivery', 'conflicting-frame', { ...conflicting, payloadDigest: sha256(conflicting.payloadJson) }))
   assert.equal(s.streams[0].b.frames.some(frame => frame.type === 'assignment_ack' && frame.body.reason === 'delivery_conflict'), true)
-  assert.deepEqual(s.calls, [TASK_TEXT], 'neither duplicate nor conflict ever opens another turn')
+  assert.deepEqual(s.calls, [assignmentMessage(TASK_TEXT)], 'neither duplicate nor conflict ever opens another turn')
 })
 
 test('a lost ACK becomes unknown and uncertain, then explicit receipt reconciliation recovers written without releasing the writer', async t => {
@@ -242,14 +242,14 @@ test('a lost ACK becomes unknown and uncertain, then explicit receipt reconcilia
   assert.equal(s.runner.store.getAssignmentDelivery(attemptId)?.state, 'unknown')
   assert.equal(s.runner.store.getAssignmentDelivery(attemptId)?.reasonCode, 'transport_error')
   assert.equal(s.runner.store.getWriter(s.projectId)?.state, 'uncertain', 'lost ACK leaves the writer uncertain')
-  assert.deepEqual(s.calls, [TASK_TEXT])
+  assert.deepEqual(s.calls, [assignmentMessage(TASK_TEXT)])
   s.streams[0].b.drop.delete('assignment_ack')
   const reconciled = await s.coordinator.reconcile(attemptId)
   assert.deepEqual(reconciled, { deliveryId, state: 'written', outcome: 'accepted', storedOutcome: 'accepted', reasonCode: null, replayed: false })
   assert.equal(s.runner.store.getAssignmentDelivery(attemptId)?.state, 'written')
   assert.equal(s.runner.store.getWriter(s.projectId)?.state, 'uncertain', 'reconciliation never silently clears writer uncertainty')
   assert.throws(() => s.runner.store.releaseWriter(s.projectId, s.now()), error => (error as { code?: string }).code === 'fence_conflict')
-  assert.deepEqual(s.calls, [TASK_TEXT], 'reconciliation queries the receipt; it never resends')
+  assert.deepEqual(s.calls, [assignmentMessage(TASK_TEXT)], 'reconciliation queries the receipt; it never resends')
 })
 
 test('busy and unsupported peers refuse without queueing a hidden turn', async t => {
@@ -283,13 +283,13 @@ test('an accepted-then-throw send is unproven and never re-sent as a second turn
   assert.equal(result.outcome, 'unknown')
   assert.equal(s.runner.store.getAssignmentDelivery(attemptId)?.state, 'unknown')
   assert.equal(s.runner.store.getWriter(s.projectId)?.state, 'uncertain')
-  assert.deepEqual(s.calls, [TASK_TEXT], 'the API was invoked once and the throw is reported, never retried')
+  assert.deepEqual(s.calls, [assignmentMessage(TASK_TEXT)], 'the API was invoked once and the throw is reported, never retried')
   const replay = await s.coordinator.deliver(attemptId)
   assert.equal(replay.replayed, true)
-  assert.deepEqual(s.calls, [TASK_TEXT])
+  assert.deepEqual(s.calls, [assignmentMessage(TASK_TEXT)])
   const original = s.streams[0].a.frames.find(frame => frame.type === 'assignment_delivery')!
   s.streams[0].a.write(encodeBridgeFrame('assignment_delivery', 'throw-duplicate', { ...original.body }))
-  assert.deepEqual(s.calls, [TASK_TEXT], 'a duplicate cannot repeat an unproven API invocation')
+  assert.deepEqual(s.calls, [assignmentMessage(TASK_TEXT)], 'a duplicate cannot repeat an unproven API invocation')
   const receipt = await s.coordinator.reconcile(attemptId)
   assert.equal(receipt.state, 'unknown')
   const stopped = s.authority.stopAssignment({ assignmentId: 'assignment-1' })

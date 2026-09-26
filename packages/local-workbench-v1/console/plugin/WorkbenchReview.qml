@@ -37,6 +37,22 @@ Control {
     property var rows: []
     /** Managed agent cards, matched to an Assignment by agentRunId. */
     property var agents: []
+    property var effectDrafts: ({})
+    readonly property string effectScope: JSON.stringify(projection ? [projection.sessionId, projection.pluginGeneration, projection.runnerEpoch, projection.selectedProjectId, projection.selectedGoalId,
+        (projection.assignments || []).map(function(row) { return [row.assignmentId, row.attemptId] }),
+        (projection.details || []).filter(function(detail) { return detail.kind === "handoff" }).map(function(detail) { return [detail.assignmentId, detail.handoffId, detail.controlEpoch] })] : [])
+    onEffectScopeChanged: effectDrafts = ({})
+    function effectDraft(id) { return effectDrafts[id] || { notes: "", acknowledgeRisk: false } }
+    function setEffectDraft(id, notes, acknowledged) {
+        var next = Object.assign({}, effectDrafts)
+        next[id] = { notes: notes, acknowledgeRisk: acknowledged }
+        effectDrafts = next
+    }
+    function needsEffectReview(assignment) {
+        return interventionActionsFor(cardForAssignment(assignment), assignment).some(function(action) {
+            return ["resume", "retry", "reconcile_writer"].indexOf(action.kind) !== -1
+        })
+    }
     /** Stated when the bounded row list hides committed Assignments. */
     property string truncationNote: ""
     signal navigate(string destination)
@@ -61,16 +77,16 @@ Control {
      * owns eligibility; this only selects the subset shown beside the result.
      */
     function interventionActionsFor(card, assignment) {
-        var kinds = ["take_control", "return_to_team", "accept", "resume", "retry", "stop"]
+        var kinds = ["take_control", "return_to_team", "accept", "resume", "retry", "stop", "reconcile_writer"]
         var cardActions = card !== null && Array.isArray(card.actions) ? card.actions : []
         var globalActions = root.projection && Array.isArray(root.projection.actions) ? root.projection.actions : []
-        var stops = globalActions.filter(function (action) {
-            return action.kind === "stop" && action.target === assignment.assignmentId
-                && !cardActions.some(function (entry) { return entry.kind === "stop" && entry.target === action.target })
+        var assignmentActions = globalActions.filter(function (action) {
+            return kinds.indexOf(action.kind) !== -1 && action.target === assignment.assignmentId
+                && !cardActions.some(function (entry) { return entry.kind === action.kind && entry.target === action.target })
         })
-        return cardActions.concat(stops).filter(function (action) {
+        return cardActions.concat(assignmentActions).filter(function (action) {
             return kinds.indexOf(action.kind) !== -1
-                && (["accept", "stop"].indexOf(action.kind) === -1 || action.target === assignment.assignmentId)
+                && action.target === (action.kind === "take_control" ? assignment.agentRunId : assignment.assignmentId)
         })
     }
 
@@ -78,6 +94,11 @@ Control {
     function interventionPayload(assignment, kind) {
         if (assignment === null || assignment === undefined) return null
         if (kind === "take_control") return { agentRunId: assignment.agentRunId }
+        if (["resume", "retry", "reconcile_writer"].indexOf(kind) !== -1) {
+            var draft = effectDraft(assignment.assignmentId)
+            if (!draft.notes.trim() || !draft.acknowledgeRisk) return null
+            return { assignmentId: assignment.assignmentId, "reconciliationNotes": draft.notes, acknowledgeRisk: true }
+        }
         return { assignmentId: assignment.assignmentId }
     }
 
@@ -285,11 +306,37 @@ Control {
                                     + " · corrections " + workRow.rowAssignment.correctionCount
                                     + "/" + workRow.rowAssignment.correctionLimit + "\n"
                                 + "Candidate: " + workRow.rowAssignment.candidateRef + "\n"
+                                + (workRow.rowAssignment.diagnostics ? "Status: " + workRow.rowAssignment.diagnostics + "\n" : "")
                                 + "Artifacts: " + (workRow.rowAssignment.artifactRefs.length === 0
                                     ? "none" : workRow.rowAssignment.artifactRefs.join(", "))
                             color: root.textColor
                             font.family: Style.font.family
                             font.pixelSize: Style.font.caption
+                        }
+                        WorkbenchTextArea {
+                            objectName: "workbench-reconciliation-notes-" + workRow.rowAssignment.assignmentId
+                            Layout.fillWidth: true
+                            visible: root.needsEffectReview(workRow.rowAssignment)
+                            placeholderText: "Prior effects: what changed, and how did you check that work/tools have stopped?"
+                            text: root.effectDraft(workRow.rowAssignment.assignmentId).notes
+                            textFormat: TextEdit.PlainText
+                            wrapMode: TextEdit.Wrap
+                            onTextChanged: {
+                                var draft = root.effectDraft(workRow.rowAssignment.assignmentId)
+                                if (draft.notes !== text) root.setEffectDraft(workRow.rowAssignment.assignmentId, text, draft.acknowledgeRisk)
+                            }
+                        }
+                        WorkbenchAction {
+                            objectName: "workbench-reconciliation-risk-" + workRow.rowAssignment.assignmentId
+                            Layout.fillWidth: true
+                            visible: root.needsEffectReview(workRow.rowAssignment)
+                            text: checked ? "Risk acknowledged" : "Acknowledge interference risk"
+                            supportingText: "I reviewed the Pi and checkout. Unobserved interference remains possible; this is not OS isolation."
+                            checkable: true
+                            highlighted: checked
+                            checked: root.effectDraft(workRow.rowAssignment.assignmentId).acknowledgeRisk
+                            onToggled: root.setEffectDraft(workRow.rowAssignment.assignmentId,
+                                root.effectDraft(workRow.rowAssignment.assignmentId).notes, checked)
                         }
                         Repeater {
                             model: root.interventionActionsFor(workRow.rowCard, workRow.rowAssignment)
